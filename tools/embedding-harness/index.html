@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workbench Embedding Audit</title>
+  </head>
+  <body>
+    <h1>Workbench Embedding Audit</h1>
+    <p id="result" role="status">Test läuft.</p>
+    <iframe id="target" title="Embedding test target"></iframe>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const target = params.get("target");
+      const result = document.querySelector("#result");
+      const frame = document.querySelector("#target");
+
+      if (!target) {
+        result.textContent = "Fehler: target fehlt.";
+      } else {
+        frame.addEventListener("load", () => {
+          result.textContent = `iframe load event: ${target}`;
+          document.documentElement.dataset.iframeLoaded = "true";
+        });
+        frame.addEventListener("error", () => {
+          result.textContent = `iframe error event: ${target}`;
+          document.documentElement.dataset.iframeLoaded = "false";
+        });
+        frame.src = target;
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+data/
+.env.local
+.env.*.local
+config/*.local.json
+deploy/backups/
+!.gitkeep
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log

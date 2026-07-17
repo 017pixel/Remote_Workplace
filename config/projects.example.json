@@ -1,0 +1,20 @@
+{
+  "projects": [
+    {
+      "id": "example-project",
+      "name": "Example Project",
+      "description": "Replace this entry with a configured server project.",
+      "path": "/home/your-user/projects/example-project",
+      "enabled": true,
+      "sortOrder": 10,
+      "previews": [
+        {
+          "id": "example-preview",
+          "name": "Frontend",
+          "url": "https://server-name.tailnet.ts.net:8443/editor/absproxy/5173/",
+          "mode": "hybrid"
+        }
+      ]
+    }
+  ]
+}

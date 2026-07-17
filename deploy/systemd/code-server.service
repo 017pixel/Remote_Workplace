@@ -1,0 +1,31 @@
+[Unit]
+Description=Benjamin Dev Workbench code-server
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bbecker
+Group=bbecker
+WorkingDirectory=/home/bbecker/projects
+Environment=VSCODE_PROXY_URI=https://benjaminsserver.tail6494b7.ts.net:8443/editor/proxy/{{port}}/
+ExecStart=/home/bbecker/.local/bin/code-server --config /home/bbecker/projects/Remote_Workplace/config/code-server.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,39 @@
+{
+  "name": "@workbench/server",
+  "version": "0.20.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@chrome-devtools/inspector": "1.20260712.0",
+    "@fastify/compress": "9.0.0",
+    "@fastify/helmet": "13.1.0",
+    "@fastify/rate-limit": "11.1.0",
+    "@fastify/reply-from": "12.6.3",
+    "@fastify/static": "10.1.0",
+    "@fastify/websocket": "^11.3.0",
+    "@workbench/contracts": "workspace:*",
+    "dotenv": "17.4.2",
+    "execa": "9.6.1",
+    "fast-xml-parser": "5.3.0",
+    "fastify": "5.10.0",
+    "node-pty": "^1.1.0",
+    "systeminformation": "5.31.17",
+    "ws": "8.21.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}

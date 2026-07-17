@@ -1,0 +1,28 @@
+{
+  "name": "benjamin-dev-workbench",
+  "version": "0.20.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.29.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @workbench/contracts build && pnpm --parallel --filter @workbench/server --filter @workbench/web dev",
+    "build": "pnpm --filter @workbench/contracts build && pnpm --filter @workbench/server build && pnpm --filter @workbench/web build",
+    "typecheck": "pnpm --filter @workbench/contracts typecheck && pnpm --parallel --filter @workbench/server --filter @workbench/web typecheck",
+    "lint": "eslint .",
+    "test": "pnpm --filter @workbench/contracts build && pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage",
+    "test:e2e": "playwright test",
+    "start": "pnpm --filter @workbench/server start"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "eslint": "10.7.0",
+    "globals": "17.7.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0"
+  }
+}

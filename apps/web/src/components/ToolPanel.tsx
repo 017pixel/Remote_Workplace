@@ -1,0 +1,346 @@
+import { useEffect, useState } from "react";
+import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorSmartphone, RotateCw, Smartphone, X } from "lucide-react";
+import type { Panel, Project, ServiceMode } from "@workbench/contracts";
+import { useWorkspaceStore } from "../stores/workspace";
+import { StateDot } from "./primitives";
+import { DevicePreviewFrame } from "./DevicePreviewFrame";
+import { devicePresets, type DeviceOrientation, type DevicePresetId } from "../config/devicePresets";
+import { TerminalArea } from "./terminal/TerminalArea";
+import { LocalPorts } from "./browser/LocalPorts";
+import { ChromiumBrowser } from "./browser/ChromiumBrowser";
+
+const panelTitles: Record<Panel["type"], string> = {
+  "t3-code": "T3 Code",
+  "code-server": "Editor",
+  preview: "Preview",
+  browser: "Browser",
+  terminal: "Terminal",
+  codex: "Codex",
+  opencode: "OpenCode",
+};
+
+interface ResolvedPanel {
+  url: string | null;
+  mode: ServiceMode;
+  embed: boolean;
+  proxyUrl: string | null;
+  reason: string | null;
+}
+
+function relayCanvasPinch(iframe: HTMLIFrameElement) {
+  try {
+    const target = iframe.contentWindow;
+    if (!target || target.__orbitPinchRelayInstalled) return;
+    target.__orbitPinchRelayInstalled = true;
+    target.addEventListener("wheel", (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const bounds = iframe.getBoundingClientRect();
+      window.dispatchEvent(new CustomEvent("orbit:iframe-pinch", { detail: {
+        clientX: bounds.left + event.clientX,
+        clientY: bounds.top + event.clientY,
+        deltaY: event.deltaY,
+      } }));
+    }, { passive: false, capture: true });
+  } catch {
+    // Cross-origin tools retain their native input; proxied Workbench tools are same-origin.
+  }
+}
+
+export function projectBoundCodeServerUrl(baseUrl: string, projectPath: string): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set("folder", projectPath);
+  return url.toString();
+}
+
+export function projectBoundCodeServerProxyUrl(projectPath: string): string {
+  return `/editor/?${new URLSearchParams({ folder: projectPath }).toString()}`;
+}
+
+function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode: ServiceMode): ResolvedPanel | null {
+  if (panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode") {
+    return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null };
+  }
+  if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null };
+  if (panel.type === "preview" && !project) {
+    return { url: null, mode: "embedded", embed: false, proxyUrl: null, reason: "Keine Preview ausgewählt." };
+  }
+  if (!project) return null;
+  if (panel.type === "t3-code") {
+    const url = project.links.t3Code;
+    return {
+      url,
+      mode: "hybrid",
+      embed: url !== null,
+      proxyUrl: url === null ? null : "/t3",
+      reason: url === null ? "T3 Code ist für dieses Projekt nicht verfügbar." : null,
+    };
+  }
+  if (panel.type === "code-server") {
+    const configuredUrl = project.links.codeServer;
+    const url = configuredUrl === null ? null : projectBoundCodeServerUrl(configuredUrl, project.path);
+    const embed = configuredUrl !== null && (codeServerMode === "hybrid" || codeServerMode === "embedded");
+    return {
+      url,
+      mode: codeServerMode,
+      embed,
+      proxyUrl: embed ? projectBoundCodeServerProxyUrl(project.path) : null,
+      reason: configuredUrl === null ? "code-server ist auf dem Server nicht installiert." : null,
+    };
+  }
+  const preview = project.previews.find((p) => p.id === panel.previewId);
+  if (!preview) {
+    return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Preview wurde nicht gefunden." };
+  }
+  return {
+    url: preview.url,
+    mode: preview.mode,
+    embed: preview.url !== null,
+    proxyUrl: null,
+    reason: null,
+  };
+}
+
+interface ToolPanelProps {
+  panel: Panel;
+  project: Project | undefined;
+  isFocused: boolean;
+  codeServerMode?: ServiceMode;
+  onFocus?: () => void;
+  standalone?: boolean;
+  externalMaximized?: boolean;
+  onMaximizedChange?: (maximized: boolean) => void;
+  onReload?: () => void;
+  onClose?: () => void;
+  minimal?: boolean;
+}
+
+export function ToolPanel({ panel, project, isFocused, codeServerMode = "external", onFocus, standalone = false, externalMaximized, onMaximizedChange, onReload, onClose, minimal = false }: ToolPanelProps) {
+  const reloadPanel = useWorkspaceStore((s) => s.reloadPanel);
+  const closePanel = useWorkspaceStore((s) => s.closePanel);
+  const maximizePanel = useWorkspaceStore((s) => s.maximizePanel);
+  const restorePanels = useWorkspaceStore((s) => s.restorePanels);
+  const maximizedPanelId = useWorkspaceStore((s) => s.maximizedPanelId);
+  const [standaloneMaximized, setStandaloneMaximized] = useState(false);
+  const isMaximized = externalMaximized ?? (standalone ? standaloneMaximized : maximizedPanelId === panel.id);
+  const [deviceId, setDeviceId] = useState<DevicePresetId>("responsive");
+  const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
+  const [localPreview, setLocalPreview] = useState<ResolvedPanel | null>(null);
+
+  const configuredPanel = resolvePanel(panel, project, codeServerMode);
+  const resolved = panel.type === "preview" && localPreview ? localPreview : configuredPanel;
+
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setLoaded(false);
+  }, [panel.reloadKey, resolved?.url]);
+
+  useEffect(() => {
+    if (!isMaximized) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (onMaximizedChange) onMaximizedChange(false);
+        else if (standalone) setStandaloneMaximized(false);
+        else restorePanels();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.body.classList.add("has-maximized-tool");
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.classList.remove("has-maximized-tool");
+    };
+  }, [isMaximized, onMaximizedChange, restorePanels, standalone]);
+
+  const showAvailabilityWarning =
+    !minimal && project && project.availability !== "available" && resolved?.reason === null;
+  const showPreviewStart = panel.type === "preview" && !localPreview && (configuredPanel === null || configuredPanel.reason !== null);
+
+  return (
+    <section
+      data-panel-type={panel.type}
+      className={`tool-surface group flex h-full min-h-0 flex-col ${standalone ? "tool-surface-standalone" : ""} ${isMaximized ? "tool-surface-maximized" : ""} ${
+        isFocused ? "border-[#4a4a4a]" : "border-line"
+      }`}
+      onPointerDown={onFocus}
+    >
+      {!minimal ? <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-ink-900 px-3">
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded ${
+            isFocused ? "bg-ink-800 text-text" : "text-muted"
+          }`}
+          aria-hidden
+        >
+          <StateDot state={["terminal", "codex", "opencode", "browser"].includes(panel.type) || resolved?.url ? "active" : "inactive"} />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <div className="truncate text-[13px] font-medium text-text">
+            {panelTitles[panel.type]}
+            {project ? <span className="text-muted"> · {project.name}</span> : null}
+          </div>
+        </div>
+      </header> : null}
+
+      {resolved !== null && !minimal ? (
+        <div
+          className="panel-island"
+        >
+          {panel.type === "preview" ? (
+            <label className="panel-device-picker" title="Geräteansicht wählen">
+              <Smartphone className="h-4 w-4" aria-hidden />
+              <select
+                aria-label="Preview-Gerät"
+                value={deviceId}
+                onChange={(event) => setDeviceId(event.target.value as DevicePresetId)}
+              >
+                {devicePresets.map((device) => (
+                  <option key={device.id} value={device.id}>{device.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {panel.type === "preview" && deviceId !== "responsive" ? (
+            <button
+              type="button"
+              title="Ausrichtung drehen"
+              aria-label="Ausrichtung drehen"
+              onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")}
+              className="icon-button"
+            >
+              <MonitorSmartphone className="h-4 w-4" />
+            </button>
+          ) : null}
+          {resolved.url ? (
+            <button
+              type="button"
+              title="Neu laden"
+              onClick={() => onReload ? onReload() : reloadPanel(panel.id)}
+              className="icon-button"
+            >
+              <RotateCw className="h-4 w-4" />
+            </button>
+          ) : null}
+          {resolved.url ? (
+            <a
+              href={resolved.proxyUrl ?? resolved.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="In neuem Tab öffnen"
+              className="icon-button"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : null}
+          {isMaximized ? (
+            <button
+              type="button"
+              title="Wiederherstellen"
+              onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()}
+              className="icon-button"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              title="Vollbild"
+              onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)}
+              className="icon-button"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
+          {!standalone ? (
+            <button
+              type="button"
+              title="Schließen"
+              onClick={() => onClose ? onClose() : closePanel(panel.id)}
+              className="icon-button danger"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showAvailabilityWarning ? (
+        <div className="flex items-center gap-2 border-b border-warn/20 bg-warn-soft/50 px-3 py-1.5 text-[12px] text-warn">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Projekt-Verfügbarkeit: {project!.availability}. Aktionen könnten fehlschlagen.
+        </div>
+      ) : null}
+
+      <div className="relative min-h-0 flex-1 bg-ink-950">
+        {panel.type === "browser" ? (
+          <ChromiumBrowser instanceId={panel.id} />
+        ) : panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode" ? (
+          <div className="flex h-full min-h-0">
+            <TerminalArea
+              areaId={panel.id}
+              initialProjectId={panel.projectId}
+              kind={panel.type === "terminal" ? "shell" : panel.type}
+              maxTabs={1}
+              minimal={minimal}
+            />
+          </div>
+        ) : showPreviewStart ? (
+          <LocalPorts onOpen={(port) => {
+            if (!port.localUrl) return;
+            setLocalPreview({ url: port.localUrl, mode: "embedded", embed: true, proxyUrl: port.proxyUrl, reason: null });
+          }} />
+        ) : resolved === null ? (
+          <div className="flex h-full items-center justify-center p-6 text-center text-sm text-faint">
+            Projektdaten werden geladen…
+          </div>
+        ) : resolved.reason ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+            <AlertTriangle className="h-6 w-6 text-warn" />
+            <p className="text-sm text-muted">{resolved.reason}</p>
+          </div>
+        ) : resolved.embed && resolved.url ? (
+          <>
+            {!loaded ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-ink-950 text-sm text-muted">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-600 border-t-accent" />
+              </div>
+            ) : null}
+            <DevicePreviewFrame
+              deviceId={panel.type === "preview" ? deviceId : "responsive"}
+              orientation={orientation}
+            >
+              <iframe
+                key={panel.reloadKey}
+                src={resolved.proxyUrl ?? resolved.url}
+                title={panelTitles[panel.type]}
+                onLoad={(event) => { setLoaded(true); relayCanvasPinch(event.currentTarget); }}
+                onPointerDown={(event) => {
+                  event.currentTarget.focus();
+                  event.currentTarget.contentWindow?.focus();
+                }}
+                className="h-full w-full border-0 bg-white"
+                allowFullScreen
+                referrerPolicy="same-origin"
+              />
+            </DevicePreviewFrame>
+          </>
+        ) : resolved.url ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <ExternalLink className="h-6 w-6 text-muted" />
+            <p className="max-w-xs text-sm text-muted">
+              Dieses Werkzeug kann nicht eingebettet werden.
+            </p>
+            <a
+              href={resolved.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="quiet-button-primary"
+            >
+              Extern öffnen
+            </a>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}

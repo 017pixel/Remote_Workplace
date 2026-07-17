@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tech TLDRs — Implementierungsplan</title>
+  <style>
+    :root{--bg:#191919;--surface:#1e1e1e;--raised:#232323;--line:#303030;--line2:#3c3c3c;--text:#e6e6e6;--muted:#a8a8a8;--faint:#747474;--accent:#7f9fc5;--accent-bg:#25303b;--ok:#7da47f;--warn:#c7a66b;--bad:#c77b7b;--info:#88a6c8;--r:14px;--sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"SFMono-Regular",Consolas,monospace}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}button,a{font:inherit}a{color:var(--accent)}button{min-height:44px}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.side{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:#1b1b1b;padding:26px 18px;overflow:auto}.brand{display:flex;align-items:center;gap:10px;margin-bottom:28px}.mark{width:32px;height:32px;display:grid;place-items:center;border:1px solid #43566a;border-radius:9px;background:var(--accent-bg);color:var(--accent);font:700 12px var(--mono)}.brand strong{font-size:14px}.brand small{display:block;color:var(--faint);font-size:11px}.nav-label{margin:20px 10px 7px;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.side a{display:block;padding:8px 10px;border-radius:7px;color:var(--muted);text-decoration:none;font-size:13px}.side a:hover{background:var(--raised);color:var(--text)}main{min-width:0}.hero{padding:72px clamp(24px,6vw,86px) 58px;border-bottom:1px solid var(--line)}.eyebrow{margin:0 0 16px;color:var(--accent);font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase}.hero h1{max-width:900px;margin:0;font-size:clamp(38px,6vw,76px);font-weight:650;letter-spacing:-.055em;line-height:.98}.hero .lead{max-width:760px;margin:24px 0 0;color:var(--muted);font-size:17px}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}.pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 9px;border:1px solid var(--line2);border-radius:999px;color:var(--muted);font-size:11px}.pill.hot{border-color:#594b32;background:#29251d;color:var(--warn)}.section{padding:54px clamp(24px,6vw,86px);border-bottom:1px solid var(--line)}.section-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,440px);gap:30px;align-items:end;margin-bottom:26px}.section h2{margin:0;font-size:28px;font-weight:620;letter-spacing:-.035em}.section-head p{margin:0;color:var(--muted)}.grid{display:grid;gap:12px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.card{min-width:0;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:20px}.card.raised{background:var(--raised)}.card h3{margin:0 0 7px;font-size:16px;font-weight:620}.card p{margin:0;color:var(--muted)}.card small{color:var(--faint)}.number{display:block;margin-bottom:16px;color:var(--accent);font:700 11px var(--mono)}.decision{border-left:3px solid var(--accent)}.warn{border-left:3px solid var(--warn)}.ok{border-left:3px solid var(--ok)}.flow{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:8px;overflow:auto;padding-bottom:5px}.flow .step{position:relative;min-height:126px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:15px}.flow .step:not(:last-child)::after{content:"→";position:absolute;right:-9px;top:47px;z-index:2;width:18px;height:24px;background:var(--bg);color:var(--faint);text-align:center}.step b{display:block;margin-bottom:6px;font-size:13px}.step span{color:var(--muted);font-size:12px}.matrix{width:100%;border-collapse:collapse;border:1px solid var(--line);background:var(--surface);font-size:13px}.matrix th,.matrix td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.matrix th{background:var(--raised);color:var(--faint);font-size:10px;letter-spacing:.07em;text-transform:uppercase}.matrix td:first-child{color:var(--text);font-weight:600}.matrix td{color:var(--muted)}.model{font-family:var(--mono);color:var(--accent)}.tag{display:inline-block;margin:2px 3px 2px 0;padding:2px 6px;border-radius:5px;background:var(--accent-bg);color:var(--accent);font-size:10px;font-weight:700}.score{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-top:10px}.bar{height:6px;border-radius:99px;background:#2b2b2b;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}.formula{padding:18px;border:1px solid var(--line);border-radius:12px;background:#171717;color:#b7cbe2;font:12px/1.8 var(--mono);overflow:auto}.source{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:start}.source-index{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:9px;color:var(--faint);font:700 10px var(--mono)}.source a{overflow-wrap:anywhere}.source-status{font:700 10px var(--mono);color:var(--ok)}.mockups{display:grid;grid-template-columns:minmax(260px,.7fr) minmax(520px,1.6fr);gap:18px;align-items:start}.phone{max-width:360px;margin:auto;border:1px solid #444;border-radius:32px;background:#111;padding:10px}.phone-screen{position:relative;min-height:650px;overflow:hidden;border-radius:24px;background:#1a1a1a}.phone-cover{height:290px;background:#27313b;display:flex;align-items:flex-end;padding:20px;border-bottom:1px solid #3a4651}.phone-cover b{max-width:270px;font-size:25px;line-height:1.08;letter-spacing:-.04em}.phone-copy{padding:18px}.phone-copy p{color:var(--muted)}.island{position:absolute;left:50%;bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:4px;width:210px;transform:translateX(-50%);border:1px solid #424242;border-radius:24px;background:#151515;padding:4px;box-shadow:0 8px 28px #0008}.island span{padding:8px;border-radius:18px;color:var(--faint);font-size:11px;text-align:center}.island .active{background:var(--accent-bg);color:var(--accent)}.desktop{border:1px solid #444;border-radius:18px;background:#171717;padding:14px}.desktop-top{display:flex;gap:9px;align-items:center;margin-bottom:13px}.search{flex:1;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:9px 12px;color:var(--faint);font-size:11px}.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:150px;gap:9px}.tile{display:flex;flex-direction:column;justify-content:flex-end;border:1px solid var(--line);border-radius:11px;background:var(--surface);padding:13px}.tile.hero-tile{grid-column:span 2;grid-row:span 2;background:#25303b}.tile.wide{grid-column:span 2}.tile.tall{grid-row:span 2;background:#222}.tile small{color:var(--accent)}.tile b{margin-top:4px;font-size:13px;line-height:1.25}.detail-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.6fr);gap:12px}.detail-main,.chat{border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:20px}.detail-main .cover{height:160px;border-radius:9px;background:#27313b}.chat-line{margin:10px 0;border-radius:9px;background:var(--raised);padding:10px;color:var(--muted);font-size:12px}.chat-line.answer{border-left:2px solid var(--accent)}details{border:1px solid var(--line);border-radius:12px;background:var(--surface)}details+details{margin-top:8px}summary{cursor:pointer;padding:15px 17px;font-weight:600}details>div{padding:0 17px 17px;color:var(--muted)}code{font-family:var(--mono);color:#b7cbe2}.phases{counter-reset:p}.phase{position:relative;padding-left:58px}.phase::before{counter-increment:p;content:counter(p);position:absolute;left:18px;top:18px;width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:8px;color:var(--accent);font:700 11px var(--mono)}.checks{padding-left:18px;color:var(--muted)}.checks li{margin:6px 0}.footer{padding:42px clamp(24px,6vw,86px) 70px;color:var(--faint);font-size:12px}.sources a{display:block;margin:7px 0}.note{margin-top:16px;padding:13px 15px;border:1px solid #5b4a31;border-radius:10px;background:#29241d;color:#d3b77f;font-size:12px}
+    @media(max-width:1000px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}.side nav{display:flex;flex-wrap:wrap}.nav-label{width:100%}.side a{padding:7px}.mockups{grid-template-columns:1fr}.desktop{overflow:auto}.desktop>div{min-width:680px}.g3{grid-template-columns:1fr 1fr}.section-head{grid-template-columns:1fr}}
+    @media(max-width:640px){.side{display:none}.hero{padding-top:48px}.section{padding-top:42px;padding-bottom:42px}.g2,.g3{grid-template-columns:1fr}.hero h1{font-size:44px}.matrix-wrap{overflow:auto}.matrix{min-width:760px}.detail-layout{grid-template-columns:1fr}.flow{grid-template-columns:repeat(6,180px)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><div class="mark">03</div><div><strong>Tech TLDRs</strong><small>Featureplan · 16.07.2026</small></div></div>
+    <nav>
+      <div class="nav-label">Konzept</div>
+      <a href="#outcome">Zielbild</a><a href="#architecture">Architektur</a><a href="#models">Mistral-Routing</a><a href="#importance">Wichtigkeit</a>
+      <div class="nav-label">Produkt</div>
+      <a href="#sources">Quellen</a><a href="#experience">Responsive UX</a><a href="#reader">Reader & Fragen</a><a href="#data">Datenmodell</a>
+      <div class="nav-label">Umsetzung</div>
+      <a href="#phases">Phasen</a><a href="#quality">Qualität</a><a href="#risks">Risiken</a><a href="#references">Recherche</a>
+    </nav>
+  </aside>
+  <main>
+    <header class="hero" id="outcome">
+      <p class="eyebrow">Geplanter Workspace-Bereich · Tech News Intelligence</p>
+      <h1>Ein persönlicher Tech-Feed, der Wichtiges versteht.</h1>
+      <p class="lead">„Tech TLDRs“ wird eine eigene Workspace-Route: mobil ein fokussierter, vertikaler Discover-Feed; am Desktop ein großzügiges Editorial-Bento. RSS, Atom, Hacker News und YouTube liefern kontinuierlich Material. Mistral übersetzt, verdichtet, bewertet und beantwortet quellengebundene Fragen.</p>
+      <div class="meta"><span class="pill">React 19 + Fastify 5</span><span class="pill">SQLite + FTS5</span><span class="pill">Mistral Multi-Model</span><span class="pill">RSS · Atom · HN · YouTube</span><span class="pill hot">Plan — noch nicht implementieren</span></div>
+    </header>
+
+    <section class="section">
+      <div class="section-head"><h2>Entscheidungen auf einen Blick</h2><p>Die gewählte Form bleibt kompatibel mit dem bestehenden Workbench-Stack und hält externe Schlüssel vollständig auf dem Server.</p></div>
+      <div class="grid g3">
+        <article class="card decision"><span class="number">01 · PRODUKT</span><h3>Eigene Route im Bereich Workspace</h3><p><code>/tech-tldrs</code> erscheint direkt neben Dashboard, Workbench und Projekte; kein Orbit-Werkzeug und kein eingebetteter Fremddienst.</p></article>
+        <article class="card decision"><span class="number">02 · MOBILE</span><h3>Snap-Feed mit Zwei-Wege-Island</h3><p>Vertikales, seitenweises Scrollen. Eine schwebende Dynamic Island unten schaltet nur zwischen „Feed“ und „Gespeichert“.</p></article>
+        <article class="card decision"><span class="number">03 · DESKTOP</span><h3>Editorial-Bento statt Kartenfriedhof</h3><p>Die Relevanz steuert Fläche und Position. Öffnen zeigt einen großen Dialog mit Artikel, Quellen, Medien und Chat.</p></article>
+        <article class="card ok"><span class="number">04 · KI</span><h3>Aufgabenbezogenes Modell-Routing</h3><p>Small für hohen Durchsatz, Embed für Retrieval, Medium nur bei komplexer Synthese. Cache und Queue schützen das Free-Kontingent.</p></article>
+        <article class="card ok"><span class="number">05 · SPEICHERN</span><h3>Benennbare Sammlungen</h3><p>Ein Beitrag kann in mehreren Sammlungen liegen. Erstellen, umbenennen, sortieren und entfernen funktionieren geräteübergreifend via SQLite.</p></article>
+        <article class="card warn"><span class="number">06 · INHALTE</span><h3>Feed-first, Original als Fallback</h3><p>Volltext nur aus tatsächlich geliefertem oder technisch abrufbarem Inhalt. Herkunft, Abrufzeit und Original-Link bleiben immer sichtbar.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="section-head"><h2>Systemfluss</h2><p>Ingest und KI-Aufbereitung laufen entkoppelt. Der Feed bleibt verfügbar, auch wenn Mistral oder einzelne Quellen zeitweise ausfallen.</p></div>
+      <div class="flow">
+        <div class="step"><b>1 · Quellen holen</b><span>Conditional GET mit ETag/Last-Modified; getrennte Adapter für RSS, Atom, HN und YouTube.</span></div>
+        <div class="step"><b>2 · Normalisieren</b><span>Canonical URL, Datum, Autor, Medien, HTML-Bereinigung und stabile Deduplizierung.</span></div>
+        <div class="step"><b>3 · KI-Queue</b><span>Neue oder geänderte Artikel als Jobs; Retry mit Backoff, Budget und Dead-Letter-Status.</span></div>
+        <div class="step"><b>4 · Verstehen</b><span>Deutsch, TLDR, Langfassung, Kategorie, Entitäten, Wichtigkeit und Embeddings.</span></div>
+        <div class="step"><b>5 · Indexieren</b><span>SQLite FTS5 für exakte Suche plus Embedding-Vektoren für semantisches Retrieval.</span></div>
+        <div class="step"><b>6 · Ausspielen</b><span>Cursor-Pagination, Filter, Bento-Ranking, Saved Collections und Streaming-Chat.</span></div>
+      </div>
+      <div class="grid g2" style="margin-top:12px">
+        <article class="card"><h3>Servermodule</h3><p><code>news/database.ts</code>, <code>feed-service.ts</code>, <code>content-extractor.ts</code>, <code>mistral-client.ts</code>, <code>news-worker.ts</code>, <code>retrieval-service.ts</code> und <code>news/routes.ts</code>.</p></article>
+        <article class="card"><h3>Frontendmodule</h3><p>Lazy Route <code>TechTldrs.tsx</code>, Feed/Bento, Article Reader, News Chat, Filters, Collection Sheet sowie Query-Optionen und typisierte Contracts.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="models">
+      <div class="section-head"><h2>Mistral: das passende Modell je Aufgabe</h2><p>Die Auswahl basiert auf der aktuellen offiziellen Modellübersicht. Free Mode hat konservative, organisationsabhängige Limits; exakte Werte stehen nur im jeweiligen Admin-Panel und dürfen nicht hart codiert werden.</p></div>
+      <div class="matrix-wrap"><table class="matrix">
+        <thead><tr><th>Aufgabe</th><th>Primärmodell</th><th>Warum</th><th>Ausführung</th><th>Fallback</th></tr></thead>
+        <tbody>
+          <tr><td>Sprache, Kategorie, Relevanz, Entitäten</td><td><span class="model">mistral-small-2603</span></td><td>Strukturierte Outputs, 256k Kontext, günstiger hoher Durchsatz.</td><td>Ein JSON-Schema pro Artikel; Temperatur 0–0,2.</td><td>Regelbasiertes Scoring + Originalsprache markieren.</td></tr>
+          <tr><td>Übersetzung, TLDR, deutsche Langfassung</td><td><span class="model">mistral-small-2603</span></td><td>Gutes Preis-/Leistungsverhältnis; Inhalt kann in einem konsistenten Durchlauf transformiert werden.</td><td>Nur nach Deduplizierung; Prompt-Version im Datensatz.</td><td>Teaser sofort zeigen, Job später fortsetzen.</td></tr>
+          <tr><td>Semantische Suche & RAG</td><td><span class="model">mistral-embed-2312</span></td><td>1024-dimensionale semantische Repräsentationen, 8k Kontext, niedrige Kosten.</td><td>Chunks von 450–700 Tokens, 10–15 % Überlappung.</td><td>SQLite FTS5 mit BM25.</td></tr>
+          <tr><td>Frage zu einer Nachricht</td><td><span class="model">mistral-small-2603</span></td><td>Der Kontext ist eng begrenzt; Small reicht für schnelle, quellengebundene Antworten.</td><td>Top-Chunks + Metadaten; Antwort mit Abschnittsbelegen.</td><td>FTS-Chunks und direkter Original-Link.</td></tr>
+          <tr><td>Frage über viele Nachrichten</td><td><span class="model">mistral-medium-3-5</span></td><td>Komplexere Synthese und agentische Verarbeitung; nur bedarfsgesteuert einsetzen.</td><td>Query umformulieren, hybrid suchen, reranken, max. 8 Quellen.</td><td>Small 4 mit kleinerem Kontext.</td></tr>
+          <tr><td>Großer nächtlicher Backfill</td><td><span class="model">Small 4 + Batch API</span></td><td>Asynchrone Verarbeitung ohne UI-Latenz; entlastet synchrone Request-Limits.</td><td>Nur falls Free Mode den Endpoint zulässt; ansonsten lokale Queue.</td><td>Gedrosselte Einzeljobs.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="grid g3" style="margin-top:12px">
+        <article class="card"><h3>Kostenanker laut Dokumentation</h3><p>Small 4: $0,15/M Input und $0,60/M Output. Medium 3.5: $1,50/M Input und $7,50/M Output. Embed: $0,10/M Tokens.</p></article>
+        <article class="card"><h3>Budgetschutz</h3><p>Globale Parallelität 1–2 im Free Mode, Token-Budgets pro Job, 429/Retry-After respektieren, Circuit Breaker und tägliches Soft-Limit.</p></article>
+        <article class="card"><h3>Konfigurierbar</h3><p><code>MISTRAL_MODEL_INGEST</code>, <code>_CHAT</code>, <code>_EMBED</code> und Limits zentral in der Server-Config. Keine Modell-ID in UI-Komponenten.</p></article>
+      </div>
+      <div class="note">Sicherheitsentscheidung: <code>MISTRAL_API_KEY</code> nur in der ignorierten <code>.env</code>, redigiert in Logs und niemals in API-Antworten. Der bereits im Chat gepostete Schlüssel sollte vor der Implementierung rotiert werden.</div>
+    </section>
+
+    <section class="section" id="importance">
+      <div class="section-head"><h2>Automatische Wichtigkeit</h2><p>Relevanz ist erklärbar, nicht nur ein undurchsichtiger LLM-Wert. Kategorien geben die Basis; Neuigkeit, Primärquelle, Tragweite und Signale verändern den Score.</p></div>
+      <div class="grid g2">
+        <article class="card">
+          <h3>Basisgewichte</h3>
+          <div class="score"><span>Neue KI-Modelle / große Releases</span><strong>90</strong><div class="bar"><i style="width:90%"></i></div></div>
+          <div class="score"><span>Benchmarks & reale Tests</span><strong>78</strong><div class="bar"><i style="width:78%"></i></div></div>
+          <div class="score"><span>Developer Tools & Plattformen</span><strong>70</strong><div class="bar"><i style="width:70%"></i></div></div>
+          <div class="score"><span>Security & Datenschutz</span><strong>74</strong><div class="bar"><i style="width:74%"></i></div></div>
+          <div class="score"><span>Tech-Politik & Regulierung</span><strong>55</strong><div class="bar"><i style="width:55%"></i></div></div>
+          <div class="score"><span>Startups, Finanzierung & Markt</span><strong>42</strong><div class="bar"><i style="width:42%"></i></div></div>
+        </article>
+        <article class="card">
+          <h3>Deterministische Endwertung</h3>
+          <div class="formula">score = clamp(
+  category_base
+  primary_source_bonus      // 0..8
+  magnitude_bonus           // 0..12
+  corroboration_bonus       // 0..6
+  community_signal_bonus    // 0..6
+  freshness_bonus           // 0..5
+- duplicate_or_rumor_penalty // 0..18
+, 0, 100)</div>
+          <p style="margin-top:13px">Small 4 liefert strukturierte Merkmale und eine kurze Begründung. Der Server berechnet den finalen Wert. 85–100 = „Top“, 65–84 = „Wichtig“, 40–64 = „Relevant“, darunter kompakt.</p>
+        </article>
+      </div>
+      <div class="grid g3" style="margin-top:12px">
+        <article class="card"><h3>Ranking</h3><p><code>importance × freshness × unread boost × source diversity</code>; gespeicherte und bereits gelesene Beiträge beeinflussen nicht die objektive Wichtigkeit.</p></article>
+        <article class="card"><h3>Deduplizierung</h3><p>Canonical URL, normalisierter Titel und semantische Ähnlichkeit gruppieren dieselbe Meldung. Primärquelle wird Hauptartikel, weitere Quellen erscheinen als Belege.</p></article>
+        <article class="card"><h3>Transparenz</h3><p>Jede Detailansicht zeigt „Warum wichtig?“ mit Kategorie, Signalen und Score-Zeitpunkt. Prompt- und Scoring-Version bleiben auditierbar.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <div class="section-head"><h2>Empfohlenes Quellenportfolio</h2><p>Primärquellen bekommen Vorrang. Medien und Community ergänzen Kontext und helfen, reale Resonanz zu erkennen.</p></div>
+      <div class="grid g2">
+        <article class="card source"><div class="source-index">P1</div><div><h3>Modelle & offizielle AI-News</h3><p><a href="https://openai.com/news/rss.xml">OpenAI News RSS</a>, <a href="https://deepmind.google/blog/rss.xml">Google DeepMind</a>, <a href="https://blog.google/technology/ai/rss/">Google AI</a>, <a href="https://huggingface.co/blog/feed.xml">Hugging Face</a>. Anthropic und Mistral derzeit ohne verlässlichen offiziellen RSS-Pfad: optionaler News-/Sitemap-Adapter.</p></div><span class="source-status">TOP</span></article>
+        <article class="card source"><div class="source-index">P2</div><div><h3>Benchmarks, Forschung & Praxis</h3><p><a href="https://export.arxiv.org/rss/cs.AI">arXiv cs.AI</a>, <a href="https://developer.nvidia.com/blog/feed/">NVIDIA Developer Blog</a>, <a href="https://engineering.fb.com/feed/">Meta Engineering</a>, GitHub Changelog. arXiv stark filtern, nicht ungeprüft komplett zusammenfassen.</p></div><span class="source-status">HIGH</span></article>
+        <article class="card source"><div class="source-index">P3</div><div><h3>Tech-Medien</h3><p><a href="https://feeds.arstechnica.com/arstechnica/technology-lab">Ars Technica AI</a>, <a href="https://techcrunch.com/feed/">TechCrunch</a>, <a href="https://www.theverge.com/rss/index.xml">The Verge</a>, <a href="https://www.wired.com/feed/rss">Wired</a>. Für Breite, Gegenstimmen und Marktgeschehen.</p></div><span class="source-status">MED</span></article>
+        <article class="card source"><div class="source-index">P4</div><div><h3>Politik, Rechte & Regulierung</h3><p><a href="https://digital-strategy.ec.europa.eu/en/rss.xml">EU Digital Strategy</a>, <a href="https://www.eff.org/rss/updates.xml">EFF Updates</a> sowie ausgewählte Behörden-/Policy-Feeds. Relevanz steigt bei AI Act, Plattformregeln, Exportkontrollen oder Datenschutz.</p></div><span class="source-status">RULE</span></article>
+        <article class="card source"><div class="source-index">C1</div><div><h3>Hacker News</h3><p>Offizielle Firebase API für Stories und Scores; hnrss.org optional für einfache Feed-Abholung. HN ist Signalquelle, nie alleinige Tatsachenquelle.</p></div><span class="source-status">SIGNAL</span></article>
+        <article class="card source"><div class="source-index">V1</div><div><h3>YouTube</h3><p>Kanalbasierte Atom-Feeds liefern neue Videos ohne API-Key. Video-ID, Thumbnail und Metadaten werden gespeichert; Wiedergabe per Privacy-Enhanced Embed. Whitelist statt beliebiger Kanäle.</p></div><span class="source-status">MEDIA</span></article>
+      </div>
+      <details style="margin-top:12px"><summary>Empfohlene zusätzliche Kategorien</summary><div><span class="tag">Open Source & Releases</span><span class="tag">Developer Tools</span><span class="tag">Security & Datenschutz</span><span class="tag">Chips & Infrastruktur</span><span class="tag">Robotics & Edge AI</span><span class="tag">Startups & Markt</span><span class="tag">Forschung</span><span class="tag">Meinungsstücke</span><p>Die ersten fünf sind standardmäßig sichtbar. Markt und Meinungen werden niedriger gewichtet, bleiben aber filterbar.</p></div></details>
+    </section>
+
+    <section class="section" id="experience">
+      <div class="section-head"><h2>Zwei Geräte, eine Designsprache</h2><p>Bestehende Ink-/Blue-Tokens bleiben erhalten. Keine Gradients, keine Glows, keine Emojis. Bild, Typografie und asymmetrische Fläche erzeugen Charakter.</p></div>
+      <div class="mockups">
+        <div class="phone"><div class="phone-screen"><div class="phone-cover"><b>Ein neues Modell verändert lokale KI-Workflows</b></div><div class="phone-copy"><small>NEUE KI-MODELLE · 8 MIN</small><h3>TLDR</h3><p>Die drei wichtigsten Aussagen in klarer deutscher Sprache. Hochwischen führt zur nächsten Story, Tippen öffnet den vollständigen Reader.</p><span class="pill hot">Top · 94</span></div><div class="island"><span class="active">Feed</span><span>Gespeichert</span></div></div></div>
+        <div class="desktop"><div><div class="desktop-top"><span class="pill">Alle Kategorien</span><span class="pill">Wichtig zuerst</span><div class="search">Nach News suchen oder eine Frage stellen …</div></div><div class="bento"><div class="tile hero-tile"><small>TOP · NEUES MODELL</small><b>Große Leitstory mit Cover, TLDR und klarer visueller Priorität</b></div><div class="tile tall"><small>TEST</small><b>Real-World Benchmark im längeren Hochformat</b></div><div class="tile"><small>POLITIK</small><b>Neue Regulierung</b></div><div class="tile"><small>VIDEO</small><b>Technische Analyse ansehen</b></div><div class="tile wide"><small>OPEN SOURCE</small><b>Release mit praktischen Auswirkungen für Entwickler</b></div><div class="tile"><small>SECURITY</small><b>Wichtiger Patch</b></div></div></div></div>
+      </div>
+      <div class="grid g3" style="margin-top:18px">
+        <article class="card"><h3>Mobil</h3><p><code>scroll-snap-type: y mandatory</code>, eine Story pro Viewport, sichtbarer Fortschritt, 44px-Ziele, Safe Areas, Pull-to-refresh und reduzierte Bewegung respektieren.</p></article>
+        <article class="card"><h3>Desktop</h3><p>CSS Grid mit 12 Spalten; Kartenspans werden aus Inhaltstyp und Wichtigkeitsband deterministisch gewählt, damit das Layout dynamisch, aber stabil bleibt.</p></article>
+        <article class="card"><h3>Filter & Suche</h3><p>Kategorien, Zeitraum, Wichtigkeit, Quelle, Medientyp, ungelesen und gespeichert. Query-State in URL; Suche debounced und per Cursor paginiert.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="reader">
+      <div class="section-head"><h2>Reader und Perplexity-artige Fragen</h2><p>Antworten werden aus dem eigenen Nachrichtenindex erzeugt. Jede Aussage muss auf konkrete Artikel oder Abschnitte zurückführbar sein.</p></div>
+      <div class="detail-layout">
+        <article class="detail-main"><div class="cover"></div><p class="eyebrow" style="margin-top:16px">Neue KI-Modelle · Wichtigkeit 94</p><h2>Vollständige deutsche Leseransicht</h2><p>TLDR oben, danach gegliederte Langfassung, Kernaussagen, technische Daten, „Warum wichtig?“, Originalquelle, verwandte Berichte und eingebettete Medien.</p><div class="meta"><span class="pill">Original öffnen</span><span class="pill">Sammlung wählen</span><span class="pill">Als gelesen</span></div></article>
+        <aside class="chat"><h3>Zu dieser Nachricht fragen</h3><div class="chat-line">Wie unterscheidet sich das Modell vom Vorgänger?</div><div class="chat-line answer">Die Antwort vergleicht nur belegte Werte aus diesem Artikel und verknüpften Primärquellen. <a href="#">[1]</a> <a href="#">[2]</a></div><div class="search">Nachfrage eingeben …</div></aside>
+      </div>
+      <div class="grid g2" style="margin-top:12px">
+        <article class="card"><h3>Artikel-Chat</h3><p>Scope ist standardmäßig die geöffnete Nachricht plus ihr Duplikat-/Quellencluster. Schnell, präzise und günstig mit Small 4.</p></article>
+        <article class="card"><h3>Globale News-Frage</h3><p>Die Hauptsuche erkennt Fragen, sucht hybrid in FTS + Embeddings, rerankt nach Relevanz/Datum und lässt Medium 3.5 maximal acht Quellen synthetisieren.</p></article>
+      </div>
+      <details style="margin-top:12px"><summary>RAG-Antwortpipeline</summary><div><code>Frage → Scope/Filter erkennen → Suchquery + Embedding → FTS/BM25 und Vektorsuche → Reciprocal Rank Fusion → Zeit-/Quellen-Diversität → Top-Chunks → Mistral → Satznahe Quellenchips</code><p>Wenn Quellen die Frage nicht beantworten, sagt das System dies ausdrücklich. Websuche außerhalb des Newsbestands ist nicht Teil der ersten Version; sie kann später als klar getrennte Option ergänzt werden.</p></div></details>
+    </section>
+
+    <section class="section" id="data">
+      <div class="section-head"><h2>Datenmodell und APIs</h2><p>Neue Tabellen leben in derselben SQLite-Datei, aber in einem eigenen <code>NewsDatabase</code>-Modul. Migrationen sind idempotent und versioniert.</p></div>
+      <div class="grid g2">
+        <article class="card"><h3>Kern-Tabellen</h3><p><code>news_sources</code>, <code>news_items</code>, <code>news_item_sources</code>, <code>news_content</code>, <code>news_chunks</code>, <code>news_embeddings</code>, <code>news_jobs</code>, <code>news_read_state</code>.</p></article>
+        <article class="card"><h3>Sammlungen & Chat</h3><p><code>news_collections</code>, <code>news_collection_items</code>, <code>news_conversations</code>, <code>news_messages</code>, <code>news_message_citations</code>.</p></article>
+        <article class="card"><h3>Read APIs</h3><p><code>GET /news</code>, <code>/news/:id</code>, <code>/news/search</code>, <code>/news/categories</code>, <code>/news/collections</code>, <code>/news/sync-status</code>.</p></article>
+        <article class="card"><h3>Mutation/Stream APIs</h3><p><code>POST /news/:id/read</code>, Collection-CRUD, Zuordnung von Artikeln, manueller Sync und <code>POST /news/chat</code> als SSE-Stream mit Quellenereignissen.</p></article>
+      </div>
+      <details style="margin-top:12px"><summary>Wichtige Felder in news_items</summary><div><code>id, canonical_url, source_id, external_id, title_original, title_de, excerpt_original, tldr_de, long_summary_de, content_html_sanitized, content_text, language, category, importance_score, importance_reason, media_type, cover_url, published_at, fetched_at, processed_at, prompt_version, content_hash</code></div></details>
+      <details><summary>Bild- und Inhaltsstrategie</summary><div>Remote-Cover werden serverseitig validiert und nach Möglichkeit gecacht/proxied, weil die aktuelle CSP nur Self/Data erlaubt. HTML wird strikt sanitisiert; Scripts, Event-Handler, Formulare und Tracking-Pixel werden entfernt. YouTube erhält eine explizite CSP-Freigabe nur für <code>youtube-nocookie.com</code>.</div></details>
+    </section>
+
+    <section class="section" id="phases">
+      <div class="section-head"><h2>Umsetzungsphasen</h2><p>Jede Phase endet mit Tests und einem nutzbaren vertikalen Schnitt. Die KI ist nicht Voraussetzung dafür, dass Rohmeldungen sichtbar bleiben.</p></div>
+      <div class="grid g2">
+        <article class="card phase"><h3>Fundament & Contracts</h3><p>Config, Zod-Typen, SQLite-Migrationen, Source Registry, Parser, Deduplizierung und erste API-Tests.</p></article>
+        <article class="card phase"><h3>Ingest & Worker</h3><p>Conditional Fetch, Scheduler, Queue/Retry, HTML-Sanitizing, Media-Erkennung, initiale RSS-/Atom-/HN-/YouTube-Adapter.</p></article>
+        <article class="card phase"><h3>Mistral-Pipeline</h3><p>Server-Client, strukturierte Prompts, Modellrouter, Übersetzung/TLDR/Scoring, Embeddings, Free-Mode-Drosselung und Kostenmetriken.</p></article>
+        <article class="card phase"><h3>Feed UI</h3><p>Route/Navigation, mobile Snap-Stories, Desktop-Bento, Filter, Suche, Cursor-Pagination, Skeletons und Empty/Error States.</p></article>
+        <article class="card phase"><h3>Reader & Collections</h3><p>Großdialog/Desktop, Fullscreen/Bottom-Sheet mobil, Volltext, Medien, Lesestatus und benennbare Sammlungen.</p></article>
+        <article class="card phase"><h3>RAG-Chat & Hardening</h3><p>Hybrid Retrieval, Streaming, Zitate, Conversation Storage, CSP/SSRF-Schutz, Observability, E2E und Produktions-Rollout.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="quality">
+      <div class="section-head"><h2>Abnahmekriterien</h2><p>Der Feed gilt erst als fertig, wenn Datenqualität, mobile Bedienung und KI-Ausfälle sauber behandelt werden.</p></div>
+      <div class="grid g3">
+        <article class="card"><h3>Backend</h3><ul class="checks"><li>RSS 2.0 und Atom inklusive Media-Enclosures</li><li>Idempotente Imports und Cluster-Deduplizierung</li><li>429, Timeouts, kaputte XML-Feeds und Retry</li><li>SSRF-Schutz, Sanitizing und Größenlimits</li></ul></article>
+        <article class="card"><h3>KI & Suche</h3><ul class="checks"><li>Schema-validierte deutsche Ausgaben</li><li>Prompt-Snapshot-Tests mit festen Fixtures</li><li>Retrieval-Evaluation auf Testfragen</li><li>Antwort ohne Beleg wird verweigert</li></ul></article>
+        <article class="card"><h3>Frontend/E2E</h3><ul class="checks"><li>320, 390, 820 und 1440 Pixel</li><li>Ein-Finger-Scroll, Fokusfalle und Escape</li><li>Feed/Save-Island und Safe Area</li><li>Filter, Suche, Speichern, Reader, Chat</li></ul></article>
+      </div>
+      <div class="formula" style="margin-top:12px">pnpm typecheck  →  pnpm lint  →  pnpm test  →  pnpm build  →  Playwright Chromium + Firefox</div>
+    </section>
+
+    <section class="section" id="risks">
+      <div class="section-head"><h2>Risiken und Gegenmaßnahmen</h2><p>Private Nutzung reduziert nicht automatisch technische, sicherheitsbezogene oder urheberrechtliche Risiken.</p></div>
+      <div class="grid g2">
+        <article class="card warn"><h3>Volltexte & Paywalls</h3><p>Nicht jeder Feed erlaubt oder liefert Volltexte. Keine Paywall-Umgehung. Reader speichert verfügbare Inhalte und bietet sonst deutsche Langzusammenfassung plus Original-Link.</p></article>
+        <article class="card warn"><h3>Prompt Injection aus Artikeln</h3><p>Feed-Inhalt ist untrusted data. Systemprompt trennt Daten und Instruktionen; kein Artikel darf Tools oder Quellenwahl steuern.</p></article>
+        <article class="card warn"><h3>Free-Mode-Limits</h3><p>Limits sind dynamisch. UI zeigt Queue/Degraded Mode, Worker priorisiert Top-News und verschiebt Backfills. Kein Ausfall des gesamten Feeds.</p></article>
+        <article class="card warn"><h3>Falsche Wichtigkeit</h3><p>Hybrid statt reinem LLM-Score, versionierte Begründung, Primärquellenbonus und spätere Einstellmöglichkeit für Gewichte.</p></article>
+        <article class="card warn"><h3>Unendlicher Bestand</h3><p>„Unendlich“ über Cursor und Archiv, nicht unbegrenzte Browserlast. Retention konfigurierbar; gespeicherte Artikel werden nie automatisch gelöscht.</p></article>
+        <article class="card warn"><h3>Remote-Bilder & Video</h3><p>Allowlist, Proxy, Content-Type-/Größenprüfung und CSP. YouTube nur über Privacy-Enhanced Mode; kein Autoplay im Feed.</p></article>
+      </div>
+    </section>
+
+    <section class="section sources" id="references">
+      <div class="section-head"><h2>Primärrecherche</h2><p>Stand 16. Juli 2026. Modell- und Limitdaten müssen vor Implementierungsbeginn erneut gegen das Mistral-Dashboard geprüft werden.</p></div>
+      <div class="grid g2">
+        <article class="card"><h3>Mistral</h3><a href="https://docs.mistral.ai/models/model-selection-guide">Model Selection Guide</a><a href="https://docs.mistral.ai/models/model-cards/mistral-small-4-0-26-03">Mistral Small 4</a><a href="https://docs.mistral.ai/models/model-cards/mistral-medium-3-5-26-04">Mistral Medium 3.5</a><a href="https://docs.mistral.ai/models/model-cards/mistral-embed-23-12">Mistral Embed</a><a href="https://docs.mistral.ai/admin/billing-usage/usage-limits">Usage & API Rate Limits</a><a href="https://docs.mistral.ai/getting-started/quickstarts/developer/rag-document-search">RAG Document Search</a><a href="https://docs.mistral.ai/api/endpoint/batch">Batch API</a></article>
+        <article class="card"><h3>Feeds & Plattformen</h3><a href="https://github.com/HackerNews/API">Hacker News Official API</a><a href="https://developers.google.com/youtube/v3/guides/implementation/subscriptions">YouTube Data API guidance</a><a href="https://www.rssboard.org/rss-specification">RSS 2.0 Specification</a><a href="https://www.rfc-editor.org/rfc/rfc4287">Atom Syndication Format</a><a href="https://www.sqlite.org/fts5.html">SQLite FTS5</a></article>
+      </div>
+    </section>
+
+    <footer class="footer">Planstatus: bereit zur Bestätigung. Noch keine Produktivdateien, Datenbanktabellen oder API-Schlüssel wurden verändert.</footer>
+  </main>
+</div>
+</body>
+</html>
