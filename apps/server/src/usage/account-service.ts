@@ -1,23 +1,27 @@
 import { access, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
+import { execa } from "execa";
+import { z } from "zod";
 import type { CreateAccountRequest, DiscoveredAccount, ManagedAccount, UpdateAccountRequest, UsageProviderId } from "@workbench/contracts";
 import { AppError } from "../utils/errors.js";
 import type { UsageDatabase } from "./database.js";
 
 export class AccountService {
-  constructor(private readonly options: { database: UsageDatabase; allowedRoots: string[]; profilesRoot: string; codexbarConfigPath: string; codexbarCliPath?: string }) {}
+  constructor(private readonly options: { database: UsageDatabase; allowedRoots: string[]; profilesRoot: string; codexbarConfigPath: string; codexbarCliPath?: string; claudeCliPath?: string; homeDirectory?: string }) {}
 
   list() { return this.options.database.listAccounts(); }
 
   async discover(): Promise<DiscoveredAccount[]> {
     const candidates: Array<{provider: UsageProviderId; path: string}> = [];
-    const home = homedir();
+    const home = this.options.homeDirectory ?? homedir();
     try {
       for (const name of await readdir(home)) if (name === ".codex" || name.startsWith(".codex-")) candidates.push({ provider: "codex", path: resolve(home, name) });
     } catch { /* Discovery is best effort. */ }
     const openCodePaths = [resolve(home, ".local/share/opencode"), resolve(home, ".config/opencode")];
     for (const path of openCodePaths) { try { await access(path); candidates.push({ provider: "opencode", path }); } catch { /* optional */ } }
+    const claudePath = resolve(home, ".claude");
+    try { await access(claudePath); candidates.push({ provider: "claude", path: claudePath }); } catch { /* optional */ }
     try {
       const config = JSON.parse(await readFile(this.options.codexbarConfigPath, "utf8")) as {providers?: Array<{id?:string;codexProfileHomePaths?:string[]}>};
       for (const path of config.providers?.find((item) => item.id === "codex")?.codexProfileHomePaths ?? []) candidates.push({provider:"codex",path});
@@ -28,13 +32,14 @@ export class AccountService {
     const accounts = await Promise.all([...new Map(candidates.filter((item) => this.allowed(item.path)).map((item) => [`${item.provider}:${item.path}`, item])).values()]
       .map(async (item) => {
         const account = registeredByProfile.get(`${item.provider}:${item.path}`);
+        const claudeStatus = item.provider === "claude" ? await this.claudeStatus(item.path) : null;
         return {
           accountId: account?.id ?? null,
           provider: item.provider,
           profilePath: item.path,
-          label: account?.label ?? basename(item.path),
+          label: account?.label ?? claudeStatus?.email ?? basename(item.path),
           registered: Boolean(account),
-          authenticated: await this.authenticated(item.provider, item.path),
+          authenticated: claudeStatus?.loggedIn ?? await this.authenticated(item.provider, item.path),
           enabled: account?.enabled ?? null,
           source: account?.source ?? null,
         };
@@ -51,6 +56,9 @@ export class AccountService {
       if (input.provider === "codex") {
         try { await this.setCodexProfile(profilePath, true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
       }
+      if (input.provider === "claude") {
+        try { await this.setProviderEnabled("claude", true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
+      }
       return account;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -63,14 +71,42 @@ export class AccountService {
   async remove(id: string) {
     let account: ManagedAccount; try { account = this.options.database.getAccount(id); } catch { throw new AppError(404, "ACCOUNT_NOT_FOUND", "Der Account wurde nicht gefunden."); }
     if (account.provider === "codex") await this.setCodexProfile(account.profilePath, false);
+    if (account.provider === "claude" && this.list().filter((item) => item.provider === "claude" && item.id !== id).length === 0) await this.setProviderEnabled("claude", false);
     this.options.database.deleteAccount(id);
   }
 
-  loginCommand(account: ManagedAccount) { return account.provider === "codex" ? "codex login --device-auth" : "opencode auth login"; }
+  loginCommand(account: ManagedAccount) { return account.provider === "codex" ? "codex login --device-auth" : account.provider === "claude" ? "claude auth login" : "opencode auth login"; }
 
   private async authenticated(_provider: UsageProviderId, profilePath: string): Promise<boolean> {
     const authPath = join(profilePath, "auth.json");
     try { await access(authPath); return true; } catch { return false; }
+  }
+
+  private async claudeStatus(profilePath: string): Promise<{loggedIn:boolean;email:string|undefined} | null> {
+    if (!this.options.claudeCliPath) return null;
+    try {
+      const result = await execa(this.options.claudeCliPath, ["auth", "status", "--json"], {
+        timeout: 10_000,
+        reject: false,
+        env: resolve(profilePath) === resolve(this.options.homeDirectory ?? homedir(), ".claude")
+          ? process.env
+          : { ...process.env, CLAUDE_CONFIG_DIR: profilePath },
+      });
+      const parsed = z.object({ loggedIn: z.boolean(), email: z.string().email().optional() }).safeParse(JSON.parse(result.stdout));
+      return parsed.success ? { loggedIn: parsed.data.loggedIn, email: parsed.data.email } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async setProviderEnabled(provider: "claude", enabled: boolean) {
+    if (!this.options.codexbarCliPath) return;
+    const result = await execa(this.options.codexbarCliPath, ["config", enabled ? "enable" : "disable", "--provider", provider], {
+      timeout: 10_000,
+      reject: false,
+      env: { ...process.env, CODEXBAR_CONFIG_PATH: this.options.codexbarConfigPath },
+    });
+    if (result.exitCode !== 0) throw new AppError(500, "CODEXBAR_CONFIG_INVALID", "Claude Code konnte in CodexBar nicht aktiviert werden.");
   }
 
   private allowed(path: string) {

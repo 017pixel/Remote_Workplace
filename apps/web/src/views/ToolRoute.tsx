@@ -46,7 +46,7 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   return (
     <div className="standalone-tool-page">
       <div className="standalone-tool-content">
-        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone />
+        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone actionPlacement={type === "t3-code" ? "topbar" : "overlay"} />
       </div>
     </div>
   );

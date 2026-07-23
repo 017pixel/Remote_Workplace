@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
+# Optional: installiert den lokalen CodexBar-Dienst (Usage-/Limit-API).
+# Nur nötig, wenn du die Codex-/Claude-Nutzungshistorie in der Workbench sehen willst.
+# Die Unit wird aus deploy/systemd/units/codexbar.service.template gerendert.
 set -euo pipefail
 
-repo_root="/home/bbecker/projects/Remote_Workplace"
-source_unit="$repo_root/deploy/systemd/codexbar.service"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+generated_directory="$repo_root/deploy/systemd/generated"
+source_unit="$generated_directory/codexbar.service"
 target_unit="/etc/systemd/system/codexbar.service"
 backup_directory="$repo_root/deploy/backups"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_unit="$backup_directory/codexbar.service.$timestamp.bak"
 
-test -x /home/bbecker/.local/bin/codexbar
+if ! command -v codexbar >/dev/null 2>&1; then
+  echo "codexbar wurde nicht im PATH gefunden. Bitte CodexBar installieren oder cli.codexbar in config/workbench.local.json setzen." >&2
+  exit 1
+fi
+
 mkdir -p "$backup_directory"
+node "$repo_root/deploy/systemd/render-units.mjs"
 systemd-analyze verify "$source_unit"
 
 had_original=false

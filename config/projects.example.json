@@ -12,7 +12,8 @@
           "id": "example-preview",
           "name": "Frontend",
           "url": "https://server-name.tailnet.ts.net:8443/editor/absproxy/5173/",
-          "mode": "hybrid"
+          "mode": "hybrid",
+          "runtime": "shared-browser"
         }
       ]
     }

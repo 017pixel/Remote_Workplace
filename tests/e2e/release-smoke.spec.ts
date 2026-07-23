@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const workbench = process.env.WORKBENCH_E2E_URL;
 
 test.use({
-  extraHTTPHeaders: { "tailscale-user-login": "aistudioaccprgrm@gmail.com" },
+  extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
   viewport: { width: 1440, height: 960 },
 });
 
@@ -35,7 +35,7 @@ test("verifies Browser, local ports and direct project tool navigation", async (
   await page.getByRole("button", { name: /T3/ }).first().click();
   await expect(page).toHaveURL(/\/workbench\/t3-code$/);
 
-  await page.goto(`${workbench}/projects/tg-vereinsapp`);
+  await page.goto(`${workbench}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
   await expect(page).toHaveURL(/\/workbench\/previews\?preview=/);
 
@@ -124,7 +124,7 @@ test("resizes selected Orbit nodes and keeps properties collapsed", async ({ pag
   await page.mouse.up();
   await expect(page.locator(".react-flow__edge")).toHaveCount(edgeCount + 1);
 
-  await page.getByRole("button", { name: /^CHAPPiE ziehen$/ }).click();
+  await page.getByRole("button", { name: /^Sample ziehen$/ }).click();
   await page.locator(".orbit-palette-item").filter({ hasText: "Neue Notiz" }).click();
   await page.getByRole("button", { name: /^DailyQuest ziehen$/ }).click();
   await page.locator(".orbit-palette-item").filter({ hasText: "Neue Notiz" }).click();

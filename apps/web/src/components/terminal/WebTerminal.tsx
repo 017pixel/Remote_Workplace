@@ -11,12 +11,14 @@ import {
 } from "react";
 import "@xterm/xterm/css/xterm.css";
 import type { TerminalKind } from "@workbench/contracts";
+import { ConfirmDialog } from "../ModalDialog";
+import { copyDocumentSelectionFallback, splitTerminalInput, terminalClipboardAction, writeClipboardText } from "../../lib/clipboard";
 
-export type TerminalStatus = "connecting" | "connected" | "disconnected" | "exited" | "error";
+export type TerminalStatus = "connecting" | "connected" | "disconnected" | "exited" | "interrupted" | "error";
 
 type ServerMessage =
-  | { type: "terminal.created"; requestId: string; sessionId: string; kind: TerminalKind; cwd: string; pid: number }
-  | { type: "terminal.snapshot"; sessionId: string; kind: TerminalKind; status: string; cwd: string; history: string; sequence: number }
+  | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
+  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
   | { type: "terminal.cleared"; sessionId: string; sequence: number }
@@ -70,27 +72,15 @@ function createUuid(): string {
   }
 }
 
-function readSession(key: string): string | null {
-  try { return window.sessionStorage.getItem(key); } catch { return null; }
-}
-
-function storeSession(key: string, value: string | null): void {
-  try {
-    if (value === null) window.sessionStorage.removeItem(key);
-    else window.sessionStorage.setItem(key, value);
-  } catch { /* The terminal remains usable when browser storage is blocked. */ }
-}
-
 export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(function WebTerminal(
   { instanceId, kind = "shell", projectId = null, active = true, mode = "agent", accountId, onMetaChange },
   ref,
 ) {
-  const storageKey = `workbench-terminal-session:${instanceId}`;
   const mountRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
-  const sessionRef = useRef<string | null>(readSession(storageKey));
+  const sessionRef = useRef<string | null>(null);
   const sequenceRef = useRef(0);
   const reconnectRef = useRef<number | null>(null);
   const resizeRef = useRef<number | null>(null);
@@ -103,6 +93,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   const [error, setError] = useState<string | null>(null);
   const [ctrl, setCtrl] = useState(false);
   const [alt, setAlt] = useState(false);
+  const [pendingPaste, setPendingPaste] = useState<string | null>(null);
 
   useEffect(() => { onMetaChange?.({ status, cwd, error }); }, [cwd, error, onMetaChange, status]);
 
@@ -112,6 +103,29 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     socket.send(JSON.stringify(message));
     return true;
   }, []);
+
+  const pasteIntoTerminal = useCallback((text: string) => {
+    if (!text) return;
+    const sessionId = sessionRef.current;
+    const terminal = terminalRef.current;
+    if (!sessionId || !terminal) {
+      setError("Das Terminal ist noch nicht verbunden. Bitte gleich erneut einfügen.");
+      return;
+    }
+    terminal.paste(text);
+    setError(null);
+    window.setTimeout(() => terminal.focus(), 0);
+  }, []);
+
+  const receivePastedText = useCallback((text: string) => {
+    if (!text) return;
+    if (text.length > 10_000) {
+      setPendingPaste(text);
+      setError(null);
+      return;
+    }
+    pasteIntoTerminal(text);
+  }, [pasteIntoTerminal]);
 
   const resize = useCallback(() => {
     if (!fitRef.current || !terminalRef.current || !active) return;
@@ -131,12 +145,12 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const terminal = terminalRef.current;
     if (!terminal) return;
     sessionRef.current = null;
-    storeSession(storageKey, null);
     sequenceRef.current = 0;
     setError(null);
     if (!send({
       type: "terminal.create",
       requestId: createUuid(),
+      runtimeId: instanceId,
       kind,
       mode,
       ...(accountId ? { accountId } : {}),
@@ -144,7 +158,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       cols: terminal.cols || 120,
       rows: terminal.rows || 30,
     })) setError("Die Verbindung wird noch aufgebaut. Bitte gleich erneut versuchen.");
-  }, [accountId, kind, mode, projectId, send, storageKey]);
+  }, [accountId, instanceId, kind, mode, projectId, send]);
 
   const connect = useCallback(() => {
     if (disposedRef.current) return;
@@ -157,9 +171,12 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       retriesRef.current = 0;
       setError(null);
       setStatus("connected");
-      const sessionId = sessionRef.current;
-      if (sessionId) send({ type: "terminal.attach", sessionId });
-      else createSession();
+      // Always resolve the stable runtime ID after a socket opens.  Attaching a
+      // remembered session ID works while this server process is alive, but it
+      // cannot recreate its local tmux client after the server itself restarted.
+      // `terminal.create` is idempotent for a runtime ID: it either reconnects
+      // the existing PTY or attaches a new client to the same tmux runtime.
+      createSession();
       heartbeatRef.current = window.setInterval(() => send({ type: "terminal.ping" }), 25_000);
     };
     socket.onmessage = (event) => {
@@ -168,15 +185,15 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       const terminal = terminalRef.current;
       if (message.type === "terminal.created") {
         sessionRef.current = message.sessionId;
-        storeSession(storageKey, message.sessionId);
         setCwd(message.cwd);
+        setStatus(message.status === "running" ? "connected" : message.status === "interrupted" ? "interrupted" : "exited");
         send({ type: "terminal.attach", sessionId: message.sessionId });
         resize();
       } else if (message.type === "terminal.snapshot" && terminal) {
         sessionRef.current = message.sessionId;
-        storeSession(storageKey, message.sessionId);
         sequenceRef.current = message.sequence;
         setCwd(message.cwd);
+        setStatus(message.status === "running" ? "connected" : message.status === "interrupted" ? "interrupted" : "exited");
         terminal.write("\x1bc");
         terminal.write(message.history);
         resize();
@@ -192,7 +209,6 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       } else if (message.type === "terminal.error") {
         if (message.code === "SESSION_NOT_FOUND") {
           sessionRef.current = null;
-          storeSession(storageKey, null);
           createSession();
           return;
         }
@@ -211,7 +227,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
     };
     socket.onerror = () => socket.close();
-  }, [createSession, resize, send, storageKey]);
+  }, [createSession, resize, send]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -230,7 +246,20 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     terminal.loadAddon(fit);
     terminal.open(mount);
     terminal.attachCustomKeyEventHandler((event) => {
-      if (event.type !== "keydown" || event.ctrlKey || event.metaKey || event.altKey) return true;
+      if (event.type !== "keydown") return true;
+      const clipboardAction = terminalClipboardAction(event);
+      if (clipboardAction === "paste") return true;
+      if (clipboardAction === "copy") {
+        const selection = terminal.getSelection();
+        if (!selection) {
+          setError("Wähle zuerst Text im Terminal aus.");
+          return false;
+        }
+        if (copyDocumentSelectionFallback()) setError(null);
+        else void writeClipboardText(selection).then(() => setError(null)).catch((copyError) => setError(copyError instanceof Error ? copyError.message : "Kopieren wurde vom Browser nicht erlaubt."));
+        return false;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return true;
       const sessionId = sessionRef.current;
       if (!sessionId) return true;
       if (event.key === "Backspace") { send({ type: "terminal.input", sessionId, data: "\x7f" }); return false; }
@@ -241,7 +270,13 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     fitRef.current = fit;
     const input = terminal.onData((data) => {
       const sessionId = sessionRef.current;
-      if (sessionId) send({ type: "terminal.input", sessionId, data });
+      if (!sessionId) return;
+      for (const chunk of splitTerminalInput(data)) {
+        if (!send({ type: "terminal.input", sessionId, data: chunk })) {
+          setError("Die Terminaleingabe konnte nicht vollständig gesendet werden.");
+          break;
+        }
+      }
     });
     const observer = new ResizeObserver(() => {
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
@@ -257,22 +292,21 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       const text = event.clipboardData?.getData("text/plain");
       if (!text) return;
       event.preventDefault();
-      if (text.length > 10_000 && !window.confirm("Der einzufügende Text ist sehr groß. Trotzdem einfügen?")) return;
-      const sessionId = sessionRef.current;
-      if (sessionId) send({ type: "terminal.input", sessionId, data: text });
+      event.stopPropagation();
+      receivePastedText(text);
     };
-    mount.addEventListener("paste", onPaste);
+    mount.addEventListener("paste", onPaste, { capture: true });
     connect();
     return () => {
       disposedRef.current = true;
-      input.dispose(); observer.disconnect(); themes.disconnect(); mount.removeEventListener("paste", onPaste);
+      input.dispose(); observer.disconnect(); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true });
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
       if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
       socketRef.current?.close(); terminal.dispose();
       socketRef.current = null; terminalRef.current = null; fitRef.current = null;
     };
-  }, [connect, resize, send]);
+  }, [connect, receivePastedText, resize, send]);
 
   useEffect(() => { if (active) window.setTimeout(resize, 0); }, [active, resize]);
 
@@ -282,14 +316,13 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     send({ type, sessionId });
     if (type === "terminal.close") {
       sessionRef.current = null;
-      storeSession(storageKey, null);
       setStatus("exited");
     } else if (type === "terminal.restart") {
       sequenceRef.current = 0;
       terminalRef.current?.write("\x1bc");
       setStatus("connected");
     }
-  }, [send, storageKey]);
+  }, [send]);
 
   useImperativeHandle(ref, () => ({
     clear: () => action("terminal.clear"),
@@ -311,9 +344,8 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   const pasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const sessionId = sessionRef.current;
-      if (text && sessionId) send({ type: "terminal.input", sessionId, data: text });
-    } catch { terminalRef.current?.focus(); }
+      receivePastedText(text);
+    } catch { setError("Einfügen wurde vom Browser nicht erlaubt. Nutze die Browser-Berechtigung für die Zwischenablage."); terminalRef.current?.focus(); }
   };
 
   return (
@@ -329,6 +361,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
           <button type="button" onClick={() => terminalRef.current?.focus()} aria-label="Terminal fokussieren"><SendHorizontal className="h-4 w-4" /></button>
         </div>
       ) : null}
+      <ConfirmDialog open={pendingPaste !== null} title="Großen Text einfügen?" description={`Der Inhalt umfasst ${pendingPaste?.length.toLocaleString("de-DE") ?? 0} Zeichen. Prüfe vorher, ob dadurch unbeabsichtigt Befehle ausgeführt werden könnten.`} confirmLabel="Trotzdem einfügen" onConfirm={() => { if (pendingPaste) pasteIntoTerminal(pendingPaste); setPendingPaste(null); }} onClose={() => { setPendingPaste(null); terminalRef.current?.focus(); }} />
     </section>
   );
 });

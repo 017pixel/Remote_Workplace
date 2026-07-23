@@ -6,15 +6,28 @@ const dimensions = z.object({
   height: z.number().int().min(220).max(1_600),
 });
 const modifiers = z.array(z.enum(["Alt", "Control", "Meta", "Shift"])).max(4).default([]);
+const browserUrl = z.union([z.literal("about:blank"), z.url().refine((value) => ["http:", "https:"].includes(new URL(value).protocol))]);
+export const BROWSER_CLIPBOARD_MAX_BYTES = 1_048_576;
+const browserClipboardText = z.string().min(1).max(BROWSER_CLIPBOARD_MAX_BYTES).refine(
+  (value) => Buffer.byteLength(value, "utf8") <= BROWSER_CLIPBOARD_MAX_BYTES,
+  "Clipboard text exceeds 1 MiB.",
+);
 
 export const clientBrowserMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("browser.create"), requestId: z.string().min(1).max(128), instanceId: z.string().min(1).max(100), ...dimensions.shape }),
+  z.object({
+    type: z.literal("browser.create"),
+    requestId: z.string().min(1).max(128),
+    instanceId: z.string().regex(/^[a-zA-Z0-9._:-]+$/).min(1).max(120),
+    profileKey: z.string().regex(/^[a-zA-Z0-9._:-]+$/).min(1).max(120).optional(),
+    initialUrl: browserUrl.optional(),
+    ...dimensions.shape,
+  }),
   z.object({ type: z.literal("browser.attach"), sessionId: browserSessionId, ...dimensions.shape }),
   z.object({ type: z.literal("browser.resize"), sessionId: browserSessionId, ...dimensions.shape }),
   z.object({
     type: z.literal("browser.navigate"),
     sessionId: browserSessionId,
-    url: z.union([z.literal("about:blank"), z.url().refine((value) => ["http:", "https:"].includes(new URL(value).protocol))]),
+    url: browserUrl,
   }),
   z.object({ type: z.literal("browser.reload"), sessionId: browserSessionId }),
   z.object({ type: z.literal("browser.back"), sessionId: browserSessionId }),
@@ -32,7 +45,8 @@ export const clientBrowserMessageSchema = z.discriminatedUnion("type", [
     deltaX: z.number().finite().min(-10_000).max(10_000), deltaY: z.number().finite().min(-10_000).max(10_000),
   }),
   z.object({ type: z.literal("browser.key"), sessionId: browserSessionId, key: z.string().min(1).max(40), code: z.string().max(40), modifiers }),
-  z.object({ type: z.literal("browser.text"), sessionId: browserSessionId, text: z.string().min(1).max(65_536) }),
+  z.object({ type: z.literal("browser.text"), sessionId: browserSessionId, text: browserClipboardText }),
+  z.object({ type: z.literal("browser.copy"), sessionId: browserSessionId, requestId: z.string().min(1).max(128) }),
   z.object({ type: z.literal("browser.screenshot"), sessionId: browserSessionId }),
   z.object({ type: z.literal("browser.source"), sessionId: browserSessionId }),
   z.object({ type: z.literal("browser.close"), sessionId: browserSessionId }),
@@ -50,6 +64,7 @@ export type ServerBrowserMessage =
   | { type: "browser.frame"; sessionId: string; data: string; width: number; height: number }
   | { type: "browser.screenshot"; sessionId: string; data: string }
   | { type: "browser.source"; sessionId: string; source: string; url: string }
+  | { type: "browser.clipboard"; sessionId: string; requestId: string; text: string | null; error: string | null }
   | { type: "browser.closed"; sessionId: string }
   | { type: "browser.error"; sessionId?: string; code: BrowserErrorCode; message: string }
   | { type: "browser.pong" };

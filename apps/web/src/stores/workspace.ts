@@ -14,8 +14,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { generateId } from "../lib/id";
 
-export const WORKSPACE_STORAGE_KEY = "benjamin-dev-workbench.workspace.v2";
-export const LEGACY_WORKSPACE_STORAGE_KEY = "benjamin-dev-workbench.workspace.v1";
+export const WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v2";
+export const LEGACY_WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v1";
 
 const DEFAULT_WORKSPACE_ID = "workspace-default";
 const DEFAULT_GROUP_ID = "group-default";

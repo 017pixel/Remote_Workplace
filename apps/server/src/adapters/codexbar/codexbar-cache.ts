@@ -32,9 +32,10 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
   let pending: Promise<UsageResponse> | undefined;
 
   const refresh = async (): Promise<UsageResponse> => {
-    const [codex, opencode] = await Promise.allSettled([
+    const [codex, opencode, claude] = await Promise.allSettled([
       options.client.getUsage("codex"),
       options.client.getUsage("opencodego"),
+      options.client.getUsage("claude"),
     ]);
     const codexPayloads = codex.status === "fulfilled"
       ? await enrichCodexPrimaryWindow(codex.value, options.primaryWindowFallback)
@@ -46,6 +47,9 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
       opencode.status === "fulfilled"
         ? normalizeProviderUsage("opencode", opencode.value)
         : unavailableUsage("opencode", errorCode(opencode.reason), "CodexBar ist für OpenCode Go momentan nicht erreichbar."),
+      claude.status === "fulfilled"
+        ? normalizeProviderUsage("claude", claude.value)
+        : unavailableUsage("claude", errorCode(claude.reason), "CodexBar ist für Claude Code momentan nicht erreichbar."),
     ];
     if (providers.every((provider) => provider.status === "unavailable")) {
       throw new CodexbarError("CODEXBAR_UNAVAILABLE", "CodexBar ist momentan nicht erreichbar.");
@@ -77,6 +81,7 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
             providers: [
               unavailableUsage("codex", code, "CodexBar ist momentan nicht erreichbar."),
               unavailableUsage("opencode", code, "CodexBar ist momentan nicht erreichbar."),
+              unavailableUsage("claude", code, "CodexBar ist momentan nicht erreichbar."),
             ],
             fetchedAt: now,
             lastSuccessfulFetchAt: null,

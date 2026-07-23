@@ -1,16 +1,24 @@
 import { codexbarCostResponseSchema, codexbarUsageResponseSchema, type CodexbarCostPayload, type CodexbarPayload } from "./codexbar-schemas.js";
 import { CodexbarError } from "./codexbar-errors.js";
 import { execa } from "execa";
+import { z } from "zod";
 
-export type CodexbarProvider = "codex" | "opencodego";
+export type CodexbarProvider = "codex" | "opencodego" | "claude";
 
 interface CodexbarClientOptions {
   baseUrl: string;
   timeoutMilliseconds: number;
   fetchImplementation?: typeof fetch;
   cliPath?: string;
+  claudeCliPath?: string;
   configPath?: string;
 }
+
+const claudeAuthStatusSchema = z.object({
+  loggedIn: z.boolean(),
+  email: z.string().email().optional(),
+  subscriptionType: z.string().min(1).optional(),
+});
 
 export class CodexbarClient {
   private readonly fetchImplementation: typeof fetch;
@@ -20,6 +28,10 @@ export class CodexbarClient {
   }
 
   async getUsage(provider: CodexbarProvider): Promise<CodexbarPayload[]> {
+    if (provider === "claude" && this.options.cliPath) {
+      const payloads = await this.getClaudeUsage();
+      return this.enrichClaudeIdentity(payloads);
+    }
     if (provider === "codex" && this.options.cliPath) {
       try {
         const payloads = await this.getFromCli(
@@ -33,16 +45,73 @@ export class CodexbarClient {
         return this.get("/usage", provider, codexbarUsageResponseSchema);
       }
     }
+    let payloads: CodexbarPayload[];
     try {
-      return await this.get("/usage", provider, codexbarUsageResponseSchema);
+      payloads = await this.get("/usage", provider, codexbarUsageResponseSchema);
     } catch (httpError) {
       if (!this.options.cliPath) throw httpError;
-      return this.getFromCli(
-        ["usage", "--provider", provider, "--format", "json"],
+      return this.getUsageFromCli(provider);
+    }
+    if (payloads.some(hasUsableUsage) || !this.options.cliPath) return payloads;
+    return this.getUsageFromCli(provider);
+  }
+
+  private async getClaudeUsage(): Promise<CodexbarPayload[]> {
+    try {
+      return await this.getFromCli(
+        ["usage", "--provider", "claude", "--source", "oauth", "--format", "json"],
         codexbarUsageResponseSchema,
-        "CodexBar konnte die Nutzungsdaten weder über den lokalen Dienst noch direkt über die CLI laden.",
+        "CodexBar konnte die Claude-Code-Limits nicht über OAuth laden.",
+      );
+    } catch {
+      return this.getFromCli(
+        ["usage", "--provider", "claude", "--source", "cli", "--format", "json"],
+        codexbarUsageResponseSchema,
+        "CodexBar konnte die Claude-Code-Limits weder über OAuth noch über die lokale CLI laden.",
       );
     }
+  }
+
+  private async enrichClaudeIdentity(payloads: CodexbarPayload[]): Promise<CodexbarPayload[]> {
+    if (!this.options.claudeCliPath) return payloads;
+    try {
+      const result = await execa(this.options.claudeCliPath, ["auth", "status", "--json"], {
+        timeout: this.options.timeoutMilliseconds,
+        reject: false,
+      });
+      const status = claudeAuthStatusSchema.safeParse(JSON.parse(result.stdout));
+      if (!status.success || !status.data.loggedIn) return payloads;
+      return payloads.map((payload) => {
+        if (!payload.usage) return payload;
+        const accountEmail = payload.usage.accountEmail ?? status.data.email;
+        const loginMethod = payload.usage.loginMethod
+          ?? payload.usage.identity?.loginMethod
+          ?? (status.data.subscriptionType ? `Claude ${status.data.subscriptionType}` : undefined);
+        return {
+          ...payload,
+          usage: {
+            ...payload.usage,
+            ...(accountEmail ? { accountEmail } : {}),
+            ...(loginMethod ? { loginMethod } : {}),
+            identity: {
+              ...payload.usage.identity,
+              ...(accountEmail ? { accountEmail } : {}),
+              ...(loginMethod ? { loginMethod } : {}),
+            },
+          },
+        };
+      });
+    } catch {
+      return payloads;
+    }
+  }
+
+  private getUsageFromCli(provider: CodexbarProvider): Promise<CodexbarPayload[]> {
+    return this.getFromCli(
+      ["usage", "--provider", provider, "--format", "json"],
+      codexbarUsageResponseSchema,
+      "CodexBar konnte die Nutzungsdaten weder über den lokalen Dienst noch direkt über die CLI laden.",
+    );
   }
 
   async getCost(provider: CodexbarProvider): Promise<CodexbarCostPayload[]> {
@@ -119,4 +188,9 @@ export class CodexbarClient {
       clearTimeout(timeout);
     }
   }
+}
+
+function hasUsableUsage(payload: CodexbarPayload): boolean {
+  return [payload.usage?.primary, payload.usage?.secondary, payload.usage?.tertiary]
+    .some((window) => window?.usedPercent !== undefined);
 }

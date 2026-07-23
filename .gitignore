@@ -8,8 +8,17 @@ data/
 .env.local
 .env.*.local
 config/*.local.json
+config/workbench.local.json
+config/code-server.yaml
 deploy/backups/
+deploy/systemd/generated/
 !.gitkeep
+
+# Persönliche Arbeits-/Planungsartefakte (nicht Teil des Projekts)
+memory/
+handoffs/
+HTML visualisierte Pläne/
+.proxy/
 .DS_Store
 .idea/
 .vscode/

@@ -13,13 +13,13 @@ const legacy: Workspace = {
 };
 
 beforeEach(() => {
-  useOrbitStore.setState({ document: freshOrbitWorkspace(), revision: 0, updatedAt: null, hydrated: true, dirty: false, saving: false, syncError: null });
+  useOrbitStore.setState({ document: freshOrbitWorkspace(), revision: 0, updatedAt: null, hydrated: true, dirty: false, saving: false, syncError: null, syncNotice: null });
 });
 
 describe("Orbit store", () => {
   it("migrates project-bound v3 panels into hubs, tool nodes and edges", () => {
     const migrated = migrateWorkspaceToOrbit(legacy);
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(migrated.boards[0]!.nodes.map((node) => node.type)).toEqual(["project", "tool"]);
     expect(migrated.boards[0]!.edges).toHaveLength(1);
     expect(migrated.boards[0]!.nodes[1]).toMatchObject({ runtimeId: "terminal-one", projectId: "remote-workplace" });
@@ -35,6 +35,12 @@ describe("Orbit store", () => {
     expect(useOrbitStore.getState().document.boards[0]!.nodes.find((node) => node.id === noteId)?.content).toBe("Gespeichert");
     useOrbitStore.getState().assignProject(noteId!, null);
     expect(useOrbitStore.getState().document.boards[0]!.edges).toHaveLength(0);
+  });
+
+  it("creates a standalone gallery node with its large default size", () => {
+    const id = useOrbitStore.getState().addNode({ type: "gallery", title: "Mediengalerie", position: { x: 0, y: 0 } });
+    const node = useOrbitStore.getState().document.boards[0]!.nodes.find((candidate) => candidate.id === id);
+    expect(node).toMatchObject({ type: "gallery", toolType: null, runtimeId: null, size: { width: 960, height: 680 } });
   });
 
   it("does not overwrite edits created while an older autosave is in flight", () => {

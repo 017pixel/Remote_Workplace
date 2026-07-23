@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const SIDEBAR_LAYOUT_STORAGE_KEY = "benjamin-dev-workbench.sidebar.v1";
+const SIDEBAR_LAYOUT_STORAGE_KEY = "remote-workplace.sidebar.v1";
 const MIN_SIDEBAR_WIDTH = 208;
 const MAX_SIDEBAR_WIDTH = 360;
 const DEFAULT_SIDEBAR_WIDTH = 256;

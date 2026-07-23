@@ -13,6 +13,7 @@ const previewConfigSchema = z.object({
   name: z.string().min(1),
   url: privatePublicUrlSchema,
   mode: serviceModeSchema.default("hybrid"),
+  runtime: z.enum(["iframe", "shared-browser"]).default("shared-browser"),
 });
 
 export const projectsConfigSchema = z.object({
@@ -63,4 +64,3 @@ export const commandsConfigSchema = z.object({
 export type ProjectsConfig = z.infer<typeof projectsConfigSchema>;
 export type ServicesConfig = z.infer<typeof servicesConfigSchema>;
 export type ServiceConfig = ServicesConfig["services"][number];
-

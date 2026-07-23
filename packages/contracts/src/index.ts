@@ -20,6 +20,7 @@ export const apiErrorSchema = z.object({
 export const healthResponseSchema = z.object({
   status: z.literal("ok"),
   version: z.string().min(1),
+  appName: z.string().min(1),
   timestamp: isoDateSchema,
 });
 
@@ -95,6 +96,7 @@ export const previewSchema = z.object({
   name: z.string().min(1),
   url: z.url(),
   mode: serviceModeSchema,
+  runtime: z.enum(["iframe", "shared-browser"]).default("shared-browser"),
 });
 
 export const projectAvailabilitySchema = z.enum([
@@ -104,6 +106,13 @@ export const projectAvailabilitySchema = z.enum([
   "symlink",
 ]);
 
+export const projectActivitySchema = z.object({
+  lastWorkbenchUseAt: isoDateSchema.nullable(),
+  lastFilesystemChangeAt: isoDateSchema.nullable(),
+  lastGitCommitAt: isoDateSchema.nullable(),
+  effectiveAt: isoDateSchema.nullable(),
+});
+
 export const projectSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   name: z.string().min(1),
@@ -112,6 +121,7 @@ export const projectSchema = z.object({
   enabled: z.boolean(),
   sortOrder: z.number().int(),
   availability: projectAvailabilitySchema,
+  activity: projectActivitySchema,
   previews: z.array(previewSchema),
   links: z.object({
     t3Code: z.url().nullable(),
@@ -119,8 +129,37 @@ export const projectSchema = z.object({
   }),
 });
 
-export const projectsResponseSchema = z.object({ projects: z.array(projectSchema) });
+export const projectsResponseSchema = z.object({
+  projects: z.array(projectSchema),
+  recentLimit: z.number().int().min(3).max(20).default(8),
+});
 export const projectResponseSchema = z.object({ project: projectSchema });
+export const projectActivityTouchResponseSchema = z.object({
+  projectId: z.string().min(1),
+  lastUsedAt: isoDateSchema,
+});
+
+export const filesystemEntrySchema = z.object({
+  name: z.string().min(1),
+  path: z.string().startsWith("/"),
+  kind: z.enum(["directory", "file", "symlink", "other"]),
+  sizeBytes: z.number().int().nonnegative().nullable(),
+  modifiedAt: isoDateSchema.nullable(),
+  readable: z.boolean(),
+});
+export const filesystemTreeResponseSchema = z.object({
+  root: z.string().startsWith("/"),
+  path: z.string().startsWith("/"),
+  entries: z.array(filesystemEntrySchema),
+  nextCursor: z.string().min(1).nullable(),
+});
+export const registerProjectRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+});
+export const registerProjectResponseSchema = z.object({
+  project: projectSchema,
+  created: z.boolean(),
+});
 
 export const commandSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -148,7 +187,7 @@ export const accountUsageSchema = z.object({
 });
 
 export const providerUsageSchema = z.object({
-  providerId: z.enum(["codex", "opencode"]),
+  providerId: z.enum(["codex", "opencode", "claude"]),
   providerName: z.string().min(1),
   status: z.enum(["available", "partial", "unavailable"]),
   updatedAt: isoDateSchema.nullable(),
@@ -163,7 +202,7 @@ export const usageResponseSchema = z.object({
   cached: z.boolean(),
 });
 
-export const usageProviderIdSchema = z.enum(["codex", "opencode"]);
+export const usageProviderIdSchema = z.enum(["codex", "opencode", "claude"]);
 export const usageRangeSchema = z.enum(["7d", "30d", "90d", "365d"]);
 export const usageDailyPointSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -256,7 +295,7 @@ export const updateAccountRequestSchema = z.object({
 export const accountResponseSchema = z.object({ account: managedAccountSchema });
 export const loginSessionResponseSchema = z.object({
   account: managedAccountSchema,
-  terminalKind: z.enum(["codex", "opencode"]),
+  terminalKind: z.enum(["codex", "opencode", "claude"]),
   command: z.string().min(1),
 });
 
@@ -266,7 +305,53 @@ export const WORKBENCH_LIMITS = {
   maxWorkspaces: 8,
 } as const;
 
-export const terminalKindSchema = z.enum(["shell", "codex", "opencode"]);
+export const terminalKindSchema = z.enum(["shell", "codex", "opencode", "claude"]);
+export const terminalSessionStatusSchema = z.enum(["starting", "running", "exited", "interrupted", "closed"]);
+export const terminalSessionSchema = z.object({
+  id: z.string().uuid(),
+  runtimeId: z.string().uuid(),
+  kind: terminalKindSchema,
+  mode: z.enum(["agent", "login"]),
+  projectId: z.string().nullable(),
+  cwd: z.string().startsWith("/"),
+  pid: z.number().int().nonnegative(),
+  cols: z.number().int().min(2).max(500),
+  rows: z.number().int().min(1).max(300),
+  status: terminalSessionStatusSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+  exitCode: z.number().int().nullable(),
+  exitSignal: z.number().int().nullable(),
+  supervisor: z.enum(["tmux", "direct"]),
+  managed: z.boolean(),
+  connectedClients: z.number().int().nonnegative(),
+});
+export const terminalSessionsResponseSchema = z.object({ sessions: z.array(terminalSessionSchema), updatedAt: isoDateSchema });
+export const terminalTabSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().nullable(),
+  kind: terminalKindSchema,
+});
+export const terminalAreaSchema = z.object({
+  id: z.string().min(1).max(160),
+  tabs: z.array(terminalTabSchema).max(5),
+  activeTabId: z.string().uuid().nullable(),
+  splitTabId: z.string().uuid().nullable(),
+  splitSizes: z.tuple([z.number().min(20).max(80), z.number().min(20).max(80)]),
+});
+export const terminalWorkspaceSchema = z.object({
+  version: z.literal(1),
+  areas: z.record(z.string(), terminalAreaSchema),
+});
+export const terminalWorkspaceResponseSchema = z.object({
+  document: terminalWorkspaceSchema,
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoDateSchema,
+});
+export const saveTerminalWorkspaceRequestSchema = z.object({
+  document: terminalWorkspaceSchema,
+  expectedRevision: z.number().int().nonnegative().nullable(),
+});
 export const panelTypeSchema = z.enum(["t3-code", "code-server", "preview", "browser", "terminal", "codex", "opencode"]);
 export const panelSchema = z.object({
   id: z.string().min(1),
@@ -364,6 +449,11 @@ export const ORBIT_LIMITS = {
   maxDocumentBytes: 4 * 1024 * 1024,
 } as const;
 
+export const ORBIT_ASSET_LIMITS = {
+  maxFileBytes: 100 * 1024 * 1024,
+  maxTotalBytes: 50 * 1024 * 1024 * 1024,
+} as const;
+
 export const orbitNodeTypeSchema = z.enum([
   "project",
   "tool",
@@ -371,6 +461,9 @@ export const orbitNodeTypeSchema = z.enum([
   "todo",
   "snippet",
   "file",
+  "asset",
+  "gallery",
+  "fileGallery",
   "frame",
   "usage",
 ]);
@@ -403,6 +496,9 @@ export const orbitNodeSchema = z.object({
   runtimeId: z.string().max(100).nullable(),
   toolType: panelTypeSchema.nullable(),
   previewId: z.string().max(120).nullable(),
+  assetId: z.string().uuid().nullable().default(null),
+  assetMimeType: z.string().max(160).nullable().default(null),
+  assetBytes: z.number().int().nonnegative().nullable().default(null),
   provider: usageProviderIdSchema.nullable(),
   content: z.string().max(200_000),
   language: z.string().trim().max(40).nullable(),
@@ -417,6 +513,12 @@ export const orbitNodeSchema = z.object({
   }
   if (node.type === "usage" && node.provider === null) {
     context.addIssue({ code: "custom", message: "Nutzungsknoten benötigen einen Provider." });
+  }
+  if (node.type === "asset" && (node.assetId === null || node.assetMimeType === null || node.assetBytes === null)) {
+    context.addIssue({ code: "custom", message: "Medienknoten benötigen vollständige Asset-Metadaten." });
+  }
+  if (node.type !== "asset" && (node.assetId !== null || node.assetMimeType !== null || node.assetBytes !== null)) {
+    context.addIssue({ code: "custom", message: "Nur Medienknoten dürfen Asset-Metadaten besitzen." });
   }
 });
 
@@ -460,7 +562,7 @@ export const orbitBoardSchema = z.object({
 });
 
 export const orbitWorkspaceSchema = z.object({
-  version: z.literal(4),
+  version: z.literal(5),
   activeBoardId: z.string().min(1).max(100),
   focusedNodeId: z.string().max(100).nullable(),
   boards: z.array(orbitBoardSchema).min(1).max(ORBIT_LIMITS.maxBoards),
@@ -487,6 +589,50 @@ export const orbitDocumentResponseSchema = z.object({
 export const saveOrbitDocumentRequestSchema = z.object({
   document: orbitWorkspaceSchema,
   expectedRevision: z.number().int().nonnegative().nullable(),
+});
+
+export const orbitAssetSchema = z.object({
+  id: z.string().uuid(),
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(160),
+  bytes: z.number().int().nonnegative(),
+  createdAt: isoDateSchema,
+  folderId: z.string().uuid().nullable().default(null),
+});
+export const orbitAssetResponseSchema = z.object({ asset: orbitAssetSchema });
+export const orbitAssetListResponseSchema = z.object({
+  assets: z.array(orbitAssetSchema),
+  nextCursor: z.string().min(1).nullable(),
+});
+
+export const galleryFolderSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1).max(120),
+  createdAt: isoDateSchema,
+  fileCount: z.number().int().nonnegative().default(0),
+});
+export const galleryFolderResponseSchema = z.object({ folder: galleryFolderSchema });
+export const galleryFolderListResponseSchema = z.object({
+  folders: z.array(galleryFolderSchema),
+});
+export const createGalleryFolderRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export const updateGalleryFolderRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export const updateGalleryFileRequestSchema = z.object({
+  filename: z.string().trim().min(1).max(255).optional(),
+  folderId: z.string().uuid().nullable().optional(),
+});
+
+// Die Dateigalerie teilt sich das Metadaten-Format mit den Orbit-Assets
+// (Mediengalerie). Eigene Alias-Namen halten die API-Semantik lesbar.
+export const galleryFileSchema = orbitAssetSchema;
+export const galleryFileResponseSchema = z.object({ file: galleryFileSchema });
+export const galleryFileListResponseSchema = z.object({
+  files: z.array(galleryFileSchema),
+  nextCursor: z.string().min(1).nullable(),
 });
 
 export const createProjectFileRequestSchema = z.object({
@@ -530,7 +676,8 @@ export const newsCollectionResponseSchema = z.object({ collection: newsCollectio
 export const saveNewsItemRequestSchema = z.object({ collectionIds: z.array(z.string().uuid()).max(20) });
 export const markNewsReadRequestSchema = z.object({ read: z.boolean() });
 export const newsSyncResponseSchema = z.object({ accepted: z.boolean(), running: z.boolean() });
-export const newsChatRequestSchema = z.object({ question: z.string().trim().min(2).max(2_000), itemId: z.string().uuid().nullable().default(null) });
+export const newsChatMessageSchema = z.object({ question: z.string().trim().min(1).max(2_000), answer: z.string().trim().min(1).max(8_000) });
+export const newsChatRequestSchema = z.object({ question: z.string().trim().min(2).max(2_000), itemId: z.string().uuid().nullable().default(null), history: z.array(newsChatMessageSchema).max(10).default([]) });
 export const newsCitationSchema = z.object({ itemId: z.string().uuid(), title: z.string().min(1), url: z.url(), excerpt: z.string() });
 export const newsChatResponseSchema = z.object({ answer: z.string().min(1), citations: z.array(newsCitationSchema), model: z.string().min(1), grounded: z.boolean() });
 
@@ -545,8 +692,14 @@ export type LocalPort = z.infer<typeof localPortSchema>;
 export type LocalPortsResponse = z.infer<typeof localPortsResponseSchema>;
 export type Preview = z.infer<typeof previewSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectActivity = z.infer<typeof projectActivitySchema>;
 export type ProjectsResponse = z.infer<typeof projectsResponseSchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
+export type ProjectActivityTouchResponse = z.infer<typeof projectActivityTouchResponseSchema>;
+export type FilesystemEntry = z.infer<typeof filesystemEntrySchema>;
+export type FilesystemTreeResponse = z.infer<typeof filesystemTreeResponseSchema>;
+export type RegisterProjectRequest = z.infer<typeof registerProjectRequestSchema>;
+export type RegisterProjectResponse = z.infer<typeof registerProjectResponseSchema>;
 export type CommandReference = z.infer<typeof commandSchema>;
 export type CommandsResponse = z.infer<typeof commandsResponseSchema>;
 export type UsageWindow = z.infer<typeof usageWindowSchema>;
@@ -569,6 +722,14 @@ export type UpdateAccountRequest = z.infer<typeof updateAccountRequestSchema>;
 export type AccountResponse = z.infer<typeof accountResponseSchema>;
 export type LoginSessionResponse = z.infer<typeof loginSessionResponseSchema>;
 export type TerminalKind = z.infer<typeof terminalKindSchema>;
+export type TerminalSessionStatus = z.infer<typeof terminalSessionStatusSchema>;
+export type TerminalSession = z.infer<typeof terminalSessionSchema>;
+export type TerminalSessionsResponse = z.infer<typeof terminalSessionsResponseSchema>;
+export type TerminalTab = z.infer<typeof terminalTabSchema>;
+export type TerminalArea = z.infer<typeof terminalAreaSchema>;
+export type TerminalWorkspace = z.infer<typeof terminalWorkspaceSchema>;
+export type TerminalWorkspaceResponse = z.infer<typeof terminalWorkspaceResponseSchema>;
+export type SaveTerminalWorkspaceRequest = z.infer<typeof saveTerminalWorkspaceRequestSchema>;
 export type Panel = z.infer<typeof panelSchema>;
 export type PanelType = z.infer<typeof panelTypeSchema>;
 export type WorkbenchGroup = z.infer<typeof workbenchGroupSchema>;
@@ -586,6 +747,18 @@ export type OrbitBoard = z.infer<typeof orbitBoardSchema>;
 export type OrbitWorkspace = z.infer<typeof orbitWorkspaceSchema>;
 export type OrbitDocumentResponse = z.infer<typeof orbitDocumentResponseSchema>;
 export type SaveOrbitDocumentRequest = z.infer<typeof saveOrbitDocumentRequestSchema>;
+export type OrbitAsset = z.infer<typeof orbitAssetSchema>;
+export type OrbitAssetResponse = z.infer<typeof orbitAssetResponseSchema>;
+export type OrbitAssetListResponse = z.infer<typeof orbitAssetListResponseSchema>;
+export type GalleryFolder = z.infer<typeof galleryFolderSchema>;
+export type GalleryFolderResponse = z.infer<typeof galleryFolderResponseSchema>;
+export type GalleryFolderListResponse = z.infer<typeof galleryFolderListResponseSchema>;
+export type CreateGalleryFolderRequest = z.infer<typeof createGalleryFolderRequestSchema>;
+export type UpdateGalleryFolderRequest = z.infer<typeof updateGalleryFolderRequestSchema>;
+export type UpdateGalleryFileRequest = z.infer<typeof updateGalleryFileRequestSchema>;
+export type GalleryFile = z.infer<typeof galleryFileSchema>;
+export type GalleryFileResponse = z.infer<typeof galleryFileResponseSchema>;
+export type GalleryFileListResponse = z.infer<typeof galleryFileListResponseSchema>;
 export type CreateProjectFileRequest = z.infer<typeof createProjectFileRequestSchema>;
 export type ProjectFileResponse = z.infer<typeof projectFileResponseSchema>;
 export type NewsCategory = z.infer<typeof newsCategorySchema>;
@@ -598,6 +771,7 @@ export type NewsCollection = z.infer<typeof newsCollectionSchema>;
 export type CreateNewsCollectionRequest = z.infer<typeof createNewsCollectionRequestSchema>;
 export type SaveNewsItemRequest = z.infer<typeof saveNewsItemRequestSchema>;
 export type MarkNewsReadRequest = z.infer<typeof markNewsReadRequestSchema>;
+export type NewsChatMessage = z.infer<typeof newsChatMessageSchema>;
 export type NewsChatRequest = z.infer<typeof newsChatRequestSchema>;
 export type NewsCitation = z.infer<typeof newsCitationSchema>;
 export type NewsChatResponse = z.infer<typeof newsChatResponseSchema>;

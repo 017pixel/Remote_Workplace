@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const workbench = process.env.WORKBENCH_E2E_URL ?? "https://benjaminsserver.tail6494b7.ts.net:8443/workbench";
+const workbench = process.env.WORKBENCH_E2E_URL ?? "https://server-name.tailnet.ts.net:8443/workbench";
 
 test("renders usage analytics, charts and account discovery", async ({page}) => {
   const errors: string[] = [];
@@ -8,6 +8,7 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   await page.goto(`${workbench}/usage`);
   await expect(page.getByRole("heading", {name:"Nutzung und Limits"})).toBeVisible();
   await expect(page.getByText("Tokens heute")).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Claude Code"})).toBeVisible();
   await page.getByRole("button", {name:"Verlauf"}).click();
   await expect(page.getByRole("img", {name:"Tokenverbrauch nach Tag"})).toBeVisible();
   await page.getByRole("button", {name:"Projekte & Modelle"}).click();
@@ -16,6 +17,8 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   await page.getByRole("button", {name:"Accounts"}).click();
   await expect(page.getByRole("heading", {name:"Account verbinden"})).toBeVisible();
   await expect(page.getByRole("heading", {name:"Profile und Verwaltung"})).toBeVisible();
+  await expect(page.getByRole("option", {name:"Claude Code"})).toBeAttached();
+  await expect(page.getByText("user@example.com").first()).toBeVisible();
   await expect(page.getByText(".codex", {exact:true}).first()).toBeVisible();
   await expect(page.getByRole("button", {name:"Mit Gerätecode anmelden"})).toBeVisible();
   await expect(page.getByRole("button", {name:"Entfernen"}).first()).toBeVisible();
@@ -39,9 +42,9 @@ test("starts Codex with the remote device login flow", async ({page, browserName
   test.skip(workbench.startsWith("http://127.0.0.1"), "The production PTY requires the Tailscale user identity.");
   await page.goto(`${workbench}/usage`);
   await page.getByRole("button", {name:"Accounts"}).click();
-  const workAccount = page.locator(".managed-account").filter({hasText:"b.becker@aisci.de"});
+  const workAccount = page.locator(".managed-account").filter({hasText:"work@example.com"});
   await workAccount.getByRole("button", {name:"Geräte-Anmeldung"}).click();
-  const dialog = page.getByRole("dialog", {name:"b.becker@aisci.de anmelden"});
+  const dialog = page.getByRole("dialog", {name:"work@example.com anmelden"});
   await expect(dialog).toContainText("keinen localhost-Rückruf");
   await expect(dialog.locator(".xterm-rows")).toContainText(/device|Gerät|Code/i, {timeout:15_000});
   await dialog.locator(".xterm-helper-textarea").press("Control+C");
@@ -52,15 +55,15 @@ test("starts Codex with the remote device login flow", async ({page, browserName
 test("removes a registered account from the unified account list", async ({page}) => {
   const accountId = "10000000-0000-4000-8000-000000000001";
   let removed = false;
-  const account = {id:accountId,provider:"codex",label:"Test Account",email:null,profilePath:"/home/bbecker/.codex-test",source:"local",enabled:true,createdAt:"2026-07-16T16:00:00.000Z",updatedAt:"2026-07-16T16:00:00.000Z"};
+  const account = {id:accountId,provider:"codex",label:"Test Account",email:null,profilePath:"/home/user/.codex-test",source:"local",enabled:true,createdAt:"2026-07-16T16:00:00.000Z",updatedAt:"2026-07-16T16:00:00.000Z"};
   await page.route("**/api/v1/accounts", async (route) => route.fulfill({json:{accounts:removed?[]:[account]}}));
-  await page.route("**/api/v1/accounts/discover", async (route) => route.fulfill({json:{accounts:removed?[]:[{accountId,provider:"codex",label:"Test Account",profilePath:"/home/bbecker/.codex-test",registered:true,authenticated:true,enabled:true,source:"local"}]}}));
+  await page.route("**/api/v1/accounts/discover", async (route) => route.fulfill({json:{accounts:removed?[]:[{accountId,provider:"codex",label:"Test Account",profilePath:"/home/user/.codex-test",registered:true,authenticated:true,enabled:true,source:"local"}]}}));
   await page.route(`**/api/v1/accounts/${accountId}`, async (route) => {removed=true;await route.fulfill({status:204});});
-  page.on("dialog", (dialog) => void dialog.accept());
   await page.goto(`${workbench}/usage`);
   await page.getByRole("button", {name:"Accounts"}).click();
   const card = page.locator(".managed-account").filter({hasText:"Test Account"});
   await card.getByRole("button", {name:"Entfernen"}).click();
+  await page.getByRole("dialog", {name:"Account entfernen?"}).getByRole("button", {name:"Account entfernen"}).click();
   await expect(card).toBeHidden();
   await expect(page.getByRole("status")).toContainText("wurde aus Workbench und CodexBar entfernt");
   expect(removed).toBe(true);

@@ -80,4 +80,29 @@ describe("normalizeProviderUsage", () => {
       expect.objectContaining({ email: "work@example.com", windows: [expect.objectContaining({ remainingPercent: 65 })] }),
     ]);
   });
+
+  it("normalizes Claude Code limits and the detected Pro account", () => {
+    const usage = normalizeProviderUsage("claude", [{
+      provider: "claude",
+      source: "oauth",
+      usage: {
+        accountEmail: "claude@example.com",
+        loginMethod: "Claude Pro",
+        updatedAt: "2026-07-22T07:35:45Z",
+        primary: { usedPercent: 25, windowMinutes: 300, resetsAt: "2026-07-22T12:30:00Z" },
+        secondary: { usedPercent: 40, windowMinutes: 10_080, resetsAt: "2026-07-25T15:00:00Z" },
+      },
+    }]);
+
+    expect(usage).toMatchObject({
+      providerId: "claude",
+      providerName: "Claude Code",
+      status: "available",
+      accounts: [{ email: "claude@example.com", plan: "Claude Pro" }],
+    });
+    expect(usage.accounts[0]?.windows).toEqual([
+      expect.objectContaining({ label: "5-Stunden-Limit", remainingPercent: 75 }),
+      expect.objectContaining({ label: "Wochenlimit", remainingPercent: 60 }),
+    ]);
+  });
 });

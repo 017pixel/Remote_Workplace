@@ -9,28 +9,59 @@ afterEach(async () => {
 
 describe("Workbench API", () => {
   it("returns a typed health response", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({ method: "GET", url: "/api/v1/health" });
     expect(response.statusCode).toBe(200);
     expect(response.headers["cache-control"]).toBe("no-store");
-    expect(response.json()).toMatchObject({ status: "ok", version: "0.20.0" });
+    expect(response.json()).toMatchObject({ status: "ok", version: "0.24.0" });
   });
 
   it("returns a validated Orbit document envelope", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({ method: "GET", url: "/api/v1/orbit" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       revision: expect.any(Number),
       initialized: expect.any(Boolean),
-      document: { version: 4, boards: expect.any(Array) },
+      document: { version: 5, boards: expect.any(Array) },
     });
   });
 
+  it("lists Orbit assets and rejects malformed archive cursors", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const list = await app.inject({ method: "GET", url: "/api/v1/orbit/assets?limit=2" });
+    expect(list.statusCode).toBe(200);
+    expect(list.json<{ assets: unknown[]; nextCursor: string | null }>().assets).toEqual(expect.any(Array));
+    expect(list.json<{ assets: unknown[]; nextCursor: string | null }>().nextCursor === null || typeof list.json<{ assets: unknown[]; nextCursor: string | null }>().nextCursor === "string").toBe(true);
+    const invalid = await app.inject({ method: "GET", url: "/api/v1/orbit/assets?cursor=not-a-cursor" });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toEqual({ error: { code: "ORBIT_ASSET_CURSOR_INVALID", message: "Der Archivcursor ist ungültig." } });
+  });
+
+  it("lists gallery files and rejects malformed file cursors", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const list = await app.inject({ method: "GET", url: "/api/v1/files?limit=2" });
+    expect(list.statusCode).toBe(200);
+    expect(list.json<{ files: unknown[]; nextCursor: string | null }>().files).toEqual(expect.any(Array));
+    const invalid = await app.inject({ method: "GET", url: "/api/v1/files?cursor=not-a-cursor" });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toEqual({ error: { code: "FILE_GALLERY_CURSOR_INVALID", message: "Der Cursor ist ungültig." } });
+  });
+
+  it("returns 404 for an unknown gallery file id", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const response = await app.inject({ method: "GET", url: "/api/v1/files/00000000-0000-4000-8000-000000000000" });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: { code: "FILE_GALLERY_NOT_FOUND", message: "Diese Datei wurde nicht gefunden." } });
+  });
+
   it("only resolves discovered or explicitly configured project IDs", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({ method: "GET", url: "/api/v1/projects/not-configured" });
     expect(response.statusCode).toBe(404);
@@ -40,7 +71,7 @@ describe("Workbench API", () => {
   });
 
   it("rejects traversal-shaped project identifiers", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({ method: "GET", url: "/api/v1/projects/%2e%2e%2fetc" });
     expect(response.statusCode).toBe(400);
@@ -50,7 +81,7 @@ describe("Workbench API", () => {
   });
 
   it("returns configured projects with server-derived availability", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({ method: "GET", url: "/api/v1/projects" });
     expect(response.statusCode).toBe(200);
@@ -65,7 +96,7 @@ describe("Workbench API", () => {
   });
 
   it("returns the typed Tech TLDRs feed and collection endpoints", async () => {
-    const app = await buildApp();
+    const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const feed = await app.inject({ method: "GET", url: "/api/v1/news?limit=2" });
     expect(feed.statusCode).toBe(200);

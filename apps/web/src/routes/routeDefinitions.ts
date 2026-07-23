@@ -10,6 +10,7 @@ export const routeDefinitions = [
   { id: "codex", path: "/codex", requiresProject: false },
   { id: "opencode", path: "/opencode", requiresProject: false },
   { id: "projects", path: "/projects", requiresProject: false },
+  { id: "gallery", path: "/gallery", requiresProject: false },
   { id: "usage", path: "/usage", requiresProject: false },
   { id: "settings", path: "/settings", requiresProject: false },
 ] as const;

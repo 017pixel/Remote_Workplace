@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorSmartphone, RotateCw, Smartphone, X } from "lucide-react";
 import type { Panel, Project, ServiceMode } from "@workbench/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
@@ -114,15 +115,18 @@ interface ToolPanelProps {
   onReload?: () => void;
   onClose?: () => void;
   minimal?: boolean;
+  actionPlacement?: "overlay" | "topbar" | "hidden";
 }
 
-export function ToolPanel({ panel, project, isFocused, codeServerMode = "external", onFocus, standalone = false, externalMaximized, onMaximizedChange, onReload, onClose, minimal = false }: ToolPanelProps) {
+export function ToolPanel({ panel, project, isFocused, codeServerMode = "external", onFocus, standalone = false, externalMaximized, onMaximizedChange, onReload, onClose, minimal = false, actionPlacement = "overlay" }: ToolPanelProps) {
   const reloadPanel = useWorkspaceStore((s) => s.reloadPanel);
   const closePanel = useWorkspaceStore((s) => s.closePanel);
   const maximizePanel = useWorkspaceStore((s) => s.maximizePanel);
   const restorePanels = useWorkspaceStore((s) => s.restorePanels);
   const maximizedPanelId = useWorkspaceStore((s) => s.maximizedPanelId);
   const [standaloneMaximized, setStandaloneMaximized] = useState(false);
+  const [standaloneReloadKey, setStandaloneReloadKey] = useState(0);
+  const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
   const isMaximized = externalMaximized ?? (standalone ? standaloneMaximized : maximizedPanelId === panel.id);
   const [deviceId, setDeviceId] = useState<DevicePresetId>("responsive");
   const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
@@ -130,11 +134,19 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
 
   const configuredPanel = resolvePanel(panel, project, codeServerMode);
   const resolved = panel.type === "preview" && localPreview ? localPreview : configuredPanel;
+  const configuredPreview = panel.type === "preview" ? project?.previews.find((preview) => preview.id === panel.previewId) : undefined;
+  const sharedPreview = panel.type === "preview" && Boolean(resolved?.url) && (localPreview !== null || configuredPreview?.runtime === "shared-browser");
 
   const [loaded, setLoaded] = useState(false);
+  const effectiveReloadKey = panel.reloadKey + standaloneReloadKey;
   useEffect(() => {
     setLoaded(false);
-  }, [panel.reloadKey, resolved?.url]);
+  }, [effectiveReloadKey, resolved?.url]);
+
+  useEffect(() => {
+    if (actionPlacement !== "topbar") { setTopbarTarget(null); return; }
+    setTopbarTarget(document.getElementById("topbar-tool-actions"));
+  }, [actionPlacement]);
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -156,6 +168,28 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   const showAvailabilityWarning =
     !minimal && project && project.availability !== "available" && resolved?.reason === null;
   const showPreviewStart = panel.type === "preview" && !localPreview && (configuredPanel === null || configuredPanel.reason !== null);
+  const reload = () => {
+    if (onReload) onReload();
+    else if (standalone) setStandaloneReloadKey((key) => key + 1);
+    else reloadPanel(panel.id);
+  };
+  const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" ? (
+    <div className={`panel-island ${actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""} ${isMaximized ? "is-maximized-actions" : ""}`}>
+      {panel.type === "preview" ? (
+        <label className="panel-device-picker" title="Geräteansicht wählen">
+          <Smartphone className="h-4 w-4" aria-hidden />
+          <select aria-label="Preview-Gerät" value={deviceId} onChange={(event) => setDeviceId(event.target.value as DevicePresetId)}>
+            {devicePresets.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}
+          </select>
+        </label>
+      ) : null}
+      {panel.type === "preview" && deviceId !== "responsive" ? <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")} className="icon-button"><MonitorSmartphone className="h-4 w-4" /></button> : null}
+      {resolved.url ? <button type="button" title="Neu laden" aria-label="Neu laden" onClick={reload} className="icon-button"><RotateCw className="h-4 w-4" /></button> : null}
+      {resolved.url ? <a href={resolved.proxyUrl ?? resolved.url} target="_blank" rel="noopener noreferrer" title="In neuem Tab öffnen" aria-label="In neuem Tab öffnen" className="icon-button"><ExternalLink className="h-4 w-4" /></a> : null}
+      {isMaximized ? <button type="button" title="Wiederherstellen" aria-label="Wiederherstellen" onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()} className="icon-button"><Minimize2 className="h-4 w-4" /></button> : <button type="button" title="Vollbild" aria-label="Vollbild" onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)} className="icon-button"><Maximize2 className="h-4 w-4" /></button>}
+      {!standalone ? <button type="button" title="Schließen" aria-label="Schließen" onClick={() => onClose ? onClose() : closePanel(panel.id)} className="icon-button danger"><X className="h-4 w-4" /></button> : null}
+    </div>
+  ) : null;
 
   return (
     <section
@@ -165,7 +199,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       }`}
       onPointerDown={onFocus}
     >
-      {!minimal ? <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-ink-900 px-3">
+      {!minimal && !standalone ? <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-ink-900 px-3">
         <span
           className={`flex h-6 w-6 items-center justify-center rounded ${
             isFocused ? "bg-ink-800 text-text" : "text-muted"
@@ -182,87 +216,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         </div>
       </header> : null}
 
-      {resolved !== null && !minimal ? (
-        <div
-          className="panel-island"
-        >
-          {panel.type === "preview" ? (
-            <label className="panel-device-picker" title="Geräteansicht wählen">
-              <Smartphone className="h-4 w-4" aria-hidden />
-              <select
-                aria-label="Preview-Gerät"
-                value={deviceId}
-                onChange={(event) => setDeviceId(event.target.value as DevicePresetId)}
-              >
-                {devicePresets.map((device) => (
-                  <option key={device.id} value={device.id}>{device.label}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {panel.type === "preview" && deviceId !== "responsive" ? (
-            <button
-              type="button"
-              title="Ausrichtung drehen"
-              aria-label="Ausrichtung drehen"
-              onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")}
-              className="icon-button"
-            >
-              <MonitorSmartphone className="h-4 w-4" />
-            </button>
-          ) : null}
-          {resolved.url ? (
-            <button
-              type="button"
-              title="Neu laden"
-              onClick={() => onReload ? onReload() : reloadPanel(panel.id)}
-              className="icon-button"
-            >
-              <RotateCw className="h-4 w-4" />
-            </button>
-          ) : null}
-          {resolved.url ? (
-            <a
-              href={resolved.proxyUrl ?? resolved.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="In neuem Tab öffnen"
-              className="icon-button"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          ) : null}
-          {isMaximized ? (
-            <button
-              type="button"
-              title="Wiederherstellen"
-              onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()}
-              className="icon-button"
-            >
-              <Minimize2 className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              title="Vollbild"
-              onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)}
-              className="icon-button"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          )}
-          {!standalone ? (
-            <button
-              type="button"
-              title="Schließen"
-              onClick={() => onClose ? onClose() : closePanel(panel.id)}
-              className="icon-button danger"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {panelActions ? actionPlacement === "topbar" && !isMaximized ? (topbarTarget ? createPortal(panelActions, topbarTarget) : null) : panelActions : null}
 
       {showAvailabilityWarning ? (
         <div className="flex items-center gap-2 border-b border-warn/20 bg-warn-soft/50 px-3 py-1.5 text-[12px] text-warn">
@@ -274,6 +228,14 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       <div className="relative min-h-0 flex-1 bg-ink-950">
         {panel.type === "browser" ? (
           <ChromiumBrowser instanceId={panel.id} />
+        ) : sharedPreview && resolved?.url ? (
+          <DevicePreviewFrame deviceId={deviceId} orientation={orientation}>
+            <ChromiumBrowser
+              instanceId={`preview:${project?.id ?? "local"}:${panel.previewId ?? panel.id}`}
+              profileKey={`preview:${project?.id ?? "shared"}`}
+              initialUrl={resolved.url}
+            />
+          </DevicePreviewFrame>
         ) : panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode" ? (
           <div className="flex h-full min-h-0">
             <TerminalArea
@@ -310,7 +272,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
               orientation={orientation}
             >
               <iframe
-                key={panel.reloadKey}
+                key={effectiveReloadKey}
                 src={resolved.proxyUrl ?? resolved.url}
                 title={panelTitles[panel.type]}
                 onLoad={(event) => { setLoaded(true); relayCanvasPinch(event.currentTarget); }}

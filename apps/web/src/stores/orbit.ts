@@ -17,7 +17,7 @@ const DEFAULT_BOARD_ID = "orbit-default";
 
 export function freshOrbitWorkspace(): OrbitWorkspace {
   return orbitWorkspaceSchema.parse({
-    version: 4,
+    version: 5,
     activeBoardId: DEFAULT_BOARD_ID,
     focusedNodeId: null,
     boards: [{
@@ -41,7 +41,10 @@ export interface AddOrbitNodeInput {
   runtimeId?: string | null;
   toolType?: PanelType | null;
   previewId?: string | null;
-  provider?: "codex" | "opencode" | null;
+  assetId?: string | null;
+  assetMimeType?: string | null;
+  assetBytes?: number | null;
+  provider?: "codex" | "opencode" | "claude" | null;
   content?: string;
   language?: string | null;
 }
@@ -54,11 +57,13 @@ interface OrbitState {
   dirty: boolean;
   saving: boolean;
   syncError: string | null;
+  syncNotice: string | null;
   initialize(response: OrbitDocumentResponse, migrated?: OrbitWorkspace): void;
   applyRemote(response: OrbitDocumentResponse): void;
   resolveConflict(response: OrbitDocumentResponse, message: string): void;
   markSaving(saving: boolean): void;
   markSaved(response: OrbitDocumentResponse, savedDocument: OrbitWorkspace): void;
+  markSaveBlocked(message: string): void;
   markSyncError(message: string | null): void;
   addNode(input: AddOrbitNodeInput): string | null;
   updateNode(nodeId: string, patch: Partial<Omit<OrbitNode, "id" | "type">>): void;
@@ -98,6 +103,8 @@ export function orbitDefaultNodeSize(type: OrbitNode["type"], toolType?: PanelTy
   if (type === "usage") return { width: 340, height: 230 };
   if (type === "todo") return { width: 390, height: 300 };
   if (type === "snippet") return { width: 420, height: 260 };
+  if (type === "asset") return { width: 420, height: 300 };
+  if (type === "gallery" || type === "fileGallery") return { width: 960, height: 680 };
   return { width: 340, height: 220 };
 }
 
@@ -113,6 +120,9 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     runtimeId: input.runtimeId ?? (input.type === "tool" ? generateId() : null),
     toolType: input.type === "tool" ? (input.toolType ?? "terminal") : null,
     previewId: input.previewId ?? null,
+    assetId: input.type === "asset" ? (input.assetId ?? null) : null,
+    assetMimeType: input.type === "asset" ? (input.assetMimeType ?? null) : null,
+    assetBytes: input.type === "asset" ? (input.assetBytes ?? null) : null,
     provider: input.type === "usage" ? (input.provider ?? "codex") : null,
     content: input.content ?? "",
     language: input.language ?? (input.type === "snippet" ? "typescript" : null),
@@ -170,7 +180,7 @@ export function migrateWorkspaceToOrbit(workspace: Workspace): OrbitWorkspace {
     };
   });
   const safeBoards = boards.length > 0 ? boards : freshOrbitWorkspace().boards;
-  return orbitWorkspaceSchema.parse({ version: 4, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
+  return orbitWorkspaceSchema.parse({ version: 5, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
 }
 
 export const useOrbitStore = create<OrbitState>((set, get) => ({
@@ -181,6 +191,7 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
   dirty: false,
   saving: false,
   syncError: null,
+  syncNotice: null,
   initialize: (response, migrated) => set({
     document: !response.initialized && migrated ? migrated : response.document,
     revision: response.revision,
@@ -188,21 +199,30 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     hydrated: true,
     dirty: !response.initialized && Boolean(migrated),
     syncError: null,
+    syncNotice: null,
   }),
-  applyRemote: (response) => set((state) => state.dirty || response.revision <= state.revision ? state : ({
-    document: response.document,
-    revision: response.revision,
-    updatedAt: response.updatedAt,
-    syncError: null,
-  })),
-  resolveConflict: (response, syncError) => set({
+  applyRemote: (response) => set((state) => {
+    if (state.dirty || response.revision < state.revision) return state;
+    if (response.revision > state.revision) return {
+      document: response.document,
+      revision: response.revision,
+      updatedAt: response.updatedAt,
+      syncError: null,
+      syncNotice: null,
+    };
+    return state.syncError || state.syncNotice ? { ...state, syncError: null, syncNotice: null } : state;
+  }),
+  // Ein Revisionskonflikt ist bereits aufgelöst (neuerer Serverstand aktiv) –
+  // kein Fehler, sondern ein neutraler Hinweis. Darum syncNotice statt syncError.
+  resolveConflict: (response, message) => set({
     document: response.document,
     revision: response.revision,
     updatedAt: response.updatedAt,
     hydrated: true,
     dirty: false,
     saving: false,
-    syncError,
+    syncError: null,
+    syncNotice: message,
   }),
   markSaving: (saving) => set({ saving }),
   markSaved: (response, savedDocument) => set((state) => state.document === savedDocument ? ({
@@ -212,14 +232,17 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     dirty: false,
     saving: false,
     syncError: null,
+    syncNotice: null,
   }) : ({
     revision: response.revision,
     updatedAt: response.updatedAt,
     dirty: true,
     saving: false,
     syncError: null,
+    syncNotice: null,
   })),
-  markSyncError: (syncError) => set({ syncError, saving: false }),
+  markSaveBlocked: (syncError) => set({ syncError, syncNotice: null, saving: false, dirty: false }),
+  markSyncError: (syncError) => set({ syncError, syncNotice: null, saving: false }),
   addNode: (input) => {
     const board = activeBoard(get().document);
     if (board.nodes.length >= ORBIT_LIMITS.maxNodesPerBoard) return null;

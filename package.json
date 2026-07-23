@@ -1,7 +1,7 @@
 {
-  "name": "benjamin-dev-workbench",
-  "version": "0.20.1",
-  "private": true,
+  "name": "remote-workplace",
+  "version": "0.25.0",
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.29.2",
   "engines": {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import {
   Background,
@@ -22,6 +22,8 @@ import {
   type OnConnectEnd,
   type OnConnectStart,
   type OnNodeDrag,
+  type OnMoveEnd,
+  type OnMoveStart,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -31,6 +33,7 @@ import {
   ChevronRight,
   Command,
   Frame,
+  FolderSearch2,
   Hand,
   ListTodo,
   Lock,
@@ -53,10 +56,13 @@ import type { OrbitBoard, OrbitNode, Project } from "@workbench/contracts";
 import { OrbitNodeView } from "../components/orbit/OrbitNodeView";
 import { OrbitEdgeView } from "../components/orbit/OrbitEdgeView";
 import { OrbitSync } from "../components/orbit/OrbitSync";
+import { OrbitProjectBrowserDialog } from "../components/orbit/OrbitProjectBrowserDialog";
 import type { OrbitPalettePayload } from "../components/Sidebar";
 import { workbenchQueries } from "../lib/queryOptions";
-import { useMediaQuery } from "../lib/useMediaQuery";
+import { apiClient } from "../lib/apiClient";
+import { useResponsiveShell } from "../lib/useResponsiveShell";
 import { consumeOrbitIntents } from "../lib/workbenchActions";
+import { resolveOrbitProjectId } from "../lib/orbitProjectBinding";
 import { nearestEdgeSides, orbitEdgeColor } from "../lib/orbitAppearance";
 import { compactedOrbitBounds, expandedOrbitBounds, orbitBoundsEqual } from "../lib/orbitTerritory";
 import { serializeOrbitTodo } from "../lib/orbitTodo";
@@ -78,9 +84,13 @@ const typeLabels: Record<OrbitNode["type"], string> = {
   file: "Projektdatei",
   frame: "Bereich",
   usage: "Nutzung und Limits",
+  asset: "Archivdatei",
+  gallery: "Mediengalerie",
+  fileGallery: "Dateigalerie",
 };
 
 type MobileCanvasMode = "navigate" | "interact";
+type CanvasInteraction = "node" | "pane";
 
 const MINIMAP_WIDTH = 144;
 const MINIMAP_HEIGHT = 94;
@@ -207,10 +217,12 @@ function commandPayloads(projects: Project[]): Array<{ keywords: string; payload
     { keywords: "note notiz text markdown", payload: { type: "note", title: "Neue Notiz" } },
     { keywords: "todo aufgabe liste checkliste", payload: { type: "todo", title: "To-do-Liste" } },
     { keywords: "snippet code block", payload: { type: "snippet", title: "Code-Snippet" } },
-    { keywords: "file datei erstellen", payload: { type: "file", title: "neue-datei.ts" } },
     { keywords: "frame bereich gruppe umrandung", payload: { type: "frame", title: "Neuer Bereich" } },
+    { keywords: "galerie bilder screenshots archiv medien", payload: { type: "gallery", title: "Mediengalerie" } },
+    { keywords: "dateigalerie dateien files upload download speicher", payload: { type: "fileGallery", title: "Dateigalerie" } },
     { keywords: "usage codex limits nutzung", payload: { type: "usage", title: "Codex Nutzung", provider: "codex" } },
     { keywords: "usage opencode limits nutzung", payload: { type: "usage", title: "OpenCode Nutzung", provider: "opencode" } },
+    { keywords: "usage claude code limits nutzung", payload: { type: "usage", title: "Claude Code Nutzung", provider: "claude" } },
   ];
   return [...base, ...projects.map((project) => ({ keywords: `projekt project ${project.name}`, payload: { type: "project" as const, title: project.name, projectId: project.id } }))];
 }
@@ -329,6 +341,7 @@ function OrbitCanvas() {
   const dirty = useOrbitStore((state) => state.dirty);
   const saving = useOrbitStore((state) => state.saving);
   const syncError = useOrbitStore((state) => state.syncError);
+  const syncNotice = useOrbitStore((state) => state.syncNotice);
   const updatedAt = useOrbitStore((state) => state.updatedAt);
   const addNode = useOrbitStore((state) => state.addNode);
   const updateNode = useOrbitStore((state) => state.updateNode);
@@ -349,15 +362,18 @@ function OrbitCanvas() {
   const projects = projectsQuery.data?.projects.filter((project) => project.availability === "available") ?? [];
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
   const selectProject = useWorkspaceStore((state) => state.selectProject);
-  const isMobile = useMediaQuery("(max-width: 1023px), (pointer: coarse) and (max-width: 1366px)");
+  const isMobile = useResponsiveShell().isTouchShell;
   const board = document.boards.find((candidate) => candidate.id === document.activeBoardId) ?? document.boards[0]!;
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const pastePositionRef = useRef<{ x: number; y: number } | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [projectBrowserOpen, setProjectBrowserOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [connectionsVisible, setConnectionsVisible] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [canvasInteraction, setCanvasInteraction] = useState<CanvasInteraction | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [edgeMenu, setEdgeMenu] = useState<{ edgeId: string; x: number; y: number } | null>(null);
   const [edgeEditing, setEdgeEditing] = useState(false);
@@ -370,7 +386,9 @@ function OrbitCanvas() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [mobileCanvasMode, setMobileCanvasMode] = useState<MobileCanvasMode>("navigate");
-  const [mobileHintVisible, setMobileHintVisible] = useState(true);
+  const [mobileHintVisible, setMobileHintVisible] = useState(() => {
+    try { return window.localStorage.getItem("workbench:orbit-touch-hint:v1") !== "dismissed"; } catch { return true; }
+  });
   const [toolbarOverflow, setToolbarOverflow] = useState({ before: false, after: false });
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [flowEdges, setFlowEdges] = useState<FlowEdge[]>([]);
@@ -379,14 +397,31 @@ function OrbitCanvas() {
   const previousDocumentRef = useRef(document);
   const historyReadyRef = useRef(false);
   const restoringHistoryRef = useRef(false);
+  const canvasInteractionRef = useRef<CanvasInteraction | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
   const connectionRef = useRef<{ sourceId: string | null; completed: boolean }>({ sourceId: null, completed: false });
+  const contextMenuRef = useRef(contextMenu);
+  const suppressContextMenuRef = useRef(false);
   const toolbarRef = useRef<HTMLElement>(null);
   const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}`).join("|");
   const nodeProjectKey = board.nodes.map((node) => `${node.id}:${node.projectId ?? ""}`).join("|");
   const nodeIdKey = board.nodes.map((node) => node.id).join("|");
 
   const canvasInteractive = !isMobile || mobileCanvasMode === "interact";
+  contextMenuRef.current = contextMenu;
+
+  const beginCanvasInteraction = useCallback((interaction: CanvasInteraction) => {
+    canvasInteractionRef.current = interaction;
+    setCanvasInteraction(interaction);
+  }, []);
+
+  const endCanvasInteraction = useCallback(() => {
+    if (canvasInteractionRef.current === null) return;
+    canvasInteractionRef.current = null;
+    setCanvasInteraction(null);
+    setDraggingNodeId(null);
+    setDeleteArmed(false);
+  }, []);
 
   useEffect(() => { setFlowNodes(board.nodes.map((node) => flowNode(node, document.focusedNodeId, canvasInteractive))); }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive]);
   const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey]);
@@ -395,6 +430,8 @@ function OrbitCanvas() {
     setEdgeMenu(null);
     setContextMenu(null);
     setDraggingNodeId(null);
+    canvasInteractionRef.current = null;
+    setCanvasInteraction(null);
     setDeleteArmed(false);
     setInspectorOpen(false);
     setWorkspaceEditing(false);
@@ -402,6 +439,48 @@ function OrbitCanvas() {
     if (instanceRef.current) void instanceRef.current.setViewport(board.viewport, { duration: 220 });
   }, [board.id, board.name]);
   useEffect(() => { setInspectorOpen(false); }, [document.focusedNodeId]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (globalThis.document.visibilityState === "hidden") endCanvasInteraction();
+    };
+    globalThis.window.addEventListener("pointerup", endCanvasInteraction, true);
+    globalThis.window.addEventListener("pointercancel", endCanvasInteraction, true);
+    globalThis.window.addEventListener("lostpointercapture", endCanvasInteraction, true);
+    globalThis.window.addEventListener("blur", endCanvasInteraction);
+    globalThis.document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      globalThis.window.removeEventListener("pointerup", endCanvasInteraction, true);
+      globalThis.window.removeEventListener("pointercancel", endCanvasInteraction, true);
+      globalThis.window.removeEventListener("lostpointercapture", endCanvasInteraction, true);
+      globalThis.window.removeEventListener("blur", endCanvasInteraction);
+      globalThis.document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [endCanvasInteraction]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!contextMenuRef.current) return;
+      const target = event.target instanceof globalThis.Element ? event.target : null;
+      if (target?.closest(".orbit-context-menu")) return;
+      setContextMenu(null);
+      setContextRename(false);
+    };
+    const handleContextMenu = (event: MouseEvent) => {
+      if (!contextMenuRef.current) return;
+      event.preventDefault();
+      setContextMenu(null);
+      setContextRename(false);
+      const target = event.target instanceof globalThis.Element ? event.target : null;
+      if (target?.closest(".react-flow")) suppressContextMenuRef.current = true;
+    };
+    globalThis.document.addEventListener("pointerdown", handlePointerDown, true);
+    globalThis.document.addEventListener("contextmenu", handleContextMenu, true);
+    return () => {
+      globalThis.document.removeEventListener("pointerdown", handlePointerDown, true);
+      globalThis.document.removeEventListener("contextmenu", handleContextMenu, true);
+    };
+  }, []);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -540,10 +619,13 @@ function OrbitCanvas() {
     if (payload.type === "project" && payload.projectId) {
       const existing = current.nodes.find((node) => node.type === "project" && node.projectId === payload.projectId);
       selectProject(payload.projectId);
-      if (existing) { focusNode(isMobile ? null : existing.id); void instanceRef.current?.fitView({ nodes: [{ id: existing.id }], duration: 260, padding: .7 }); return; }
+      if (existing) { focusNode(existing.id); void instanceRef.current?.fitView({ nodes: [{ id: existing.id }], duration: 260, padding: .7 }); return; }
     }
     const nearest = nearestProject(current, requestedCenter);
-    const inferredProjectId = payload.projectId ?? (nearest && nearest.distance < 620 ? nearest.node.projectId : selectedProjectId);
+    const focusedNode = current.nodes.find((node) => node.id === document.focusedNodeId);
+    const focusedProjectId = focusedNode?.projectId ?? null;
+    const nearbyProjectId = nearest && nearest.distance < 620 ? nearest.node.projectId : null;
+    const inferredProjectId = resolveOrbitProjectId(payload.projectId, focusedProjectId, selectedProjectId, nearbyProjectId);
     const project = projects.find((candidate) => candidate.id === inferredProjectId);
     const toolType = payload.type === "tool" ? payload.toolType ?? "terminal" : null;
     const size = orbitDefaultNodeSize(payload.type, toolType);
@@ -565,16 +647,74 @@ function OrbitCanvas() {
       language: payload.type === "snippet" ? "typescript" : null,
     });
     if (id) {
-      focusNode(isMobile ? null : id);
+      focusNode(payload.type === "project" || !isMobile ? id : null);
       if (!requestedPosition) revealPosition(position, size);
     }
-  }, [addNode, centerPosition, focusNode, isMobile, projects, revealPosition, selectProject, selectedProjectId]);
+  }, [addNode, centerPosition, document.focusedNodeId, focusNode, isMobile, projects, revealPosition, selectProject, selectedProjectId]);
+
+  const [pasteStatus, setPasteStatus] = useState("");
+  const queryClient = useQueryClient();
+
+  // Bilder landen als Vorschau-Node in der Mediengalerie, alle anderen Dateitypen
+  // werden still in die Dateigalerie hochgeladen (nur Statusmeldung, kein Node).
+  const archiveFiles = useCallback(async (files: File[], origin?: { x: number; y: number }) => {
+    const point = origin ?? pastePositionRef.current ?? centerPosition();
+    let uploadedToGallery = 0;
+    for (const [index, file] of files.entries()) {
+      try {
+        if (file.type.startsWith("image/")) {
+          const asset = await apiClient.uploadOrbitAsset(file);
+          addNode({ type: "asset", title: asset.filename, position: { x: point.x + index * 32, y: point.y + index * 32 }, size: { width: 420, height: 300 }, assetId: asset.id, assetMimeType: asset.mimeType, assetBytes: asset.bytes });
+          setPasteStatus(`${asset.filename} wurde archiviert.`);
+        } else {
+          const uploaded = await apiClient.uploadGalleryFile(file);
+          uploadedToGallery += 1;
+          setPasteStatus(`${uploaded.filename} wurde in die Dateigalerie hochgeladen.`);
+        }
+      } catch (error) { setPasteStatus(error instanceof Error ? error.message : "Die Datei konnte nicht hochgeladen werden."); }
+    }
+    if (uploadedToGallery > 0) await queryClient.invalidateQueries({ queryKey: ["gallery", "files"] });
+  }, [addNode, centerPosition, queryClient]);
+
+  const pasteIntoOrbit = useCallback((event: ClipboardEvent | React.ClipboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented) return false;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (target?.closest("input, textarea, select, [contenteditable=true], .orbit-tool-content, [role=dialog], [role=menu]")) return false;
+    const clipboard = event.clipboardData;
+    if (!clipboard) return false;
+    const files = Array.from(clipboard.files);
+    if (!files.length) for (const item of Array.from(clipboard.items)) if (item.kind === "file" && item.type.startsWith("image/")) { const file = item.getAsFile(); if (file) files.push(file); }
+    if (files.length) { event.preventDefault(); void archiveFiles(files); return true; }
+    const text = clipboard.getData("text/plain");
+    if (!text) return false;
+    event.preventDefault();
+    const point = pastePositionRef.current ?? centerPosition();
+    const id = addNode({ type: "note", title: "Eingefügter Text", content: text, position: point });
+    if (id) { focusNode(isMobile ? null : id); setPasteStatus("Text wurde als neue Notiz eingefügt."); }
+    return true;
+  }, [addNode, archiveFiles, centerPosition, focusNode, isMobile]);
+
+  useEffect(() => {
+    const paste = (event: ClipboardEvent) => {
+      const target = event.target instanceof Node ? event.target : null;
+      if (!wrapperRef.current || (!wrapperRef.current.contains(target) && globalThis.document.activeElement !== wrapperRef.current)) return;
+      if (pasteIntoOrbit(event)) event.stopPropagation();
+    };
+    window.addEventListener("paste", paste, true);
+    return () => window.removeEventListener("paste", paste, true);
+  }, [pasteIntoOrbit]);
 
   useEffect(() => {
     const listener = (event: Event) => addPayload((event as CustomEvent<OrbitPalettePayload>).detail);
     window.addEventListener("orbit:add", listener);
     return () => window.removeEventListener("orbit:add", listener);
   }, [addPayload]);
+
+  useEffect(() => {
+    const listener = () => setProjectBrowserOpen(true);
+    window.addEventListener("orbit:project-browser", listener);
+    return () => window.removeEventListener("orbit:project-browser", listener);
+  }, []);
 
   useEffect(() => {
     if (!hydrated || location.pathname !== "/workbench") return;
@@ -666,9 +806,10 @@ function OrbitCanvas() {
   }, []);
 
   const startNodeDrag: OnNodeDrag = useCallback((_event, dragged) => {
+    beginCanvasInteraction("node");
     setDraggingNodeId(dragged.id);
     setEdgeMenu(null);
-  }, []);
+  }, [beginCanvasInteraction]);
 
   const trackNodeDrag: OnNodeDrag = useCallback((event, dragged) => {
     setDeleteArmed(isOverDeleteZone(event));
@@ -677,6 +818,7 @@ function OrbitCanvas() {
 
   const finishNodeDrag: OnNodeDrag = useCallback((event, dragged) => {
     const shouldDelete = isOverDeleteZone(event);
+    endCanvasInteraction();
     setDraggingNodeId(null);
     setDeleteArmed(false);
     if (shouldDelete) {
@@ -686,7 +828,16 @@ function OrbitCanvas() {
     updateNode(dragged.id, { position: dragged.position });
     const current = getActiveOrbitBoard();
     setWorldBounds(compactedOrbitBounds(current.nodes.map((node) => node.id === dragged.id ? { ...node, position: dragged.position } : node)));
-  }, [isOverDeleteZone, removeNode, setWorldBounds, updateNode]);
+  }, [endCanvasInteraction, isOverDeleteZone, removeNode, setWorldBounds, updateNode]);
+
+  const startCanvasPan: OnMoveStart = useCallback(() => {
+    beginCanvasInteraction("pane");
+  }, [beginCanvasInteraction]);
+
+  const finishCanvasPan: OnMoveEnd = useCallback((event, viewport) => {
+    endCanvasInteraction();
+    if (event) setViewport(viewport);
+  }, [endCanvasInteraction, setViewport]);
 
   const compactTerritory = () => {
     const current = getActiveOrbitBoard();
@@ -709,14 +860,16 @@ function OrbitCanvas() {
   const drop = (event: React.DragEvent) => {
     event.preventDefault();
     setDragActive(false);
+    const position = instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    if (event.dataTransfer.files.length && position) { void archiveFiles(Array.from(event.dataTransfer.files), position); return; }
     const raw = event.dataTransfer.getData("application/x-orbit-node") || event.dataTransfer.getData("text/plain");
     if (!raw || !instanceRef.current) return;
     try { addPayload(JSON.parse(raw) as OrbitPalettePayload, instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })); } catch { /* Ignore unrelated browser drags. */ }
   };
 
   const commands = commandPayloads(projects).filter((item) => `${item.payload.title} ${item.keywords}`.toLowerCase().includes(commandQuery.toLowerCase())).slice(0, 12);
-  const syncLabel = syncError ? "Synchronisierung gestört" : saving ? "Wird gespeichert" : dirty ? "Ungespeicherte Änderung" : "Auf Server gespeichert";
-  const syncTone = syncError ? "error" : saving || dirty ? "busy" : "saved";
+  const syncLabel = syncError ? "Synchronisierung gestört" : saving ? "Wird gespeichert" : dirty ? "Ungespeicherte Änderung" : syncNotice ? "Serverstand übernommen" : "Auf Server gespeichert";
+  const syncTone = syncError ? "error" : saving || dirty ? "busy" : syncNotice ? "info" : "saved";
   const activeNodeIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [nodeIdKey]);
   const activeFlowNodes = useMemo(() => flowNodes.filter((node) => activeNodeIds.has(node.id)), [activeNodeIds, flowNodes]);
   const activeFlowEdges = useMemo(() => flowEdges.filter((edge) => activeNodeIds.has(edge.source) && activeNodeIds.has(edge.target)), [activeNodeIds, flowEdges]);
@@ -724,6 +877,10 @@ function OrbitCanvas() {
 
   const openContextMenu = (event: MouseEvent | React.MouseEvent, kind: "pane" | "node", nodeId?: string) => {
     event.preventDefault();
+    if (suppressContextMenuRef.current) {
+      suppressContextMenuRef.current = false;
+      return;
+    }
     const bounds = wrapperRef.current?.getBoundingClientRect();
     const instance = instanceRef.current;
     if (!bounds || !instance) return;
@@ -742,13 +899,15 @@ function OrbitCanvas() {
     setContextMenu(null);
   };
 
-  if (!hydrated) return <div className="orbit-loading"><span /><strong>Orbit wird vom Server geladen</strong></div>;
+  if (!hydrated) return <div className="orbit-loading" role="status" aria-label="Orbit wird vom Server geladen"><span /><span /><span /><span /><strong className="sr-only">Orbit wird vom Server geladen</strong></div>;
 
   return (
     <div
-      className={`orbit-page ${dragActive ? "is-drag-active" : ""} ${isMobile ? `is-mobile-${mobileCanvasMode}` : ""}`}
+      className={`orbit-page ${dragActive ? "is-drag-active" : ""} ${canvasInteraction ? "is-orbit-interacting" : ""} ${isMobile ? `is-mobile-${mobileCanvasMode}` : ""}`}
       data-mobile-mode={isMobile ? mobileCanvasMode : undefined}
       ref={wrapperRef}
+      tabIndex={0}
+      onPaste={pasteIntoOrbit}
       onPointerUpCapture={connectToNodeBody}
     >
       <nav ref={toolbarRef} className="orbit-main-island" aria-label="Orbit-Steuerung" data-history-version={historyVersion} onScroll={updateToolbarOverflow}>
@@ -776,9 +935,10 @@ function OrbitCanvas() {
         <div className={`orbit-sync-status is-${syncTone} ${syncOpen ? "is-open" : ""}`}>
           <button type="button" onClick={() => setSyncOpen((open) => !open)} aria-label={syncLabel} aria-expanded={syncOpen} title={syncLabel}><span /></button>
           <div className="orbit-sync-popover" role="status">
-            <header><strong>{syncLabel}</strong><small>{updatedAt && !dirty ? `Revision ${useOrbitStore.getState().revision} · ${new Date(updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : "Server-Synchronisierung"}</small></header>
+            <header><strong>{syncLabel}</strong><small>{updatedAt && !dirty ? `Revision ${useOrbitStore.getState().revision} · ${new Date(updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : "Server-Synchronisierung"}</small>{syncError ? <p className="orbit-sync-message">{syncError}</p> : syncNotice ? <p className="orbit-sync-message is-info">{syncNotice}</p> : null}</header>
             <div><span className="is-saved" /><p><strong>Grün</strong><small>Alle Änderungen sind gespeichert.</small></p></div>
             <div><span className="is-busy" /><p><strong>Gelb</strong><small>Änderungen warten oder werden gespeichert.</small></p></div>
+            <div><span className="is-info" /><p><strong>Blau</strong><small>Ein neuerer Serverstand wurde übernommen.</small></p></div>
             <div><span className="is-error" /><p><strong>Rot</strong><small>Die Synchronisierung benötigt Aufmerksamkeit.</small></p></div>
           </div>
         </div>
@@ -787,10 +947,10 @@ function OrbitCanvas() {
       {isMobile && toolbarOverflow.after ? <button type="button" className="orbit-toolbar-step is-after" onClick={() => scrollToolbar(1)} aria-label="Steuerleiste weiterscrollen"><ChevronRight className="h-4 w-4" /></button> : null}
 
       <div className="orbit-quick-panel" aria-label="Canvas-Steuerung">
-        <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><Command className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><BoxSelect className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button> : null}</div>
+        <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><Command className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><BoxSelect className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <><button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button></> : null}</div>
         <div className="orbit-zoom-row" aria-label="Canvas-Ansicht"><button type="button" onClick={() => instanceRef.current?.zoomOut({ duration: 160 })} aria-label="Verkleinern" title="Verkleinern"><Minus className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.zoomIn({ duration: 160 })} aria-label="Vergrößern" title="Vergrößern"><Plus className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.fitView({ duration: 220, padding: .18 })} aria-label="Alles zeigen" title="Alles zeigen"><Maximize className="h-4 w-4" /></button></div>
       </div>
-      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => setMobileHintVisible(false)} aria-label="Gestenhinweis schließen"><X className="h-4 w-4" /></button></div> : null}
+      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => { setMobileHintVisible(false); try { window.localStorage.setItem("workbench:orbit-touch-hint:v1", "dismissed"); } catch { /* Hint remains session-local without storage. */ } }} aria-label="Gestenhinweis schließen"><X className="h-4 w-4" /></button></div> : null}
       <ReactFlow
         key={board.id}
         nodes={activeFlowNodes}
@@ -827,13 +987,14 @@ function OrbitCanvas() {
             setContextMenu(null);
           }
         }}
-        onPaneClick={() => { focusNode(null); setEdgeMenu(null); setContextMenu(null); }}
+        onPaneClick={(event) => { pastePositionRef.current = instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? null; wrapperRef.current?.focus(); focusNode(null); setEdgeMenu(null); setContextMenu(null); }}
         onDrop={drop}
         onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setDragActive(false); }}
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
         onInit={(instance) => { instanceRef.current = instance; }}
-        onMoveEnd={(event, viewport) => { if (event) setViewport(viewport); }}
+        onMoveStart={startCanvasPan}
+        onMoveEnd={finishCanvasPan}
         defaultViewport={board.viewport}
         minZoom={.1}
         maxZoom={2.2}
@@ -865,6 +1026,7 @@ function OrbitCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="#343434" />
       </ReactFlow>
+      {canvasInteraction ? <div className="orbit-interaction-shield" aria-hidden onPointerUp={endCanvasInteraction} onPointerCancel={endCanvasInteraction} /> : null}
       <OrbitMiniMap board={board} wrapper={wrapperRef} />
       <div className="orbit-drop-cue" aria-hidden><Plus className="h-5 w-5" /><span>Auf dem Orbit ablegen</span></div>
       <div className={`orbit-delete-zone ${draggingNodeId ? "is-visible" : ""} ${deleteArmed ? "is-armed" : ""}`} aria-hidden={!draggingNodeId}><Trash2 className="h-5 w-5" /><div><strong>{deleteArmed ? "Loslassen zum Entfernen" : "Hierher ziehen zum Entfernen"}</strong><span>Der Knoten wird aus dieser Arbeitsfläche gelöscht.</span></div></div>
@@ -886,14 +1048,18 @@ function OrbitCanvas() {
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Codex", toolType: "codex" })}><Command className="h-4 w-4" /><span>Codex öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "OpenCode", toolType: "opencode" })}><Command className="h-4 w-4" /><span>OpenCode öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "frame", title: "Neuer Bereich" })}><Frame className="h-4 w-4" /><span>Neuer Bereich</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "gallery", title: "Mediengalerie" })}><Frame className="h-4 w-4" /><span>Mediengalerie öffnen</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "fileGallery", title: "Dateigalerie" })}><Frame className="h-4 w-4" /><span>Dateigalerie öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => { setContextMenu(null); setCommandOpen(true); }}><Search className="h-4 w-4" /><span>Alle Aktionen</span></button>
         </div>}
       </div> : null}
       <OrbitInspector projects={projects} expanded={inspectorOpen} onExpand={() => setInspectorOpen(true)} onCollapse={() => setInspectorOpen(false)} />
 
-      {commandOpen ? <div className="orbit-command-backdrop" onPointerDown={() => setCommandOpen(false)}><div className="orbit-command" role="dialog" aria-modal="true" aria-label="Orbit-Befehl" onPointerDown={(event) => event.stopPropagation()}><div className="orbit-command-mobile-head"><div><span>Orbit-Palette</span><strong>Knoten hinzufügen</strong></div><button type="button" onClick={() => setCommandOpen(false)} aria-label="Palette schließen"><X className="h-5 w-5" /></button></div><label><Search className="h-4 w-4" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { addPayload(commands[0].payload); setCommandOpen(false); } }} placeholder="Terminal, Notiz oder Projekt…" /><kbd>Esc</kbd></label><div className="orbit-command-results">{commands.map((item, index) => <button type="button" key={`${item.payload.type}-${item.payload.title}`} className={index === 0 ? "is-active" : ""} onClick={() => { addPayload(item.payload); setCommandOpen(false); }}><span>{item.payload.type === "tool" ? item.payload.toolType : typeLabels[item.payload.type]}</span><strong>{item.payload.title}</strong>{index === 0 ? <kbd>Enter</kbd> : null}</button>)}{commands.length === 0 ? <p>Kein passender Knoten gefunden.</p> : null}</div></div></div> : null}
+      {commandOpen ? <div className="orbit-command-backdrop" onPointerDown={() => setCommandOpen(false)}><div className="orbit-command" role="dialog" aria-modal="true" aria-label="Orbit-Befehl" onPointerDown={(event) => event.stopPropagation()}><div className="orbit-command-mobile-head"><div><span>Orbit-Palette</span><strong>Knoten hinzufügen</strong></div><button type="button" onClick={() => setCommandOpen(false)} aria-label="Palette schließen"><X className="h-5 w-5" /></button></div><label><Search className="h-4 w-4" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { addPayload(commands[0].payload); setCommandOpen(false); } }} placeholder="Terminal, Notiz oder Projekt…" /><kbd>Esc</kbd></label><div className="orbit-command-results"><button type="button" className="orbit-command-project-browser" onClick={() => { setCommandOpen(false); setProjectBrowserOpen(true); }}><span>Server</span><strong><FolderSearch2 className="h-4 w-4" /> Projektordner durchsuchen</strong></button>{commands.map((item, index) => <button type="button" key={`${item.payload.type}-${item.payload.title}`} className={index === 0 ? "is-active" : ""} onClick={() => { addPayload(item.payload); setCommandOpen(false); }}><span>{item.payload.type === "tool" ? item.payload.toolType : typeLabels[item.payload.type]}</span><strong>{item.payload.title}</strong>{index === 0 ? <kbd>Enter</kbd> : null}</button>)}{commands.length === 0 ? <p>Kein passender Knoten gefunden.</p> : null}</div></div></div> : null}
+      <OrbitProjectBrowserDialog open={projectBrowserOpen} onClose={() => setProjectBrowserOpen(false)} />
       <div className="orbit-territory-readout">Gebiet {Math.round(board.worldBounds.maxX - board.worldBounds.minX)} × {Math.round(board.worldBounds.maxY - board.worldBounds.minY)}</div>
       <div className="sr-only" aria-live="polite">{syncLabel}</div>
+      <div className="sr-only" aria-live="polite">{pasteStatus}</div>
       <div className="sr-only" aria-live="polite">{isMobile ? mobileCanvasMode === "navigate" ? "Canvas-Navigation aktiv" : "Inhaltsbedienung aktiv" : ""}</div>
     </div>
   );

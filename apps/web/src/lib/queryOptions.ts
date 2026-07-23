@@ -51,6 +51,8 @@ export const workbenchQueries = {
   accounts: () => queryOptions({ queryKey: ["accounts"], queryFn: ({signal}) => apiClient.accounts(signal), staleTime: 15_000 }),
   discoveredAccounts: () => queryOptions({ queryKey: ["accounts", "discovered"], queryFn: ({signal}) => apiClient.discoverAccounts(signal), staleTime: 15_000 }),
   orbit: () => queryOptions({ queryKey: ["orbit"], queryFn: ({signal}) => apiClient.orbit(signal), staleTime: 1_000 }),
+  terminalSessions: () => queryOptions({ queryKey: ["terminal", "sessions"], queryFn: ({ signal }) => apiClient.terminalSessions(signal), refetchInterval: 3_000, staleTime: 1_000 }),
+  terminalWorkspace: () => queryOptions({ queryKey: ["terminal", "workspace"], queryFn: ({ signal }) => apiClient.terminalWorkspace(signal), staleTime: 1_000 }),
   news: (params:URLSearchParams) => queryOptions({queryKey:["news",params.toString()],queryFn:({signal})=>apiClient.news(params,signal),staleTime:60_000}),
   newsItem:(id:string)=>queryOptions({queryKey:["news","item",id],queryFn:({signal})=>apiClient.newsItem(id,signal),staleTime:60_000}),
   newsCollections:()=>queryOptions({queryKey:["news","collections"],queryFn:({signal})=>apiClient.newsCollections(signal),staleTime:15_000}),

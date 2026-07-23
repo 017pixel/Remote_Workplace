@@ -3,7 +3,10 @@ import {
   Columns2,
   Eraser,
   Info,
+  List,
   MonitorOff,
+  MoreHorizontal,
+  Play,
   Plus,
   RotateCcw,
   SplitSquareHorizontal,
@@ -11,9 +14,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind, TerminalSession } from "@workbench/contracts";
+import { apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
-import { useIsMobile } from "../../lib/useMediaQuery";
+import { useResponsiveShell } from "../../lib/useResponsiveShell";
 import { MAX_TERMINAL_TABS, useTerminalStore } from "../../stores/terminals";
 import { WebTerminal, type TerminalStatus, type WebTerminalHandle } from "./WebTerminal";
 
@@ -27,6 +31,7 @@ const statusLabel: Record<TerminalStatus, string> = {
   connecting: "Verbindung wird hergestellt",
   connected: "Verbunden",
   disconnected: "Verbindung getrennt",
+  interrupted: "Server wurde neu gestartet",
   exited: "Prozess beendet",
   error: "Fehler",
 };
@@ -44,6 +49,7 @@ const kindLabels: Record<TerminalKind, string> = {
   shell: "Terminal",
   codex: "Codex",
   opencode: "OpenCode",
+  claude: "Claude Code",
 };
 
 export function TerminalArea({
@@ -54,28 +60,33 @@ export function TerminalArea({
   maxTabs = MAX_TERMINAL_TABS,
   minimal = false,
 }: TerminalAreaProps) {
-  const isMobile = useIsMobile();
+  const responsive = useResponsiveShell();
+  const isMobile = responsive.isTouchShell;
+  const singlePane = responsive.mode === "compact" || (responsive.mode === "tablet" && responsive.orientation === "portrait");
   const bento = layout === "bento";
   const area = useTerminalStore((state) => state.areas[areaId]);
   const ensureArea = useTerminalStore((state) => state.ensureArea);
   const addTab = useTerminalStore((state) => state.addTab);
+  const addExistingTab = useTerminalStore((state) => state.addExistingTab);
   const activateTab = useTerminalStore((state) => state.activateTab);
   const removeTab = useTerminalStore((state) => state.closeTab);
   const splitTab = useTerminalStore((state) => state.splitTab);
   const clearSplit = useTerminalStore((state) => state.clearSplit);
   const setSplitSizes = useTerminalStore((state) => state.setSplitSizes);
   const projects = useQuery(workbenchQueries.projects());
+  const sessions = useQuery(workbenchQueries.terminalSessions());
   const handles = useRef(new Map<string, WebTerminalHandle>());
   const longPress = useRef<number | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [meta, setMeta] = useState<Record<string, TerminalMeta>>({});
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   useEffect(() => ensureArea(areaId, initialProjectId, kind), [areaId, ensureArea, initialProjectId, kind]);
   useEffect(() => {
-    if (isMobile && area?.splitTabId) clearSplit(areaId);
-  }, [area?.splitTabId, areaId, clearSplit, isMobile]);
+    if (singlePane && area?.splitTabId) clearSplit(areaId);
+  }, [area?.splitTabId, areaId, clearSplit, singlePane]);
 
   const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId);
   const activeMeta = activeTab ? meta[activeTab.id] : undefined;
@@ -88,13 +99,26 @@ export function TerminalArea({
 
   const close = (tabId: string) => {
     handles.current.get(tabId)?.close();
-    try { window.sessionStorage.removeItem(`workbench-terminal-session:${tabId}`); } catch { /* ignored */ }
     removeTab(areaId, tabId);
     setMeta((current) => {
       const next = { ...current };
       delete next[tabId];
       return next;
     });
+  };
+
+  const openExisting = (session: TerminalSession) => {
+    addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind });
+  };
+
+  const closeOrphan = async (session: TerminalSession) => {
+    await apiClient.closeTerminalSession(session.id);
+    await sessions.refetch();
+  };
+
+  const restartOrphan = async (session: TerminalSession) => {
+    await apiClient.restartTerminalSession(session.id);
+    await sessions.refetch();
   };
 
   const drop = (side: "left" | "right") => {
@@ -166,16 +190,42 @@ export function TerminalArea({
           </button>
         </div>
 
-        <div className="terminal-actions terminal-island" aria-label="Terminalaktionen">
+        {isMobile ? <button type="button" className="terminal-actions-trigger" onClick={() => setActionsOpen(true)} aria-label="Terminalaktionen öffnen" aria-expanded={actionsOpen}><MoreHorizontal className="h-5 w-5" /></button> : null}
+        {isMobile && actionsOpen ? <button type="button" className="terminal-actions-backdrop" onClick={() => setActionsOpen(false)} aria-label="Terminalaktionen schließen" /> : null}
+
+        <div className={`terminal-actions terminal-island ${actionsOpen ? "is-open" : ""}`} aria-label="Terminalaktionen">
+          {isMobile ? <div className="terminal-actions-sheet-head"><strong>Terminalaktionen</strong><button type="button" onClick={() => setActionsOpen(false)} aria-label="Terminalaktionen schließen"><X className="h-4 w-4" /></button></div> : null}
           <button type="button" onClick={() => create(nextProjectId)} disabled={area.tabs.length >= maxTabs} aria-label={`${kindLabels[kind]}-Instanz öffnen`} title={`${kindLabels[kind]} öffnen`}><Plus className="h-4 w-4" /><span>Neu</span></button>
           <button type="button" onClick={() => activeTab && handles.current.get(activeTab.id)?.restart()} disabled={!activeTab} aria-label="Terminal neu starten" title="Neu starten"><RotateCcw className="h-4 w-4" /><span>Neustart</span></button>
           <button type="button" onClick={() => activeTab && handles.current.get(activeTab.id)?.clear()} disabled={!activeTab} aria-label="Terminal leeren" title="Leeren"><Eraser className="h-4 w-4" /><span>Leeren</span></button>
-          {!bento && !isMobile && area.tabs.length > 1 ? (
+          {!bento && !singlePane && area.tabs.length > 1 ? (
             area.splitTabId ?
               <button type="button" onClick={() => clearSplit(areaId)} aria-label="Split schließen" title="Split schließen"><Columns2 className="h-4 w-4" /><span>Einzeln</span></button> :
               <button type="button" onClick={() => activeTab && splitTab(areaId, activeTab.id, "left")} aria-label="Terminal teilen" title="Terminal teilen"><SplitSquareHorizontal className="h-4 w-4" /><span>Split</span></button>
           ) : null}
           <button type="button" onClick={() => setInfoOpen((open) => !open)} disabled={!activeTab} aria-label="Terminalinformationen" title="Informationen"><Info className="h-4 w-4" /><span className="terminal-info-label">Info</span></button>
+          {!minimal ? (
+            <details className="terminal-session-picker">
+              <summary aria-label="Laufende Sessions anzeigen" title="Laufende Sessions"><List className="h-4 w-4" /><span>Sessions</span></summary>
+              <div className="terminal-session-picker-menu">
+                <strong>Laufende {kindLabels[kind]}-Sessions</strong>
+                {(sessions.data?.sessions ?? []).filter((session) => session.kind === kind).map((session) => (
+                  <div key={session.id} className="terminal-session-picker-row">
+                    <div className="min-w-0">
+                      <span className="terminal-session-picker-title"><span className={`terminal-state is-${session.status === "running" ? "connected" : session.status}`} />{session.projectId ?? "Standardpfad"}</span>
+                      <small>{session.status === "running" ? `${session.connectedClients} Gerät${session.connectedClients === 1 ? "" : "e"}` : session.status} · {new Date(session.updatedAt).toLocaleTimeString()}</small>
+                    </div>
+                    <div className="terminal-session-picker-actions">
+                      {session.status !== "running" ? <button type="button" onClick={() => void restartOrphan(session)} aria-label="Session neu starten" title="Neu starten"><Play className="h-3.5 w-3.5" /></button> : null}
+                      {!area?.tabs.some((tab) => tab.id === session.runtimeId) ? <button type="button" onClick={() => openExisting(session)} aria-label="Session öffnen" title="Öffnen"><Plus className="h-3.5 w-3.5" /></button> : null}
+                      <button type="button" onClick={() => void closeOrphan(session)} aria-label="Session beenden" title="Beenden"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                ))}
+                {!(sessions.data?.sessions ?? []).some((session) => session.kind === kind) ? <span className="terminal-session-picker-empty">Keine gespeicherten Sessions</span> : null}
+              </div>
+            </details>
+          ) : null}
           <button type="button" className="danger" onClick={() => activeTab && close(activeTab.id)} disabled={!activeTab} aria-label="Terminal schließen" title="Schließen"><MonitorOff className="h-4 w-4" /><span>Schließen</span></button>
         </div>
       </header> : null}

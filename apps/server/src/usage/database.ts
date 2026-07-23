@@ -23,7 +23,7 @@ export class UsageDatabase {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS accounts (
-        id TEXT PRIMARY KEY, provider TEXT NOT NULL CHECK(provider IN ('codex','opencode')),
+        id TEXT PRIMARY KEY, provider TEXT NOT NULL CHECK(provider IN ('codex','opencode','claude')),
         label TEXT NOT NULL, email TEXT, profile_path TEXT NOT NULL, source TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
         UNIQUE(provider, profile_path)
@@ -59,6 +59,23 @@ export class UsageDatabase {
       );
       INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime('now'));
     `);
+    const accountTable = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='accounts'").get() as {sql?:string} | undefined;
+    if (!accountTable?.sql?.includes("'claude'")) {
+      this.db.exec(`
+        BEGIN;
+        ALTER TABLE accounts RENAME TO accounts_before_claude;
+        CREATE TABLE accounts (
+          id TEXT PRIMARY KEY, provider TEXT NOT NULL CHECK(provider IN ('codex','opencode','claude')),
+          label TEXT NOT NULL, email TEXT, profile_path TEXT NOT NULL, source TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+          UNIQUE(provider, profile_path)
+        );
+        INSERT INTO accounts SELECT * FROM accounts_before_claude;
+        DROP TABLE accounts_before_claude;
+        COMMIT;
+      `);
+    }
+    this.db.exec("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (2, datetime('now'))");
   }
 
   importUsage(provider: UsageProviderId, payloads: CodexbarPayload[], capturedAt: string) {
@@ -156,7 +173,7 @@ export class UsageDatabase {
       const predicted = latest.usedPercent + rate * hoursToReset;
       const hoursToLimit = rate > 0 ? (100 - latest.usedPercent) / rate : Number.POSITIVE_INFINITY;
       const reaches = hoursToLimit <= hoursToReset ? new Date(Date.now() + hoursToLimit * 3_600_000).toISOString() : null;
-      const providerLabel = latest.provider === "codex" ? "Codex" : "OpenCode Go";
+      const providerLabel = latest.provider === "codex" ? "Codex" : latest.provider === "claude" ? "Claude Code" : "OpenCode Go";
       const accountLabel = latest.accountKey.includes("@") ? latest.accountKey : providerLabel;
       const windowLabel = latest.windowMinutes === 300 ? "5-Stunden-Limit"
         : latest.windowMinutes === 10_080 ? "Wochenlimit"

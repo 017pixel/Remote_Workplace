@@ -6,6 +6,8 @@ import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
 import { WORKBENCH_LIMITS } from "@workbench/contracts";
+import { useState } from "react";
+import { ConfirmDialog } from "../components/ModalDialog";
 
 export function Settings() {
   const health = useQuery(workbenchQueries.health());
@@ -13,6 +15,7 @@ export function Settings() {
   const panelCount = useWorkspaceStore((s) => s.panels.length);
   const workspaceCount = useWorkspaceStore((s) => s.workspaces.length);
   const pwa = usePwaInstall();
+  const [resetOpen, setResetOpen] = useState(false);
 
   return (
     <div className="page-scroll">
@@ -49,11 +52,7 @@ export function Settings() {
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm("Workspace zurücksetzen? Alle Panels und Auswahl werden gelöscht.")) {
-                  resetWorkspace();
-                }
-              }}
+              onClick={() => setResetOpen(true)}
               className="quiet-button border-bad/30 bg-bad-soft/40 text-bad hover:bg-bad-soft"
             >
               <Trash2 className="h-3.5 w-3.5" /> Workspace zurücksetzen
@@ -62,6 +61,7 @@ export function Settings() {
         </Card>
 
         <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
+          {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><Download className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
           {pwa.isInstalled ? (
             <p className="text-[13px] text-muted">Die Workbench ist bereits als App installiert.</p>
           ) : pwa.canInstall ? (
@@ -98,6 +98,8 @@ export function Settings() {
             </li>
           </ul>
         </Card>
+        <footer className="settings-system-footer"><span>{health.data?.appName ?? "Remote Workplace"}</span><strong>Version {health.data?.version ?? "–"}</strong><span>Lokale Remote-Entwicklungsumgebung</span></footer>
+        <ConfirmDialog open={resetOpen} title="Workspace zurücksetzen?" description="Alle geöffneten Panels, Arbeitsflächen und Auswahlen werden lokal gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." confirmLabel="Workspace zurücksetzen" danger onConfirm={resetWorkspace} onClose={() => setResetOpen(false)} />
       </div>
     </div>
   );

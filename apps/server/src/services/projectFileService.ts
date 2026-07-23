@@ -9,7 +9,7 @@ function contained(root: string, target: string): boolean {
   return rel !== "" && !rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel);
 }
 
-export function createProjectFileService(projects: ReturnType<typeof createProjectService>) {
+export function createProjectFileService(projects: Pick<ReturnType<typeof createProjectService>, "get">) {
   return {
     async create(projectId: string, input: CreateProjectFileRequest): Promise<ProjectFileResponse> {
       if (isAbsolute(input.path) || input.path.split(/[\\/]+/).some((part) => part === ".." || part === "")) {

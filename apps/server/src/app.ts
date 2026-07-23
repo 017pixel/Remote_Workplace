@@ -7,6 +7,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
+import multipart from "@fastify/multipart";
 import { apiErrorSchema } from "@workbench/contracts";
 import Fastify from "fastify";
 import { ZodError } from "zod";
@@ -23,18 +24,26 @@ import { CodexbarClient } from "./adapters/codexbar/codexbar-client.js";
 import { createCodexbarUsageService } from "./adapters/codexbar/codexbar-cache.js";
 import { CodexOAuthPrimaryWindowFallback } from "./adapters/codexbar/codex-oauth-primary-window.js";
 import { TerminalFailure, TerminalManager } from "./terminal/Manager.js";
+import { TerminalDatabase } from "./terminal/database.js";
 import { registerTerminalRoutes } from "./terminal/routes.js";
 import { UsageDatabase } from "./usage/database.js";
 import { UsageAnalyticsService } from "./usage/usage-service.js";
 import { AccountService } from "./usage/account-service.js";
 import { OrbitDatabase } from "./orbit/database.js";
+import { OrbitAssetRepository } from "./orbit/assets.js";
 import { createProjectFileService } from "./services/projectFileService.js";
 import { createLocalPortService } from "./services/localPortService.js";
 import { BrowserManager } from "./browser/Manager.js";
+import { BrowserDatabase } from "./browser/database.js";
 import { registerBrowserRoutes } from "./browser/routes.js";
 import { NewsDatabase } from "./news/database.js";
 import { NewsService } from "./news/news-service.js";
 import { registerNewsRoutes } from "./news/routes.js";
+import { ProjectActivityDatabase } from "./projects/activity-database.js";
+import { ProjectActivityService } from "./projects/activity-service.js";
+import { TmuxSupervisor } from "./terminal/TmuxSupervisor.js";
+import { ProjectRegistryDatabase } from "./projects/registry-database.js";
+import { ProjectBrowserService } from "./filesystem/projectBrowserService.js";
 
 const require = createRequire(import.meta.url);
 const devtoolsDirectory = dirname(require.resolve("@chrome-devtools/inspector/inspector.html"));
@@ -48,10 +57,10 @@ async function directoryExists(path: string): Promise<boolean> {
   }
 }
 
-export async function buildApp() {
+export async function buildApp(options: { startBackgroundServices?: boolean } = {}) {
   const app = Fastify({
     logger: { level: settings.logLevel },
-    bodyLimit: settings.orbitDocumentMaxBytes + 65_536,
+    bodyLimit: Math.max(settings.orbitDocumentMaxBytes + 65_536, settings.orbitAssetMaxFileBytes + 1_048_576),
     trustProxy: ["127.0.0.1", "::1"],
   });
   const [projectsConfig, servicesConfig, commandsConfig] = await Promise.all([
@@ -68,19 +77,27 @@ export async function buildApp() {
     for (const preview of project.previews) frameSources.add(new URL(preview.url).origin);
   }
   const proxyOrigins = [...frameSources].filter((origin) => origin !== "'self'");
-  const projects = createProjectService(projectsConfig, servicesConfig.services);
   const usageDatabase = new UsageDatabase(settings.databasePath);
+  const projectActivityDatabase = new ProjectActivityDatabase(settings.databasePath);
+  const projectRegistryDatabase = new ProjectRegistryDatabase(settings.databasePath);
+  const browserDatabase = new BrowserDatabase(settings.databasePath);
+  const projectActivity = new ProjectActivityService({ database: projectActivityDatabase, cacheMilliseconds: settings.projectActivityCacheMilliseconds, maximumDepth: settings.projectActivityMaximumDepth });
+  const projectBrowser = await ProjectBrowserService.create(settings.orbitProjectBrowserRoot, settings.orbitProjectBrowserPageSize);
+  const projects = createProjectService(projectsConfig, servicesConfig.services, undefined, projectActivity, projectRegistryDatabase);
+  const terminalDatabase = new TerminalDatabase(settings.databasePath);
   const orbitDatabase = new OrbitDatabase(settings.databasePath, settings.orbitBackupDirectory);
+  const orbitAssets = new OrbitAssetRepository(settings.databasePath, settings.orbitAssetDirectory, settings.orbitAssetMaxFileBytes, settings.orbitAssetMaxTotalBytes);
+  const fileGallery = new OrbitAssetRepository(settings.databasePath, settings.fileGalleryDirectory, settings.fileGalleryMaxFileBytes, settings.fileGalleryMaxTotalBytes, "file_gallery_files");
   const newsDatabase = new NewsDatabase(settings.databasePath);
   const news = new NewsService(newsDatabase);
-  const codexbarClient = new CodexbarClient({ baseUrl: settings.codexbarBaseUrl, timeoutMilliseconds: settings.codexbarTimeoutMilliseconds, cliPath: settings.codexbarCliPath, configPath: settings.codexbarConfigPath });
+  const codexbarClient = new CodexbarClient({ baseUrl: settings.codexbarBaseUrl, timeoutMilliseconds: settings.codexbarTimeoutMilliseconds, cliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, configPath: settings.codexbarConfigPath });
   const liveUsage = createCodexbarUsageService({
     client: codexbarClient,
     ttlMilliseconds: settings.codexbarCacheMilliseconds,
     ...(settings.codexOauthPrimaryFallbackEnabled ? { primaryWindowFallback: new CodexOAuthPrimaryWindowFallback({ profileHomes: settings.codexOauthProfileHomes, configPath: settings.codexbarConfigPath, timeoutMilliseconds: settings.codexOauthTimeoutMilliseconds }) } : {}),
   });
   const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds });
-  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath });
+  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
     cacheMilliseconds: settings.localPortCacheMilliseconds,
@@ -122,6 +139,7 @@ export async function buildApp() {
     // input remains independently restricted by its Zod protocol schema.
     options: { maxPayload: settings.webSocketMaxPayloadBytes },
   });
+  await app.register(multipart, { limits: { files: 1, fileSize: settings.orbitAssetMaxFileBytes } });
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof AppError) {
@@ -164,21 +182,29 @@ export async function buildApp() {
     analytics,
     accounts,
     orbit: orbitDatabase,
+    orbitAssets,
+    fileGallery,
+    projectBrowser,
     projectFiles,
     localPorts,
     proxyOrigins,
   });
   await app.register(registerNewsRoutes, { prefix: "/api/v1", news, newsDatabase });
+  const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
   const terminals = new TerminalManager({
     allowedRoots: settings.terminalAllowedRoots,
     defaultCwd: settings.terminalDefaultCwd,
-    maxSessions: settings.terminalMaxSessions + settings.codexMaxSessions + settings.opencodeMaxSessions,
+    maxSessions: settings.terminalMaxSessions + settings.codexMaxSessions + settings.opencodeMaxSessions + settings.claudeMaxSessions,
     maxSessionsByKind: {
       shell: settings.terminalMaxSessions,
       codex: settings.codexMaxSessions,
       opencode: settings.opencodeMaxSessions,
+      claude: settings.claudeMaxSessions,
     },
-    cliPaths: { codex: settings.codexCliPath, opencode: settings.opencodeCliPath },
+    cliPaths: { codex: settings.codexCliPath, opencode: settings.opencodeCliPath, claude: settings.claudeCliPath },
+    database: terminalDatabase,
+    ...(terminalSupervisor ? { supervisor: terminalSupervisor } : {}),
+    ...(settings.terminalAllowedUsers.length === 1 ? { externalSessionOwnerId: settings.terminalAllowedUsers[0] } : {}),
     resolveAccountProfile: (accountId, kind) => {
       const account = usageDatabase.getAccount(accountId);
       if (account.provider !== kind) throw new Error("Provider mismatch");
@@ -187,6 +213,8 @@ export async function buildApp() {
   });
   const browsers = new BrowserManager({
     chromiumPath: settings.chromiumPath,
+    profilesRoot: settings.browserProfilesRoot,
+    database: browserDatabase,
     maxSessions: settings.browserMaxSessions,
     startupTimeoutMilliseconds: settings.browserStartupTimeoutMilliseconds,
     idleTimeoutMilliseconds: settings.browserIdleTimeoutMilliseconds,
@@ -199,6 +227,7 @@ export async function buildApp() {
   await app.register(registerTerminalRoutes, {
     prefix: "/api/v1",
     manager: terminals,
+    database: terminalDatabase,
     allowedUsers: settings.terminalAllowedUsers,
     resolveProjectPath: async (projectId) => {
       try {
@@ -218,9 +247,11 @@ export async function buildApp() {
     manager: browsers,
     allowedUsers: settings.terminalAllowedUsers,
   });
-  analytics.start();
-  news.start();
-  app.addHook("onClose", async () => { news.stop(); await analytics.stop(); terminals.shutdown(); await browsers.shutdown(); newsDatabase.close(); orbitDatabase.close(); usageDatabase.close(); });
+  if (options.startBackgroundServices !== false) {
+    analytics.start();
+    news.start();
+  }
+  app.addHook("onClose", async () => { news.stop(); await analytics.stop(); terminals.shutdown(); await browsers.shutdown(); terminalDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); usageDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);

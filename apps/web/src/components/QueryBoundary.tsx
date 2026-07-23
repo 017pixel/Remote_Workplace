@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Spinner } from "./primitives";
+import { RotateCw } from "lucide-react";
 
 interface QueryBoundaryProps<T> {
   isLoading: boolean;
@@ -7,7 +7,8 @@ interface QueryBoundaryProps<T> {
   error?: unknown;
   data?: T;
   loadingLabel?: string;
-      children: (data: Exclude<T, undefined>) => ReactNode;
+  refetch?: () => unknown;
+  children: (data: Exclude<T, undefined>) => ReactNode;
 }
 
 export function QueryBoundary<T>({
@@ -16,20 +17,26 @@ export function QueryBoundary<T>({
   error,
   data,
   loadingLabel = "Lädt…",
+  refetch,
   children,
 }: QueryBoundaryProps<T>) {
   if (isLoading && data === undefined) {
     return (
-      <div className="flex items-center gap-2 px-1 py-6 text-sm text-muted">
-        <Spinner /> {loadingLabel}
+      <div className="query-skeleton" role="status" aria-live="polite" aria-label={loadingLabel}>
+        <span className="query-skeleton-title" />
+        <span />
+        <span />
+        <span className="query-skeleton-short" />
+        <span className="sr-only">{loadingLabel}</span>
       </div>
     );
   }
   if (isError) {
     const message = error instanceof Error ? error.message : "Daten konnten nicht geladen werden.";
     return (
-      <div className="border-l-2 border-bad bg-bad-soft/50 px-3 py-3 text-sm text-bad">
-        {message}
+      <div className="query-error" role="alert">
+        <div><strong>Daten konnten nicht geladen werden</strong><span>{message}</span></div>
+        {refetch ? <button type="button" className="quiet-button" onClick={() => void refetch()}><RotateCw className="h-4 w-4" /> Erneut versuchen</button> : null}
       </div>
     );
   }

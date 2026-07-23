@@ -1,14 +1,20 @@
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TerminalManager } from "./Manager.js";
 import { registerTerminalRoutes } from "./routes.js";
 import { registerEditorProxy } from "../services/editorProxy.js";
+import { TerminalDatabase } from "./database.js";
 
 const apps: ReturnType<typeof Fastify>[] = [];
+const directories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
+  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
 describe("terminal websocket route", () => {
@@ -30,7 +36,7 @@ describe("terminal websocket route", () => {
     await app.ready();
 
     const socket = await app.injectWS("/api/v1/terminal", {
-      headers: { "tailscale-user-login": "terminal-test@example.com" },
+      headers: { "tailscale-user-login": "terminal-test@example.com", origin: "http://localhost", host: "localhost", "x-forwarded-proto": "http" },
     });
     const pong = new Promise<string>((resolve) => {
       socket.once("message", (data: Buffer) => resolve(data.toString()));
@@ -56,7 +62,7 @@ describe("terminal websocket route", () => {
     });
     await app.ready();
 
-    const socket = await app.injectWS("/api/v1/terminal", { headers: { "tailscale-user-login": "terminal-test@example.com" } });
+    const socket = await app.injectWS("/api/v1/terminal", { headers: { "tailscale-user-login": "terminal-test@example.com", origin: "http://localhost", host: "localhost", "x-forwarded-proto": "http" } });
     const created = new Promise<Record<string, unknown>>((resolve) => {
       socket.on("message", (data: Buffer) => {
         const message = JSON.parse(data.toString()) as Record<string, unknown>;
@@ -69,5 +75,25 @@ describe("terminal websocket route", () => {
     expect(resolveProjectPath).toHaveBeenCalledWith("remote-workplace");
     socket.terminate();
     manager.shutdown();
+  });
+
+  it("exposes authenticated session and workspace synchronization endpoints", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workbench-terminal-routes-"));
+    directories.push(directory);
+    const database = new TerminalDatabase(join(directory, "workbench.sqlite"));
+    const app = Fastify();
+    apps.push(app);
+    const manager = new TerminalManager({ allowedRoots: ["/tmp"], defaultCwd: "/tmp", maxSessions: 1, database });
+    await app.register(websocket, { options: { maxPayload: 65_536 } });
+    await app.register(registerTerminalRoutes, { prefix: "/api/v1", manager, database, allowedUsers: ["terminal-test@example.com"] });
+    await app.ready();
+    const headers = { "tailscale-user-login": "terminal-test@example.com" };
+    expect((await app.inject({ method: "GET", url: "/api/v1/terminal/sessions", headers })).json()).toMatchObject({ sessions: [] });
+    expect((await app.inject({ method: "GET", url: "/api/v1/terminal/workspace", headers })).json()).toMatchObject({ revision: 0, document: { version: 1, areas: {} } });
+    const saved = await app.inject({ method: "PUT", url: "/api/v1/terminal/workspace", headers, payload: { document: { version: 1, areas: {} }, expectedRevision: 0 } });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json()).toMatchObject({ revision: 1 });
+    manager.shutdown();
+    database.close();
   });
 });

@@ -13,6 +13,7 @@ import {
   loadUsage,
   loadWorkbench,
   loadTechTldrs,
+  loadGallery,
   prefetchAllRoutes,
 } from "./lib/routeModules";
 
@@ -29,6 +30,7 @@ const CodeEditor = lazy(() => loadToolRoute().then((module) => ({ default: modul
 const Previews = lazy(() => loadToolRoute().then((module) => ({ default: module.Previews })));
 const Browser = lazy(() => loadToolRoute().then((module) => ({ default: module.Browser })));
 const TechTldrs = lazy(() => loadTechTldrs().then((module) => ({ default: module.TechTldrs })));
+const GalleryView = lazy(() => loadGallery().then((module) => ({ default: module.GalleryView })));
 
 function RouteFallback() {
   return <div className="route-skeleton" aria-label="Ansicht wird geladen"><span /><span /><span /></div>;
@@ -62,6 +64,7 @@ export function App() {
             <Route path="tech-tldrs" element={<DeferredRoute><TechTldrs /></DeferredRoute>} />
             <Route path="projects" element={<DeferredRoute><Projects /></DeferredRoute>} />
             <Route path="projects/:projectId" element={<DeferredRoute><ProjectDetail /></DeferredRoute>} />
+            <Route path="gallery" element={<DeferredRoute><GalleryView /></DeferredRoute>} />
             <Route path="settings" element={<DeferredRoute><Settings /></DeferredRoute>} />
             <Route path="usage" element={<DeferredRoute><Usage /></DeferredRoute>} />
             <Route path="t3-code" element={<DeferredRoute><T3Code /></DeferredRoute>} />

@@ -1,8 +1,8 @@
 {
   "id": "/workbench/",
-  "name": "Benjamin Dev Workbench",
-  "short_name": "Workbench",
-  "description": "Private Remote-Development-Workbench für Projekte, Tools und Serverinformationen.",
+  "name": "Remote Workplace",
+  "short_name": "Workplace",
+  "description": "Selbst gehostete Remote-Development-Workbench für Projekte, Tools und Serverinformationen.",
   "start_url": "/workbench/",
   "scope": "/workbench/",
   "display": "standalone",
@@ -15,22 +15,22 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "/workbench/favicon.svg",
+      "src": "/workbench/favicon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/workbench/icons/icon-192.png",
+      "src": "/workbench/icons/icon-192.png?v=2",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/workbench/icons/icon-512.png",
+      "src": "/workbench/icons/icon-512.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -39,14 +39,14 @@
       "short_name": "Workbench",
       "description": "Geöffnete Werkzeuge und Previews verwalten.",
       "url": "/workbench/workbench",
-      "icons": [{ "src": "/workbench/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/workbench/icons/icon-192.png?v=2", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Projekte",
       "short_name": "Projekte",
       "description": "Konfigurierte Projektordner auswählen.",
       "url": "/workbench/projects",
-      "icons": [{ "src": "/workbench/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/workbench/icons/icon-192.png?v=2", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

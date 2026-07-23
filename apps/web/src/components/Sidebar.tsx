@@ -1,38 +1,37 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   FolderGit2,
-  LayoutDashboard,
-  Columns2,
-  Settings,
   TerminalSquare,
-  ChartNoAxesCombined,
   PanelLeftClose,
   PanelLeftOpen,
   MonitorSmartphone,
   Bot,
   Braces,
+  Code2,
   Eye,
   FileCode2,
-  FilePlus2,
   Frame,
   Gauge,
   ListTodo,
   StickyNote,
   Globe2,
-  Newspaper,
-  type LucideIcon,
+  FolderSearch2,
+  FolderUp,
+  Images,
 } from "lucide-react";
 import { prefetchRoute } from "../lib/routeModules";
 import { workbenchQueries } from "../lib/queryOptions";
+import { footerNavItems, primaryNavItems, toolRouteItems } from "../routes/navigation";
 
 export interface OrbitPalettePayload {
-  type: "project" | "tool" | "note" | "todo" | "snippet" | "file" | "frame" | "usage";
+  type: "project" | "tool" | "note" | "todo" | "snippet" | "file" | "frame" | "usage" | "gallery" | "fileGallery";
   title: string;
   projectId?: string;
   toolType?: "t3-code" | "code-server" | "preview" | "browser" | "terminal" | "codex" | "opencode";
-  provider?: "codex" | "opencode";
+  provider?: "codex" | "opencode" | "claude";
   previewId?: string;
 }
 
@@ -47,37 +46,9 @@ function requestOrbitNode(payload: OrbitPalettePayload) {
   window.dispatchEvent(new CustomEvent<OrbitPalettePayload>("orbit:add", { detail: payload }));
 }
 
-export interface NavItem {
-  to: string;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  showOnMobile: boolean;
+function requestOrbitProjectBrowser() {
+  window.dispatchEvent(new Event("orbit:project-browser"));
 }
-
-export const primaryNavItems: NavItem[] = [
-  { to: "/", label: "Dashboard", description: "Server, Dienste und Projekte", icon: LayoutDashboard, showOnMobile: true },
-  { to: "/workbench", label: "Workbench", description: "Werkzeuge und Previews öffnen", icon: Columns2, showOnMobile: true },
-  { to: "/tech-tldrs", label: "Tech TLDRs", description: "Tech-News lesen und verstehen", icon: Newspaper, showOnMobile: true },
-  { to: "/projects", label: "Projekte", description: "Konfigurierte Arbeitsbereiche", icon: FolderGit2, showOnMobile: true },
-];
-
-export const toolRouteItems: NavItem[] = [
-  { to: "/t3-code", label: "T3 Code", description: "Codex-Arbeitsumgebung", icon: TerminalSquare, showOnMobile: false },
-  { to: "/codex", label: "Codex", description: "Codex CLI mit bis zu vier Instanzen", icon: Bot, showOnMobile: true },
-  { to: "/opencode", label: "OpenCode", description: "OpenCode CLI mit bis zu vier Instanzen", icon: Braces, showOnMobile: true },
-  { to: "/code-editor", label: "Code-Server", description: "VS Code im Browser", icon: MonitorSmartphone, showOnMobile: true },
-  { to: "/previews", label: "Previews", description: "Lokale Apps und laufende Ports", icon: Eye, showOnMobile: true },
-  { to: "/browser", label: "Browser", description: "Chromium für Recherche und lokale Apps", icon: Globe2, showOnMobile: true },
-  { to: "/terminal", label: "Terminal", description: "Interaktive Server-Shell", icon: TerminalSquare, showOnMobile: true },
-];
-
-export const footerNavItems: NavItem[] = [
-  { to: "/usage", label: "Nutzung und Limits", description: "Codex und OpenCode Go", icon: ChartNoAxesCombined, showOnMobile: true },
-  { to: "/settings", label: "Einstellungen", description: "Lokaler Workspace und Sicherheit", icon: Settings, showOnMobile: true },
-];
-
-export const navItems = [...primaryNavItems, ...toolRouteItems, ...footerNavItems];
 
 interface SidebarProps {
   collapsed: boolean;
@@ -90,6 +61,18 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
   const location = useLocation();
   const projects = useQuery(workbenchQueries.projects());
   const orbitMode = location.pathname === "/workbench";
+  const availableProjects = useMemo(
+    () => (projects.data?.projects ?? []).filter((project) => project.availability === "available"),
+    [projects.data?.projects],
+  );
+  const recentProjects = useMemo(() => [...availableProjects]
+    .sort((left, right) => {
+      const lastUse = (right.activity.lastWorkbenchUseAt ?? "").localeCompare(left.activity.lastWorkbenchUseAt ?? "");
+      if (lastUse) return lastUse;
+      const effective = (right.activity.effectiveAt ?? "").localeCompare(left.activity.effectiveAt ?? "");
+      return effective || left.sortOrder - right.sortOrder || left.name.localeCompare(right.name, "de");
+    })
+    .slice(0, projects.data?.recentLimit ?? 8), [availableProjects, projects.data?.recentLimit]);
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -127,8 +110,9 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
           </button>
         </div>
         <nav className="sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto pt-3">
-          {!collapsed ? <div className="sidebar-kicker">Workspace</div> : null}
-          {primaryNavItems.map((item) => (
+          <div className="sidebar-section">
+            {!collapsed ? <div className="sidebar-kicker">Workspace</div> : <span className="sidebar-section-divider" aria-hidden />}
+            {primaryNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -142,9 +126,11 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
               <item.icon className="h-4 w-4 shrink-0" />
               {!collapsed ? item.label : null}
             </NavLink>
-          ))}
-          {!collapsed ? <div className="sidebar-kicker">{orbitMode ? "Orbit-Projekte" : "Werkzeuge"}</div> : null}
-          {orbitMode ? (projects.data?.projects.filter((project) => project.availability === "available").slice(0, 8).map((project) => (
+            ))}
+          </div>
+          <div className="sidebar-section">
+          {!collapsed ? <div className="sidebar-kicker">{orbitMode ? "Orbit-Projekte" : "Werkzeuge"}</div> : <span className="sidebar-section-divider" aria-hidden />}
+          {orbitMode ? (<>{recentProjects.map((project) => (
             <button
               key={project.id}
               type="button"
@@ -152,12 +138,18 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
               draggable
               onDragStart={(event) => beginOrbitDrag(event, { type: "project", title: project.name, projectId: project.id })}
               onClick={() => requestOrbitNode({ type: "project", title: project.name, projectId: project.id })}
+              aria-label={collapsed ? project.name : `${project.name} ziehen`}
               title={collapsed ? project.name : "Klicken oder auf den Orbit ziehen"}
             >
               <FolderGit2 className="h-4 w-4 shrink-0" />
               {!collapsed ? <><span className="truncate">{project.name}</span><small>ziehen</small></> : null}
             </button>
-          ))) : toolRouteItems.map((item) => (
+          ))}
+            <button type="button" className="sidebar-item orbit-palette-item" onClick={requestOrbitProjectBrowser} aria-label="Alle Projekte auswählen" title={collapsed ? "Alle Projekte" : "Serverordner durchsuchen"}>
+              <FolderSearch2 className="h-4 w-4 shrink-0" />
+              {!collapsed ? <><span className="truncate">Alle Projekte</span><small>{availableProjects.length}</small></> : null}
+            </button>
+          </>) : toolRouteItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -171,12 +163,14 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
               {!collapsed ? item.label : null}
             </NavLink>
           ))}
+          </div>
           {orbitMode ? (
             <>
-              {!collapsed ? <div className="sidebar-kicker">Werkzeuge</div> : null}
+              <div className="sidebar-section">
+              {!collapsed ? <div className="sidebar-kicker">Werkzeuge</div> : <span className="sidebar-section-divider" aria-hidden />}
               {([
                 ["terminal", "Terminal", TerminalSquare],
-                ["t3-code", "T3 Code", TerminalSquare],
+                ["t3-code", "T3 Code", Code2],
                 ["preview", "Preview", Eye],
                 ["browser", "Browser", Globe2],
                 ["code-server", "Code-Server", MonitorSmartphone],
@@ -186,20 +180,30 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
                 const payload: OrbitPalettePayload = { type: "tool", title: label, toolType };
                 return <button key={toolType} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? label : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{label}</span><small>ziehen</small></> : null}</button>;
               })}
-              {!collapsed ? <div className="sidebar-kicker">Blöcke</div> : null}
+              </div>
+              <div className="sidebar-section">
+              {!collapsed ? <div className="sidebar-kicker">Galerie</div> : <span className="sidebar-section-divider" aria-hidden />}
+              {([
+                [{ type: "gallery", title: "Mediengalerie" } satisfies OrbitPalettePayload, Images],
+                [{ type: "fileGallery", title: "Dateigalerie" } satisfies OrbitPalettePayload, FolderUp],
+              ] as const).map(([payload, Icon]) => <button key={payload.type} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{payload.title}</span><small>ziehen</small></> : null}</button>)}
+              </div>
+              <div className="sidebar-section">
+              {!collapsed ? <div className="sidebar-kicker">Blöcke</div> : <span className="sidebar-section-divider" aria-hidden />}
               {([
                 [{ type: "note", title: "Neue Notiz" } satisfies OrbitPalettePayload, StickyNote],
                 [{ type: "todo", title: "To-do-Liste" } satisfies OrbitPalettePayload, ListTodo],
                 [{ type: "snippet", title: "Code-Snippet" } satisfies OrbitPalettePayload, FileCode2],
-                [{ type: "file", title: "neue-datei.ts" } satisfies OrbitPalettePayload, FilePlus2],
                 [{ type: "frame", title: "Neuer Bereich" } satisfies OrbitPalettePayload, Frame],
                 [{ type: "usage", title: "Codex Nutzung", provider: "codex" } satisfies OrbitPalettePayload, Gauge],
                 [{ type: "usage", title: "OpenCode Nutzung", provider: "opencode" } satisfies OrbitPalettePayload, Gauge],
+                [{ type: "usage", title: "Claude Code Nutzung", provider: "claude" } satisfies OrbitPalettePayload, Gauge],
               ] as const).map(([payload, Icon]) => <button key={`${payload.type}-${payload.title}`} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{payload.title}</span><small>ziehen</small></> : null}</button>)}
+              </div>
             </>
           ) : null}
-          <div className="sidebar-footer">
-            {!collapsed ? <div className="sidebar-kicker">Account und System</div> : null}
+          <div className="sidebar-footer sidebar-section">
+            {!collapsed ? <div className="sidebar-kicker">Account und System</div> : <span className="sidebar-section-divider" aria-hidden />}
             {footerNavItems.map((item) => (
               <NavLink
                 key={item.to}

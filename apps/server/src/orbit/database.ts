@@ -13,9 +13,59 @@ import { AppError } from "../utils/errors.js";
 
 const DEFAULT_BOARD_ID = "orbit-default";
 
+/** Tool types that no longer exist; nodes referencing them are dropped on load. */
+const REMOVED_TOOL_TYPES = new Set(["notion"]);
+
+/** Remove nodes for retired tools plus any edges that referenced them. */
+function stripRemovedToolNodes(value: unknown): unknown {
+  const source = value as {
+    boards?: Array<{
+      nodes?: Array<Record<string, unknown>>;
+      edges?: Array<Record<string, unknown>>;
+    }>;
+  };
+  if (!Array.isArray(source?.boards)) return value;
+  return {
+    ...source,
+    boards: source.boards.map((board) => {
+      const nodes = board.nodes ?? [];
+      const removedIds = new Set(
+        nodes
+          .filter((node) => node.type === "tool" && typeof node.toolType === "string" && REMOVED_TOOL_TYPES.has(node.toolType))
+          .map((node) => node.id as string),
+      );
+      if (removedIds.size === 0) return board;
+      return {
+        ...board,
+        nodes: nodes.filter((node) => !removedIds.has(node.id as string)),
+        edges: (board.edges ?? []).filter(
+          (edge) => !removedIds.has(edge.source as string) && !removedIds.has(edge.target as string),
+        ),
+      };
+    }),
+  };
+}
+
+/** Accept documents written by Orbit v4 and make the new asset fields explicit. */
+function parseOrbitDocument(value: unknown): OrbitWorkspace {
+  const cleaned = stripRemovedToolNodes(value);
+  const source = cleaned as { version?: number; boards?: Array<{ nodes?: Array<Record<string, unknown>> }> };
+  if (source?.version === 4) {
+    return orbitWorkspaceSchema.parse({
+      ...source,
+      version: 5,
+      boards: source.boards?.map((board) => ({
+        ...board,
+        nodes: board.nodes?.map((node) => ({ assetId: null, assetMimeType: null, assetBytes: null, ...node })),
+      })),
+    });
+  }
+  return orbitWorkspaceSchema.parse(cleaned);
+}
+
 export function createDefaultOrbitWorkspace(): OrbitWorkspace {
   return orbitWorkspaceSchema.parse({
-    version: 4,
+    version: 5,
     activeBoardId: DEFAULT_BOARD_ID,
     focusedNodeId: null,
     boards: [{
@@ -104,7 +154,11 @@ export class OrbitDatabase {
     if (current) {
       this.db.prepare(`INSERT OR IGNORE INTO orbit_document_revisions(revision, document_json, created_at, source)
         VALUES (?, ?, ?, 'migration')`).run(current.revision, current.documentJson, current.updatedAt);
-      this.writeBackup(orbitWorkspaceSchema.parse(JSON.parse(current.documentJson) as unknown), current.revision, current.updatedAt);
+      const migrated = parseOrbitDocument(JSON.parse(current.documentJson) as unknown);
+      if (JSON.stringify(migrated) !== current.documentJson) {
+        this.db.prepare("UPDATE orbit_documents SET document_json=? WHERE id='default'").run(JSON.stringify(migrated));
+      }
+      this.writeBackup(migrated, current.revision, current.updatedAt);
     }
   }
 
@@ -137,14 +191,15 @@ export class OrbitDatabase {
     const currentPath = join(this.backupDirectory, "current.json");
     if (!existsSync(currentPath)) return;
     const envelope = JSON.parse(readFileSync(currentPath, "utf8")) as Partial<OrbitBackupEnvelope>;
-    const document = orbitWorkspaceSchema.parse(envelope.document);
+    const originalSerialized = JSON.stringify(envelope.document);
+    const originalChecksum = createHash("sha256").update(originalSerialized).digest("hex");
+    if (envelope.sha256 !== originalChecksum) throw new Error("Die letzte Orbit-Sicherung ist beschädigt; der Server startet zum Schutz der Daten nicht leer.");
+    const document = parseOrbitDocument(envelope.document);
     const revision = typeof envelope.revision === "number" && Number.isSafeInteger(envelope.revision) && envelope.revision > 0
       ? envelope.revision
       : 1;
     const updatedAt = typeof envelope.updatedAt === "string" ? envelope.updatedAt : new Date().toISOString();
     const serialized = JSON.stringify(document);
-    const checksum = createHash("sha256").update(serialized).digest("hex");
-    if (envelope.sha256 !== checksum) throw new Error("Die letzte Orbit-Sicherung ist beschädigt; der Server startet zum Schutz der Daten nicht leer.");
     this.db.prepare(`INSERT INTO orbit_documents(id, document_json, revision, updated_at, initialized)
       VALUES ('default', ?, ?, ?, 1)`).run(serialized, revision, updatedAt);
     this.db.prepare(`INSERT OR IGNORE INTO orbit_document_revisions(revision, document_json, created_at, source)
@@ -158,7 +213,7 @@ export class OrbitDatabase {
 
   private assertNotDestructive(current: OrbitRow | undefined, document: OrbitWorkspace, serialized: string) {
     if (!current?.initialized || current.documentJson === serialized) return;
-    const before = workspaceCounts(orbitWorkspaceSchema.parse(JSON.parse(current.documentJson) as unknown));
+    const before = workspaceCounts(parseOrbitDocument(JSON.parse(current.documentJson) as unknown));
     const after = workspaceCounts(document);
     const removedNodes = before.nodes - after.nodes;
     const destructiveNodeDrop = before.nodes >= 3 && removedNodes >= 3
@@ -166,7 +221,7 @@ export class OrbitDatabase {
     const emptiedPopulatedOrbit = before.nodes > 0 && after.nodes === 0;
     if (destructiveNodeDrop || emptiedPopulatedOrbit) {
       this.saveRecoveryDraft(serialized, current.revision, current.revision);
-      throw new AppError(409, "ORBIT_DESTRUCTIVE_SAVE_BLOCKED", "Ein ungewöhnlich großer Datenverlust wurde blockiert und als Wiederherstellungsentwurf gesichert.");
+      throw new AppError(400, "ORBIT_DESTRUCTIVE_SAVE_BLOCKED", "Ein ungewöhnlich großer Datenverlust wurde blockiert und als Wiederherstellungsentwurf gesichert.");
     }
   }
 
@@ -182,7 +237,7 @@ export class OrbitDatabase {
       });
     }
     return orbitDocumentResponseSchema.parse({
-      document: orbitWorkspaceSchema.parse(JSON.parse(row.documentJson) as unknown),
+      document: parseOrbitDocument(JSON.parse(row.documentJson) as unknown),
       revision: row.revision,
       updatedAt: row.updatedAt,
       initialized: Boolean(row.initialized),

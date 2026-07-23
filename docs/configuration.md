@@ -1,8 +1,28 @@
 # Konfiguration
 
-## Zentrale Umgebungsvariablen
+## Zentrale Personalisierung: `config/workbench.local.json`
 
-Alle globalen Laufzeitwerte liegen in `.env`; die Vorlage ist `.env.example`. Wichtig sind Host, Port, Config-Verzeichnis, Web-Build-Verzeichnis, Log-Level und Cache-/Timeout-Werte. Der Mistral-Schlüssel für Tech TLDRs ist das einzige zusätzliche Secret und bleibt ausschließlich in der ignorierten `.env`.
+Alle **persönlichen** Werte leben gebündelt in einer einzigen, gitignorierten Datei:
+`config/workbench.local.json` (Vorlage: `config/workbench.example.json`). Sie ist die primäre
+Konfigurationsquelle für alles Umgebungsspezifische:
+
+- `branding` — Anzeigename der App (`appName`, `shortName`); fließt in Titel, Web-Manifest und Footer.
+- `system` — Dienstbenutzer und Home-Verzeichnis.
+- `tailscale` — Hostname, IP, HTTPS-Port und erlaubte Login-E-Mails (`allowedUsers`).
+- `paths` — Projekt-Root, Orbit-Browser-Root, Terminal-Roots, Datenverzeichnis, Datenbank,
+  Backups, Assets und Profile.
+- `cli` — Pfade zu `codexbar`, `codex`, `opencode`, `claude`, `tmux`, `chromium`.
+- `codexbar` — Pfad zur CodexBar-`config.json` und optionale OAuth-Profil-Homes.
+
+Der Server (`apps/server/src/config/settings.ts`) und der Vite-Build (`apps/web/vite.config.ts`)
+lesen diese Datei beim Start; fehlt sie, wird auf `config/workbench.example.json` zurückgegriffen.
+Die Werte aus dieser Config bilden die **Defaults**; eine gesetzte Umgebungsvariable in `.env`
+überschreibt den jeweiligen Einzelwert.
+
+## Umgebungsvariablen (`.env`)
+
+Die `.env` (Vorlage `.env.example`) enthält nur **Secrets und neutrale Runtime-Knöpfe**: Host, Port,
+Config-Verzeichnis, Web-Build-Verzeichnis, Log-Level sowie Cache-/Timeout-Werte. Der Mistral-Schlüssel für Tech TLDRs ist das einzige zusätzliche Secret und bleibt ausschließlich in der ignorierten `.env`. Persönliche Pfade und Identität gehören **nicht** in die `.env`, sondern nach `config/workbench.local.json`.
 
 Der Request-Limiter schützt ausschließlich `/api/**`. Editor, Vite-Module und deren WebSockets laufen unter `/editor/**` und sind bewusst ausgenommen, weil schon ein normaler Modulgraph mehr als 180 Requests erzeugen kann. code-server darf WebSocket-Frames bis 16 MiB übertragen; das Terminal validiert seine Eingaben unabhängig davon weiterhin auf höchstens 64 KiB.
 
@@ -24,9 +44,19 @@ WEBSOCKET_MAX_PAYLOAD_BYTES=16777216
 
 Alle direkten Unterordner aus `PROJECTS_ROOT` werden automatisch als Projekte erkannt. `config/projects.local.json` wird von Git ignoriert und ergänzt für ausgewählte Projekte feste IDs, Anzeigenamen, Beschreibungen, Reihenfolge und Previews. Jede explizite Projekt-ID muss lowercase kebab-case und eindeutig sein; Pfade müssen absolut sein. Mit `PROJECT_DISCOVERY_ENABLED=false` kann die automatische Erkennung abgeschaltet werden.
 
-Preview-URLs müssen vom Benutzergerät per HTTPS erreichbar sein und dürfen nicht auf localhost zeigen. Für Vite-Projekte mit absoluten Pfaden wird der WebSocket-fähige code-server-Pfad `https://HOST:8443/editor/absproxy/PORT/` verwendet. Der Modus ist `embedded`, `external` oder `hybrid`.
+Der Orbit-Projektbrowser kann zusätzlich alle Dateien und Ordner unter einer eigenen, read-only durchsuchten Root anzeigen. Nur echte lesbare Unterordner dürfen als Projekt registriert werden; die Root selbst, Dateien und symbolische Verweise sind ausgeschlossen. Verzeichnisantworten werden für große Ordner paginiert und liefern ausschließlich Namen sowie Metadaten, niemals Dateiinhalte.
 
-Vite muss mit derselben Basis gestartet werden, zum Beispiel `vite --base /editor/absproxy/1234/`. code-server erhält dazu `abs-proxy-base-path: /editor`. Dadurch landen Assets, Routerpfade und HMR-WebSockets auch hinter beiden Reverse-Proxies am richtigen Ziel. Die Iframes delegieren nur Browser-Vollbild; Firefox-spezifisch unbekannte `clipboard-read`-/`clipboard-write`-Feature-Policy-Tokens werden nicht gesetzt.
+```dotenv
+ORBIT_PROJECT_BROWSER_ROOT=/home/your-user
+ORBIT_PROJECT_BROWSER_PAGE_SIZE=300
+ORBIT_RECENT_PROJECT_LIMIT=8
+```
+
+Manuell ausgewählte Ordner werden in der lokalen `DATABASE_PATH`-SQLite-Datei gespeichert. Ihre stabilen Projekt-IDs bleiben über Browser- und Serverneustarts erhalten. Die erlaubte Browser-Root muss absolut sein; die Seitengröße liegt zwischen 1 und 500.
+
+Preview-URLs müssen vom Server-Chromium und vom Benutzergerät per HTTPS erreichbar sein und dürfen nicht auf localhost zeigen. Für Vite-Projekte mit absoluten Pfaden wird der WebSocket-fähige code-server-Pfad `https://HOST:8443/editor/absproxy/PORT/` verwendet. Der Darstellungsmodus ist `embedded`, `external` oder `hybrid`; `runtime` ist standardmäßig `shared-browser` und kann für kompatible Anwendungen explizit auf `iframe` gestellt werden.
+
+Vite muss mit derselben Basis gestartet werden, zum Beispiel `vite --base /editor/absproxy/1234/`. code-server erhält dazu `abs-proxy-base-path: /editor`. Dadurch landen Assets, Routerpfade und HMR-WebSockets auch hinter beiden Reverse-Proxies am richtigen Ziel. T3 Code und code-server laufen über denselben Origin und behalten native Copy/Paste-Ereignisse im fokussierten Iframe. Cross-Origin-Previews erhalten bewusst keine programmatischen `clipboard-read`-/`clipboard-write`-Rechte; native Tastatur-, Auswahl- und Kontextmenüaktionen bleiben davon unberührt.
 
 Wenn die Root-HTML nur über einen absoluten Meta-Refresh weiterleitet, wird direkt die eigentliche Seite konfiguriert, zum Beispiel `/editor/absproxy/1234/anmeldung/`. So bleibt auch die erste Navigation innerhalb des Proxy-Pfads.
 
@@ -68,16 +98,16 @@ CODEX_OAUTH_PROFILE_HOMES=/absoluter/pfad/zum/.codex,/absoluter/pfad/zum/zweiten
 CODEX_OAUTH_TIMEOUT_MS=5000
 ```
 
-Der Dienst wird über `deploy/systemd/install-codexbar.sh` als `codexbar.service` eingerichtet. Er läuft als Benutzer `bbecker`, bindet ausschließlich an `127.0.0.1` und ist nicht öffentlich weitergeleitet.
+Der Dienst wird über `deploy/systemd/install-codexbar.sh` als `codexbar.service` eingerichtet. Er läuft als Dienstbenutzer, bindet ausschließlich an `127.0.0.1` und ist nicht öffentlich weitergeleitet.
 
 Die Statistikseite verwendet zusätzlich die lokale CLI für die nach Projekten gruppierte Kostenhistorie. Historie, Abfrageintervall und isolierte Accountprofile werden zentral konfiguriert:
 
 ```dotenv
-CODEXBAR_CLI_PATH=/home/bbecker/.local/bin/codexbar
-DATABASE_PATH=/home/bbecker/.local/share/remote-workplace/workbench.sqlite
+CODEXBAR_CLI_PATH=/home/your-user/.local/bin/codexbar
+DATABASE_PATH=/home/your-user/.local/share/remote-workplace/workbench.sqlite
 USAGE_SNAPSHOT_INTERVAL_MS=300000
-WORKBENCH_PROFILES_ROOT=/home/bbecker/.workbench-profiles
-CODEXBAR_CONFIG_PATH=/home/bbecker/.config/codexbar/config.json
+WORKBENCH_PROFILES_ROOT=/home/your-user/.workbench-profiles
+CODEXBAR_CONFIG_PATH=/home/your-user/.config/codexbar/config.json
 ```
 
 Die SQLite-Datei und angelegte Profile enthalten lokale, nicht zu veröffentlichende Laufzeitdaten. Ein Account-Entfernen verändert nur die Registry und die CodexBar-Profilzuordnung; vorhandene CLI-Credentials werden nie gelöscht.
@@ -89,13 +119,14 @@ Der integrierte Browser sucht mit `CHROMIUM_PATH=auto` zuerst in lokalen Playwri
 ```dotenv
 CHROMIUM_PATH=auto
 BROWSER_MAX_SESSIONS=4
+BROWSER_PROFILES_ROOT=/home/your-user/.local/share/remote-workplace/browser-profiles
 BROWSER_STARTUP_TIMEOUT_MS=15000
 BROWSER_IDLE_TIMEOUT_MS=1800000
 LOCAL_PORT_CACHE_MS=5000
 LOCAL_PORT_PROBE_TIMEOUT_MS=450
 ```
 
-Der Port-Scanner liest ausschließlich lokale TCP-Listener und prüft sie gegen Loopback. Er öffnet keine externen Netzwerkziele. Die Browser- und Terminal-WebSockets benötigen eine erlaubte Tailscale-Identität.
+Die Profilwurzel liegt außerhalb des Repositorys. Darunter gespeicherte Cookies, Tokens und Website-Daten sind sensible Laufzeitdaten und müssen mit denselben Rechten wie CLI-Anmeldungen geschützt und aus Quellcode-Backups ausgeschlossen werden. Der Port-Scanner liest ausschließlich lokale TCP-Listener und prüft sie gegen Loopback. Er öffnet keine externen Netzwerkziele. Die Browser- und Terminal-WebSockets benötigen eine erlaubte Tailscale-Identität und einen identischen Workbench-Origin.
 
 ## Orbit Workspace
 
@@ -104,7 +135,10 @@ Der Orbit Workspace verwendet dieselbe `DATABASE_PATH`-Datei und legt darin ein 
 ```dotenv
 ORBIT_SYNC_INTERVAL_MS=5000
 ORBIT_DOCUMENT_MAX_BYTES=4194304
-ORBIT_BACKUP_DIR=/home/bbecker/.local/share/remote-workplace/orbit-backups
+ORBIT_BACKUP_DIR=/home/your-user/.local/share/remote-workplace/orbit-backups
+ORBIT_ASSET_DIR=/home/your-user/.local/share/remote-workplace/orbit-assets
+ORBIT_ASSET_MAX_FILE_BYTES=104857600
+ORBIT_ASSET_MAX_TOTAL_BYTES=53687091200
 ORBIT_DESTRUCTIVE_DROP_PERCENT=50
 ```
 
@@ -137,10 +171,14 @@ Free-Mode-Limits sind organisations- und modellabhängig. Die Workbench speicher
 Die Agent-Terminals verwenden feste serverseitige CLI-Pfade und getrennte Prozesslimits. Diese Werte gehören in `.env`; der Browser kann sie weder lesen noch überschreiben.
 
 ```dotenv
-CODEX_CLI_PATH=/home/bbecker/.local/bin/codex
-OPENCODE_CLI_PATH=/home/bbecker/.npm-global/bin/opencode
+CODEX_CLI_PATH=/home/your-user/.local/bin/codex
+OPENCODE_CLI_PATH=/home/your-user/.npm-global/bin/opencode
+CLAUDE_CLI_PATH=/home/your-user/.local/bin/claude
 CODEX_MAX_SESSIONS=4
 OPENCODE_MAX_SESSIONS=4
+CLAUDE_MAX_SESSIONS=4
+TERMINAL_SUPERVISOR=tmux
+TMUX_PATH=/usr/bin/tmux
 ```
 
-Beide Programme starten ohne automatische Bypass- oder Auto-Approve-Optionen. Projektpfade werden wie beim normalen Terminal ausschließlich aus einer validierten Projekt-ID ermittelt.
+Alle drei Programme starten ohne automatische Bypass- oder Auto-Approve-Optionen. Projektpfade werden wie beim normalen Terminal ausschließlich aus einer validierten Projekt-ID ermittelt. Claude Code nutzt für das Standardkonto die vorhandene Anmeldung unter `~/.claude`; isolierte Zusatzprofile werden über `CLAUDE_CONFIG_DIR` getrennt.

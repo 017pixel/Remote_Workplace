@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileCode2,
+  File,
   FolderGit2,
   Frame,
   ListTodo,
@@ -18,6 +19,7 @@ import { orbitProviderWindows } from "../../lib/orbitUsage";
 import { parseOrbitTodo, serializeOrbitTodo, type OrbitTodoItem } from "../../lib/orbitTodo";
 import { useOrbitStore } from "../../stores/orbit";
 import { ToolPanel } from "../ToolPanel";
+import { OrbitGalleryNode } from "./OrbitGalleryNode";
 
 const toolLabels: Record<NonNullable<Panel["type"]>, string> = {
   "t3-code": "T3 Code",
@@ -80,7 +82,7 @@ function NodeChrome({ id, title, children, selected, resizable = true }: { id: s
         <span className="orbit-node-status" />
         <strong>{title}</strong>
       </header>
-      <div className="orbit-node-content nodrag nowheel">{children}</div>
+      <div className="orbit-node-content nodrag nopan nowheel">{children}</div>
       <EdgeHandles />
     </div>
   );
@@ -122,7 +124,7 @@ function ToolNode({ id, selected }: { id: string; selected: boolean }) {
     <div className={`orbit-live-node ${selected ? "is-selected" : ""}`}>
       <OrbitNodeResizer id={id} selected={selected} minWidth={320} minHeight={220} />
       <div className="orbit-live-drag-handle orbit-node-drag-handle" title={`${toolLabels[type]} verschieben`} aria-label={`${toolLabels[type]} verschieben`}><span /></div>
-      <div className="orbit-tool-content nodrag nowheel">
+      <div className="orbit-tool-content nodrag nopan nowheel">
         <ToolPanel
           panel={panel}
           project={project}
@@ -200,6 +202,23 @@ function FileNode({ id, selected }: { id: string; selected: boolean }) {
   return <NodeChrome id={id} title={node.title} selected={selected}><input className="orbit-file-path" aria-label="Relativer Dateipfad" value={node.title} onChange={(event) => { updateNode(id, { title: event.target.value || "datei.txt" }); setCanOverwrite(false); }} /><textarea aria-label="Dateiinhalt bearbeiten" value={node.content} onChange={(event) => updateNode(id, { content: event.target.value })} spellCheck={false} className="orbit-code-editor nodrag nowheel" /><button type="button" className="orbit-inline-action" onClick={() => void save(canOverwrite)}><Save className="h-3.5 w-3.5" /> {canOverwrite ? "Datei aktualisieren" : "Im Projekt erstellen"}</button>{status ? <p className="orbit-node-message" role="status">{status}</p> : null}</NodeChrome>;
 }
 
+function AssetNode({ id, selected }: { id: string; selected: boolean }) {
+  const node = useActiveOrbitNode(id)!;
+  const url = node.assetId ? apiClient.orbitAssetUrl(node.assetId) : "";
+  const image = Boolean(node.assetMimeType?.startsWith("image/"));
+  const size = new Intl.NumberFormat("de-DE", { style: "unit", unit: "byte", unitDisplay: "narrow", notation: "compact" }).format(node.assetBytes ?? 0);
+  if (image) return <div className={`orbit-image-node ${selected ? "is-selected" : ""}`}>
+    <OrbitNodeResizer id={id} selected={selected} minWidth={120} minHeight={90} />
+    <div className="orbit-image-drag-handle orbit-node-drag-handle" aria-label="Bild verschieben" title="Bild verschieben"><span /></div>
+    <img src={url} alt="" />
+    <EdgeHandles />
+  </div>;
+  return <NodeChrome id={id} title={node.title} selected={selected}>
+    <div className="orbit-asset-file"><File className="h-8 w-8" /><strong>{node.title}</strong><small>{node.assetMimeType} · {size}</small></div>
+    <a className="orbit-inline-action orbit-asset-link" href={url} download>Öffnen</a>
+  </NodeChrome>;
+}
+
 function UsageNode({ id, selected }: { id: string; selected: boolean }) {
   const node = useActiveOrbitNode(id)!;
   const usage = useQuery(workbenchQueries.usage());
@@ -227,6 +246,9 @@ function OrbitNodeComponent(props: NodeProps) {
     if (type === "todo") return <TodoNode id={id} selected={selected} />;
     if (type === "snippet") return <SnippetNode id={id} selected={selected} />;
     if (type === "file") return <FileNode id={id} selected={selected} />;
+    if (type === "asset") return <AssetNode id={id} selected={selected} />;
+    if (type === "gallery") return <NodeChrome id={id} title="Mediengalerie" selected={selected}><OrbitGalleryNode variant="media" /></NodeChrome>;
+    if (type === "fileGallery") return <NodeChrome id={id} title="Dateigalerie" selected={selected}><OrbitGalleryNode variant="files" /></NodeChrome>;
     if (type === "usage") return <UsageNode id={id} selected={selected} />;
     if (type === "frame") return <FrameNode id={id} selected={selected} />;
     return null;

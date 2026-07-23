@@ -1,17 +1,21 @@
 import { constants } from "node:fs";
 import type { Dirent } from "node:fs";
 import { access, lstat, readdir, realpath } from "node:fs/promises";
-import { join, normalize } from "node:path";
+import { basename, join, normalize } from "node:path";
 import {
   projectResponseSchema,
   projectsResponseSchema,
+  registerProjectResponseSchema,
   type Project,
   type ProjectResponse,
   type ProjectsResponse,
+  type RegisterProjectResponse,
 } from "@workbench/contracts";
 import type { ProjectsConfig, ServiceConfig } from "../config/schemas.js";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";
+import type { ProjectActivityService } from "../projects/activity-service.js";
+import type { ProjectRegistryDatabase, RegisteredProject } from "../projects/registry-database.js";
 
 type ProjectConfig = ProjectsConfig["projects"][number];
 
@@ -96,6 +100,8 @@ export function createProjectService(
     enabled: settings.projectDiscoveryEnabled,
     rootDirectory: settings.projectsRootDirectory,
   },
+  activity?: ProjectActivityService,
+  registry?: ProjectRegistryDatabase,
 ) {
   const ids = new Set<string>();
   for (const project of projectConfig.projects) {
@@ -110,6 +116,12 @@ export function createProjectService(
     return {
       ...configuredProject,
       availability: await getAvailability(configuredProject.path),
+      activity: activity ? await activity.get(configuredProject.id, configuredProject.path) : {
+        lastWorkbenchUseAt: null,
+        lastFilesystemChangeAt: null,
+        lastGitCommitAt: null,
+        effectiveAt: null,
+      },
       links: {
         t3Code: t3CodeUrl,
         codeServer: buildCodeServerUrl(codeServerUrl, configuredProject.path),
@@ -121,7 +133,25 @@ export function createProjectService(
     const discovered = discovery.enabled
       ? await discoverProjects(discovery.rootDirectory, projectConfig.projects)
       : [];
-    return [...projectConfig.projects, ...discovered];
+    const base = [...projectConfig.projects, ...discovered];
+    const knownPaths = new Set(base.map((project) => normalize(project.path)));
+    const registered = (registry?.list() ?? []).flatMap((project): ProjectConfig[] => {
+      if (knownPaths.has(normalize(project.path))) return [];
+      return [registeredProjectConfig(project)];
+    });
+    return [...base, ...registered];
+  }
+
+  function registeredProjectConfig(project: RegisteredProject): ProjectConfig {
+    return {
+      id: project.id,
+      name: project.name,
+      description: "Im Orbit ausgewählter lokaler Arbeitsbereich.",
+      path: project.path,
+      enabled: true,
+      sortOrder: 2_000,
+      previews: [],
+    };
   }
 
   return {
@@ -133,7 +163,7 @@ export function createProjectService(
           .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
           .map(mapProject),
       );
-      return projectsResponseSchema.parse({ projects });
+      return projectsResponseSchema.parse({ projects, recentLimit: settings.orbitRecentProjectLimit });
     },
     async get(projectId: string): Promise<ProjectResponse> {
       const availableProjects = await configuredAndDiscoveredProjects();
@@ -144,6 +174,25 @@ export function createProjectService(
         throw new AppError(404, "PROJECT_NOT_FOUND", "Das lokale Projekt wurde nicht gefunden.");
       }
       return projectResponseSchema.parse({ project: await mapProject(configuredProject) });
+    },
+    async touch(projectId: string) {
+      const availableProjects = await configuredAndDiscoveredProjects();
+      const project = availableProjects.find((candidate) => candidate.id === projectId && candidate.enabled);
+      if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "Das lokale Projekt wurde nicht gefunden.");
+      return { projectId, lastUsedAt: activity?.touch(projectId) ?? new Date().toISOString() };
+    },
+    async register(path: string): Promise<RegisterProjectResponse> {
+      const availableProjects = await configuredAndDiscoveredProjects();
+      const existing = availableProjects.find((candidate) => normalize(candidate.path) === normalize(path));
+      if (existing) {
+        return registerProjectResponseSchema.parse({ project: await mapProject(existing), created: false });
+      }
+      if (!registry) throw new AppError(503, "PROJECT_REGISTRY_UNAVAILABLE", "Die Orbit-Projektregistry ist momentan nicht verfügbar.");
+      const registered = registry.register(path, basename(path));
+      return registerProjectResponseSchema.parse({
+        project: await mapProject(registeredProjectConfig(registered.project)),
+        created: registered.created,
+      });
     },
   };
 }

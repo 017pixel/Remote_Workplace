@@ -1,0 +1,41 @@
+{
+  "branding": {
+    "appName": "Remote Workplace",
+    "shortName": "Workplace"
+  },
+  "system": {
+    "user": "your-user",
+    "homeDirectory": "/home/your-user"
+  },
+  "tailscale": {
+    "hostname": "server-name.tailnet.ts.net",
+    "ip": "100.100.100.100",
+    "httpsPort": 8443,
+    "allowedUsers": ["user@example.com"]
+  },
+  "paths": {
+    "projectsRoot": "/home/your-user/projects",
+    "orbitProjectBrowserRoot": "/home/your-user",
+    "terminalAllowedRoots": ["/home/your-user"],
+    "terminalDefaultCwd": "/home/your-user",
+    "dataDir": "/home/your-user/.local/share/remote-workplace",
+    "browserProfilesRoot": "/home/your-user/.local/share/remote-workplace/browser-profiles",
+    "orbitBackupDir": "/home/your-user/.local/share/remote-workplace/orbit-backups",
+    "orbitAssetDir": "/home/your-user/.local/share/remote-workplace/orbit-assets",
+    "fileGalleryDir": "/home/your-user/.local/share/remote-workplace/file-gallery",
+    "workbenchProfilesRoot": "/home/your-user/.workbench-profiles",
+    "databasePath": "/home/your-user/.local/share/remote-workplace/workbench.sqlite"
+  },
+  "cli": {
+    "codexbar": "/home/your-user/.local/bin/codexbar",
+    "codex": "/home/your-user/.local/bin/codex",
+    "opencode": "/home/your-user/.npm-global/bin/opencode",
+    "claude": "/home/your-user/.local/bin/claude",
+    "tmux": "/usr/bin/tmux",
+    "chromium": "auto"
+  },
+  "codexbar": {
+    "configPath": "/home/your-user/.config/codexbar/config.json",
+    "oauthProfileHomes": []
+  }
+}

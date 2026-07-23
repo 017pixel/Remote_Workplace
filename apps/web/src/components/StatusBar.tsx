@@ -56,6 +56,7 @@ export function StatusBar() {
   const isOrbit = location.pathname === "/workbench";
   const codex = usage.data?.providers.find((provider) => provider.providerId === "codex");
   const opencode = usage.data?.providers.find((provider) => provider.providerId === "opencode");
+  const claude = usage.data?.providers.find((provider) => provider.providerId === "claude");
 
   return (
     <footer className="status-bar hidden md:flex">
@@ -74,10 +75,12 @@ export function StatusBar() {
         <span className="status-bar-divider" />
         <span className="status-bar-item"><span>{activeWorkspace?.name ?? "Arbeitsfläche"}</span><span>{panels.length} {panels.length === 1 ? "Tool" : "Tools"}</span>{focusedPanel ? <span className="status-bar-value">{panelTypeLabels[focusedPanel.type]}</span> : null}</span>
       </>}
-      <Link to="/usage" className="status-limits" aria-label="Nutzung und Limits öffnen" title={`Codex: ${providerLimit(codex)}\nOpenCode: ${providerLimit(opencode)}`}>
+      <Link to="/usage" className="status-limits" aria-label="Nutzung und Limits öffnen" title={`Codex: ${providerLimit(codex)}\nOpenCode: ${providerLimit(opencode)}\nClaude Code: ${providerLimit(claude)}`}>
         <span><strong>Codex</strong> {usage.isLoading ? "lädt…" : providerLimit(codex, true)}</span>
         <span className="status-bar-divider" />
         <span><strong>OpenCode</strong> {usage.isLoading ? "lädt…" : providerLimit(opencode, true)}</span>
+        <span className="status-bar-divider" />
+        <span><strong>Claude</strong> {usage.isLoading ? "lädt…" : providerLimit(claude, true)}</span>
       </Link>
     </footer>
   );

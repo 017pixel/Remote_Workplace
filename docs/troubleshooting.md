@@ -2,15 +2,15 @@
 
 ## Orbit-Daten und Sicherungen
 
-Der produktive Datenbestand liegt unter `/home/bbecker/.local/share/remote-workplace/workbench.sqlite` und damit außerhalb des Repositorys. Builds, Quellcodewechsel und Deployments dürfen diese Datei nicht ersetzen. Jede bestätigte Orbit-Revision wird zusätzlich unter `/home/bbecker/.local/share/remote-workplace/orbit-backups/` abgelegt; `current.json` enthält die letzte Revision mit SHA-256-Prüfsumme, die nummerierten Dateien bleiben unverändert erhalten.
+Der produktive Datenbestand liegt unter `/home/your-user/.local/share/remote-workplace/workbench.sqlite` und damit außerhalb des Repositorys. Builds, Quellcodewechsel und Deployments dürfen diese Datei nicht ersetzen. Jede bestätigte Orbit-Revision wird zusätzlich unter `/home/your-user/.local/share/remote-workplace/orbit-backups/` abgelegt; `current.json` enthält die letzte Revision mit SHA-256-Prüfsumme, die nummerierten Dateien bleiben unverändert erhalten.
 
-Wenn die SQLite-Datei fehlt, stellt der Server beim nächsten Start automatisch `current.json` wieder her. Eine beschädigte Sicherung führt absichtlich zu einem Startfehler statt zu einer leeren Arbeitsfläche. Vor manuellen Eingriffen immer den Workbench-Dienst anhalten und sowohl die Datenbank als auch den vollständigen Backup-Ordner kopieren. Die während der Reparatur am 16. Juli 2026 konservierten Rohdaten liegen getrennt unter `/home/bbecker/.local/share/remote-workplace/emergency-backups/`.
+Wenn die SQLite-Datei fehlt, stellt der Server beim nächsten Start automatisch `current.json` wieder her. Eine beschädigte Sicherung führt absichtlich zu einem Startfehler statt zu einer leeren Arbeitsfläche. Vor manuellen Eingriffen immer den Workbench-Dienst anhalten und sowohl die Datenbank als auch den vollständigen Backup-Ordner kopieren. Bei einer manuellen Reparatur konservierte Rohdaten sollten getrennt unter `/home/your-user/.local/share/remote-workplace/emergency-backups/` abgelegt werden.
 
 Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreibt den aktiven Serverstand nicht. Der abweichende Browserentwurf liegt in `orbit_conflict_backups`; die aktuelle Arbeitsfläche bleibt in `orbit_documents` und `orbit_document_revisions` erhalten.
 
 ## Terminal verbindet nicht
 
-- `journalctl -u benjamin-dev-workbench.service -n 100 --no-pager` auf WebSocket- oder PTY-Fehler prüfen.
+- `journalctl -u remote-workplace.service -n 100 --no-pager` auf WebSocket- oder PTY-Fehler prüfen.
 - Sicherstellen, dass `TERMINAL_ALLOWED_USERS` den Tailscale-Login in Kleinschreibung enthält.
 - Der Server muss mit `@fastify/websocket` v11 den Socket direkt verwenden; `connection.socket` ist die alte API und führt zu Code 1006.
 - Nach einem Produktionsbuild den Workbench-Dienst neu starten, damit `dist/` nicht hinter dem Source-Code zurückbleibt.
@@ -25,7 +25,7 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 
 ## Projekt fehlt
 
-- `PROJECT_DISCOVERY_ENABLED=true` und `PROJECTS_ROOT=/home/bbecker/projects` prüfen.
+- `PROJECT_DISCOVERY_ENABLED=true` und `PROJECTS_ROOT=/home/your-user/projects` prüfen.
 - Es werden alle direkten, nicht versteckten Verzeichnisse angezeigt; Dateien und versteckte Ordner werden ausgelassen.
 - Explizite Metadaten gehören in `config/projects.local.json`; Pfade müssen absolut sein.
 - `missing`, `inaccessible` und `symlink` beschreiben die serverseitig geprüfte Verfügbarkeit.
@@ -56,6 +56,6 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 
 ## User-Dienste starten zu früh
 
-- `systemctl --user restart code-server.service tg-vereinsapp-preview.service` ausführen.
-- Logs mit `journalctl --user -u code-server.service -u tg-vereinsapp-preview.service -n 100 --no-pager` prüfen.
-- `install-user-tools.sh` wartet bei Healthchecks auf beide Loopback-Ports; ein einmaliger unmittelbarer Curl direkt nach `systemctl start` kann zu früh sein.
+- `systemctl restart code-server.service` ausführen.
+- Logs mit `journalctl -u code-server.service -n 100 --no-pager` prüfen.
+- `deploy/systemd/install.sh` wartet nach dem Start auf den Health-Endpunkt; ein einmaliger unmittelbarer Curl direkt nach `systemctl start` kann zu früh sein.

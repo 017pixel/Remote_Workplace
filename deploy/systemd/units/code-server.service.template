@@ -1,0 +1,32 @@
+# Optional: bettet einen lokalen code-server als Editor in die Workbench ein.
+# Nur nötig, wenn du den integrierten Editor nutzen möchtest.
+# code-server muss installiert sein (https://github.com/coder/code-server).
+[Unit]
+Description=code-server (Workbench editor)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__GROUP__
+Environment=HOME=__HOME__
+ExecStart=__CODE_SERVER_BIN__ --bind-addr 127.0.0.1:8080 --auth none
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

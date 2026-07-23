@@ -128,6 +128,17 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
   await page.getByRole("button", { name: "Eigenschaften einklappen" }).click();
   await expect(page.locator(".orbit-inspector")).toHaveCount(0);
 
+  await page.getByRole("button", { name: "Befehl" }).click();
+  await page.getByRole("button", { name: /Projektordner durchsuchen/ }).click();
+  const projectBrowser = page.getByRole("dialog", { name: "Serverprojekt öffnen" });
+  await expect(projectBrowser).toBeVisible();
+  await expect(projectBrowser.getByRole("textbox", { name: "Serverpfad" })).toBeVisible();
+  await expect(projectBrowser.getByRole("button", { name: "Im Orbit öffnen" })).toBeDisabled();
+  const projectBrowserBounds = await projectBrowser.evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }));
+  expect(projectBrowserBounds.scrollWidth).toBeLessThanOrEqual(projectBrowserBounds.clientWidth);
+  await projectBrowser.getByRole("button", { name: "Dialog schließen" }).click();
+  await expect(projectBrowser).toHaveCount(0);
+
   const mobileBounds = await orbitPage.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,

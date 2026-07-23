@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind, TerminalWorkspace } from "@workbench/contracts";
 import { generateId } from "../lib/id";
 
 export const MAX_TERMINAL_TABS = 5;
 export const MAX_CLI_INSTANCES = 4;
-export const TERMINAL_STORAGE_KEY = "benjamin-dev-workbench.terminals.v1";
+export const TERMINAL_STORAGE_KEY = "remote-workplace.terminals.v1";
 
 export interface TerminalTabState {
   id: string;
@@ -23,8 +23,20 @@ export interface TerminalAreaState {
 
 interface TerminalStore {
   areas: Record<string, TerminalAreaState>;
+  hydrated: boolean;
+  revision: number;
+  dirty: boolean;
+  saving: boolean;
+  syncError: string | null;
+  initializeRemote(document: TerminalWorkspace, revision: number): void;
+  applyRemote(document: TerminalWorkspace, revision: number): void;
+  replaceRemote(document: TerminalWorkspace, revision: number): void;
+  markSaved(revision: number, unchanged: boolean): void;
+  markSaving(saving: boolean): void;
+  markSyncError(message: string | null): void;
   ensureArea(areaId: string, projectId?: string | null, kind?: TerminalKind): void;
   addTab(areaId: string, projectId?: string | null, kind?: TerminalKind): string | null;
+  addExistingTab(areaId: string, tab: TerminalTabState): string | null;
   activateTab(areaId: string, tabId: string): void;
   closeTab(areaId: string, tabId: string): void;
   splitTab(areaId: string, tabId: string, side: "left" | "right"): void;
@@ -45,15 +57,40 @@ export const useTerminalStore = create<TerminalStore>()(
   persist(
     (set, get) => ({
       areas: {},
+      hydrated: false,
+      revision: 0,
+      dirty: false,
+      saving: false,
+      syncError: null,
+      initializeRemote: (document, revision) => set((state) => {
+        const hasLocal = Object.keys(state.areas).length > 0;
+        const useLocal = revision === 0 && hasLocal;
+        return {
+          areas: useLocal ? state.areas : document.areas as Record<string, TerminalAreaState>,
+          hydrated: true,
+          revision,
+          dirty: useLocal,
+          syncError: null,
+        };
+      }),
+      applyRemote: (document, revision) => set((state) => state.dirty
+        ? state
+        : { areas: document.areas as Record<string, TerminalAreaState>, revision, hydrated: true, syncError: null }),
+      replaceRemote: (document, revision) => set({ areas: document.areas as Record<string, TerminalAreaState>, revision, hydrated: true, dirty: false, saving: false, syncError: null }),
+      markSaved: (revision, unchanged) => set((state) => ({ revision, dirty: unchanged ? false : state.dirty, saving: false, syncError: null })),
+      markSaving: (saving) => set({ saving }),
+      markSyncError: (syncError) => set({ syncError, saving: false }),
       ensureArea: (areaId, projectId = null, kind = "shell") => {
+        if (!get().hydrated) return;
         if (get().areas[areaId]) return;
-        set((state) => ({ areas: { ...state.areas, [areaId]: newArea(areaId, projectId, kind) } }));
+        set((state) => ({ areas: { ...state.areas, [areaId]: newArea(areaId, projectId, kind) }, dirty: true }));
       },
       addTab: (areaId, projectId = null, kind = "shell") => {
+        if (!get().hydrated) return null;
         const existing = get().areas[areaId];
         if (!existing) {
           const area = newArea(areaId, projectId, kind);
-          set((state) => ({ areas: { ...state.areas, [areaId]: area } }));
+          set((state) => ({ areas: { ...state.areas, [areaId]: area }, dirty: true }));
           return area.activeTabId;
         }
         const current = existing;
@@ -65,13 +102,27 @@ export const useTerminalStore = create<TerminalStore>()(
             ...state.areas,
             [areaId]: { ...current, tabs: [...current.tabs, tab], activeTabId: tab.id },
           },
+          dirty: true,
         }));
+        return tab.id;
+      },
+      addExistingTab: (areaId, tab) => {
+        if (!get().hydrated) return null;
+        const existing = get().areas[areaId];
+        if (!existing) {
+          const area: TerminalAreaState = { id: areaId, tabs: [tab], activeTabId: tab.id, splitTabId: null, splitSizes: [50, 50] };
+          set((state) => ({ areas: { ...state.areas, [areaId]: area }, dirty: true }));
+          return tab.id;
+        }
+        const limit = tab.kind === "shell" ? MAX_TERMINAL_TABS : MAX_CLI_INSTANCES;
+        if (existing.tabs.length >= limit || existing.tabs.some((candidate) => candidate.id === tab.id)) return null;
+        set((state) => ({ areas: { ...state.areas, [areaId]: { ...existing, tabs: [...existing.tabs, tab], activeTabId: tab.id } }, dirty: true }));
         return tab.id;
       },
       activateTab: (areaId, tabId) => set((state) => {
         const area = state.areas[areaId];
         if (!area?.tabs.some((tab) => tab.id === tabId)) return state;
-        return { areas: { ...state.areas, [areaId]: { ...area, activeTabId: tabId } } };
+        return { areas: { ...state.areas, [areaId]: { ...area, activeTabId: tabId } }, dirty: true };
       }),
       closeTab: (areaId, tabId) => set((state) => {
         const area = state.areas[areaId];
@@ -90,6 +141,7 @@ export const useTerminalStore = create<TerminalStore>()(
               splitTabId: area.splitTabId === tabId ? null : area.splitTabId,
             },
           },
+          dirty: true,
         };
       }),
       splitTab: (areaId, tabId, side) => set((state) => {
@@ -106,6 +158,7 @@ export const useTerminalStore = create<TerminalStore>()(
                 ? { ...area, activeTabId: tabId, splitTabId: alternative }
                 : { ...area, activeTabId: alternative, splitTabId: tabId },
             },
+            dirty: true,
           };
         }
         return {
@@ -115,16 +168,17 @@ export const useTerminalStore = create<TerminalStore>()(
               ? { ...area, activeTabId: tabId, splitTabId: previousActive }
               : { ...area, splitTabId: tabId },
           },
+          dirty: true,
         };
       }),
       clearSplit: (areaId) => set((state) => {
         const area = state.areas[areaId];
-        return area ? { areas: { ...state.areas, [areaId]: { ...area, splitTabId: null } } } : state;
+        return area ? { areas: { ...state.areas, [areaId]: { ...area, splitTabId: null } }, dirty: true } : state;
       }),
       setSplitSizes: (areaId, splitSizes) => set((state) => {
         const area = state.areas[areaId];
         if (!area || Math.abs(splitSizes[0] + splitSizes[1] - 100) > 0.5) return state;
-        return { areas: { ...state.areas, [areaId]: { ...area, splitSizes } } };
+        return { areas: { ...state.areas, [areaId]: { ...area, splitSizes } }, dirty: true };
       }),
     }),
     {

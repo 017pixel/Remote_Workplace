@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { browserCaptureMetrics } from "./Manager.js";
+import { browserCaptureMetrics, validateBrowserClipboardText } from "./Manager.js";
+import { BROWSER_CLIPBOARD_MAX_BYTES } from "./protocol.js";
 
 const captureOptions = {
   captureMaxWidth: 2_560,
@@ -31,5 +32,20 @@ describe("browserCaptureMetrics", () => {
 
   it("clamps invalidly small viewports before calculating capture density", () => {
     expect(browserCaptureMetrics(20, 40, captureOptions)).toMatchObject({ width: 320, height: 220, scale: 2 });
+  });
+});
+
+describe("validateBrowserClipboardText", () => {
+  it("preserves selected Unicode and multiline text", () => {
+    const text = "Link: https://example.test/ä\nEmoji: 😀";
+    expect(validateBrowserClipboardText(text)).toEqual({ text, error: null });
+  });
+
+  it("rejects empty, invalid and oversized selections without truncating", () => {
+    expect(validateBrowserClipboardText(42).text).toBeNull();
+    expect(validateBrowserClipboardText("").text).toBeNull();
+    const result = validateBrowserClipboardText("😀".repeat((BROWSER_CLIPBOARD_MAX_BYTES / 4) + 1));
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("1 MiB");
   });
 });

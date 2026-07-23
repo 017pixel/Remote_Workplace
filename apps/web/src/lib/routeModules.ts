@@ -8,6 +8,7 @@ const routeLoaders = {
   terminal: () => import("../views/Terminal"),
   cliTerminal: () => import("../views/CliTerminal"),
   techTldrs: () => import("../views/TechTldrs"),
+  gallery: () => import("../views/GalleryView"),
 } as const;
 
 export const loadWorkbench = routeLoaders.workbench;
@@ -19,12 +20,14 @@ export const loadToolRoute = routeLoaders.toolRoute;
 export const loadTerminal = routeLoaders.terminal;
 export const loadCliTerminal = routeLoaders.cliTerminal;
 export const loadTechTldrs = routeLoaders.techTldrs;
+export const loadGallery = routeLoaders.gallery;
 
 const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
   ["/workbench", loadWorkbench],
   ["/tech-tldrs", loadTechTldrs],
   ["/projects/", loadProjectDetail],
   ["/projects", loadProjects],
+  ["/gallery", loadGallery],
   ["/settings", loadSettings],
   ["/usage", loadUsage],
   ["/terminal", loadTerminal],

@@ -1,6 +1,6 @@
 {
   "name": "@workbench/server",
-  "version": "0.20.1",
+  "version": "0.25.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
     "@chrome-devtools/inspector": "1.20260712.0",
     "@fastify/compress": "9.0.0",
     "@fastify/helmet": "13.1.0",
+    "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "11.1.0",
     "@fastify/reply-from": "12.6.3",
     "@fastify/static": "10.1.0",
@@ -22,7 +23,7 @@
     "@workbench/contracts": "workspace:*",
     "dotenv": "17.4.2",
     "execa": "9.6.1",
-    "fast-xml-parser": "5.3.0",
+    "fast-xml-parser": "5.10.1",
     "fastify": "5.10.0",
     "node-pty": "^1.1.0",
     "systeminformation": "5.31.17",

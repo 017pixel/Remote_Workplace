@@ -1,15 +1,15 @@
 /* global self, caches */
 
 const BASE = "/workbench";
-const CACHE = "workbench-v11";
+const CACHE = "workbench-v14";
 const SHELL = [
   BASE + "/",
   BASE + "/index.html",
-  BASE + "/manifest.webmanifest",
-  BASE + "/favicon.svg",
-  BASE + "/icons/icon-192.png",
-  BASE + "/icons/icon-512.png",
-  BASE + "/icons/apple-touch-icon.png",
+  BASE + "/manifest.webmanifest?v=2",
+  BASE + "/favicon.svg?v=2",
+  BASE + "/icons/icon-192.png?v=2",
+  BASE + "/icons/icon-512.png?v=2",
+  BASE + "/icons/apple-touch-icon.png?v=2",
 ];
 
 self.addEventListener("install", (event) => {
@@ -19,7 +19,10 @@ self.addEventListener("install", (event) => {
       .then((cache) => cache.addAll(SHELL))
       .catch(() => {}),
   );
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

@@ -4,6 +4,7 @@ import WebSocket from "ws";
 import { BrowserFailure } from "./Manager.js";
 import type { BrowserManager } from "./Manager.js";
 import { clientBrowserMessageSchema, type BrowserErrorCode, type ServerBrowserMessage } from "./protocol.js";
+import { isSameOriginRequest } from "../security/same-origin.js";
 
 function browserIdentity(request: FastifyRequest, allowedUsers: readonly string[]): string {
   const rawIdentity = request.headers["tailscale-user-login"];
@@ -24,7 +25,10 @@ function errorMessage(error: unknown): { code: BrowserErrorCode; message: string
 export async function registerBrowserRoutes(app: FastifyInstance, options: { manager: BrowserManager; allowedUsers: readonly string[] }) {
   app.get("/browser", { websocket: true }, (socket, request) => {
     let userId: string;
-    try { userId = browserIdentity(request, options.allowedUsers); } catch (error) {
+    try {
+      if (!isSameOriginRequest(request)) throw new Error("FORBIDDEN");
+      userId = browserIdentity(request, options.allowedUsers);
+    } catch (error) {
       const failure = errorMessage(error);
       socket.send(JSON.stringify({ type: "browser.error", ...failure } satisfies ServerBrowserMessage));
       socket.close(1008, failure.code);
@@ -42,7 +46,7 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
           switch (message.type) {
             case "browser.create": {
               detach?.();
-              const attached = await options.manager.createOrAttach(userId, message.instanceId, message.width, message.height, send, message.requestId);
+              const attached = await options.manager.createOrAttach(userId, message.instanceId, message.width, message.height, send, message.requestId, message.profileKey, message.initialUrl);
               detach = attached.detach;
               break;
             }
@@ -67,6 +71,7 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
   app.get<{ Params: { sessionId: string } }>("/browser/devtools/:sessionId", { websocket: true }, (socket, request) => {
     let endpoint: ReturnType<BrowserManager["openDevtoolsSocket"]>;
     try {
+      if (!isSameOriginRequest(request)) throw new Error("FORBIDDEN");
       const userId = browserIdentity(request, options.allowedUsers);
       endpoint = options.manager.openDevtoolsSocket(userId, request.params.sessionId);
     } catch (error) {

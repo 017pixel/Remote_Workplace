@@ -29,7 +29,7 @@ export function Projects() {
 
   return (
     <div className="page-scroll">
-      <div className="page-frame">
+      <div className="page-frame projects-page">
         <div className="page-heading">
           <h1>Projekte</h1>
           <p>Alle lokalen Arbeitsbereiche aus dem Projektordner und ihre verfügbaren Werkzeuge.</p>

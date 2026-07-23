@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
+# Beendet eine noch laufende, außerhalb von systemd gestartete Workbench-Instanz
+# (z. B. ein manuelles `pnpm start`), bevor der systemd-Dienst übernimmt.
 set -euo pipefail
 
-repo_root="/home/bbecker/projects/Remote_Workplace"
-main_pid="$(systemctl show -p MainPID --value benjamin-dev-workbench.service 2>/dev/null || true)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+main_pid="$(systemctl show -p MainPID --value remote-workplace.service 2>/dev/null || true)"
 
 if [[ ! "$main_pid" =~ ^[0-9]+$ ]] || [[ "$main_pid" -le 1 ]] || [[ ! -d "/proc/$main_pid" ]]; then
   exit 0

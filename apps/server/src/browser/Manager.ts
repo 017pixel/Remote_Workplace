@@ -1,11 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { chmod, mkdir } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import WebSocket from "ws";
-import type { ClientBrowserMessage, ServerBrowserMessage } from "./protocol.js";
+import { BROWSER_CLIPBOARD_MAX_BYTES, type ClientBrowserMessage, type ServerBrowserMessage } from "./protocol.js";
+import type { BrowserDatabase } from "./database.js";
 
 interface CdpResponse {
   id?: number;
@@ -111,6 +112,21 @@ interface BrowserState {
   canGoForward: boolean;
 }
 
+const clipboardSelectionExpression = `(() => {
+  const active = document.activeElement;
+  if ((active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) && active.selectionStart !== null && active.selectionEnd !== null && active.selectionStart !== active.selectionEnd) {
+    return active.value.slice(active.selectionStart, active.selectionEnd);
+  }
+  return globalThis.getSelection?.().toString() ?? "";
+})()`;
+
+export function validateBrowserClipboardText(value: unknown): { text: string | null; error: string | null } {
+  if (typeof value !== "string") return { text: null, error: "Die Browserauswahl konnte nicht gelesen werden." };
+  if (!value) return { text: null, error: "Wähle zuerst Text im Browser aus." };
+  if (Buffer.byteLength(value, "utf8") > BROWSER_CLIPBOARD_MAX_BYTES) return { text: null, error: "Die Browserauswahl ist größer als 1 MiB und wurde nicht kopiert." };
+  return { text: value, error: null };
+}
+
 export interface BrowserCaptureOptions {
   captureMaxWidth: number;
   captureMaxHeight: number;
@@ -151,15 +167,18 @@ class BrowserSession {
   private constructor(
     readonly userId: string,
     readonly instanceId: string,
+    readonly profileKey: string,
     private readonly process: ChildProcessWithoutNullStreams,
-    private readonly profileDirectory: string,
     private readonly cdp: CdpConnection,
     private readonly devtoolsBrowserUrl: string,
     private readonly managerOptions: BrowserCaptureOptions,
+    private readonly onStateChange: (state: BrowserState) => void,
   ) {}
 
-  static async create(options: { userId: string; instanceId: string; chromiumPath: string; startupTimeoutMilliseconds: number; width: number; height: number } & BrowserCaptureOptions) {
-    const profileDirectory = await mkdtemp(join(tmpdir(), "workbench-chromium-"));
+  static async create(options: { userId: string; instanceId: string; profileKey: string; profileDirectory: string; initialUrl: string; chromiumPath: string; startupTimeoutMilliseconds: number; width: number; height: number; onStateChange: (state: BrowserState) => void } & BrowserCaptureOptions) {
+    const profileDirectory = options.profileDirectory;
+    await mkdir(profileDirectory, { recursive: true, mode: 0o700 });
+    await chmod(profileDirectory, 0o700);
     const process = spawn(options.chromiumPath, [
       "--headless=new",
       "--no-sandbox",
@@ -171,20 +190,21 @@ class BrowserSession {
       "--disable-default-apps",
       "--no-first-run",
       "--no-default-browser-check",
+      "--password-store=basic",
+      "--restore-last-session",
       "--remote-debugging-port=0",
       `--user-data-dir=${profileDirectory}`,
       `--window-size=${options.width},${options.height}`,
-      "about:blank",
+      options.initialUrl,
     ], { stdio: "pipe" });
     try {
       const websocketUrl = await readDevtoolsUrl(process, options.startupTimeoutMilliseconds);
       const cdp = await CdpConnection.connect(websocketUrl, options.startupTimeoutMilliseconds);
-      const session = new BrowserSession(options.userId, options.instanceId, process, profileDirectory, cdp, websocketUrl, options);
+      const session = new BrowserSession(options.userId, options.instanceId, options.profileKey, process, cdp, websocketUrl, options, options.onStateChange);
       await session.initialize(options.width, options.height);
       return session;
     } catch (error) {
       process.kill("SIGTERM");
-      await rm(profileDirectory, { recursive: true, force: true });
       throw new BrowserFailure("BROWSER_START_FAILED", error instanceof Error ? error.message : "Chromium konnte nicht gestartet werden.");
     }
   }
@@ -221,6 +241,16 @@ class BrowserSession {
       case "browser.wheel": await this.cdp.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: message.x, y: message.y, deltaX: message.deltaX, deltaY: message.deltaY }, this.targetSessionId); break;
       case "browser.key": await this.key(message.key, message.code, message.modifiers); break;
       case "browser.text": await this.cdp.send("Input.insertText", { text: message.text }, this.targetSessionId); break;
+      case "browser.copy": {
+        try {
+          const result = await this.cdp.send("Runtime.evaluate", { expression: clipboardSelectionExpression, returnByValue: true }, this.targetSessionId);
+          const evaluation = result.result as { value?: unknown } | undefined;
+          this.broadcast({ type: "browser.clipboard", sessionId: this.id, requestId: message.requestId, ...validateBrowserClipboardText(evaluation?.value) });
+        } catch {
+          this.broadcast({ type: "browser.clipboard", sessionId: this.id, requestId: message.requestId, text: null, error: "Die Browserauswahl konnte nicht gelesen werden." });
+        }
+        break;
+      }
       case "browser.screenshot": {
         const result = await this.cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false }, this.targetSessionId);
         if (typeof result.data === "string") this.broadcast({ type: "browser.screenshot", sessionId: this.id, data: result.data });
@@ -243,9 +273,11 @@ class BrowserSession {
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     for (const listener of this.listeners) listener({ type: "browser.closed", sessionId: this.id });
     this.listeners.clear();
-    this.cdp.close();
+    await Promise.all([this.captureQueue.catch(() => undefined), this.resizeQueue.catch(() => undefined)]);
+    if (this.screencastStarted) await this.cdp.send("Page.stopScreencast", {}, this.targetSessionId).catch(() => undefined);
+    await this.cdp.send("Browser.close").catch(() => undefined);
     await this.terminateProcess();
-    await rm(this.profileDirectory, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 });
+    this.cdp.close();
   }
 
   private async terminateProcess() {
@@ -381,6 +413,7 @@ class BrowserSession {
       canGoBack: currentIndex > 0,
       canGoForward: currentIndex >= 0 && currentIndex < entries.length - 1,
     };
+    this.onStateChange(this.state);
     this.broadcast({ type: "browser.state", sessionId: this.id, ...this.state });
   }
 
@@ -444,23 +477,32 @@ function readDevtoolsUrl(process: ChildProcessWithoutNullStreams, timeoutMillise
 export class BrowserManager {
   private readonly sessions = new Map<string, BrowserSession>();
   private readonly instances = new Map<string, string>();
+  private readonly profiles = new Map<string, string>();
   private readonly cleanupTimer: NodeJS.Timeout;
   private readonly chromiumPath: string;
 
-  constructor(private readonly options: { chromiumPath: string; maxSessions: number; startupTimeoutMilliseconds: number; idleTimeoutMilliseconds: number } & BrowserCaptureOptions) {
+  constructor(private readonly options: { chromiumPath: string; profilesRoot: string; maxSessions: number; startupTimeoutMilliseconds: number; idleTimeoutMilliseconds: number; database?: BrowserDatabase } & BrowserCaptureOptions) {
     this.chromiumPath = resolveChromiumPath(options.chromiumPath);
     this.cleanupTimer = setInterval(() => void this.closeIdleSessions(), 60_000);
     this.cleanupTimer.unref();
   }
 
-  async createOrAttach(userId: string, instanceId: string, width: number, height: number, listener: BrowserListener, requestId?: string) {
+  async createOrAttach(userId: string, instanceId: string, width: number, height: number, listener: BrowserListener, requestId?: string, requestedProfileKey?: string, requestedInitialUrl?: string) {
     const existingId = this.instances.get(`${userId}:${instanceId}`);
-    let session = existingId ? this.sessions.get(existingId) : undefined;
+    const stored = this.options.database?.get(userId, instanceId);
+    const profileKey = requestedProfileKey ?? stored?.profileKey ?? instanceId;
+    const profileMapKey = `${userId}:${profileKey}`;
+    let session = existingId ? this.sessions.get(existingId) : this.sessions.get(this.profiles.get(profileMapKey) ?? "");
     if (!session) {
       if (this.sessions.size >= this.options.maxSessions) throw new BrowserFailure("TOO_MANY_SESSIONS", "Die maximale Anzahl paralleler Browser ist erreicht.");
+      const profileDirectory = join(this.options.profilesRoot, createHash("sha256").update(`${userId}\u0000${profileKey}`).digest("hex"));
+      const initialUrl = stored?.lastUrl && stored.lastUrl !== "about:blank" ? stored.lastUrl : requestedInitialUrl ?? "about:blank";
       session = await BrowserSession.create({
         userId,
         instanceId,
+        profileKey,
+        profileDirectory,
+        initialUrl,
         chromiumPath: this.chromiumPath,
         startupTimeoutMilliseconds: this.options.startupTimeoutMilliseconds,
         width,
@@ -470,10 +512,13 @@ export class BrowserManager {
         captureMaxScale: this.options.captureMaxScale,
         captureJpegQuality: this.options.captureJpegQuality,
         captureEveryNthFrame: this.options.captureEveryNthFrame,
+        onStateChange: (state) => this.options.database?.save({ userId, instanceId, profileKey, lastUrl: state.url, updatedAt: Date.now() }),
       });
       this.sessions.set(session.id, session);
-      this.instances.set(`${userId}:${instanceId}`, session.id);
+      this.profiles.set(profileMapKey, session.id);
     }
+    this.instances.set(`${userId}:${instanceId}`, session.id);
+    this.options.database?.save({ userId, instanceId, profileKey, lastUrl: stored?.lastUrl ?? requestedInitialUrl ?? "about:blank", updatedAt: Date.now() });
     const detach = session.attach(listener, width, height, requestId);
     return { session, detach };
   }
@@ -494,7 +539,8 @@ export class BrowserManager {
   async closeSession(userId: string, sessionId: string) {
     const session = this.ownedSession(userId, sessionId);
     this.sessions.delete(session.id);
-    this.instances.delete(`${session.userId}:${session.instanceId}`);
+    for (const [key, value] of this.instances) if (value === session.id) this.instances.delete(key);
+    this.profiles.delete(`${session.userId}:${session.profileKey}`);
     await session.close();
   }
 
@@ -503,6 +549,7 @@ export class BrowserManager {
     await Promise.all([...this.sessions.values()].map((session) => session.close()));
     this.sessions.clear();
     this.instances.clear();
+    this.profiles.clear();
   }
 
   private ownedSession(userId: string, sessionId: string) {

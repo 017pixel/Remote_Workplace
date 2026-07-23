@@ -2,6 +2,167 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [0.25.0] - 2026-07-23
+
+### Erstellt
+
+- Echtes Bento-Raster für die Mediengalerie mit Bild-Kacheln in variabler Größe
+- Overlay mit Dateiname und Aktionen erscheint erst beim Überfahren einer Kachel
+- Neutraler blauer Synchronisierungshinweis für übernommene Serverstände
+- Verbesserter Empty-State der Galerie mit klarem Upload-CTA und Drag-&-Drop-Hinweis
+- Neun eingebundene Produkt-Screenshots in der README
+
+### Verändert
+
+- Dateigalerie zeigt kompakte Karten, deren Aktionsknöpfe nicht mehr zusammengequetscht werden
+- Galerie-Steuerung bricht in schmalen Orbit-Knoten sauber um (Container-Queries)
+- Gelöste Revisionskonflikte gelten nicht länger als Fehler und färben die Statusinsel nicht rot
+- Screenshot-Abschnitt der README zeigt echte Ansichten statt Platzhalter
+- Versionsstände von Root, Server und Web auf 0.25.0 angehoben
+
+### Gelöscht
+
+- Platzhalter-Screenshots (orbit/terminal/news/usage) aus `docs/screenshots`
+- Irreführende rote Statusmeldung nach automatisch aufgelösten Konflikten
+- Fixe, überlappende Aktionsleiste innerhalb der Bildkacheln
+
+## [0.24.0] - 2026-07-22
+
+### Erstellt
+
+- Großer Server-Dateibaum für die freie Orbit-Projektwahl
+- Direkte Navigation zu absoluten, Home- und relativen Serverpfaden
+- Dauerhafte Registrierung beliebiger Unterordner als Orbit-Projekte
+- Eigenständige mobile Vollbildansicht für den Projektbrowser
+- Tastaturbedienung, Ladezustände und verständliche Pfadfehler
+
+### Verändert
+
+- Orbit-Projektliste zeigt zuletzt geöffnete Projekte sofort zuerst
+- Projektwahl verwendet auf Desktop eine übersichtliche Zwei-Spalten-Ansicht
+- Mobile Befehlspalette öffnet den gemeinsamen Serverprojekt-Browser
+- Große Ordner werden stufenweise und paginiert geladen
+- Projektwerkzeuge akzeptieren auch manuell registrierte Arbeitsordner
+
+### Gelöscht
+
+- Kleines Popup mit ausschließlich vorab erkannten Projekten
+- Beschränkung der Orbit-Projektwahl auf direkte Projekt-Unterordner
+- Vollständiges Vorabladen tiefer Server-Verzeichnisstrukturen
+- Auswahl von Dateien und symbolischen Verweisen als Projekte
+- Verzögerte Sortierung zuletzt verwendeter Orbit-Projekte
+
+## [0.23.0] - 2026-07-22
+
+### Erstellt
+
+- Claude Code als dritter Limitanbieter über die bestehende CodexBar-Anbindung
+- Automatische Erkennung des lokal angemeldeten Claude-Code-Accounts und Abos
+- Verwaltbare Claude-Code-Profile mit erneuter Anmeldung im geschützten Terminal
+- Historische Claude-Code-Kosten, Tokenwerte und Limitprognosen
+- Claude-Code-Nutzungsknoten für den Orbit Workspace
+
+### Verändert
+
+- Statusleiste zeigt Codex, OpenCode und Claude Code gemeinsam an
+- Nutzungsübersicht ordnet Claude-Limits dem erkannten Account zu
+- Accountverwaltung bietet alle drei lokalen Coding-Anbieter in einer Auswahl
+- Datensammler übernimmt Claude-Limits und lokale Kosten im bestehenden Intervall
+- Claude-Abruf nutzt OAuth mit zuverlässigem lokalem CLI-Fallback auf Linux
+
+### Gelöscht
+
+- Beschränkung der Nutzungsanzeige auf Codex und OpenCode
+- Abhängigkeit von der unter Linux hängenden Claude-Webquelle
+- Manuelle Zuordnung des vorhandenen Claude-Standardprofils
+- Starre Datenbankbeschränkung auf zwei Accountanbieter
+- Fehlende Claude-Code-Anzeige in Statusleiste und Orbit
+
+## Unreleased
+
+### Erstellt
+
+- KI-Assistent mit Verlauf: Nachfragen verstehen den bisherigen Dialog und verwandte Beiträge
+- Quellen-Chips in KI-Antworten öffnen den zitierten Artikel direkt im Leser
+- Vorgeschlagene Anschlussfragen nach jeder KI-Antwort
+- Sammlungsübersicht auf der gespeicherten Seite mit Beitragszählern
+- Fortschrittsbalken im Leser und Story-Zähler im mobilen Snap-Feed
+
+### Verändert
+
+- Copy und Paste verwenden in Terminal, Entwicklungswerkzeugen und Browser wieder zuverlässig den aktuell ausgewählten Inhalt
+- Solide transluzente Story-Leseflächen mit geprüftem Kontrast ohne Verläufe
+- Ruhigere Story-Scrims, besserer Schwung beim Scrollen und klare Story-Position
+- Pop-ups und Bottom-Sheets mit gefederter Einblendung statt hartem Erscheinen
+- KI-Kontext: Artikel-Chat nutzt den Beitrag plus inhaltsähnliche News als Grundlage
+- Desktop-Bento mit Bild-Zoom, Gelesen-Punkt und präziserem Wichtigkeitstyp
+- KI auf mobile Geräte geholt über eigene Insel-Taste und Vollbild-Blatt
+
+### Gelöscht
+
+- Mehrstufige Verläufe und unruhige Verschattung in der mobilen Story-Ansicht
+- Versteckte KI-Eingabe auf Mobilgeräten ohne sichtbaren Zugang
+
+### Erstellt
+
+- Serverseitige Registry für Shell-, Codex- und OpenCode-Sessions
+- Synchronisierte Terminal-Tabs und Areas für mehrere Geräte
+- Session-Liste zum Öffnen, Neustarten und Beenden verwaister Sessions
+- Gemeinsamer PTY-Zugriff mehrerer verbundener Geräte
+- Unterbrechungsstatus nach Backend-Neustarts ohne automatische Prozesswiederherstellung
+
+## [0.22.0] - 2026-07-18
+
+### Erstellt
+
+- Zentrale Responsive-Shell für Smartphone, Tablet, kurze Displays und Desktop
+- Vollständige Navigationsseite mit Suche, zuletzt verwendeten Zielen und Tablet-Raster
+- Fokusfalle, Scroll-Lock, Browser-Zurück, Fokus-Rückgabe und ergänzende Edge-Swipes
+- Strukturierte Lade-, Fehler-, Bestätigungs- und Umbenennungsdialoge
+- Geräteprojekte für Phone hoch/quer und iPad hoch/quer in Playwright
+
+### Verändert
+
+- Touch-Tablets verwenden Navigation und 44–48-Pixel-Ziele statt Desktop-Sidebar und Statusbar
+- Workbench, Orbit, Browser, Terminal und Tech TLDRs reagieren auf Eingabemodus und Orientierung
+- VisualViewport, Safe Areas und Software-Tastatur steuern die nutzbare App- und Terminalhöhe
+- Projekt-, Usage-, Settings- und PWA-Oberflächen sind für schmale und mittlere Ansichten abgestuft
+- Service-Worker-Updates werden sichtbar angeboten und erst nach Bestätigung aktiviert
+
+### Gelöscht
+
+- Bottom-Navigation als mobile Navigationsoption
+- Breitenabhängiger Desktop-Mischzustand in Smartphone-Querformat und auf Touch-Tablets
+- Native Browser-Prompts und -Bestätigungen für Workspace-, Account- und Workbench-Aktionen
+- Redundanter Panelkopf und schwebende Panelsteuerung auf Browser- und Notion-Touch-Routen
+- Gradient-Scrims in Tech TLDRs
+
+## [0.21.0] - 2026-07-18
+
+### Erstellt
+
+- Dauerhafter tmux-Supervisor für Shell-, Codex- und OpenCode-Läufe
+- Serverseitig persistente Chromium-Profile mit gespeichertem Login- und URL-Zustand
+- Notion als angemeldetes, geräteübergreifend geteiltes Orbit- und Workbench-Werkzeug
+- Vollständige, durchsuchbare Orbit-Projektwahl für alle erkannten Projektordner
+- Kombinierte Projektaktivität aus Workbench-Nutzung, Dateisystem und letztem Git-Commit
+
+### Verändert
+
+- Terminal-Sessions überstehen Browser-, Backend- und Gerätewechsel und lassen sich erneut anbinden
+- Bereits vorhandene tmux-Läufe werden bei genau einem erlaubten Benutzer sicher in die Session-Liste übernommen
+- Konfigurierte und lokale Previews verwenden standardmäßig den synchronisierten Chromium-Lauf
+- Die Orbit-Sidebar zeigt nur die tatsächlich neuesten Projekte und trennt eingeklappte Bereiche sichtbar
+- Browser-WebSockets prüfen strikt den Workbench-Origin; der RSS-XML-Parser ist auf die vollständig gepatchte Version aktualisiert
+
+### Gelöscht
+
+- Temporäre Chromium-Profile, die Anmeldungen nach Leerlauf oder Neustart verloren haben
+- Starre Auswahl weniger fest angezeigter Orbit-Projekte
+- Veralteter Sidebar-Eintrag `neue-datei.ts`
+- Automatisches Unterbrechen beaufsichtigter Terminal-Läufe beim Backend-Neustart
+- iframe-Zwang für Previews mit authentifiziertem, geräteübergreifendem Zustand
+
 ## [0.20.1] - 2026-07-16
 
 ### Erstellt
@@ -668,7 +829,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Installation vererbt die benötigte Werkzeugumgebung an den Dienstbenutzer
 - Abhängigkeiten dürfen den erforderlichen esbuild-Schritt ausführen
 - Server meldet die Versionsnummer 0.2.3
-- Der Produktionsbuild bleibt dem Benutzer bbecker zugeordnet
+- Der Produktionsbuild bleibt dem Dienstbenutzer zugeordnet
 
 ### Gelöscht
 

@@ -3,10 +3,10 @@ import { compactAccountIdentity } from "./StatusBar";
 
 describe("compactAccountIdentity", () => {
   it("shortens long email local parts while preserving the recognizable ends and domain", () => {
-    expect(compactAccountIdentity("beckerbenjamin2010@gmail.com")).toBe("beck…2010@gmail.com");
+    expect(compactAccountIdentity("longusername2010@example.com")).toBe("long…2010@example.com");
   });
 
   it("keeps already compact email addresses unchanged", () => {
-    expect(compactAccountIdentity("b.becker@aisci.de")).toBe("b.becker@aisci.de");
+    expect(compactAccountIdentity("user@example.com")).toBe("user@example.com");
   });
 });

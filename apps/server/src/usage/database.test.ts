@@ -1,6 +1,7 @@
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { AccountService } from "./account-service.js";
 import { UsageDatabase } from "./database.js";
@@ -62,5 +63,41 @@ describe("account registry", () => {
     await service.remove(account.id);
     expect(await readFile(join(profile,"auth.json"),"utf8")).toBe("credential-placeholder");
     expect(service.list()).toHaveLength(0);
+  });
+
+  it("migrates the account registry and accepts Claude Code profiles", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-claude-account-"));
+    const path = join(root, "usage.sqlite");
+    const legacy = new DatabaseSync(path);
+    legacy.exec(`CREATE TABLE accounts (
+      id TEXT PRIMARY KEY, provider TEXT NOT NULL CHECK(provider IN ('codex','opencode')),
+      label TEXT NOT NULL, email TEXT, profile_path TEXT NOT NULL, source TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(provider, profile_path)
+    )`);
+    legacy.close();
+    const database = new UsageDatabase(path); databases.push(database);
+
+    expect(database.createAccount({ provider: "claude", label: "Claude Pro", profilePath: join(root, ".claude"), source: "local" }))
+      .toMatchObject({ provider: "claude", label: "Claude Pro", enabled: true });
+  });
+
+  it("discovers the authenticated local Claude Code profile", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-claude-discovery-"));
+    const profile = join(root, ".claude");
+    const claude = join(root, "claude");
+    await mkdir(profile);
+    await writeFile(claude, `#!/bin/sh\nprintf '%s' '{"loggedIn":true,"email":"claude@example.com"}'\n`);
+    await chmod(claude, 0o700);
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    const service = new AccountService({ database, allowedRoots: [root], profilesRoot: join(root, "profiles"), codexbarConfigPath: join(root, "codexbar.json"), claudeCliPath: claude, homeDirectory: root });
+
+    await expect(service.discover()).resolves.toContainEqual(expect.objectContaining({
+      provider: "claude",
+      profilePath: profile,
+      label: "claude@example.com",
+      authenticated: true,
+      registered: false,
+    }));
   });
 });

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_CLI_INSTANCES, MAX_TERMINAL_TABS, useTerminalStore } from "./terminals";
 
 describe("terminal areas", () => {
-  beforeEach(() => useTerminalStore.setState({ areas: {} }));
+  beforeEach(() => useTerminalStore.setState({ areas: {}, hydrated: true, revision: 0, dirty: false, saving: false, syncError: null }));
 
   it("creates independent tabs without replacing a running session", () => {
     useTerminalStore.getState().ensureArea("standalone", "first-project");

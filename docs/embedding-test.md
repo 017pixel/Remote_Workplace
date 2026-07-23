@@ -21,7 +21,7 @@
 
 ## Projekt-Preview
 
-- Getestet wurde die aktive Vite-App aus `/home/bbecker/projects/tg-vereinsapp` auf Port 1234.
+- Getestet wurde die aktive Vite-App aus `/home/your-user/projects/demo-app` auf Port 1234.
 - Die App rendert sichtbar im iframe.
 - Der Vite-Client meldet eine erfolgreiche Verbindung; damit funktioniert der HMR-WebSocket im geprüften direkten Tailscale-HTTP-Zugriff.
 - Die Produktions-Workbench wird über HTTPS ausgeliefert. Die aktuelle HTTP-Preview wäre dort Mixed Content.

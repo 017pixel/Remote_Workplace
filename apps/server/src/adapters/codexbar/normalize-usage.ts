@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import type { AccountUsage, ProviderUsage, UsageWindow } from "@workbench/contracts";
 import type { CodexbarPayload } from "./codexbar-schemas.js";
 
-type WorkbenchProvider = "codex" | "opencode";
+type WorkbenchProvider = "codex" | "opencode" | "claude";
 
 const providerMetadata: Record<WorkbenchProvider, { name: string; codexbarProvider: string }> = {
   codex: { name: "Codex", codexbarProvider: "codex" },
   opencode: { name: "OpenCode Go", codexbarProvider: "opencodego" },
+  claude: { name: "Claude Code", codexbarProvider: "claude" },
 };
 
 function accountId(provider: WorkbenchProvider, email: string | undefined, position: number): string {

@@ -15,6 +15,8 @@ interface PwaInstallState {
   isAppleMobile: boolean;
   isInstalled: boolean;
   canInstall: boolean;
+  updateAvailable: boolean;
+  applyUpdate: () => Promise<void>;
 }
 
 const PwaInstallContext = createContext<PwaInstallState | null>(null);
@@ -22,6 +24,7 @@ const PwaInstallContext = createContext<PwaInstallState | null>(null);
 export function PwaInstallProvider({ children }: { children: ReactNode }) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const isAppleMobile = isAppleMobileDevice();
 
   useEffect(() => {
@@ -50,6 +53,24 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    let registration: ServiceWorkerRegistration | null = null;
+    const inspect = () => {
+      if (registration?.waiting) setUpdateAvailable(true);
+      const installing = registration?.installing;
+      if (installing) installing.addEventListener("statechange", () => {
+        if (installing.state === "installed" && navigator.serviceWorker.controller) setUpdateAvailable(true);
+      });
+    };
+    void navigator.serviceWorker.ready.then((value) => {
+      registration = value;
+      inspect();
+      registration.addEventListener("updatefound", inspect);
+    });
+    return () => registration?.removeEventListener("updatefound", inspect);
+  }, []);
+
   const install = async () => {
     if (installPrompt === null) return;
     await installPrompt.prompt();
@@ -58,9 +79,22 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     setInstallPrompt(null);
   };
 
+  const applyUpdate = async () => {
+    if (!("serviceWorker" in navigator)) return;
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration.waiting) { await registration.update(); return; }
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    }, { once: true });
+    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+  };
+
   return createElement(
     PwaInstallContext.Provider,
-    { value: { install, isAppleMobile, isInstalled, canInstall: installPrompt !== null } },
+    { value: { install, isAppleMobile, isInstalled, canInstall: installPrompt !== null, updateAvailable, applyUpdate } },
     children,
   );
 }

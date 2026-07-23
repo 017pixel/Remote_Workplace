@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const workbench = process.env.WORKBENCH_E2E_URL;
 
 test.use({
-  extraHTTPHeaders: { "tailscale-user-login": "aistudioaccprgrm@gmail.com" },
+  extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
   viewport: { width: 1440, height: 960 },
 });
 
@@ -96,12 +96,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await page.getByRole("button", { name: /Codex Nutzung/ }).click();
   await expect(page.getByText("Aktualisierung alle 60 Sekunden").last()).toBeVisible();
 
-  await page.getByRole("button", { name: /neue-datei\.ts/ }).click();
-  const filePath = `orbit-browser-${Date.now()}.ts`;
-  await page.getByLabel("Relativer Dateipfad").last().fill(filePath);
-  await page.getByLabel("Dateiinhalt bearbeiten").last().fill("export const browserVerified = true;", { force: true });
-  await page.getByRole("button", { name: "Im Projekt erstellen" }).last().click();
-  await expect(page.getByText(`${filePath} wurde gespeichert.`)).toBeVisible();
+  await expect(page.getByRole("button", { name: /neue-datei\.ts/ })).toHaveCount(0);
 
   await page.keyboard.press("/");
   const command = page.getByRole("dialog", { name: "Orbit-Befehl" });
@@ -288,7 +283,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   expect(errors.filter((message) => {
     if (/favicon|ResizeObserver loop/i.test(message)) return false;
     if (/Cookie .*_cfuvid.*rejected for invalid domain.*clerk\.t3\.codes/i.test(message)) return false;
-    if (isolatedLocalOrigin && /Framing .*benjaminsserver.*frame-ancestors|frame-ancestors.*violates|status of 400|ws:\/\/127\.0\.0\.1:\d+\/api\/v1\/terminal/i.test(message)) return false;
+    if (isolatedLocalOrigin && /Framing .*server-name.*frame-ancestors|frame-ancestors.*violates|status of 400|ws:\/\/127\.0\.0\.1:\d+\/api\/v1\/terminal/i.test(message)) return false;
     return true;
   })).toEqual([]);
 });

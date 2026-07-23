@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowRight, Braces, Camera, ExternalLink, Globe2, LoaderCircle, Plus, RotateCw, Search, SquareCode, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Braces, Camera, ExternalLink, Globe2, Hand, LoaderCircle, MoreHorizontal, MousePointer2, Plus, RotateCw, Search, SquareCode, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LocalPort } from "@workbench/contracts";
 import { LocalPorts } from "./LocalPorts";
+import { browserClipboardAction, utf8ByteLength, writeClipboardText } from "../../lib/clipboard";
 
 type BrowserStatus = "connecting" | "ready" | "disconnected" | "error";
 type ServerMessage =
@@ -10,6 +11,7 @@ type ServerMessage =
   | { type: "browser.frame"; sessionId: string; data: string; width: number; height: number }
   | { type: "browser.screenshot"; sessionId: string; data: string }
   | { type: "browser.source"; sessionId: string; source: string; url: string }
+  | { type: "browser.clipboard"; sessionId: string; requestId: string; text: string | null; error: string | null }
   | { type: "browser.closed"; sessionId: string }
   | { type: "browser.error"; sessionId?: string; code: string; message: string }
   | { type: "browser.pong" };
@@ -41,7 +43,10 @@ function storeSession(key: string, value: string | null) {
   try { if (value) window.sessionStorage.setItem(key, value); else window.sessionStorage.removeItem(key); } catch { /* Browser remains usable without session storage. */ }
 }
 
-export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
+const browserClipboardMaximumBytes = 1_048_576;
+type ClipboardRequestPurpose = "copy" | "sync";
+
+export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instanceId: string; profileKey?: string; initialUrl?: string }) {
   const storageKey = `workbench-browser-session:${instanceId}`;
   const viewportRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -55,6 +60,11 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
   const pendingUrlRef = useRef<string | null>(null);
   const requestedUrlRef = useRef<string | null>(null);
   const addressEditingRef = useRef(false);
+  const touchScrollRef = useRef<{ x: number; y: number } | null>(null);
+  const clipboardSelectionRef = useRef("");
+  const latestSelectionRequestRef = useRef<string | null>(null);
+  const activeCopyRequestRef = useRef<string | null>(null);
+  const clipboardRequestsRef = useRef(new Map<string, { purpose: ClipboardRequestPurpose; timeout: number }>());
   const fatalConnectionRef = useRef(false);
   const retriesRef = useRef(0);
   const [status, setStatus] = useState<BrowserStatus>("connecting");
@@ -65,12 +75,35 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
   const [sourceView, setSourceView] = useState<{ source: string; url: string } | null>(null);
+  const [touchMode, setTouchMode] = useState<"interact" | "scroll">("scroll");
+  const [clipboardStatus, setClipboardStatus] = useState("");
 
   const send = useCallback((message: object) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
     socketRef.current.send(JSON.stringify(message));
     return true;
   }, []);
+
+  const requestSelection = useCallback((purpose: ClipboardRequestPurpose) => {
+    const sessionId = sessionRef.current;
+    if (!sessionId || state.url === "about:blank") return false;
+    const requestId = `${purpose}:${createUuid()}`;
+    const timeout = window.setTimeout(() => {
+      clipboardRequestsRef.current.delete(requestId);
+      if (activeCopyRequestRef.current === requestId) {
+        activeCopyRequestRef.current = null;
+        setClipboardStatus("Kopieren hat zu lange gedauert. Bitte erneut versuchen.");
+      }
+    }, 3_000);
+    clipboardRequestsRef.current.set(requestId, { purpose, timeout });
+    latestSelectionRequestRef.current = requestId;
+    if (purpose === "copy") activeCopyRequestRef.current = requestId;
+    if (send({ type: "browser.copy", sessionId, requestId })) return true;
+    window.clearTimeout(timeout);
+    clipboardRequestsRef.current.delete(requestId);
+    if (purpose === "copy") setClipboardStatus("Browser ist noch nicht verbunden.");
+    return false;
+  }, [send, state.url]);
 
   const dimensions = useCallback(() => {
     const viewport = viewportRef.current;
@@ -83,8 +116,8 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
   const createOrAttach = useCallback(() => {
     const size = dimensions();
     if (sessionRef.current) send({ type: "browser.attach", sessionId: sessionRef.current, ...size });
-    else send({ type: "browser.create", requestId: createUuid(), instanceId, ...size });
-  }, [dimensions, instanceId, send]);
+    else send({ type: "browser.create", requestId: createUuid(), instanceId, ...(profileKey ? { profileKey } : {}), ...(initialUrl ? { initialUrl } : {}), ...size });
+  }, [dimensions, initialUrl, instanceId, profileKey, send]);
 
   const connect = useCallback(() => {
     if (disposedRef.current || fatalConnectionRef.current || socketRef.current?.readyState === WebSocket.CONNECTING || socketRef.current?.readyState === WebSocket.OPEN) return;
@@ -135,7 +168,28 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
         window.setTimeout(() => URL.revokeObjectURL(link.href), 1_000);
       } else if (message.type === "browser.source") {
         setSourceView({ source: message.source, url: message.url });
+      } else if (message.type === "browser.clipboard") {
+        const pending = clipboardRequestsRef.current.get(message.requestId);
+        if (!pending) return;
+        window.clearTimeout(pending.timeout);
+        clipboardRequestsRef.current.delete(message.requestId);
+        const latest = latestSelectionRequestRef.current === message.requestId;
+        if (latest) clipboardSelectionRef.current = message.text ?? "";
+        if (pending.purpose !== "copy" || activeCopyRequestRef.current !== message.requestId) return;
+        activeCopyRequestRef.current = null;
+        if (message.error || message.text === null) {
+          setClipboardStatus(message.error ?? "Die Browserauswahl konnte nicht kopiert werden.");
+          return;
+        }
+        void writeClipboardText(message.text)
+          .then(() => setClipboardStatus("Browserauswahl kopiert."))
+          .catch((copyError) => setClipboardStatus(copyError instanceof Error ? copyError.message : "Kopieren wurde vom Browser nicht erlaubt."));
       } else if (message.type === "browser.closed") {
+        for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
+        clipboardRequestsRef.current.clear();
+        activeCopyRequestRef.current = null;
+        latestSelectionRequestRef.current = null;
+        clipboardSelectionRef.current = "";
         sessionRef.current = null;
         storeSession(storageKey, null);
         setStatus("disconnected");
@@ -156,6 +210,11 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
       socketRef.current = null;
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
+      for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
+      clipboardRequestsRef.current.clear();
+      activeCopyRequestRef.current = null;
+      latestSelectionRequestRef.current = null;
+      clipboardSelectionRef.current = "";
       if (disposedRef.current || fatalConnectionRef.current) return;
       setStatus("disconnected");
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
@@ -182,6 +241,8 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
       if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
+      for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
+      clipboardRequestsRef.current.clear();
       socketRef.current?.close();
       socketRef.current = null;
     };
@@ -191,6 +252,8 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
     const requestedAddress = value ?? addressRef.current?.value ?? address;
     if (!requestedAddress.trim()) return;
     const url = normalizeAddress(requestedAddress);
+    clipboardSelectionRef.current = "";
+    setClipboardStatus("");
     requestedUrlRef.current = url;
     setAddress(url);
     setFrameReady(false);
@@ -220,9 +283,25 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
     const sessionId = sessionRef.current;
     const point = pointFor(event.clientX, event.clientY);
     if (!sessionId || !point || state.url === "about:blank") return;
-    if (action === "down") { event.currentTarget.setPointerCapture(event.pointerId); (event.currentTarget as HTMLElement).focus(); }
+    if (touchMode === "scroll" && event.pointerType !== "mouse") {
+      if (action === "down") {
+        touchScrollRef.current = { x: event.clientX, y: event.clientY };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        (event.currentTarget as HTMLElement).focus();
+      } else if (action === "move" && touchScrollRef.current) {
+        send({ type: "browser.wheel", sessionId, ...point, deltaX: touchScrollRef.current.x - event.clientX, deltaY: touchScrollRef.current.y - event.clientY });
+        touchScrollRef.current = { x: event.clientX, y: event.clientY };
+      } else if (action === "up") touchScrollRef.current = null;
+      return;
+    }
+    if (action === "down") {
+      clipboardSelectionRef.current = "";
+      event.currentTarget.setPointerCapture(event.pointerId);
+      (event.currentTarget as HTMLElement).focus();
+    }
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : event.button === 0 ? "left" : "none";
     send({ type: "browser.pointer", sessionId, action, ...point, button, buttons: event.buttons });
+    if (action === "up" && event.button === 0) window.setTimeout(() => requestSelection("sync"), 30);
   };
   const wheel = (event: React.WheelEvent) => {
     if (event.ctrlKey) { event.preventDefault(); return; }
@@ -258,10 +337,29 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "r") { event.preventDefault(); simpleAction("browser.reload"); return; }
     const sessionId = sessionRef.current;
     if (!sessionId || state.url === "about:blank") return;
+    const clipboardAction = browserClipboardAction(event);
+    if (clipboardAction === "paste") return;
+    if (clipboardAction === "copy") {
+      event.preventDefault();
+      event.stopPropagation();
+      const selection = clipboardSelectionRef.current;
+      if (selection) {
+        void writeClipboardText(selection)
+          .then(() => setClipboardStatus("Browserauswahl kopiert."))
+          .catch((copyError) => setClipboardStatus(copyError instanceof Error ? copyError.message : "Kopieren wurde vom Browser nicht erlaubt."));
+      } else {
+        setClipboardStatus("Browserauswahl wird gelesen…");
+        requestSelection("copy");
+      }
+      return;
+    }
+    const changesSelection = event.shiftKey || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a");
+    if (changesSelection) clipboardSelectionRef.current = "";
     event.preventDefault();
     event.stopPropagation();
     const modifiers = [event.altKey ? "Alt" : null, event.ctrlKey ? "Control" : null, event.metaKey ? "Meta" : null, event.shiftKey ? "Shift" : null].filter((value): value is "Alt" | "Control" | "Meta" | "Shift" => value !== null);
     send({ type: "browser.key", sessionId, key: event.key, code: event.code, modifiers });
+    if (changesSelection) window.setTimeout(() => requestSelection("sync"), 40);
   };
 
   const blank = state.url === "about:blank";
@@ -278,6 +376,8 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
           <input ref={addressRef} value={address} onChange={(event) => setAddress(event.target.value)} onFocus={(event) => { addressEditingRef.current = true; event.currentTarget.select(); }} onBlur={() => { addressEditingRef.current = false; }} placeholder="Suchen oder Adresse eingeben" aria-label="Browser-Adresse" />
         </form>
         <button type="button" onClick={() => navigate("about:blank")} aria-label="Neuer Tab" title="Lokale Dienste öffnen"><Plus className="h-4 w-4" /></button>
+        <button type="button" className="browser-touch-mode" onClick={() => setTouchMode((current) => current === "scroll" ? "interact" : "scroll")} aria-label={touchMode === "scroll" ? "Browsermodus: Scrollen. Zu Interagieren wechseln" : "Browsermodus: Interagieren. Zu Scrollen wechseln"} aria-pressed={touchMode === "interact"}>{touchMode === "scroll" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}</button>
+        <button type="button" className="browser-more-button" onClick={() => { const viewport = viewportRef.current; setContextMenu(viewport ? { x: Math.max(8, viewport.clientWidth - 222), y: 8 } : { x: 8, y: 8 }); }} aria-label="Weitere Browseraktionen" aria-expanded={contextMenu !== null}><MoreHorizontal className="h-4 w-4" /></button>
         {/^https?:/.test(state.url) ? <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Seite in neuem Tab öffnen"><ExternalLink className="h-4 w-4" /></a> : null}
         <span className={`browser-connection is-${status}`} title={error ?? state.title} />
       </header>
@@ -288,15 +388,29 @@ export function ChromiumBrowser({ instanceId }: { instanceId: string }) {
         onPointerMove={(event) => pointer("move", event)}
         onPointerDown={(event) => { if (event.button === 2) openBrowserMenu(event); else { setContextMenu(null); pointer("down", event); } }}
         onPointerUp={(event) => pointer("up", event)}
+        onPointerCancel={() => { touchScrollRef.current = null; }}
         onWheel={wheel}
         onContextMenu={openBrowserMenu}
         onKeyDown={key}
-        onPaste={(event) => { const sessionId = sessionRef.current; const text = event.clipboardData.getData("text/plain"); if (sessionId && text) { event.preventDefault(); send({ type: "browser.text", sessionId, text }); } }}
+        onPaste={(event) => {
+          const sessionId = sessionRef.current;
+          const text = event.clipboardData.getData("text/plain");
+          if (!sessionId || !text) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (utf8ByteLength(text) > browserClipboardMaximumBytes) {
+            setClipboardStatus("Der einzufügende Text ist größer als 1 MiB und wurde nicht eingefügt.");
+            return;
+          }
+          if (send({ type: "browser.text", sessionId, text })) setClipboardStatus("Text im Browser eingefügt.");
+          else setClipboardStatus("Browser ist noch nicht verbunden.");
+        }}
       >
         <img ref={imageRef} className={blank ? "is-hidden" : ""} alt="Gerenderte Chromium-Seite" draggable={false} decoding="async" />
         {blank ? <LocalPorts onOpen={localPort} compact /> : null}
         {!blank && !frameReady && !error ? <div className="browser-loading"><LoaderCircle className="h-5 w-5 animate-spin" /><span>Chromium lädt die Seite</span></div> : null}
-        {error ? <div className="browser-error"><Globe2 className="h-5 w-5" /><strong>Browser nicht verfügbar</strong><span>{error}</span></div> : null}
+        {error ? <div className="browser-error"><Globe2 className="h-5 w-5" /><strong>Browser nicht verfügbar</strong><span>{error}</span><div><button type="button" className="quiet-button-primary" onClick={() => window.location.reload()}>Wiederverbinden</button><button type="button" className="quiet-button" onClick={() => navigate("about:blank")}>Lokale Dienste</button></div></div> : null}
+        {clipboardStatus ? <p className="browser-clipboard-status" role="status">{clipboardStatus}</p> : null}
         {contextMenu ? <div className="browser-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" aria-label="Browseraktionen" onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" role="menuitem" disabled={!state.canGoBack} onClick={() => { simpleAction("browser.back"); setContextMenu(null); }}><ArrowLeft className="h-4 w-4" /> Zurück</button>
           <button type="button" role="menuitem" disabled={!state.canGoForward} onClick={() => { simpleAction("browser.forward"); setContextMenu(null); }}><ArrowRight className="h-4 w-4" /> Vorwärts</button>

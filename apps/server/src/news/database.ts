@@ -25,7 +25,7 @@ interface NewsRow {
   publishedAt:string; fetchedAt:string; processedAt:string|null; language:string; read:number; aiProcessed:number;
 }
 
-export interface NewsListQuery { search?:string; category?:NewsCategory; importance?:"top"|"important"|"relevant"|"more"; mediaType?:"article"|"video"; saved?:boolean; collectionId?:string; cursor?:string; limit:number }
+export interface NewsListQuery { search?:string; category?:NewsCategory; importance?:"top"|"important"|"relevant"|"more"; mediaType?:"article"|"video"; saved?:boolean; unread?:boolean; collectionId?:string; cursor?:string; limit:number }
 
 const band = (score: number) => score >= 85 ? "top" as const : score >= 65 ? "important" as const : score >= 40 ? "relevant" as const : "more" as const;
 const baseCategory = (title: string): NewsCategory => {
@@ -129,6 +129,7 @@ export class NewsDatabase {
     if(query.category){where.push("i.category=?");params.push(query.category);} if(query.mediaType){where.push("i.media_type=?");params.push(query.mediaType);}
     if(query.importance){const ranges={top:[85,100],important:[65,84],relevant:[40,64],more:[0,39]}[query.importance];where.push("i.importance_score BETWEEN ? AND ?");params.push(...ranges);}
     if(query.saved) where.push("EXISTS(SELECT 1 FROM news_collection_items ci WHERE ci.item_id=i.id)");
+    if(query.unread) where.push("NOT EXISTS(SELECT 1 FROM news_read_state unread_state WHERE unread_state.item_id=i.id AND unread_state.is_read=1)");
     if(query.collectionId){where.push("EXISTS(SELECT 1 FROM news_collection_items ci WHERE ci.item_id=i.id AND ci.collection_id=?)");params.push(query.collectionId);}
     const totalWhere=[...where];const totalParams=[...params];
     if(query.cursor){try{const cursor=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8")) as {score:number;date:string};where.push("(i.importance_score < ? OR (i.importance_score = ? AND i.published_at < ?))");params.push(cursor.score,cursor.score,cursor.date);}catch{/* An invalid cursor simply starts from the first page. */}}

@@ -3,7 +3,7 @@ import type { OrbitNode } from "@workbench/contracts";
 import { nearestEdgeSides, projectColor } from "./orbitAppearance";
 
 function node(id: string, x: number): OrbitNode {
-  return { id, type: "note", title: id, position: { x, y: 0 }, size: { width: 200, height: 100 }, projectId: null, parentId: null, runtimeId: null, toolType: null, previewId: null, provider: null, content: "", language: null, locked: false, zIndex: 1 };
+  return { id, type: "note", title: id, position: { x, y: 0 }, size: { width: 200, height: 100 }, projectId: null, parentId: null, runtimeId: null, toolType: null, previewId: null, assetId: null, assetMimeType: null, assetBytes: null, provider: null, content: "", language: null, locked: false, zIndex: 1 };
 }
 
 describe("Orbit appearance", () => {

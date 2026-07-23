@@ -14,15 +14,31 @@ import {
   accountResponseSchema,
   loginSessionResponseSchema,
   orbitDocumentResponseSchema,
+  orbitAssetResponseSchema,
+  orbitAssetListResponseSchema,
+  galleryFileResponseSchema,
+  galleryFileListResponseSchema,
+  galleryFolderResponseSchema,
+  galleryFolderListResponseSchema,
   projectFileResponseSchema,
   newsListResponseSchema, newsItemResponseSchema, newsCollectionsResponseSchema, newsCollectionResponseSchema,
   newsSyncResponseSchema, newsChatResponseSchema,
+  terminalSessionsResponseSchema,
+  terminalWorkspaceResponseSchema,
+  filesystemTreeResponseSchema,
+  registerProjectResponseSchema,
+  projectActivityTouchResponseSchema,
   type CreateAccountRequest,
   type UpdateAccountRequest,
   type SaveOrbitDocumentRequest,
+  type OrbitAsset,
+  type GalleryFile,
   type CreateProjectFileRequest,
   type ApiError,
   type CreateNewsCollectionRequest, type SaveNewsItemRequest, type MarkNewsReadRequest, type NewsChatRequest,
+  type SaveTerminalWorkspaceRequest,
+  type RegisterProjectRequest,
+  type UpdateGalleryFileRequest,
 } from "@workbench/contracts";
 import type { ZodType } from "zod";
 
@@ -66,10 +82,47 @@ async function request<T>(path: string, schema: ZodType<T>, signal?: AbortSignal
 }
 
 async function mutate<T>(path: string, method: "POST"|"PUT"|"PATCH"|"DELETE", schema: ZodType<T> | null, body?: unknown): Promise<T | undefined> {
-  const response = await fetch(`/api/v1${path}`, { method, cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json", "Content-Type": "application/json", "X-Workbench-Sync-Version": WORKBENCH_SYNC_VERSION }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const response = await fetch(`/api/v1${path}`, { method, cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json", "X-Workbench-Sync-Version": WORKBENCH_SYNC_VERSION, ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (!response.ok) { let payload: ApiError | undefined; try { payload = await response.json() as ApiError; } catch { payload = undefined; } throw new ApiClientError(response.status, payload?.error.code ?? "REQUEST_FAILED", payload?.error.message ?? "Die Änderung konnte nicht gespeichert werden."); }
   if (!schema || response.status === 204) return undefined;
   return schema.parse(await response.json());
+}
+
+async function uploadOrbitAsset(file: File, folderId?: string | null): Promise<OrbitAsset> {
+  const form = new FormData(); form.append("file", file, file.name);
+  const query = folderId ? `?folderId=${encodeURIComponent(folderId)}` : "";
+  const response = await fetch(`/api/v1/orbit/assets${query}`, { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, body: form });
+  if (!response.ok) { let payload: ApiError | undefined; try { payload = await response.json() as ApiError; } catch { /* handled below */ } throw new ApiClientError(response.status, payload?.error.code ?? "ORBIT_ASSET_UPLOAD_FAILED", payload?.error.message ?? "Die Datei konnte nicht archiviert werden."); }
+  return orbitAssetResponseSchema.parse(await response.json()).asset;
+}
+
+async function listOrbitAssets(cursor?: string, signal?: AbortSignal, folderId?: string | null) {
+  const query = new URLSearchParams({ limit: "100" });
+  if (cursor) query.set("cursor", cursor);
+  if (folderId) query.set("folderId", folderId);
+  return request(`/orbit/assets?${query}`, orbitAssetListResponseSchema, signal);
+}
+
+async function uploadGalleryFile(file: File, folderId?: string | null): Promise<GalleryFile> {
+  const form = new FormData(); form.append("file", file, file.name);
+  const query = folderId ? `?folderId=${encodeURIComponent(folderId)}` : "";
+  const response = await fetch(`/api/v1/files${query}`, { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, body: form });
+  if (!response.ok) { let payload: ApiError | undefined; try { payload = await response.json() as ApiError; } catch { /* handled below */ } throw new ApiClientError(response.status, payload?.error.code ?? "FILE_GALLERY_UPLOAD_FAILED", payload?.error.message ?? "Die Datei konnte nicht hochgeladen werden."); }
+  return galleryFileResponseSchema.parse(await response.json()).file;
+}
+
+async function listGalleryFiles(cursor?: string, signal?: AbortSignal, folderId?: string | null) {
+  const query = new URLSearchParams({ limit: "100" });
+  if (cursor) query.set("cursor", cursor);
+  if (folderId) query.set("folderId", folderId);
+  return request(`/files?${query}`, galleryFileListResponseSchema, signal);
+}
+
+async function filesystemTree(path?: string, cursor?: string, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (path) query.set("path", path);
+  if (cursor) query.set("cursor", cursor);
+  return request(`/filesystem/tree${query.size ? `?${query}` : ""}`, filesystemTreeResponseSchema, signal);
 }
 
 export const apiClient = {
@@ -81,6 +134,9 @@ export const apiClient = {
   projects: (signal?: AbortSignal) => request("/projects", projectsResponseSchema, signal),
   project: (projectId: string, signal?: AbortSignal) =>
     request(`/projects/${encodeURIComponent(projectId)}`, projectResponseSchema, signal),
+  touchProject: (projectId: string) => mutate(`/projects/${encodeURIComponent(projectId)}/activity`, "POST", projectActivityTouchResponseSchema),
+  filesystemTree,
+  registerProject: (body: RegisterProjectRequest) => mutate("/projects/register", "POST", registerProjectResponseSchema, body),
   commands: (signal?: AbortSignal) => request("/commands", commandsResponseSchema, signal),
   usage: (signal?: AbortSignal) => request("/usage", usageResponseSchema, signal),
   usageDashboard: (range: string, signal?: AbortSignal) => request(`/usage/dashboard?range=${encodeURIComponent(range)}`, usageDashboardResponseSchema, signal),
@@ -93,6 +149,29 @@ export const apiClient = {
   deleteAccount: (id: string) => mutate(`/accounts/${encodeURIComponent(id)}`, "DELETE", null),
   orbit: (signal?: AbortSignal) => request("/orbit", orbitDocumentResponseSchema, signal),
   saveOrbit: (body: SaveOrbitDocumentRequest) => mutate("/orbit", "PUT", orbitDocumentResponseSchema, body),
+  uploadOrbitAsset,
+  listOrbitAssets,
+  orbitAssetUrl: (assetId: string) => `/api/v1/orbit/assets/${encodeURIComponent(assetId)}`,
+  updateOrbitAsset: (id: string, body: UpdateGalleryFileRequest) => mutate(`/orbit/assets/${encodeURIComponent(id)}`, "PATCH", orbitAssetResponseSchema, body),
+  deleteOrbitAsset: (id: string) => mutate(`/orbit/assets/${encodeURIComponent(id)}`, "DELETE", null),
+  listOrbitAssetFolders: (signal?: AbortSignal) => request("/orbit/assets/folders", galleryFolderListResponseSchema, signal),
+  createOrbitAssetFolder: (name: string) => mutate("/orbit/assets/folders", "POST", galleryFolderResponseSchema, { name }),
+  updateOrbitAssetFolder: (id: string, name: string) => mutate(`/orbit/assets/folders/${encodeURIComponent(id)}`, "PATCH", galleryFolderResponseSchema, { name }),
+  deleteOrbitAssetFolder: (id: string) => mutate(`/orbit/assets/folders/${encodeURIComponent(id)}`, "DELETE", null),
+  uploadGalleryFile,
+  listGalleryFiles,
+  galleryFileUrl: (fileId: string) => `/api/v1/files/${encodeURIComponent(fileId)}`,
+  updateGalleryFile: (id: string, body: UpdateGalleryFileRequest) => mutate(`/files/${encodeURIComponent(id)}`, "PATCH", galleryFileResponseSchema, body),
+  deleteGalleryFile: (id: string) => mutate(`/files/${encodeURIComponent(id)}`, "DELETE", null),
+  listGalleryFolders: (signal?: AbortSignal) => request("/files/folders", galleryFolderListResponseSchema, signal),
+  createGalleryFolder: (name: string) => mutate("/files/folders", "POST", galleryFolderResponseSchema, { name }),
+  updateGalleryFolder: (id: string, name: string) => mutate(`/files/folders/${encodeURIComponent(id)}`, "PATCH", galleryFolderResponseSchema, { name }),
+  deleteGalleryFolder: (id: string) => mutate(`/files/folders/${encodeURIComponent(id)}`, "DELETE", null),
+  terminalSessions: (signal?: AbortSignal) => request("/terminal/sessions", terminalSessionsResponseSchema, signal),
+  terminalWorkspace: (signal?: AbortSignal) => request("/terminal/workspace", terminalWorkspaceResponseSchema, signal),
+  saveTerminalWorkspace: (body: SaveTerminalWorkspaceRequest) => mutate("/terminal/workspace", "PUT", terminalWorkspaceResponseSchema, body),
+  restartTerminalSession: (id: string) => mutate(`/terminal/sessions/${encodeURIComponent(id)}/restart`, "POST", null),
+  closeTerminalSession: (id: string) => mutate(`/terminal/sessions/${encodeURIComponent(id)}`, "DELETE", null),
   createProjectFile: (projectId: string, body: CreateProjectFileRequest) =>
     mutate(`/projects/${encodeURIComponent(projectId)}/files`, "POST", projectFileResponseSchema, body),
   news: (params: URLSearchParams, signal?:AbortSignal) => request(`/news?${params.toString()}`, newsListResponseSchema, signal),

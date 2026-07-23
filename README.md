@@ -1,36 +1,123 @@
-# Benjamin Dev Workbench
+# Remote Workplace
 
-Private, selbst gehostete Remote-Development-Workbench für T3 Code, code-server, native PTY-Terminals, lokale Projekte und Development-Previews.
+Selbst gehostete Remote-Development-Workbench: ein privater Arbeitsplatz im Browser mit
+Editor (code-server / T3 Code), nativen PTY-Terminals, KI-CLIs (Codex, OpenCode, Claude Code),
+lokalen Projekten, Development-Previews, einem eingebetteten Browser, einem freien
+Orbit-Workspace und einer Tech-News-Intelligence — alles auf deinem eigenen Server, privat
+erreichbar über Tailscale.
 
-## Implementierter Stand
+> **Für wen?** Entwickler:innen, die von überall auf einen leistungsstarken, persönlichen
+> Server-Arbeitsplatz zugreifen wollen, ohne Code oder Zugänge aus der Hand zu geben.
 
-- React-19-/Vite-Frontend und Fastify-5-Backend in einem strict TypeScript Monorepo.
+## Screenshots
+
+![Dashboard – Systemstatus, Dienste und Projekte](docs/screenshots/01-dashboard.png)
+
+<p align="center"><em>Dashboard: Systemstatus, aktive Dienste und konfigurierte Projekte auf einen Blick.</em></p>
+
+| Development Workbench (Infinite Canvas) | Tech TLDRs – News Intelligence |
+|:--:|:--:|
+| ![Development Workbench im Infinite Canvas](docs/screenshots/02-workbench.png) | ![Tech TLDRs News Intelligence](docs/screenshots/03-tech-tldrs.png) |
+| Freier Orbit-Workspace mit Terminals, Agenten und Tools nebeneinander. | RSS-/HN-/YouTube-Feeds mit deutschen Zusammenfassungen und semantischer Suche. |
+
+| T3 Code | code-server Editor |
+|:--:|:--:|
+| ![T3 Code Agent](docs/screenshots/04-t3-code.png) | ![Eingebetteter code-server Editor](docs/screenshots/05-code-server.png) |
+| Agentengestützte Entwicklung direkt im Browser. | Vollwertiger VS-Code-Editor unter `/editor/`. |
+
+| Medien- & Dateigalerie | Terminal |
+|:--:|:--:|
+| ![Medien- und Dateigalerie](docs/screenshots/06-gallery.png) | ![Natives PTY-Terminal](docs/screenshots/07-terminal.png) |
+| Bento-Mediengalerie und Dateiablage – hoch- und herunterladen von jedem Gerät. | Native `node-pty`-/xterm.js-Terminals mit Reconnect und Verlauf. |
+
+| Nutzung & Limits | Einstellungen |
+|:--:|:--:|
+| ![Nutzung, Kosten und Limits](docs/screenshots/08-usage.png) | ![Einstellungen](docs/screenshots/09-settings.png) |
+| Token-, Kosten- und Limithistorie für Codex, OpenCode und Claude Code. | Zentrale Konfiguration von Accounts, Diensten und Oberfläche. |
+
+## Funktionen
+
+- React-19-/Vite-Frontend und Fastify-5-Backend in einem strikten TypeScript-Monorepo.
 - Tech TLDRs mit RSS-, Atom-, Hacker-News- und YouTube-Feed, deutschen Mistral-Zusammenfassungen, automatischer Wichtigkeit, semantischer Suche und quellengebundenen Rückfragen.
 - Editorial-Bento auf Desktop sowie vertikaler Mobile-Snap-Feed mit Dynamic-Island-Wechsel zwischen Feed und benennbaren Sammlungen.
 - Freier Orbit Workspace mit Zoom, Pan, Lasso, Mehrfachauswahl, adaptiv wachsendem Arbeitsgebiet und mehreren Canvas-Tabs.
 - Mobile Orbit-Bedienung mit zuverlässigem Canvas-/Inhaltsmodus, Zwei-Finger-Pan und Pinch-Zoom, scrollbarer Steuerleiste sowie daumenfreundlichem Fünfer-Dock.
-- Projekt-Hubs verbinden T3 Code, Code-Server, Preview, Browser, Terminal, Codex, OpenCode, Notizen, Snippets, Dateien und Nutzungsanzeigen visuell.
+- Projekt-Hubs verbinden T3 Code, code-server, Preview, Browser, Notion, Terminal, Codex, OpenCode, Notizen, Snippets, Dateien und Nutzungsanzeigen visuell.
 - Orbit-Zustand wird in einer updatefesten lokalen SQLite-Datei mit vollständiger Revisionshistorie gespeichert und automatisch synchronisiert.
 - Jede erfolgreiche Orbit-Revision erhält zusätzlich eine unveränderliche, prüfsummengesicherte JSON-Sicherung außerhalb des Repositorys.
 - Fehlende Datenbankstände werden automatisch wiederhergestellt; Konflikte und ungewöhnlich große Löschungen bleiben als getrennte Wiederherstellungsentwürfe erhalten.
 - Sidebar-Palette und Slash-Menü erzeugen Knoten per Klick oder Drag-and-drop; Inspector, Szenen und Undo/Redo ermöglichen freie Organisation.
-- Native `node-pty`-/xterm.js-Terminals mit Tailscale-Identität, Sitzungswiederaufnahme, Resize, Verlauf und Reconnect.
+- Native `node-pty`-/xterm.js-Terminals mit Tailscale-Identität, tmux-Supervisor, serverseitiger Session-Registry, geräteübergreifender Wiederaufnahme, Resize, Verlauf und Reconnect.
 - Eigenständige Codex- und OpenCode-Seiten mit automatisch gestarteten CLIs, Projektbindung und bis zu vier persistenten Bento-Instanzen je Werkzeug.
-- Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter `PROJECTS_ROOT`; lokale JSON-Einträge ergänzen Namen, Reihenfolge und Previews.
+- Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter dem konfigurierten Projekt-Root; Orbit sortiert die jüngste Auswahl aus Workbench-Nutzung, Dateisystemänderungen und Git-Commits und bietet zusätzlich eine vollständige Suche.
+- Großer Orbit-Serverbrowser zeigt den vollständigen Dateibaum unter dem konfigurierten Home-Verzeichnis, springt direkt zu eingegebenen Pfaden und registriert beliebige Unterordner dauerhaft als Projekt-Hubs.
 - code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Workbench-HTTPS-Origin bereitgestellt.
-- Development-Previews laufen über code-servers `/absproxy/<port>/`; ohne gewählte Preview zeigt die Workbench alle erkannten lokalen HTTP-Ports als Schnellstart an.
-- Ein eigener, serverseitig isolierter Chromium-Browser ermöglicht Recherche und lokale Vorschauen direkt in Werkzeugansichten und Orbit-Knoten.
+- Development-Previews laufen standardmäßig in einem synchronisierten Server-Chromium; ohne gewählte Preview zeigt die Workbench alle erkannten lokalen HTTP-Ports als Schnellstart an.
+- Ein eigener, serverseitig isolierter Chromium-Browser mit dauerhaften, benutzergebundenen Profilen erhält Cookies und Logins über Geräte- und Backendwechsel hinweg.
+- Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Workbench und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
 - Besuchte Hauptansichten, Iframes, xterm-Instanzen und WebSockets bleiben während der Browser-Session gemountet und wechseln ohne Neustart.
 - Alle Live-Werkzeuge lassen sich frei positionieren und skalieren; stabile Laufzeit-IDs erhalten Terminal- und Agent-Sitzungen über Canvas-Interaktionen hinweg.
-- Code-Server ist zusätzlich als eigenständiges Werkzeug in der Sidebar erreichbar; Workbench und Einzelroute teilen dieselbe optimierte Einbettung.
-- Codex und OpenCode sind zusätzlich als mehrfach öffnbare Werkzeugtypen in der Workbench verfügbar.
 - Preview-Island mit Reload, externem Tab, Vollbild ohne Reload, Schließen, Geräteauswahl und Portrait-/Landscape-Wechsel sowie getrennte Vollseiten für Preview und Browser.
 - Lazy geladene Routen, Idle-Prefetch, Brotli/Gzip und langfristig gecachte Build-Assets reduzieren Start- und Wechselzeiten.
-- Desktop-Sidebar, echte Breadcrumbs, mobile Gruppenansicht und Statuszeile mit Codex-/OpenCode-Limits.
+- Desktop-Sidebar, echte Breadcrumbs, mobile Gruppenansicht und Statuszeile mit Codex-, OpenCode- und Claude-Code-Limits.
 - SQLite-gestützte Token-, Kosten-, Projekt- und Modellhistorie aus CodexBar mit Diagrammen und Limitprognosen.
-- Sichere Codex-/OpenCode-Accountverwaltung mit lokaler Profilerkennung und isolierten CLI-Neuanmeldungen.
+- Sichere Codex-/OpenCode-/Claude-Code-Accountverwaltung mit lokaler Profilerkennung und isolierten CLI-Neuanmeldungen.
 - Zod-validierte API, strenge CSP, loopback-only Dienste und Tailscale Serve ohne öffentlichen Funnel.
-- Reproduzierbare System- und Benutzer-systemd-Units mit Neustart, Healthchecks und Rollback-Vorbereitung.
+- Reproduzierbare systemd-Units mit Neustart, Healthchecks und Rollback-Vorbereitung.
+
+## Voraussetzungen
+
+- **Linux mit systemd** (für den dauerhaften Dienstbetrieb; zum Entwickeln reicht jedes System mit Node).
+- **Node.js ≥ 22** und **pnpm 10**.
+- **tmux** (für Terminal-Sessions), **Chromium/Chrome** (für das Browser-Tool).
+- **Tailscale** für den privaten Remote-Zugriff — *optional*, lokal läuft es auch ohne.
+- **code-server** (eingebetteter Editor), **CodexBar-CLI** (Nutzungshistorie), **Mistral-Account**
+  (KI-Funktionen der Tech-TLDRs) — jeweils *optional*.
+
+## Installation
+
+### Empfohlen: Einrichtung durch einen Coding-Agent
+
+Gib deinem Coding-Agent (Claude Code, Codex, OpenCode …) diesen Prompt:
+
+```text
+Lies und befolge docs/agent-setup.md in diesem Repository. Richte Remote Workplace auf
+diesem Server ein: frag mich nach allen benötigten Werten (Systembenutzer, Projekt-Root,
+Tailscale-Host/IP, erlaubte Login-E-Mails, optionale CLI-Pfade und Mistral-Key), erzeuge
+config/workbench.local.json und .env aus den Vorlagen, führe scripts/install-deps.sh aus
+und verifiziere am Ende den Health-Check.
+```
+
+Der Agent stellt die nötigen Fragen, füllt die Konfiguration, installiert alles und prüft,
+dass die Workbench läuft. Details: [docs/agent-setup.md](docs/agent-setup.md).
+
+### Manuelle Installation (Kurzform)
+
+```bash
+# 1. Konfiguration aus den Vorlagen erzeugen und mit echten Werten füllen
+cp config/workbench.example.json config/workbench.local.json
+cp .env.example .env
+$EDITOR config/workbench.local.json   # Benutzer, Pfade, Tailscale, erlaubte E-Mails …
+$EDITOR .env                          # optional: MISTRAL_API_KEY
+
+# 2. Abhängigkeiten prüfen/installieren und bauen
+bash scripts/install-deps.sh
+
+# 3. Starten
+pnpm dev                              # Entwicklung (Hot-Reload)
+# oder für Produktion:
+pnpm build && pnpm start
+```
+
+Health-Check: `curl -s http://127.0.0.1:3010/api/v1/health`
+
+## Konfiguration
+
+Alle persönlichen Werte leben in **einer** zentralen, gitignorierten Datei:
+`config/workbench.local.json` (Vorlage: `config/workbench.example.json`). Sie bündelt Branding,
+Systembenutzer, Tailscale-Angaben, alle Pfade und CLI-Pfade. Die `.env` enthält nur Secrets und
+neutrale Runtime-Knöpfe; gesetzte Env-Variablen überschreiben einzelne Config-Werte.
+Ausführlich: [docs/configuration.md](docs/configuration.md).
 
 ## Befehle
 
@@ -39,16 +126,20 @@ Private, selbst gehostete Remote-Development-Workbench für T3 Code, code-server
 - `pnpm lint` – Repository linten.
 - `pnpm test` – Unit-/Integrationstests ausführen.
 - `pnpm build` – Contracts, Server und Web produktiv bauen.
-- `pnpm test:e2e` – Playwright-API-Abläufe prüfen.
+- `pnpm test:e2e` – Playwright-Abläufe prüfen.
 - `pnpm start` – gebauten Produktionsserver auf localhost starten.
-- `bash deploy/systemd/install-user-tools.sh` – Workbench, code-server und die konfigurierte Preview ohne Root als dauerhafte User-Dienste starten.
+- `sudo bash deploy/systemd/install.sh` – systemd-Units aus der Config rendern und installieren.
 
 ## Dokumentation
 
-- Architektur: `docs/architecture.md`
-- Installation: `docs/installation.md`
-- Konfiguration: `docs/configuration.md`
-- Fehlerbehebung: `docs/troubleshooting.md`
-- Einbettungstest: `docs/embedding-test.md`
-- Security Audit: `docs/security-audit.md`
-- Serveraudit: `docs/server-audit.md`
+- Architektur: [docs/architecture.md](docs/architecture.md)
+- Installation: [docs/installation.md](docs/installation.md)
+- Konfiguration: [docs/configuration.md](docs/configuration.md)
+- Agent-Setup: [docs/agent-setup.md](docs/agent-setup.md)
+- Terminal: [docs/terminal.md](docs/terminal.md)
+- Fehlerbehebung: [docs/troubleshooting.md](docs/troubleshooting.md)
+- Einbettungstest: [docs/embedding-test.md](docs/embedding-test.md)
+
+## Lizenz
+
+[MIT](LICENSE) © 2026 017pixel

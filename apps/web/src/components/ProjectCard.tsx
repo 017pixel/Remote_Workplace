@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Code2, Eye, MonitorSmartphone } from "lucide-react";
+import { ChevronDown, Code2, Eye, MonitorSmartphone } from "lucide-react";
 import type { Project } from "@workbench/contracts";
 import { Badge } from "./primitives";
 import { openPreviewForProject, openProjectDefault, openToolForProject } from "../lib/workbenchActions";
@@ -21,6 +21,7 @@ const availabilityLabel: Record<Project["availability"], string> = {
 export function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
   const openPrimary = () => {
+    if (project.availability !== "available") return;
     if (project.links.t3Code) {
       openToolForProject(project, "t3-code");
       navigate("/t3-code");
@@ -30,11 +31,11 @@ export function ProjectCard({ project }: { project: Project }) {
   };
 
   return (
-    <article className="group border-b border-line-soft py-4 last:border-b-0">
+    <article className="project-card group border-b border-line-soft py-4 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-medium text-text">
-            <Link to={`/projects/${project.id}`} className="hover:underline">
+            <Link to={`/projects/${project.id}`} className="project-title-link hover:underline">
               {project.name}
             </Link>
           </h3>
@@ -58,11 +59,12 @@ export function ProjectCard({ project }: { project: Project }) {
         <button
           type="button"
           onClick={openPrimary}
+          disabled={project.availability !== "available"}
           className="quiet-button-primary max-md:basis-full"
         >
           <Code2 className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
         </button>
-        <button
+        <div className="project-desktop-actions contents"><button
           type="button"
           disabled={project.links.codeServer === null}
           onClick={() => {
@@ -88,8 +90,16 @@ export function ProjectCard({ project }: { project: Project }) {
               <Eye className="h-3.5 w-3.5" /> {preview.name}
             </button>
           ))
-        ) : null}
+        ) : null}</div>
+        {project.links.codeServer || project.previews.length > 0 ? <details className="project-touch-actions">
+          <summary><span>Weitere Werkzeuge</span><ChevronDown className="h-4 w-4" /></summary>
+          <div>
+            {project.links.codeServer ? <button type="button" onClick={() => { openToolForProject(project, "code-server"); navigate("/code-editor"); }}><MonitorSmartphone className="h-4 w-4" /> Editor öffnen</button> : null}
+            {project.previews.map((preview) => <button key={preview.id} type="button" onClick={() => { openPreviewForProject(project, preview.id); navigate(`/previews?preview=${encodeURIComponent(preview.id)}`); }}><Eye className="h-4 w-4" /> {preview.name}</button>)}
+          </div>
+        </details> : null}
       </div>
+      {project.availability !== "available" ? <p className="project-attention-hint">Projektpfad prüfen, bevor Werkzeuge geöffnet werden können.</p> : null}
     </article>
   );
 }

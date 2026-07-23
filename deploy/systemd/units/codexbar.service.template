@@ -1,0 +1,33 @@
+[Unit]
+Description=CodexBar local usage API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__GROUP__
+Environment=HOME=__HOME__
+Environment=XDG_CACHE_HOME=/var/lib/codexbar/cache
+ExecStart=__CODEXBAR_BIN__ serve --port 18181 --refresh-interval 60 --request-timeout 30
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+UMask=0077
+StateDirectory=codexbar
+StateDirectoryMode=0700
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

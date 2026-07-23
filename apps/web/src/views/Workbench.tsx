@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Group, Panel as RPanel, Separator, type Layout } from "react-resizable-panels";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -31,8 +31,9 @@ import {
 } from "@workbench/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";
-import { useIsMobile } from "../lib/useMediaQuery";
+import { useResponsiveShell } from "../lib/useResponsiveShell";
 import { ToolPanel } from "../components/ToolPanel";
+import { PromptDialog } from "../components/ModalDialog";
 
 const panelLabels: Record<PanelType, string> = {
   "t3-code": "T3 Code",
@@ -287,14 +288,10 @@ function WorkspaceTabs({ workspaces, activeId }: { workspaces: WorkbenchPage[]; 
   const addWorkspace = useWorkspaceStore((state) => state.addWorkspace);
   const removeWorkspace = useWorkspaceStore((state) => state.removeWorkspace);
   const renameWorkspace = useWorkspaceStore((state) => state.renameWorkspace);
-
-  const rename = (workspace: WorkbenchPage) => {
-    const name = window.prompt("Name der Arbeitsfläche", workspace.name);
-    if (name) renameWorkspace(workspace.id, name);
-  };
+  const [renameTarget, setRenameTarget] = useState<WorkbenchPage | null>(null);
 
   return (
-    <div className="workbench-workspace-tabs" role="tablist" aria-label="Arbeitsflächen">
+    <><div className="workbench-workspace-tabs" role="tablist" aria-label="Arbeitsflächen">
       <details className="workbench-mobile-workspace-picker">
         <summary>
           <span>{workspaces.find((workspace) => workspace.id === activeId)?.name ?? "Arbeitsfläche"}</span>
@@ -315,7 +312,7 @@ function WorkspaceTabs({ workspaces, activeId }: { workspaces: WorkbenchPage[]; 
             <span className="workbench-workspace-count">{workspace.groups.length}</span>
           </button>
           {workspace.id === activeId ? (
-            <button type="button" className="workbench-workspace-icon" onClick={() => rename(workspace)} aria-label="Arbeitsfläche umbenennen" title="Umbenennen">
+            <button type="button" className="workbench-workspace-icon" onClick={() => setRenameTarget(workspace)} aria-label="Arbeitsfläche umbenennen" title="Umbenennen">
               <Pencil className="h-3 w-3" />
             </button>
           ) : null}
@@ -336,7 +333,7 @@ function WorkspaceTabs({ workspaces, activeId }: { workspaces: WorkbenchPage[]; 
       >
         <Plus className="h-4 w-4" />
       </button>
-    </div>
+    </div><PromptDialog open={Boolean(renameTarget)} title="Arbeitsfläche umbenennen" description="Der Inhalt und laufende Werkzeuge bleiben erhalten." label="Name" initialValue={renameTarget?.name ?? ""} onConfirm={(name) => { if (renameTarget) renameWorkspace(renameTarget.id, name); }} onClose={() => setRenameTarget(null)} /></>
   );
 }
 
@@ -353,18 +350,14 @@ function WorkbenchToolbar({ project, workspace }: { project: Project | undefined
   const groupId = workspace.focusedGroupId;
   const focusedGroup = workspace.groups.find((group) => group.id === groupId);
   const atToolLimit = panels.length >= WORKBENCH_LIMITS.maxResidentTools;
+  const [renameOpen, setRenameOpen] = useState(false);
 
   const add = (type: PanelType, previewId: string | null = null) => {
     openPanel({ type, projectId: project?.id ?? null, previewId, groupId });
   };
 
-  const rename = () => {
-    const name = window.prompt("Name der Arbeitsfläche", workspace.name);
-    if (name) renameWorkspace(workspace.id, name);
-  };
-
   return (
-    <div className="workbench-toolbar" data-has-tools={Boolean(focusedGroup?.panelIds.length)}>
+    <><div className="workbench-toolbar" data-has-tools={Boolean(focusedGroup?.panelIds.length)}>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={!project?.links.t3Code || atToolLimit} onClick={() => add("t3-code")}>
         <Code2 className="h-3.5 w-3.5" /><span>T3 Code</span>
       </button>
@@ -443,16 +436,17 @@ function WorkbenchToolbar({ project, workspace }: { project: Project | undefined
           {project?.previews.map((preview) => <button key={preview.id} type="button" onClick={() => add("preview", preview.id)} disabled={atToolLimit}><Eye className="h-4 w-4" /> {preview.name}</button>)}
           <button type="button" onClick={() => addGroup()} disabled={workspace.groups.length >= WORKBENCH_LIMITS.maxVisibleGroups}><Plus className="h-4 w-4" /> Neue Gruppe</button>
           <button type="button" onClick={() => addWorkspace()}><AppWindow className="h-4 w-4" /> Neue Arbeitsfläche</button>
-          <button type="button" onClick={rename}><Pencil className="h-4 w-4" /> Umbenennen</button>
+          <button type="button" onClick={() => setRenameOpen(true)}><Pencil className="h-4 w-4" /> Umbenennen</button>
           <button type="button" onClick={() => removeWorkspace(workspace.id)}><X className="h-4 w-4" /> Arbeitsfläche schließen</button>
         </div>
       </details>
-    </div>
+    </div><PromptDialog open={renameOpen} title="Arbeitsfläche umbenennen" description="Der Inhalt und laufende Werkzeuge bleiben erhalten." label="Name" initialValue={workspace.name} onConfirm={(name) => renameWorkspace(workspace.id, name)} onClose={() => setRenameOpen(false)} /></>
   );
 }
 
 export function Workbench() {
-  const isMobile = useIsMobile();
+  const responsive = useResponsiveShell();
+  const focusLayout = responsive.mode === "compact" || (responsive.mode === "tablet" && responsive.orientation === "portrait");
   const panels = useWorkspaceStore((state) => state.panels);
   const workspaces = useWorkspaceStore((state) => state.workspaces);
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
@@ -472,7 +466,7 @@ export function Workbench() {
           const active = workspace.id === activeWorkspace.id;
           return (
             <div key={workspace.id} className={`workbench-board-layer ${active ? "is-active" : "is-parked"}`} aria-hidden={!active} inert={!active}>
-              {isMobile ? (
+              {focusLayout ? (
                 <div className="h-full">
                   {workspace.groups.map((group) => (
                     <div

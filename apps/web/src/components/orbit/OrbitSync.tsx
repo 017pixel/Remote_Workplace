@@ -13,6 +13,9 @@ function readPendingDraft() {
     if (!value) return null;
     const parsed = JSON.parse(value) as { baseRevision?: unknown; document?: unknown };
     if (!Number.isSafeInteger(parsed.baseRevision)) return null;
+    const doc = parsed.document as { boards?: Array<{ nodes?: Array<unknown> }> } | undefined;
+    const totalNodes = doc?.boards?.reduce((sum, board) => sum + (board.nodes?.length ?? 0), 0) ?? 0;
+    if (totalNodes === 0) return null;
     return { baseRevision: parsed.baseRevision as number, document: parsed.document };
   } catch {
     return null;
@@ -82,6 +85,12 @@ export function OrbitSync() {
               useOrbitStore.getState().markSyncError(retryError instanceof Error ? retryError.message : "Synchronisierung fehlgeschlagen.");
               return;
             }
+          }
+          if (error instanceof ApiClientError && error.status === 400) {
+            retryDelay.current = AUTOSAVE_DELAY_MS;
+            useOrbitStore.getState().markSaveBlocked(error.message);
+            clearPendingDraft();
+            return;
           }
           retryDelay.current = Math.min(MAX_RETRY_DELAY_MS, Math.round(retryDelay.current * 1.8 + Math.random() * 400));
           useOrbitStore.getState().markSyncError(error instanceof Error ? error.message : "Synchronisierung fehlgeschlagen.");

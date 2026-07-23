@@ -20,12 +20,17 @@ import { QueryBoundary } from "../components/QueryBoundary";
 import { Card, MetricBar } from "../components/Card";
 import { Badge, StateDot } from "../components/primitives";
 import { ProjectCard } from "../components/ProjectCard";
+import { ContentDialog } from "../components/ModalDialog";
+import { useResponsiveShell } from "../lib/useResponsiveShell";
+import { writeClipboardText } from "../lib/clipboard";
 
 function serverModeLabel(mode: ServiceMode): string {
   return mode === "embedded" ? "eingebettet" : mode === "external" ? "extern" : "hybrid";
 }
 
 export function Dashboard() {
+  const responsive = useResponsiveShell();
+  const [selectedCommand, setSelectedCommand] = useState<{ name: string; description: string; command: string } | null>(null);
   const summary = useQuery(workbenchQueries.serverSummary());
   const metrics = useQuery(workbenchQueries.serverMetrics());
   const services = useQuery(workbenchQueries.services());
@@ -42,7 +47,7 @@ export function Dashboard() {
         <QueryBoundary {...summary} loadingLabel="Server-Übersicht lädt…">
           {(data) => (
             <Card title="Server" subtitle={`${data.serverName} · ${data.operatingSystem.distro} ${data.operatingSystem.release}`}>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
+              <div className="dashboard-server-grid grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
                 <div className="flex items-center gap-2.5">
                   <ServerIcon className="h-4 w-4 text-faint" />
                   <div>
@@ -57,11 +62,14 @@ export function Dashboard() {
                   <div className="text-[11px] uppercase tracking-wider text-faint">Uptime</div>
                   <div className="text-sm text-text">{formatUptime(data.uptimeSeconds)}</div>
                 </div>
-                <div>
+                {responsive.mode === "compact" ? <details className="dashboard-server-details">
+                  <summary>Technische Details</summary>
+                  <div><span>Kernel</span><strong>{data.operatingSystem.kernel}</strong></div>
+                  <div><span>Tailscale</span><strong>{data.tailscale.hostname ?? "Nicht verbunden"}</strong></div>
+                </details> : <><div>
                   <div className="text-[11px] uppercase tracking-wider text-faint">Kernel</div>
                   <div className="text-sm text-text">{data.operatingSystem.kernel}</div>
-                </div>
-                <div className="flex items-center gap-2">
+                </div><div className="flex items-center gap-2">
                   <Network className="h-4 w-4 text-muted" />
                   <div>
                     <div className="text-[11px] uppercase tracking-wider text-faint">Tailscale</div>
@@ -72,7 +80,7 @@ export function Dashboard() {
                       {data.tailscale.hostname ?? "—"}
                     </div>
                   </div>
-                </div>
+                </div></>}
               </div>
               <div className="mt-4 text-[11px] text-faint">Aktualisiert {formatRelativeTime(data.lastUpdated)}</div>
             </Card>
@@ -199,6 +207,7 @@ export function Dashboard() {
                     <code className="hidden truncate rounded bg-ink-850 px-2 py-1 font-mono text-[12px] text-muted sm:block">
                       {command.command}
                     </code>
+                    <button type="button" className="quiet-button command-view-button" onClick={() => setSelectedCommand(command)}>Anzeigen</button>
                     <CopyButton value={command.command} />
                   </li>
                 ))}
@@ -206,31 +215,35 @@ export function Dashboard() {
             </Card>
           )}
         </QueryBoundary>
+        <ContentDialog open={selectedCommand !== null} title={selectedCommand?.name ?? "Befehl"} description={selectedCommand?.description} onClose={() => setSelectedCommand(null)}>
+          <code className="command-dialog-code">{selectedCommand?.command}</code>
+          {selectedCommand ? <CopyButton value={selectedCommand.command} /> : null}
+        </ContentDialog>
       </div>
     </div>
   );
 }
 
 function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await writeClipboardText(value);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 1500);
     } catch {
-      setCopied(false);
+      setCopyState("error");
     }
   };
   return (
     <button
       type="button"
       onClick={copy}
-      title="Kopieren"
+      title={copyState === "error" ? "Kopieren wurde vom Browser nicht erlaubt" : "Kopieren"}
       className="quiet-button shrink-0 text-[12px] max-md:text-[13px]"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
-      {copied ? "Kopiert" : "Kopieren"}
+      {copyState === "copied" ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className={`h-3.5 w-3.5 ${copyState === "error" ? "text-bad" : ""}`} />}
+      <span aria-live="polite">{copyState === "copied" ? "Kopiert" : copyState === "error" ? "Fehlgeschlagen" : "Kopieren"}</span>
     </button>
   );
 }

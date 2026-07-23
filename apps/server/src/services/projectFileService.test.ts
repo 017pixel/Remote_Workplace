@@ -11,8 +11,9 @@ async function service() {
   const root = await mkdtemp(join(tmpdir(), "workbench-files-"));
   directories.push(root);
   const projects = {
-    get: async () => ({ project: { id: "test", name: "Test", description: "", path: root, enabled: true, sortOrder: 0, availability: "available" as const, previews: [], links: { t3Code: null, codeServer: null } } }),
-    list: async () => ({ projects: [] }),
+    get: async () => ({ project: { id: "test", name: "Test", description: "", path: root, enabled: true, sortOrder: 0, availability: "available" as const, activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null }, previews: [], links: { t3Code: null, codeServer: null } } }),
+    list: async () => ({ projects: [], recentLimit: 8 }),
+    touch: async () => ({ projectId: "test", lastUsedAt: new Date().toISOString() }),
   };
   return { root, files: createProjectFileService(projects) };
 }

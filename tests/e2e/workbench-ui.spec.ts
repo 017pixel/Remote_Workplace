@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test.use({
-  extraHTTPHeaders: { "tailscale-user-login": "aistudioaccprgrm@gmail.com" },
+  extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
 });
 
-const privateWorkbench = "https://benjaminsserver.tail6494b7.ts.net:8443/workbench";
+const privateWorkbench = "https://server-name.tailnet.ts.net:8443/workbench";
 
 test("shows every local project and navigable breadcrumbs", async ({ page }) => {
   await page.goto(`${privateWorkbench}/projects`);
@@ -23,7 +23,7 @@ test("keeps preview alive across device, fullscreen and external-tab actions", a
     if (message.type() === "error" || message.type() === "warning") browserErrors.push(message.text());
   });
 
-  await page.goto(`${privateWorkbench}/projects/tg-vereinsapp`);
+  await page.goto(`${privateWorkbench}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
   await expect(page).toHaveURL(/\/workbench\/previews\?preview=/);
 
@@ -54,7 +54,7 @@ test("keeps preview alive across device, fullscreen and external-tab actions", a
 });
 
 test("keeps the same preview runtime across sidebar routes", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/projects/tg-vereinsapp`);
+  await page.goto(`${privateWorkbench}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
 
   const preview = page.locator('iframe[title="Preview"]');
@@ -94,7 +94,7 @@ test("loads code-server and provides a working native terminal", async ({ page }
   await page.goto(`${privateWorkbench}/projects/remote-workplace`);
   await page.getByRole("button", { name: "Editor", exact: true }).click();
   const editor = page.locator('iframe[title="Editor"]');
-  await expect(editor).toHaveAttribute("src", /\/editor\/\?folder=%2Fhome%2Fbbecker%2Fprojects%2FRemote_Workplace/);
+  await expect(editor).toHaveAttribute("src", /\/editor\/\?folder=%2Fhome%2Fuser%2Fprojects%2FRemote_Workplace/);
   await expect(page.frameLocator('iframe[title="Editor"]').locator("body")).toBeVisible({ timeout: 20_000 });
 
   await page.goto(`${privateWorkbench}/terminal`);
@@ -131,12 +131,29 @@ test("creates project-bound terminal tabs and splits them without replacing sess
   await expect(area).toHaveAttribute("data-split", "false");
 
   await area.getByRole("button", { name: "Terminalinformationen", exact: true }).click();
-  await expect(area.locator(".terminal-info-popover code")).toContainText("/home/bbecker/projects/Remote_Workplace");
+  await expect(area.locator(".terminal-info-popover code")).toContainText("/home/user/projects/Remote_Workplace");
 
   for (let remaining = 3; remaining > 0; remaining -= 1) {
     await area.getByRole("button", { name: "Terminal schließen", exact: true }).click();
     await expect(area.getByRole("tab")).toHaveCount(remaining - 1);
   }
+});
+
+test("opens OpenCode in the newly selected project", async ({ page }) => {
+  await page.goto(`${privateWorkbench}/opencode`);
+  await expect(page.locator(".terminal-tab .terminal-state.is-connected")).toBeVisible({ timeout: 15_000 });
+
+  await page.locator(".project-picker-trigger").click();
+  await page.getByLabel("Projekt suchen").fill("Sample");
+  await page.getByRole("option", { name: /Sample/ }).click();
+
+  await expect(page.locator(".terminal-tab")).toHaveCount(2);
+  await expect(page.locator(".terminal-tab.is-active")).toHaveAttribute(
+    "title",
+    /OpenCode 2 · Sample · \/home\/user\/projects\/Sample/,
+  );
+  await page.getByRole("button", { name: "Terminalinformationen" }).click();
+  await expect(page.locator(".terminal-info-popover code")).toContainText("/home/user/projects/Sample");
 });
 
 test("keeps T3 Code visibly connected to the selected project", async ({ page }) => {
@@ -156,7 +173,7 @@ test("runs a real Chromium session from the Browser tool", async ({ page }) => {
   await expect(page.getByAltText("Gerenderte Chromium-Seite")).toHaveAttribute("src", /^data:image\/jpeg;base64,/, { timeout: 20_000 });
 });
 
-test("opens CHAPPiE app.py through the stable code-server socket", async ({ page }) => {
+test("opens Sample app.py through the stable code-server socket", async ({ page }) => {
   const browserErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error" || message.type() === "warning") browserErrors.push(message.text());
@@ -170,7 +187,7 @@ test("opens CHAPPiE app.py through the stable code-server socket", async ({ page
   await editor.locator("body").press("Control+P");
   const quickOpen = editor.locator(".quick-input-widget input");
   await expect(quickOpen).toBeVisible();
-  await quickOpen.fill("/home/bbecker/projects/CHAPPiE/app.py");
+  await quickOpen.fill("/home/user/projects/Sample/app.py");
   const appFile = editor.getByRole("option", { name: /app\.py/ });
   await expect(appFile).toBeVisible();
   await appFile.click();
@@ -189,7 +206,7 @@ test("opens CHAPPiE app.py through the stable code-server socket", async ({ page
 
 test("keeps the mobile preview controls compact below the app navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${privateWorkbench}/projects/tg-vereinsapp`);
+  await page.goto(`${privateWorkbench}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
 
   const island = page.locator(".panel-island");
