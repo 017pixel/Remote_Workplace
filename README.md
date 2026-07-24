@@ -140,6 +140,20 @@ Ausführlich: [docs/configuration.md](docs/configuration.md).
 - Fehlerbehebung: [docs/troubleshooting.md](docs/troubleshooting.md)
 - Einbettungstest: [docs/embedding-test.md](docs/embedding-test.md)
 
+## Danksagungen
+
+Dieses Projekt baut auf großartigen Open-Source-Werkzeugen auf, die wir hier
+integrieren und orchestrieren:
+
+- **[T3 Code](https://github.com/pingdotgg/t3code)** von [Theo Brown (pingdotgg)](https://github.com/pingdotgg)
+  — der agentengestützte Browser-Editor, der direkt in der Workbench läuft.
+- **[code-server](https://github.com/coder/code-server)** — vollwertiger VS-Code-Editor im Browser.
+- **[node-pty](https://github.com/microsoft/node-pty)** & **[xterm.js](https://github.com/xtermjs/xterm.js)** — native Terminal-Emulation.
+- **[Tailscale](https://github.com/tailscale/tailscale)** — privater, sicherer Remote-Zugriff.
+
+Ein besonderer Dank an Theo Brown und alle Mitwirkenden von T3 Code für das
+offene, inspirierende Fundament, auf dem dieser Arbeitsplatz aufbaut.
+
 ## Lizenz
 
 [MIT](LICENSE) © 2026 017pixel
