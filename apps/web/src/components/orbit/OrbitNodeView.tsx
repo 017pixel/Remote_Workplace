@@ -123,6 +123,7 @@ function ProjectNode({ id, selected }: { id: string; selected: boolean }) {
 
 function ToolNode({ id, selected }: { id: string; selected: boolean }) {
   const node = useActiveOrbitNode(id)!;
+  const focusNode = useOrbitStore((state) => state.focusNode);
   const projects = useQuery(workbenchQueries.projects());
   const services = useQuery(workbenchQueries.services());
   const project = projects.data?.projects.find((candidate) => candidate.id === node.projectId);
@@ -141,6 +142,7 @@ function ToolNode({ id, selected }: { id: string; selected: boolean }) {
           codeServerMode={codeServerMode}
           isFocused={selected}
           minimal
+          onFocus={() => focusNode(id)}
         />
       </div>
       <EdgeHandles />

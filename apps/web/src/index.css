@@ -924,8 +924,9 @@
   .orbit-page.is-drag-active .orbit-drop-cue { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   .orbit-page.is-drag-active .orbit-flow { box-shadow: inset 0 0 0 2px var(--color-accent-line); }
 
-  .orbit-node-shell, .orbit-live-node { position: relative; width: 100%; height: 100%; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: visible; border: 1px solid var(--color-ink-600); border-radius: 10px; background: var(--color-ink-850); box-shadow: 0 12px 30px rgb(0 0 0 / .25); transition: border-color 150ms ease-out, box-shadow 150ms ease-out; }
+  .orbit-node-shell, .orbit-live-node { position: relative; width: 100%; height: 100%; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: visible; border: 1px solid var(--color-ink-600); border-radius: 10px; background: var(--color-ink-850); box-shadow: 0 12px 30px rgb(0 0 0 / .25); transition: border-color 150ms ease-out, box-shadow 150ms ease-out, outline-color 150ms ease-out; outline: 2px solid transparent; outline-offset: 2px; }
   .orbit-node-shell:hover, .orbit-node-shell.is-selected, .orbit-live-node:hover, .orbit-live-node.is-selected { border-color: var(--color-accent-line); box-shadow: 0 15px 34px rgb(0 0 0 / .32); }
+  .orbit-node-shell.is-selected, .orbit-live-node.is-selected { outline-color: var(--color-accent); }
   .orbit-node-header { position: relative; z-index: 21; display: flex; height: 36px; min-height: 36px; align-items: center; gap: 8px; border-bottom: 1px solid var(--color-line); background: var(--color-ink-850); padding: 0 11px; color: var(--color-muted); font-size: 11px; cursor: grab; user-select: none; }
   .orbit-node-header:active, .orbit-live-drag-handle:active, .orbit-project-orbit:active, .orbit-frame-title:active { cursor: grabbing; }
   .orbit-node-header strong { min-width: 0; overflow: hidden; color: var(--color-text); font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
@@ -941,10 +942,12 @@
   .orbit-inline-action { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; margin: 0 12px 10px; border: 1px solid var(--color-accent-line); border-radius: 6px; background: var(--color-accent-soft); padding: 6px 10px; color: var(--color-accent); font-size: 11px; }
   .orbit-inline-action:hover { background: var(--color-accent-soft); color: var(--color-text); }
   .orbit-node-message { margin: 0 12px 10px; color: var(--color-muted); font-size: 10px; }
-  .orbit-image-node { position: relative; width: 100%; height: 100%; overflow: visible; }
+  .orbit-image-node { position: relative; width: 100%; height: 100%; overflow: visible; outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 150ms ease-out; }
   .orbit-image-node > img { display: block; width: 100%; height: 100%; border: 4px solid var(--color-ink-600); border-radius: 6px; background: var(--color-ink-950); object-fit: contain; }
   .orbit-image-node.is-selected > img, .orbit-image-node:hover > img { border-color: var(--color-accent-line); }
-  .orbit-image-drag-handle { position: absolute; z-index: 22; top: -38px; left: 50%; display: grid; width: 56px; height: 32px; place-items: center; border: 1px solid var(--color-ink-600); border-radius: 999px; background: var(--color-ink-850); color: var(--color-muted); cursor: grab; transform: translateX(-50%); }
+  .orbit-image-node.is-selected { outline-color: var(--color-accent); }
+  .orbit-image-drag-handle { position: absolute; z-index: 25; top: -38px; left: 50%; display: grid; width: 56px; height: 32px; place-items: center; border: 1px solid var(--color-ink-600); border-radius: 999px; background: var(--color-ink-850); color: var(--color-muted); cursor: grab; transform: translateX(-50%); }
+  .orbit-image-drag-handle::before { position: absolute; top: -12px; left: 0; right: 0; bottom: 0; content: ""; }
   .orbit-image-drag-handle > span { width: 24px; height: 3px; border-radius: 999px; background: var(--color-faint); }
   .orbit-image-drag-handle:active { cursor: grabbing; }
   .orbit-asset-file { display: grid; min-height: 120px; place-items: center; align-content: center; gap: 7px; padding: 16px; color: var(--color-muted); text-align: center; }
@@ -971,18 +974,20 @@
   .react-flow__node:hover .orbit-handle, .react-flow__node.selected .orbit-handle { opacity: 1; transform: scale(1.15); }
   .orbit-frame-handle { width: 14px !important; height: 22px !important; border-radius: 5px !important; opacity: .72; }
 
-  .orbit-project-node { position: relative; width: 100%; height: 100%; overflow: visible; border: 1px solid var(--orbit-project-color, var(--color-accent)); border-radius: 14px; background: color-mix(in srgb, var(--orbit-project-color, var(--color-accent)) 14%, var(--color-ink-900)); box-shadow: 0 12px 30px rgb(0 0 0 / .22); transition: border-color 150ms ease-out, box-shadow 150ms ease-out; }
+  .orbit-project-node { position: relative; width: 100%; height: 100%; overflow: visible; border: 1px solid var(--orbit-project-color, var(--color-accent)); border-radius: 14px; background: color-mix(in srgb, var(--orbit-project-color, var(--color-accent)) 14%, var(--color-ink-900)); box-shadow: 0 12px 30px rgb(0 0 0 / .22); transition: border-color 150ms ease-out, box-shadow 150ms ease-out, outline-color 150ms ease-out; outline: 2px solid transparent; outline-offset: 2px; }
   .orbit-project-node:hover, .orbit-project-node.is-selected { border-color: color-mix(in srgb, var(--orbit-project-color, var(--color-accent)) 82%, white); box-shadow: 0 15px 34px rgb(0 0 0 / .3); }
+  .orbit-project-node.is-selected { outline-color: var(--orbit-project-color, var(--color-accent)); }
   .orbit-project-orbit { width: 100%; height: 100%; display: grid; align-content: center; justify-items: start; gap: 6px; padding: 18px; color: var(--orbit-project-color, var(--color-accent)); cursor: grab; text-align: left; user-select: none; }
   .orbit-project-orbit span { color: color-mix(in srgb, var(--orbit-project-color, var(--color-accent)) 72%, var(--color-muted)); font-size: 8px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
   .orbit-project-orbit strong { max-width: 100%; overflow: hidden; color: var(--color-text); font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
   .orbit-project-orbit small { color: color-mix(in srgb, var(--orbit-project-color, var(--color-accent)) 48%, var(--color-muted)); font-size: 9px; }
 
-  .orbit-frame-node { position: relative; width: 100%; height: 100%; border: 1px dashed var(--color-accent-line); border-radius: 12px; background: rgb(42 55 67 / .12); }
-  .orbit-frame-node.is-selected { border-style: solid; border-color: var(--color-accent); }
+  .orbit-frame-node { position: relative; width: 100%; height: 100%; border: 1px dashed var(--color-accent-line); border-radius: 12px; background: rgb(42 55 67 / .12); outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 150ms ease-out; }
+  .orbit-frame-node.is-selected { border-style: solid; border-color: var(--color-accent); outline-color: var(--color-accent); }
   .orbit-frame-title { position: absolute; z-index: 21; top: -15px; left: 14px; display: flex; min-height: 28px; align-items: center; gap: 7px; border: 1px solid var(--color-accent-line); border-radius: 999px; background: var(--color-accent-soft); padding: 4px 10px; color: var(--color-accent); font-size: 10px; cursor: grab; user-select: none; }
 
-  .orbit-live-drag-handle { position: absolute; z-index: 21; top: -25px; left: 50%; display: grid; width: 55px; height: 21px; place-items: center; transform: translateX(-50%); border-radius: 7px; cursor: grab; opacity: .5; transition: background 140ms ease-out, opacity 140ms ease-out; }
+  .orbit-live-drag-handle { position: absolute; z-index: 25; top: -25px; left: 50%; display: grid; width: 55px; height: 21px; place-items: center; transform: translateX(-50%); border-radius: 7px; cursor: grab; opacity: .5; transition: background 140ms ease-out, opacity 140ms ease-out; }
+  .orbit-live-drag-handle::before { position: absolute; top: -12px; left: 0; right: 0; bottom: 0; content: ""; }
   .orbit-live-drag-handle:hover, .orbit-live-node.is-selected .orbit-live-drag-handle { background: rgb(22 22 22 / .78); opacity: 1; }
   .orbit-live-drag-handle > span { width: 30px; height: 3px; border-radius: 2px; background: var(--color-muted); }
   .orbit-tool-content { min-height: 0; flex: 1; overflow: hidden; border-radius: 9px; contain: paint; }

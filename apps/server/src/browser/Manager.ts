@@ -453,8 +453,9 @@ class BrowserSession {
   private async key(key: string, code: string, names: Array<"Alt" | "Control" | "Meta" | "Shift">) {
     const modifiers = (names.includes("Alt") ? 1 : 0) | (names.includes("Control") ? 2 : 0) | (names.includes("Meta") ? 4 : 0) | (names.includes("Shift") ? 8 : 0);
     const virtualKeys: Record<string, number> = { Backspace: 8, Tab: 9, Enter: 13, Shift: 16, Control: 17, Alt: 18, Escape: 27, " ": 32, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Delete: 46 };
+    const oemKeys: Record<string, number> = { ";": 186, "=": 187, ",": 188, "-": 189, ".": 190, "/": 191, "`": 192, "[": 219, "\\": 220, "]": 221, "'": 222 };
     const printable = key.length === 1 && (modifiers & 7) === 0;
-    const params = { key, code, modifiers, windowsVirtualKeyCode: virtualKeys[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0), ...(printable ? { text: key, unmodifiedText: key } : {}) };
+    const params = { key, code, modifiers, windowsVirtualKeyCode: virtualKeys[key] ?? oemKeys[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0), ...(printable ? { text: key, unmodifiedText: key } : {}) };
     await this.cdp.send("Input.dispatchKeyEvent", { type: printable ? "keyDown" : "rawKeyDown", ...params }, this.targetSessionId);
     await this.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...params, text: undefined, unmodifiedText: undefined }, this.targetSessionId);
   }

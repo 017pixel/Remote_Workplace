@@ -404,6 +404,7 @@ function OrbitCanvas() {
   const contextMenuRef = useRef(contextMenu);
   const suppressContextMenuRef = useRef(false);
   const toolbarRef = useRef<HTMLElement>(null);
+  const prevFocusedNodeIdRef = useRef<string | null>(document.focusedNodeId);
   const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}`).join("|");
   const nodeProjectKey = board.nodes.map((node) => `${node.id}:${node.projectId ?? ""}`).join("|");
   // Die Kantenfarbe hängt an der Knotenfarbe (siehe orbitEdgeColor). Ohne diesen
@@ -428,7 +429,18 @@ function OrbitCanvas() {
     setDeleteArmed(false);
   }, []);
 
-  useEffect(() => { setFlowNodes(board.nodes.map((node) => flowNode(node, document.focusedNodeId, canvasInteractive))); }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive]);
+  useEffect(() => {
+    const focusedChanged = prevFocusedNodeIdRef.current !== document.focusedNodeId;
+    prevFocusedNodeIdRef.current = document.focusedNodeId;
+    setFlowNodes((current) => {
+      const selectedIds = focusedChanged ? null : new Set(current.filter((n) => n.selected).map((n) => n.id));
+      return board.nodes.map((node) => {
+        const flow = flowNode(node, document.focusedNodeId, canvasInteractive);
+        if (selectedIds?.has(node.id)) flow.selected = true;
+        return flow;
+      });
+    });
+  }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive]);
   const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey, nodeColorKey]);
   useEffect(() => { setFlowEdges(board.edges.map((edge) => flowEdge(edge, nodesById))); }, [board.edges, nodesById]);
   useEffect(() => {
@@ -739,7 +751,7 @@ function OrbitCanvas() {
   }, []);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setFlowNodes((current) => applyNodeChanges(changes.filter((change) => change.type !== "select"), current));
+    setFlowNodes((current) => applyNodeChanges(changes, current));
     for (const change of changes) {
       const stored = "id" in change ? getActiveOrbitBoard().nodes.find((node) => node.id === change.id) : undefined;
       if (change.type === "select" && change.selected) {
@@ -973,9 +985,9 @@ function OrbitCanvas() {
         onNodeDragStop={finishNodeDrag}
         onNodeClick={(event, node) => {
           const target = event.target as HTMLElement;
-          const isContentInteraction = Boolean(target.closest("input, textarea, select, button, a, [contenteditable=true], .orbit-tool-content"));
+          const isContentInteraction = Boolean(target.closest("input, textarea, select, button, a, [contentEditable=true], .orbit-tool-content"));
           if (isContentInteraction) return;
-          focusNode(node.id);
+          if (!event.metaKey && !event.ctrlKey) focusNode(node.id);
           const stored = getActiveOrbitBoard().nodes.find((candidate) => candidate.id === node.id);
           if (stored?.type === "project" && stored.projectId) selectProject(stored.projectId);
         }}
