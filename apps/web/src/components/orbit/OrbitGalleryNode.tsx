@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { Copy, Download, ExternalLink, File, FolderUp, Images, Pencil, Plus, RefreshCw, Search, Trash2, Upload, FolderOpen, Folder } from "lucide-react";
 import type { OrbitAsset, GalleryFolder } from "@workbench/contracts";
 import { apiClient } from "../../lib/apiClient";
+import { ContentDialog } from "../ModalDialog";
 
 export type GalleryVariant = "media" | "files";
 
@@ -110,15 +111,30 @@ function AssetCard({ asset, url, onStatus, onDelete, onRename, onMove, folders }
       <a href={url} download={asset.filename} aria-label={`${asset.filename} herunterladen`} title="Herunterladen"><Download className="h-3.5 w-3.5" /></a>
       <a href={url} target="_blank" rel="noreferrer" aria-label={`${asset.filename} öffnen`} title="Original öffnen"><ExternalLink className="h-3.5 w-3.5" /></a>
       <button type="button" onClick={() => onRename(asset)} aria-label={`${asset.filename} umbenennen`} title="Umbenennen"><Pencil className="h-3.5 w-3.5" /></button>
-      <div className="orbit-gallery-move-menu">
-        <button type="button" onClick={() => setShowMoveMenu(!showMoveMenu)} aria-label="In Ordner verschieben" title="Verschieben"><FolderOpen className="h-3.5 w-3.5" /></button>
-        {showMoveMenu ? <div className="orbit-gallery-move-dropdown">
-          <button type="button" onClick={() => { onMove(asset, null); setShowMoveMenu(false); }} className={asset.folderId === null ? "is-active" : ""}>Ohne Ordner</button>
-          {folders.map((folder) => <button key={folder.id} type="button" onClick={() => { onMove(asset, folder.id); setShowMoveMenu(false); }} className={asset.folderId === folder.id ? "is-active" : ""}>{folder.name}</button>)}
-        </div> : null}
-      </div>
+      {/* Als Dialog statt als Aufklapp-Menü in der Karte: Das Menü klappte nach oben
+          aus der Karte heraus und wurde vom Karten- und Gitter-Clipping verschluckt —
+          es war nicht sichtbar und nicht klickbar. */}
+      <button type="button" onClick={() => setShowMoveMenu(true)} aria-label="In Ordner verschieben" title="Verschieben"><FolderOpen className="h-3.5 w-3.5" /></button>
       <button type="button" onClick={() => onDelete(asset)} aria-label={`${asset.filename} löschen`} title="Löschen" className="is-danger"><Trash2 className="h-3.5 w-3.5" /></button>
     </div>
+    <ContentDialog
+      open={showMoveMenu}
+      title="In Ordner verschieben"
+      description={asset.filename}
+      onClose={() => setShowMoveMenu(false)}
+    >
+      <div className="gallery-move-options">
+        <button type="button" onClick={() => { onMove(asset, null); setShowMoveMenu(false); }} className={asset.folderId === null ? "is-active" : ""}>
+          <FolderOpen className="h-4 w-4" /> Ohne Ordner
+        </button>
+        {folders.map((folder) => (
+          <button key={folder.id} type="button" onClick={() => { onMove(asset, folder.id); setShowMoveMenu(false); }} className={asset.folderId === folder.id ? "is-active" : ""}>
+            <Folder className="h-4 w-4" /> {folder.name}
+          </button>
+        ))}
+        {folders.length === 0 ? <p className="gallery-move-empty">Es gibt noch keine Ordner. Lege oben in der Leiste einen an.</p> : null}
+      </div>
+    </ContentDialog>
   </article>;
 }
 

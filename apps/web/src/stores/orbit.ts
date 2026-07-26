@@ -126,6 +126,7 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     provider: input.type === "usage" ? (input.provider ?? "codex") : null,
     content: input.content ?? "",
     language: input.language ?? (input.type === "snippet" ? "typescript" : null),
+    color: null,
     locked: false,
     zIndex,
   };

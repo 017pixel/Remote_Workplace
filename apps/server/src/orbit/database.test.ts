@@ -86,6 +86,7 @@ describe("OrbitDatabase", () => {
       provider: null,
       content: "",
       language: null,
+      color: null,
       locked: false,
       zIndex: index,
     }));

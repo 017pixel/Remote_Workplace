@@ -64,6 +64,7 @@ import { useResponsiveShell } from "../lib/useResponsiveShell";
 import { consumeOrbitIntents } from "../lib/workbenchActions";
 import { resolveOrbitProjectId } from "../lib/orbitProjectBinding";
 import { nearestEdgeSides, orbitEdgeColor } from "../lib/orbitAppearance";
+import { OrbitColorPicker } from "../components/orbit/OrbitColorPicker";
 import { compactedOrbitBounds, expandedOrbitBounds, orbitBoundsEqual } from "../lib/orbitTerritory";
 import { serializeOrbitTodo } from "../lib/orbitTodo";
 import { getActiveOrbitBoard, orbitDefaultNodeSize, useOrbitStore } from "../stores/orbit";
@@ -405,6 +406,10 @@ function OrbitCanvas() {
   const toolbarRef = useRef<HTMLElement>(null);
   const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}`).join("|");
   const nodeProjectKey = board.nodes.map((node) => `${node.id}:${node.projectId ?? ""}`).join("|");
+  // Die Kantenfarbe hängt an der Knotenfarbe (siehe orbitEdgeColor). Ohne diesen
+  // Schlüssel wurde `nodesById` beim Umfärben nicht neu berechnet: Der Knoten
+  // wechselte sofort die Farbe, seine Verbindungen erst nach einem Neuladen.
+  const nodeColorKey = board.nodes.map((node) => `${node.id}:${node.color ?? ""}`).join("|");
   const nodeIdKey = board.nodes.map((node) => node.id).join("|");
 
   const canvasInteractive = !isMobile || mobileCanvasMode === "interact";
@@ -424,7 +429,7 @@ function OrbitCanvas() {
   }, []);
 
   useEffect(() => { setFlowNodes(board.nodes.map((node) => flowNode(node, document.focusedNodeId, canvasInteractive))); }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive]);
-  const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey]);
+  const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey, nodeColorKey]);
   useEffect(() => { setFlowEdges(board.edges.map((edge) => flowEdge(edge, nodesById))); }, [board.edges, nodesById]);
   useEffect(() => {
     setEdgeMenu(null);
@@ -1040,6 +1045,12 @@ function OrbitCanvas() {
           <button type="button" role="menuitem" onClick={() => setContextRename(true)}><Pencil className="h-4 w-4" /><span>Name ändern</span></button>
           <button type="button" role="menuitem" onClick={() => { duplicateNode(contextNode.id); setContextMenu(null); }}><Copy className="h-4 w-4" /><span>Duplizieren</span></button>
           <button type="button" role="menuitem" onClick={() => { updateNode(contextNode.id, { locked: !contextNode.locked }); setContextMenu(null); }}><Lock className="h-4 w-4" /><span>{contextNode.locked ? "Position entsperren" : "Position sperren"}</span></button>
+          {/* Farbe des Knotens. Die von ihm ausgehenden Verbindungen ziehen mit
+              (siehe orbitEdgeColor) — deshalb steht das direkt im Kontextmenü. */}
+          <OrbitColorPicker
+            value={contextNode.color}
+            onSelect={(color) => { updateNode(contextNode.id, { color }); setContextMenu(null); }}
+          />
           <button type="button" role="menuitem" className="is-danger" onClick={() => { removeNode(contextNode.id); setContextMenu(null); }}><Trash2 className="h-4 w-4" /><span>Komplett löschen</span></button>
         </div> : <div className="orbit-context-actions">
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "note", title: "Neue Textfläche" })}><StickyNote className="h-4 w-4" /><span>Neue Textfläche</span></button>

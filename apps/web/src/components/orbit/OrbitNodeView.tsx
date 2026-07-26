@@ -14,7 +14,7 @@ import { Handle, NodeResizeControl, Position, type NodeProps } from "@xyflow/rea
 import type { OrbitNode, Panel } from "@workbench/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
-import { projectColor } from "../../lib/orbitAppearance";
+import { orbitNodeColor } from "../../lib/orbitAppearance";
 import { orbitProviderWindows } from "../../lib/orbitUsage";
 import { parseOrbitTodo, serializeOrbitTodo, type OrbitTodoItem } from "../../lib/orbitTodo";
 import { useOrbitStore } from "../../stores/orbit";
@@ -38,7 +38,17 @@ function useActiveOrbitNode(id: string): OrbitNode | undefined {
   });
 }
 
-const resizeCorners = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+// Praktisch keine Obergrenze mehr: 2.400 x 1.600 px war für große Bereiche
+// (Gruppen aus mehreren Werkzeugen) zu knapp.
+const ORBIT_MAX_NODE_SIZE = 20_000;
+
+// Acht Griffe statt vier: Ecken skalieren beide Achsen, die Seitenmitten je eine.
+// Damit lassen sich Flächen gezielt in die Breite oder Höhe ziehen.
+const resizeCorners = [
+  "top-left", "top", "top-right",
+  "left", "right",
+  "bottom-left", "bottom", "bottom-right",
+] as const;
 
 function EdgeHandles({ frame = false }: { frame?: boolean }) {
   const className = `orbit-handle${frame ? " orbit-frame-handle" : ""}`;
@@ -64,8 +74,8 @@ function OrbitNodeResizer({
       position={position}
       minWidth={minWidth}
       minHeight={minHeight}
-      maxWidth={2_400}
-      maxHeight={1_600}
+      maxWidth={ORBIT_MAX_NODE_SIZE}
+      maxHeight={ORBIT_MAX_NODE_SIZE}
       className="orbit-resize-corner"
       onResizeEnd={(_event, params) => useOrbitStore.getState().updateNode(id, { size: { width: params.width, height: params.height } })}
     >
@@ -96,7 +106,7 @@ function ProjectNode({ id, selected }: { id: string; selected: boolean }) {
   });
   const { data } = useQuery(workbenchQueries.projects());
   const project = data?.projects.find((candidate) => candidate.id === node.projectId);
-  const color = projectColor(node.projectId ?? node.id);
+  const color = orbitNodeColor(node);
   return (
     <div className={`orbit-project-node ${selected ? "is-selected" : ""}`} style={{ "--orbit-project-color": color } as React.CSSProperties}>
       <OrbitNodeResizer id={id} selected={selected} minWidth={190} minHeight={140} />
