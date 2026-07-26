@@ -66,7 +66,10 @@ const settingsSchema = z.object({
   REQUEST_TIMEOUT_MS: integerFromEnvironment(3_000),
   COMPRESSION_THRESHOLD_BYTES: integerFromEnvironment(1_024),
   BROTLI_QUALITY: boundedIntegerFromEnvironment(4, 0, 11),
-  API_RATE_LIMIT_MAX: integerFromEnvironment(180),
+  // Pro IP und Minute. Hinter dem Tailscale-Proxy sehen alle Anfragen wie 127.0.0.1
+  // aus — es ist damit ein gemeinsames Budget für sämtliche Tabs. Allein die
+  // Oberfläche pollt je Tab 20–45 Anfragen pro Minute, 180 waren dafür zu knapp.
+  API_RATE_LIMIT_MAX: integerFromEnvironment(1_200),
   WEBSOCKET_MAX_PAYLOAD_BYTES: integerFromEnvironment(16 * 1024 * 1024),
   CODEXBAR_BASE_URL: localhostUrl.default("http://127.0.0.1:18181"),
   CODEXBAR_CACHE_MS: integerFromEnvironment(60_000),

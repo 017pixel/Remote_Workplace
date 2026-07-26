@@ -4,7 +4,12 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // Der Lauf geht gegen die laufende Workbench und teilt sich deren API-Budget
+  // (180 Anfragen pro Minute, hinter dem Tailscale-Proxy für alle Tabs gemeinsam).
+  // Ein einzelner Test kann deshalb ein `429` abbekommen, obwohl nichts kaputt ist;
+  // das Fenster ist nach wenigen Sekunden wieder offen. Ein Wiederholungsversuch
+  // fängt genau das ab — echte Fehler schlagen auch im zweiten Anlauf fehl.
+  retries: 1,
   reporter: "list",
   projects: [
     { name: "chromium", testIgnore: /responsive-shell\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
