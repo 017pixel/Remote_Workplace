@@ -266,7 +266,35 @@ export class TerminalManager {
         if (session.status === "closed" || session.status === "interrupted") return;
         session.pty = null;
         if (this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName)) {
-          session.status = "running"; session.updatedAt = Date.now(); this.persist(session); return;
+          try {
+            const launch = this.launchCommand(session.kind, session.mode);
+            const environment = this.environment(session);
+            this.options.supervisor.respawn(session.supervisorName, session.cwd, { ...launch, environment });
+            session.history = this.limitHistory(this.options.supervisor.capture(session.supervisorName));
+            session.sequence += 1;
+            this.emit(session, { type: "terminal.restarting", sessionId: session.id, reason: "Der Terminalprozess wurde beendet und automatisch neu gestartet.", sequence: session.sequence });
+            const newPty = this.adapter.spawn(this.options.supervisor.attachCommand(session.supervisorName).file, this.options.supervisor.attachCommand(session.supervisorName).args, { name: "xterm-256color", cwd: session.cwd, cols: session.cols, rows: session.rows, env: environment });
+            session.pty = newPty; session.pid = newPty.pid; session.updatedAt = Date.now(); this.persist(session);
+            const supervisorRef = this.options.supervisor;
+            const supervisorName = session.supervisorName;
+            if (supervisorRef && supervisorName) {
+              const timer = setTimeout(() => { try { supervisorRef.sendLastCommandHint(supervisorName); } catch { /* shell may not be ready */ } }, 800);
+              timer.unref();
+            }
+            session.dataListener = newPty.onData((data) => { session.history = this.limitHistory(session.history + data); session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence }); });
+            session.exitListener = newPty.onExit((nestedEvent) => {
+              if (session.status === "closed" || session.status === "interrupted") return;
+              session.pty = null;
+              if (this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName)) {
+                session.status = "running"; session.updatedAt = Date.now(); this.persist(session); return;
+              }
+              session.status = "exited"; session.exitCode = nestedEvent.exitCode; session.exitSignal = nestedEvent.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
+            });
+            this.emit(session, { type: "terminal.snapshot", sessionId: session.id, runtimeId: session.runtimeId, kind: session.kind, status: "running", projectId: session.projectId, cwd: session.cwd, history: session.history, sequence: session.sequence });
+          } catch {
+            session.status = "exited"; session.exitCode = event.exitCode; session.exitSignal = event.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
+          }
+          return;
         }
         session.status = "exited"; session.exitCode = event.exitCode; session.exitSignal = event.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
       });

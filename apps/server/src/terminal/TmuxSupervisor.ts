@@ -42,6 +42,7 @@ export class TmuxSupervisor {
     const created = spawnSync(this.executable, ["new-session", "-d", "-s", name, "-c", input.cwd, command], { encoding: "utf8", timeout: 5_000 });
     if (created.status !== 0) throw new Error(created.stderr.trim() || "tmux-Session konnte nicht gestartet werden.");
     this.run(["set-option", "-t", name, "history-limit", "100000"]);
+    this.run(["set-option", "-t", name, "remain-on-exit", "on"]);
     this.run(["set-option", "-t", name, "@workbench_runtime_id", input.runtimeId]);
     this.run(["set-option", "-t", name, "@workbench_kind", input.kind]);
     this.run(["set-option", "-t", name, "@workbench_project_id", input.projectId ?? ""]);
@@ -49,6 +50,16 @@ export class TmuxSupervisor {
   }
 
   attachCommand(name: string) { return { file: this.executable, args: ["attach-session", "-t", name] }; }
+
+  respawn(name: string, cwd: string, command: SupervisedCommand) {
+    const environment = Object.entries(command.environment).map(([key, value]) => `${key}=${value}`);
+    const cmd = ["/usr/bin/env", ...environment, command.file, ...command.args].map(shellQuote).join(" ");
+    this.run(["respawn-pane", "-k", "-t", `${name}:0.0`, "-c", cwd, cmd]);
+  }
+
+  sendLastCommandHint(name: string) {
+    this.run(["send-keys", "-t", `${name}:0.0`, "Up"]);
+  }
 
   capture(name: string) {
     const result = spawnSync(this.executable, ["capture-pane", "-p", "-e", "-J", "-S", "-10000", "-t", `${name}:0.0`], { encoding: "utf8", timeout: 4_000 });
