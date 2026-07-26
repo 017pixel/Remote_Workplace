@@ -47,7 +47,7 @@ const localhostUrl = z.url().refine((value) => {
 const settingsSchema = z.object({
   HOST: z.string().default("127.0.0.1"),
   PORT: integerFromEnvironment(3010),
-  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.24.0"),
+  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.30.2"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   CONFIG_DIR: z.string().default("./config"),
   WEB_DIST_DIR: z.string().default("./apps/web/dist"),

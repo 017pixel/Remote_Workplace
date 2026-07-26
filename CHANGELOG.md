@@ -2,6 +2,176 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [0.30.2] - 2026-07-25
+
+### Behoben
+
+- **Verbindungslinien übernahmen eine geänderte Knotenfarbe erst nach einem Neuladen.** Die Zuordnung Knoten → Kante wurde nur neu berechnet, wenn sich Position, Größe oder Projekt änderten — die Farbe stand nicht in den Abhängigkeiten. Der Knoten wechselte deshalb sofort, seine Linien erst nach F5. Gilt auch für den Weg zurück auf „Auto".
+
+## [0.30.1] - 2026-07-25
+
+### Behoben
+
+- **Pinch-to-Zoom im Infinite Canvas funktionierte auf keinem Touchgerät.** Sobald der erste Finger den Schwenk startete, legte sich das Interaktions-Schild über die Fläche; der zweite Finger landete darauf statt auf dem Canvas, und die Zwei-Finger-Geste kam nie an. Auf Touch ist das Schild jetzt durchlässig — für die Maus bleibt es, damit eingebettete iframes beim Ziehen keine Ereignisse schlucken.
+- Die Orbit-Insel hing auf dem iPad am Menüknopf links und lief mit ihrer Verlaufskante rechts aus dem Bild. Sie sitzt jetzt oben mittig (gemessener Mittenversatz: 0 px in Hoch- und Querformat sowie auf dem Handy).
+- Der aktive Eintrag der Navigationsseite war gegenüber den übrigen eingerückt und stand schief in der Spalte. Er sitzt jetzt bündig und wird durch Rahmen plus durchgehende Linie an der linken Kante markiert — auf Handy und iPad gleich.
+
+### Verändert
+
+- Navigationsseite auf dem iPad: im Hochformat eine einfache Liste untereinander statt zwei Spalten, im Querformat weiterhin drei Spalten in einer Linie
+
+## [0.30.0] - 2026-07-25
+
+### Erstellt
+
+- Farbwahl für Orbit-Knoten mit zwölf Pastelltönen statt acht kräftigen, dem Farbkreis des Systems für alles dazwischen und eigenen Farben, die als Vorgabe erhalten bleiben (bis zu zwölf, im Browser gespeichert)
+- Eigene Farben lassen sich einzeln wieder entfernen
+
+### Verändert
+
+- „Auto" ersetzt das nicht zentrierte „A" im Farbmenü und sitzt jetzt mittig
+- Orbit-Kontextmenü von 238 px auf 268 px verbreitert, damit sechs Farbfelder je Reihe hineinpassen
+
+### Behoben
+
+- Im Terminal standen zwei Meldungen mit derselben Aussage untereinander: der alte Fehlertext und darunter das Banner mit dem Neustart-Knopf. Der Fehlertext steht jetzt im Banner, es bleibt bei einer Meldung.
+
+## [0.29.1] - 2026-07-25
+
+### Behoben
+
+- **Zwischengespeicherte Ansichten wurden bei jedem Seitenwechsel verworfen.** Die Fehlergrenze jeder Route trug die *laufende* Adresse als `key`; beim Navigieren wechselte er für alle geparkten Routen mit, und React baute sie komplett neu auf. T3 Code, Code-Server und Terminal luden dadurch jedes Mal neu, obwohl der Seiten-Cache sie hielt. Gemessen: Instanzen überstehen den Wechsel jetzt in allen acht geprüften Bereichen.
+- Der Seiten-Cache sortierte seine Einträge nach Zugriff um; React hängte die DOM-Knoten dabei um, was `iframe`-Inhalte neu lädt. Die Renderreihenfolge liegt jetzt fest, die Verdrängung läuft über eine getrennte Liste.
+- Der Neustart-Knopf im Terminal erschien nur bei sauber beendeten Sitzungen. Er kommt jetzt auch bei Sitzungsfehlern und bei dauerhaft abgerissener Verbindung (nach acht Sekunden Karenz, damit er bei kurzen Aussetzern nicht aufblitzt).
+- Der Neustart greift auch ohne offene Verbindung oder Sitzung: Er verbindet neu beziehungsweise legt eine Sitzung an, statt wirkungslos zu bleiben.
+
+### Verändert
+
+- Aktiv- und Fokusrahmen von 2 px auf 1 px halbiert (Sidebar, Navigation, Meldungen, Fokusring)
+
+## [0.29.0] - 2026-07-25
+
+### Erstellt
+
+- Beendetes Terminal zeigt „Das Terminal läuft nicht" mit Neustart-Knopf: startet dieselbe Sitzung im selben Verzeichnis und legt den zuletzt abgeschickten Befehl wieder in die Eingabe — Enter genügt
+- Farbwahl für Orbit-Knoten im Kontextmenü (acht Töne plus „automatisch"); die ausgehenden Verbindungen übernehmen die Farbe
+- Feld `color` am Orbit-Knoten in den Verträgen, damit die Auswahl den Neustart überlebt
+- Griffe an allen acht Seiten und Ecken beim Skalieren von Orbit-Flächen, nicht mehr nur an den vier Ecken
+
+### Verändert
+
+- Aktive Einträge in Sidebar und Navigation tragen einen umlaufenden 2-px-Rahmen statt eines Farbstrichs an der linken Kante; dasselbe gilt für Fehler-, Warn- und Neustart-Meldungen
+- Größengrenze für Orbit-Flächen von 2.400 × 1.600 px auf 20.000 px angehoben — große Bereiche ließen sich vorher nicht weit genug aufziehen
+- Geparkte Routen sind auf zehn begrenzt und werden nach letztem Zugriff verdrängt (LRU); vorher wuchs der Cache unbegrenzt
+- Bis zu zehn gleichzeitige Werkzeug-Laufzeiten statt acht
+
+### Behoben
+
+- **Verschieben in Galerie-Ordner war unmöglich:** Das Auswahlmenü klappte nach oben aus der Karte heraus und wurde vom `overflow: hidden` der Karte und vom scrollenden Gitter verschluckt — unsichtbar und nicht klickbar. Es ist jetzt ein Dialog und funktioniert in Medien- wie Dateigalerie.
+- Nach drei erfolglosen automatischen Neustarts blieb im Terminal nur ein Hinweisband ohne Handlungsmöglichkeit
+
+## [0.28.0] - 2026-07-25
+
+### Erstellt
+
+- Suchfeld auf der Navigationsseite: filtert die vierzehn Ziele live, mit Leerzustand bei keinem Treffer
+- Weiche Verlaufskanten an allen scrollbaren Leisten (Orbit-Insel, Kategorien in Tech TLDRs, Terminal-Sondertasten) — man sieht jetzt, dass es seitlich weitergeht
+- Trenner vor dem KI-Knopf der News-Insel; er ist eine eigene Aktion, kein dritter Reiter
+
+### Verändert
+
+- Orbit-Insel ist auf Tablets so breit wie ihr Inhalt statt wie der Bildschirm — vorher stand dort eine fast leere Leiste über die volle Breite
+- Alle Inseln nutzen dieselben Glas-, Radius- und Rahmen-Tokens und denselben Aktiv-Zustand (getönte Fläche plus Akzentfarbe)
+- News-Insel weicht auf kurzen Landscape-Höhen zurück und der Inhalt bekommt unten Platz — sie lag vorher auf dem Primärknopf
+- Navigationsseite: lesbare statt ausgegraute Labels, aktiver Eintrag mit Akzentbalken statt umlaufendem Rahmen, keine baumelnden Trennlinien mehr am Spaltenende
+- Tablet im Hochformat begrenzt die Inhaltsbreite auf 880 px; Datenzeilen rissen Label und Wert vorher über die ganze Breite auseinander
+- Suchfeld in Tech TLDRs auf 560 px begrenzt statt über die volle iPad-Breite
+- Terminal-Fehlerband eingerückt und gerundet statt randlos; Sondertasten mit Radius aus der Skala
+- „Lesen" in Tech TLDRs ist Akzentblau statt Weiß — es war der einzige weiße Button der App
+- Orbit-Kanten und Projektfarben eine Stufe dunkler (500er statt 400er), die hellen Töne wirkten auf dem Canvas neon
+
+### Behoben
+
+- **Browserprofile verloren Cookies und Anmeldungen beim Beenden:** Nach `Browser.close` folgte sofort ein SIGTERM, während Chromium das Profil noch schrieb. Jetzt wird bis zu drei Sekunden auf den regulären Exit gewartet, erst danach eskaliert der Abbruch. Der zugehörige Integrationstest schlug dadurch in etwa jedem dritten Lauf fehl und läuft nun stabil.
+- Die Navigationssuche war im Stylesheet per `display: none` abgeschaltet, obwohl die Styles vollständig vorhanden waren
+
+## [0.27.0] - 2026-07-25
+
+### Erstellt
+
+- Palette von T3 Code Nightly übernommen: neutrale Basis `#0a0a0a`, Flächen aus weißen Transparenz-Auflagen (4/6/8/12 %) statt einer Treppe opaker Grautöne
+- Schriften DM Sans Variable (Text) und JetBrains Mono (Code) selbst gehostet über `@fontsource`
+- Glas-Tokens (`--glass-blur`, `--glass-saturation`, `--glass-tint`) für Topbar und Statusleiste
+- Kräftiges Blau `oklch(58.8% .217 264)` als Akzent- und Fokusfarbe, dazu Emerald/Amber/Red als Statusfarben
+- Kategoriale Orbit-Palette aus acht klar unterscheidbaren Tönen für Projektknoten und Kanten
+
+### Verändert
+
+- 272 hartkodierte Farbwerte im Stylesheet auf Design-Tokens umgestellt; übrig bleiben nur die drei bewusst weißen Flächen (Geräte-Vorschau, Browser-Canvas)
+- Radius-Skala rechnet wie in T3 aus `--radius: .625rem` (Karten und Buttons sind runder)
+- Primäraktionen sind gefülltes Blau mit weißer Schrift statt eines getönten Rahmens
+- ANSI-Palette des Terminals auf die kräftigen Tailwind-Töne umgestellt
+- 22 halbtransparente Overlay-Flächen auf die dunklere Basis umgerechnet, damit sie nicht aufhellen
+- `theme-color` und Manifest-Farben auf `#0a0a0a`; die PWA startet damit im neuen Dunkelton
+
+## [0.26.0] - 2026-07-25
+
+### Erstellt
+
+- Einstellungen → „T3 Code Kanal": Umschalter zwischen Stable (`t3@latest`) und Nightly (`t3@nightly`) mit aktivem Kanal, Version und Erreichbarkeit
+- `GET /api/v1/system/t3-channel` und `POST /api/v1/system/t3-channel` — Status lesen und Wunschkanal speichern
+- `scripts/sync-t3-channel.sh` tauscht beim Neustart das npm-Paket, beendet den alten Prozess (SIGTERM, dann SIGKILL), wartet auf Port 3773 und prüft per HTTP, ob T3 wieder antwortet
+- systemd-**User**-Unit `t3-code.service` (Template + Render + `scripts/install-t3-unit.sh`) mit unveränderten Argumenten `serve --host 127.0.0.1 --port 3773 <projectsRoot>`
+- Abschnitt `t3` in `config/workbench.*.json` für Kanal, Paket, Pfade, Port und die Zeitlimits des Wechsels
+
+### Verändert
+
+- Der Kanalwechsel greift bewusst erst beim nächsten Neustart; die Card zeigt bei Abweichung „Neustart erforderlich" und springt zu den vorhandenen Neustart-Buttons
+- `scripts/restart-backend.sh` und `restart-all.sh` prüfen den Kanal vor dem Dienst-Neustart — stimmt er und antwortet T3, passiert nichts
+- Health-Check für T3 Code läuft über HTTP (`http://127.0.0.1:3773/`) statt über eine system-weite systemd-Unit, die es nie gab — der Dienststatus zeigt jetzt „active"
+- T3-Proxy liest Host und Port aus der Config, statt sie doppelt zu hinterlegen
+- T3 Code wird nicht mehr über `~/.local/bin/t3-code-service` gestartet; der Altstarter wird beim Wechsel beendet, damit Port 3773 frei wird
+
+## [0.25.2] - 2026-07-25
+
+### Erstellt
+
+- Filter für harmlose Browser-Meldungen im Crash-Report, erweiterbar über eine dokumentierte Liste
+- Ignorierte Meldungen erscheinen im Verlauf des Berichts, statt spurlos zu verschwinden
+- Wiederholte Verlaufseinträge werden zu `(N×)` zusammengefasst
+- Unit-Tests für die Absturz-Erkennung (`crashReport.test.ts`)
+- E2E-Test, der prüft, dass eine ResizeObserver-Meldung kein Pop-Up öffnet
+
+### Verändert
+
+- `ResizeObserver loop completed with undelivered notifications` gilt nicht mehr als Absturz — die Meldung ist laut Spezifikation harmlos und trat im Orbit (`@xyflow/react`) beim Zoomen auf
+- Inhaltslose Cross-Origin-Meldungen (`Script error.`) und abgebrochene Anfragen (`AbortError`) lösen kein Pop-Up mehr aus
+- Der Berichtsgenerator liest `location`, `navigator` und Viewport defensiv, statt ohne DOM selbst zu scheitern
+
+## [0.25.1] - 2026-07-25
+
+### Erstellt
+
+- Crash-Report als großes Pop-Up: kopierbarer Bericht inklusive Arbeitsauftrag für einen KI-Agenten
+- Fehlergrenzen um App und jede Route, damit ein Absturz nicht mehr die ganze Seite weißfärbt
+- `GET /api/v1/system/restart/status` mit Phase, aktuellem Schritt und ANSI-bereinigtem Build-Log
+- Neustart-Fehler erscheinen in den Einstellungen samt Log-Ausschnitt und Kopier-Knopf
+- Lint-Regeln `react-hooks/rules-of-hooks` und `exhaustive-deps` für `apps/web`
+
+### Verändert
+
+- Sidebar rief Hooks bedingt auf (`!collapsed && useSectionCollapsed(...)`) — das Aus-/Einklappen ließ die Seite abstürzen
+- Eingeklappte Sidebar zeigt jetzt alle Sektionen; vorher fehlten Werkzeuge, Galerie und Blöcke komplett
+- `scripts/lib-restart.sh` findet pnpm auch ohne passenden PATH (bekannte Orte, dann corepack)
+- `workbench.service`: `StartLimitIntervalSec` von `[Service]` nach `[Unit]` — dort wurde es ignoriert, der Dienst gab nach 5 Fehlstarts auf
+- Server protokolliert unbehandelte Ausnahmen und Promise-Fehler, statt wortlos zu enden
+
+### Gelöscht
+
+- Verwaiste Symlinks auf die nicht mehr existierende `benjamin-dev-workbench.service`
+- Doppelter, identischer Render-Zweig in den Orbit-Palettenabschnitten der Sidebar
+- Feste Versionsnummer `0.24.0` in `app.test.ts`, die bei jedem Versionssprung brach
+
 ## [0.25.0] - 2026-07-23
 
 ### Erstellt
@@ -895,7 +1065,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Erstellt
 
-- Installierbare Online-Only-PWA für die Dev Workbench ergänzt
+- Installierbare Online-Only-PWA für Remote Workplace ergänzt
 - Eigenes Workbench-Favicon als SVG und PNG in mehreren Größen erstellt
 - Einklappbare Desktop-Sidebar mit gespeicherter Layout-Präferenz ergänzt
 - Anpassbare Sidebar-Breite für größere Monitore und konzentriertes Arbeiten ergänzt
