@@ -283,6 +283,14 @@ class BrowserSession {
   private async terminateProcess() {
     if (this.process.exitCode !== null || this.process.signalCode !== null) return;
     const exited = new Promise<void>((resolve) => this.process.once("exit", () => resolve()));
+
+    // Chromium schreibt Cookies und Local Storage des Profils erst beim eigenen
+    // Beenden auf die Platte. Nach `Browser.close` deshalb erst auf den regulären
+    // Exit warten — das direkt folgende SIGTERM hat sonst genau diese Daten
+    // gekostet, angemeldete Sitzungen waren nach einem Neustart wieder ausgeloggt.
+    await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, 3_000))]);
+    if (this.process.exitCode !== null || this.process.signalCode !== null) return;
+
     this.process.kill("SIGTERM");
     await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, 1_500))]);
     if (this.process.exitCode === null && this.process.signalCode === null) {
@@ -380,6 +388,7 @@ class BrowserSession {
       const frameSessionId = Number(message.params?.sessionId);
       if (Number.isFinite(frameSessionId)) void this.cdp.send("Page.screencastFrameAck", { sessionId: frameSessionId }, this.targetSessionId).catch(() => undefined);
       if (data) {
+        this.lastUsedAt = Date.now();
         this.lastFrame = { data, width: this.width, height: this.height };
         this.broadcast({ type: "browser.frame", sessionId: this.id, ...this.lastFrame });
       }

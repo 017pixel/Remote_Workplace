@@ -67,6 +67,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
   const clipboardRequestsRef = useRef(new Map<string, { purpose: ClipboardRequestPurpose; timeout: number }>());
   const fatalConnectionRef = useRef(false);
   const retriesRef = useRef(0);
+  const frameTimeoutRef = useRef<number | null>(null);
   const [status, setStatus] = useState<BrowserStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState("");
@@ -74,6 +75,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
   const [frameReady, setFrameReady] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
+  const [devtoolsSessionId, setDevtoolsSessionId] = useState<string | null>(null);
   const [sourceView, setSourceView] = useState<{ source: string; url: string } | null>(null);
   const [touchMode, setTouchMode] = useState<"interact" | "scroll">("scroll");
   const [clipboardStatus, setClipboardStatus] = useState("");
@@ -82,6 +84,20 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
     socketRef.current.send(JSON.stringify(message));
     return true;
+  }, []);
+
+  const startFrameTimeout = useCallback(() => {
+    if (frameTimeoutRef.current) window.clearTimeout(frameTimeoutRef.current);
+    frameTimeoutRef.current = window.setTimeout(() => {
+      if (!disposedRef.current) {
+        setError("Der Browser braucht zu lange zum Laden. Bitte erneut versuchen.");
+      }
+    }, 15_000);
+  }, []);
+
+  const clearFrameTimeout = useCallback(() => {
+    if (frameTimeoutRef.current) window.clearTimeout(frameTimeoutRef.current);
+    frameTimeoutRef.current = null;
   }, []);
 
   const requestSelection = useCallback((purpose: ClipboardRequestPurpose) => {
@@ -136,6 +152,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
       if (message.type === "browser.ready") {
         sessionRef.current = message.sessionId;
         storeSession(storageKey, message.sessionId);
+        setDevtoolsSessionId(message.sessionId);
         setStatus("ready");
         setState((current) => ({ ...current, url: message.url, title: message.title }));
         const pendingUrl = pendingUrlRef.current;
@@ -143,13 +160,16 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
           pendingUrlRef.current = null;
           setAddress(pendingUrl === "about:blank" ? "" : pendingUrl);
           setFrameReady(false);
+          startFrameTimeout();
           send({ type: "browser.navigate", sessionId: message.sessionId, url: pendingUrl });
         } else {
           if (!addressEditingRef.current) setAddress(message.url === "about:blank" ? "" : message.url);
+          if (message.url !== "about:blank") startFrameTimeout();
         }
       } else if (message.type === "browser.state") {
         setStatus("ready");
         setState({ url: message.url, title: message.title, loading: message.loading, canGoBack: message.canGoBack, canGoForward: message.canGoForward });
+        if (message.loading) startFrameTimeout();
         const requestedUrl = requestedUrlRef.current;
         const staleBlankState = requestedUrl !== null && requestedUrl !== "about:blank" && message.url === "about:blank";
         if (!staleBlankState && !addressEditingRef.current) {
@@ -157,6 +177,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
           if (message.url === requestedUrl || !message.loading) requestedUrlRef.current = null;
         }
       } else if (message.type === "browser.frame") {
+        clearFrameTimeout();
         if (imageRef.current) imageRef.current.src = `data:image/jpeg;base64,${message.data}`;
         setFrameReady(true);
       } else if (message.type === "browser.screenshot") {
@@ -192,15 +213,20 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
         clipboardSelectionRef.current = "";
         sessionRef.current = null;
         storeSession(storageKey, null);
+        setDevtoolsSessionId(null);
+        clearFrameTimeout();
         setStatus("disconnected");
+        socketRef.current?.close();
       } else if (message.type === "browser.error") {
         if (message.code === "SESSION_NOT_FOUND") {
           sessionRef.current = null;
           storeSession(storageKey, null);
+          setDevtoolsSessionId(null);
           createOrAttach();
           return;
         }
-        if (message.code === "UNAUTHORIZED" || message.code === "FORBIDDEN") fatalConnectionRef.current = true;
+        if (message.code === "UNAUTHORIZED" || message.code === "FORBIDDEN" || message.code === "TOO_MANY_SESSIONS" || message.code === "BROWSER_START_FAILED") fatalConnectionRef.current = true;
+        clearFrameTimeout();
         setStatus("error");
         setError(message.message);
       }
@@ -220,7 +246,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
     };
     socket.onerror = () => socket.close();
-  }, [createOrAttach, send, storageKey]);
+  }, [clearFrameTimeout, createOrAttach, send, startFrameTimeout, storageKey]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -241,12 +267,13 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
       if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
+      clearFrameTimeout();
       for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
       clipboardRequestsRef.current.clear();
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [connect, dimensions, send]);
+  }, [clearFrameTimeout, connect, dimensions, send]);
 
   const navigate = (value?: string) => {
     const requestedAddress = value ?? addressRef.current?.value ?? address;
@@ -257,6 +284,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     requestedUrlRef.current = url;
     setAddress(url);
     setFrameReady(false);
+    startFrameTimeout();
     const sessionId = sessionRef.current;
     if (!sessionId) {
       pendingUrlRef.current = url;
@@ -329,8 +357,8 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     setContextMenu(null);
   };
 
-  const devtoolsUrl = sessionRef.current
-    ? `/workbench/devtools/inspector.html?ws=${encodeURIComponent(`${window.location.host}/api/v1/browser/devtools/${sessionRef.current}`)}`
+  const devtoolsUrl = devtoolsSessionId
+    ? `/workbench/devtools/inspector.html?ws=${encodeURIComponent(`${window.location.host}/api/v1/browser/devtools/${devtoolsSessionId}`)}`
     : null;
   const key = (event: React.KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") { event.preventDefault(); addressRef.current?.focus(); addressRef.current?.select(); return; }

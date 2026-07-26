@@ -90,7 +90,7 @@ const settingsSchema = z.object({
   CLAUDE_MAX_SESSIONS: integerFromEnvironment(4),
   CHROMIUM_PATH: z.string().min(1).default(wb.cli.chromium),
   BROWSER_PROFILES_ROOT: z.string().startsWith("/").default(wb.paths.browserProfilesRoot),
-  BROWSER_MAX_SESSIONS: boundedIntegerFromEnvironment(4, 1, 12),
+  BROWSER_MAX_SESSIONS: boundedIntegerFromEnvironment(6, 1, 12),
   BROWSER_STARTUP_TIMEOUT_MS: boundedIntegerFromEnvironment(15_000, 2_000, 60_000),
   BROWSER_IDLE_TIMEOUT_MS: boundedIntegerFromEnvironment(1_800_000, 60_000, 86_400_000),
   BROWSER_CAPTURE_MAX_WIDTH: boundedIntegerFromEnvironment(2_560, 1_280, 7_680),

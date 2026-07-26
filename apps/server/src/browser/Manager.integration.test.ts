@@ -19,10 +19,19 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
-async function waitFor(messages: ServerBrowserMessage[], predicate: (message: ServerBrowserMessage) => boolean) {
+/**
+ * Wartet auf eine Browsernachricht. `fromIndex` überspringt bereits empfangene
+ * Nachrichten — ohne das liefert die Suche nach einem Reload wieder die alte
+ * Nachricht von davor zurück.
+ */
+async function waitFor(
+  messages: ServerBrowserMessage[],
+  predicate: (message: ServerBrowserMessage) => boolean,
+  fromIndex = 0,
+) {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    const found = messages.find(predicate);
+    const found = messages.slice(fromIndex).find(predicate);
     if (found) return found;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -103,10 +112,28 @@ describe.skipIf(!chromium)("persistent BrowserManager profile", () => {
     managers.push(first);
     const firstSession = (await first.createOrAttach("owner@example.com", "persistent-test", 640, 480, (message) => firstMessages.push(message), "first", "persistent-profile", url)).session;
     await waitFor(firstMessages, (message) => message.type === "browser.state" && message.url === url);
+    // Der Zustandsbericht nach einem Reload kommt, sobald die Navigation läuft —
+    // das Dokument kann dann noch das alte sein. Ein festes Warten von 150 ms traf
+    // das mal und mal nicht, der Test schlug sporadisch mit "first-login" fehl.
+    // Deshalb die Quelle so lange erneut abfragen, bis das neu geladene Dokument
+    // da ist. Bleibt es beim alten, läuft die Schleife in den Timeout und die
+    // Zusicherung darunter scheitert weiterhin ehrlich.
+    const beforeReload = firstMessages.length;
     await first.command("owner@example.com", { type: "browser.reload", sessionId: firstSession.id });
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await first.command("owner@example.com", { type: "browser.source", sessionId: firstSession.id });
-    expect(await waitFor(firstMessages, (message) => message.type === "browser.source")).toMatchObject({ source: expect.stringContaining("authenticated-session") });
+    await waitFor(firstMessages, (message) => message.type === "browser.state" && message.url === url, beforeReload);
+
+    const sourceDeadline = Date.now() + 10_000;
+    let reloadedSource: ServerBrowserMessage;
+    do {
+      const beforeSource = firstMessages.length;
+      await first.command("owner@example.com", { type: "browser.source", sessionId: firstSession.id });
+      reloadedSource = await waitFor(firstMessages, (message) => message.type === "browser.source", beforeSource);
+    } while (
+      Date.now() < sourceDeadline &&
+      reloadedSource.type === "browser.source" &&
+      !reloadedSource.source.includes("authenticated-session")
+    );
+    expect(reloadedSource).toMatchObject({ source: expect.stringContaining("authenticated-session") });
     await first.shutdown();
     managers.splice(managers.indexOf(first), 1);
 
