@@ -28,6 +28,11 @@ import {
   filesystemTreeResponseSchema,
   registerProjectResponseSchema,
   projectActivityTouchResponseSchema,
+  restartResponseSchema,
+  restartStatusResponseSchema,
+  t3ChannelStatusResponseSchema,
+  type RestartTarget,
+  type T3Channel,
   type CreateAccountRequest,
   type UpdateAccountRequest,
   type SaveOrbitDocumentRequest,
@@ -127,6 +132,10 @@ async function filesystemTree(path?: string, cursor?: string, signal?: AbortSign
 
 export const apiClient = {
   health: (signal?: AbortSignal) => request("/health", healthResponseSchema, signal),
+  restartSystem: (target: RestartTarget) => mutate("/system/restart", "POST", restartResponseSchema, { target }),
+  restartStatus: (signal?: AbortSignal) => request("/system/restart/status", restartStatusResponseSchema, signal),
+  t3Channel: (signal?: AbortSignal) => request("/system/t3-channel", t3ChannelStatusResponseSchema, signal),
+  setT3Channel: (channel: T3Channel) => mutate("/system/t3-channel", "POST", t3ChannelStatusResponseSchema, { channel }),
   serverSummary: (signal?: AbortSignal) => request("/server/summary", serverSummarySchema, signal),
   serverMetrics: (signal?: AbortSignal) => request("/server/metrics", serverMetricsSchema, signal),
   services: (signal?: AbortSignal) => request("/services", servicesResponseSchema, signal),

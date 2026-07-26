@@ -22,6 +22,62 @@ export const healthResponseSchema = z.object({
   version: z.string().min(1),
   appName: z.string().min(1),
   timestamp: isoDateSchema,
+  // Zufalls-ID pro Serverprozess. Wechselt der Wert, wurde das Backend neu gestartet.
+  bootId: z.string().min(1),
+  // mtime (ms) von apps/web/dist/index.html. Wechselt der Wert, wurde das Frontend neu gebaut.
+  webBuildId: z.number().int().nullable(),
+});
+
+export const restartTargetSchema = z.enum(["frontend", "backend", "both"]);
+export const restartRequestSchema = z.object({ target: restartTargetSchema });
+export const restartResponseSchema = z.object({
+  status: z.literal("accepted"),
+  target: restartTargetSchema,
+  // Basiswerte zum Zeitpunkt des Auslösens, damit der Client den Abschluss erkennen kann.
+  bootId: z.string().min(1),
+  webBuildId: z.number().int().nullable(),
+  logFile: z.string().min(1),
+});
+
+export const restartPhaseSchema = z.enum(["idle", "running", "succeeded", "failed"]);
+// Fortschritt des letzten Neustarts. Das Skript schreibt den Zustand nach
+// data/restart-logs/last-status.json; das UI pollt ihn und zeigt bei Fehlern
+// direkt den Build-Ausschnitt statt nur „Zeitüberschreitung".
+export const restartStatusResponseSchema = z.object({
+  phase: restartPhaseSchema,
+  target: restartTargetSchema.nullable(),
+  exitCode: z.number().int().nullable(),
+  // Der zuletzt begonnene Schritt, z. B. "Baue Frontend (@workbench/web) …".
+  step: z.string(),
+  message: z.string(),
+  startedAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  // Ende des Build-Logs, ANSI-bereinigt — das ist die eigentliche Fehlermeldung.
+  logTail: z.string(),
+  logFile: z.string().nullable(),
+  bootId: z.string().min(1),
+  webBuildId: z.number().int().nullable(),
+});
+
+// T3 Code läuft als genau eine Instanz hinter dem /t3-Proxy. Der Kanal bestimmt nur,
+// welches npm-Paket (t3@latest bzw. t3@nightly) beim nächsten Neustart installiert wird —
+// beide Kanäle teilen sich dasselbe Datenverzeichnis (~/.t3/userdata).
+export const t3ChannelSchema = z.enum(["stable", "nightly"]);
+export const t3ChannelRequestSchema = z.object({ channel: t3ChannelSchema });
+export const t3ChannelStatusResponseSchema = z.object({
+  // In der Config hinterlegter Wunschkanal. Greift erst nach einem Neustart.
+  configuredChannel: t3ChannelSchema,
+  // Aus der installierten Version abgeleitet; null, wenn T3 nicht installiert ist.
+  activeChannel: t3ChannelSchema.nullable(),
+  activeVersion: z.string().nullable(),
+  installed: z.boolean(),
+  // Antwortet die Instanz auf 127.0.0.1:<port>? Nur Anzeige, kein Kriterium für den Wechsel.
+  reachable: z.boolean(),
+  // configured ≠ active — das UI zeigt dann den Hinweis auf die Neustart-Buttons.
+  restartRequired: z.boolean(),
+  serviceUnit: z.string().min(1),
+  port: z.number().int().positive(),
+  checkedAt: isoDateSchema,
 });
 
 export const tailscaleSummarySchema = z.object({
@@ -300,9 +356,12 @@ export const loginSessionResponseSchema = z.object({
 });
 
 export const WORKBENCH_LIMITS = {
-  maxResidentTools: 8,
+  maxResidentTools: 10,
   maxVisibleGroups: 4,
   maxWorkspaces: 8,
+  // Geparkte Routen im Browser (PersistentOutlet). Zehn decken jeden üblichen
+  // Wechsel ab, ohne dass beliebig viele iframes und WebSockets offen bleiben.
+  maxCachedRoutes: 10,
 } as const;
 
 export const terminalKindSchema = z.enum(["shell", "codex", "opencode", "claude"]);
@@ -502,6 +561,9 @@ export const orbitNodeSchema = z.object({
   provider: usageProviderIdSchema.nullable(),
   content: z.string().max(200_000),
   language: z.string().trim().max(40).nullable(),
+  // Selbst gewählte Farbe (Hex). null = automatische Farbe aus der Projekt-ID.
+  // Färbt den Knoten und die von ihm ausgehenden Verbindungen.
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().default(null),
   locked: z.boolean(),
   zIndex: z.number().int().min(0).max(10_000),
 }).superRefine((node, context) => {
@@ -683,6 +745,14 @@ export const newsChatResponseSchema = z.object({ answer: z.string().min(1), cita
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+export type RestartTarget = z.infer<typeof restartTargetSchema>;
+export type RestartRequest = z.infer<typeof restartRequestSchema>;
+export type RestartResponse = z.infer<typeof restartResponseSchema>;
+export type RestartPhase = z.infer<typeof restartPhaseSchema>;
+export type RestartStatusResponse = z.infer<typeof restartStatusResponseSchema>;
+export type T3Channel = z.infer<typeof t3ChannelSchema>;
+export type T3ChannelRequest = z.infer<typeof t3ChannelRequestSchema>;
+export type T3ChannelStatusResponse = z.infer<typeof t3ChannelStatusResponseSchema>;
 export type ServerSummary = z.infer<typeof serverSummarySchema>;
 export type ServerMetrics = z.infer<typeof serverMetricsSchema>;
 export type ServiceMode = z.infer<typeof serviceModeSchema>;

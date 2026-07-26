@@ -4,6 +4,8 @@ import { apiClient } from "./apiClient";
 export const workbenchQueries = {
   health: () =>
     queryOptions({ queryKey: ["health"], queryFn: ({ signal }) => apiClient.health(signal), refetchInterval: 10_000 }),
+  t3Channel: () =>
+    queryOptions({ queryKey: ["system", "t3-channel"], queryFn: ({ signal }) => apiClient.t3Channel(signal), staleTime: 5_000 }),
   serverSummary: () =>
     queryOptions({
       queryKey: ["server", "summary"],
