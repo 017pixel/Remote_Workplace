@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Dashboard } from "./views/Dashboard";
 import { PwaInstallProvider } from "./lib/usePwaInstall";
 import {
@@ -36,8 +37,22 @@ function RouteFallback() {
   return <div className="route-skeleton" aria-label="Ansicht wird geladen"><span /><span /><span /></div>;
 }
 
+// Eigene Boundary je Route: stürzt eine Ansicht ab, bleiben Sidebar und Navigation bedienbar.
+//
+// Der key ist bewusst der Pfad beim *Einhängen* und nicht die laufende Adresse.
+// Mit `location.pathname` wechselte er bei jeder Navigation für jede geparkte
+// Route mit — React warf damit sämtliche zwischengespeicherten Ansichten weg und
+// baute sie neu auf. Genau deshalb luden T3 Code, Terminal und Code-Server bei
+// jedem Wechsel neu, obwohl der PersistentOutlet sie hielt. Nach einem Absturz
+// setzt die Boundary sich über ihren eigenen Knopf „Erneut versuchen" zurück.
 function DeferredRoute({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+  const location = useLocation();
+  const mountedPath = useRef(location.pathname);
+  return (
+    <ErrorBoundary key={mountedPath.current} label="Diese Ansicht">
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </ErrorBoundary>
+  );
 }
 
 export function App() {
@@ -59,7 +74,7 @@ export function App() {
       <BrowserRouter basename={basename}>
         <Routes>
           <Route element={<AppShell />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<DeferredRoute><Dashboard /></DeferredRoute>} />
             <Route path="workbench" element={<DeferredRoute><Workbench /></DeferredRoute>} />
             <Route path="tech-tldrs" element={<DeferredRoute><TechTldrs /></DeferredRoute>} />
             <Route path="projects" element={<DeferredRoute><Projects /></DeferredRoute>} />
@@ -74,7 +89,7 @@ export function App() {
             <Route path="terminal" element={<DeferredRoute><TerminalView /></DeferredRoute>} />
             <Route path="codex" element={<DeferredRoute><CodexTerminal /></DeferredRoute>} />
             <Route path="opencode" element={<DeferredRoute><OpenCodeTerminal /></DeferredRoute>} />
-            <Route path="*" element={<Dashboard />} />
+            <Route path="*" element={<DeferredRoute><Dashboard /></DeferredRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>
