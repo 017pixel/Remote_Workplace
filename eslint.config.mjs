@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -19,5 +20,15 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "error"
     }
-  }
+  },
+  // Hook-Regeln als Fehler: Ein bedingt aufgerufener Hook (`cond && useX()`) ließ die
+  // Sidebar beim Ein-/Ausklappen abstürzen. Der Compiler sieht das nicht — der Linter schon.
+  {
+    files: ["apps/web/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+    },
+  },
 );
