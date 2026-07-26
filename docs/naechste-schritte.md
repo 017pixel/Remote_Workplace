@@ -3,23 +3,27 @@
 Stand: 25.07.2026, Version 0.30.2. Sortiert nach Nutzen. Jeder Punkt nennt, was
 zu tun ist und woran man erkennt, dass es erledigt ist.
 
-## Dringend: Arbeit sichern
+## Erledigt am 26.07.2026
 
-### 1. Alles committen — der Arbeitsbaum ist ungesichert
-Über 60 geänderte und neue Dateien liegen unversioniert im Baum, darunter mehrere
-Tage Arbeit (T3-Kanal, Design-Umstellung, Seiten-Cache, Galerie-Fix). Ein
-versehentliches `git checkout` verliert alles.
-Vorgehen: in thematische Commits aufteilen (Kanal-Umschalter, Design/Palette,
-Cache-Fix, Galerie-Fix, Terminal-Neustart, Orbit-Farben), deutsche Commit-Messages.
-**Fertig, wenn:** `git status` sauber ist und `git log` die Themen einzeln zeigt.
+### 1. Alles committen — der Arbeitsbaum ist ungesichert ✅
+Aufgeteilt in elf thematische Commits auf dem Zweig
+`sicherung/arbeitsstand-0.30.2` (Lint-Regeln, Absturzbericht, Neustart-Workflow,
+T3-Kanal, Design, Sidebar/Navigation, Seiten-Cache, Orbit-Farben,
+Terminal-Neustart, Browser, Doku/Version). Der Versionssprung auf 0.30.2 liegt
+gesammelt im letzten Commit, damit er die Themen nicht verschmiert.
 
-### 2. E2E-Tests laufen lokal nicht durch
-19 Tests zeigen auf die Platzhalter-Adresse `https://server-name.tailnet.ts.net:8443`
-und scheitern mit `ERR_NAME_NOT_RESOLVED`; zwei weitere brauchen einen Vite-Dev-Server
-auf `127.0.0.1:5173`. Sie laufen also nie — weder lokal noch in einer Pipeline.
-Vorgehen: Basis-URL aus `WORKBENCH_E2E_URL` beziehen (Fallback `127.0.0.1:3010`) und
-die Tests überspringen, wenn die nötige Umgebung fehlt, statt sie scheitern zu lassen.
-**Fertig, wenn:** `pnpm test:e2e` ohne Sonderumgebung grün ist oder sauber überspringt.
+### 2. E2E-Tests laufen lokal nicht durch ✅
+Basis-Adresse kommt aus `tests/e2e/helpers/environment.ts`: `WORKBENCH_E2E_URL`
+mit Fallback `127.0.0.1:3010`. Tests, die eine eingerichtete Instanz brauchen
+(Projekte, Tailscale-Identität, News), überspringen sich mit Begründung.
+`pnpm test:e2e` läuft ohne Sonderumgebung grün — 68 bestanden, 70 übersprungen,
+in drei Läufen hintereinander bestätigt.
+
+Dabei aufgefallen und mitbehoben: Der Lauf lief in `429`. Das API-Ratenlimit
+zählt pro IP, und hinter dem Tailscale-Proxy sehen alle Anfragen wie 127.0.0.1
+aus — 180 Anfragen/Minute waren ein gemeinsames Budget für sämtliche Tabs,
+während die Oberfläche allein je Tab 20–45 Anfragen/Minute pollt. Jetzt 1.200,
+und `/api/v1/health` zählt gar nicht mehr mit.
 
 ## Stabilität und Absicherung
 
