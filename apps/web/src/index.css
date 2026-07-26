@@ -1006,10 +1006,12 @@
 
   .orbit-usage-list { display: grid; gap: 13px; padding: 14px; }
   .orbit-usage-list > p { color: var(--color-faint); font-size: 11px; }
-  .orbit-usage-row > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--color-muted); font-size: 10px; }
+  .orbit-usage-row > div:first-child { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; color: var(--color-muted); font-size: 10px; }
+  .orbit-usage-row > div:first-child span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .orbit-usage-row strong { color: var(--color-text); font-size: 10px; }
   .orbit-usage-track { height: 5px; overflow: hidden; margin-top: 7px; border-radius: 99px; background: var(--color-ink-800); }
   .orbit-usage-track i { display: block; height: 100%; border-radius: inherit; background: var(--color-accent); }
+  .orbit-usage-reset { display: block; margin-top: 6px; color: var(--color-faint); font-size: 9px; line-height: 13px; }
   .orbit-usage-updated { display: block; padding: 0 14px 12px; color: var(--color-faint); font-size: 9px; }
 
   .orbit-delete-zone { position: absolute; z-index: 42; bottom: 10px; left: 50%; display: flex; min-width: 320px; min-height: 64px; align-items: center; justify-content: center; gap: 12px; transform: translateX(-50%) scale(.97); border: 1px solid var(--color-bad-soft); border-radius: 12px; background: rgb(49 29 29 / .97); padding: 10px 18px; color: var(--color-bad); box-shadow: 0 -18px 44px rgb(164 61 61 / .16); opacity: 0; pointer-events: none; transition: opacity 150ms ease-out, transform 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out; }

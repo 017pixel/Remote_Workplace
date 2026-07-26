@@ -15,6 +15,15 @@ function accountId(provider: WorkbenchProvider, email: string | undefined, posit
   return `${provider}-${createHash("sha256").update(source).digest("hex").slice(0, 12)}`;
 }
 
+function payloadIdentity(payload: CodexbarPayload, fallback: string): string {
+  return (payload.usage?.accountEmail ?? payload.usage?.identity?.accountEmail ?? payload.account ?? fallback).toLowerCase();
+}
+
+function hasUsageWindow(payload: CodexbarPayload): boolean {
+  return [payload.usage?.primary, payload.usage?.secondary, payload.usage?.tertiary]
+    .some((window) => window?.usedPercent !== undefined);
+}
+
 function windowsFor(payload: CodexbarPayload): UsageWindow[] {
   const usage = payload.usage;
   if (!usage) return [];
@@ -64,19 +73,15 @@ export function normalizeProviderUsage(providerId: WorkbenchProvider, payloads: 
     return unavailableProvider(providerId, "PROVIDER_NOT_DETECTED", "Für diesen Anbieter sind keine Nutzungsdaten verfügbar.");
   }
 
-  const successfulRaw = matching.filter((payload) => payload.usage !== undefined && (
-    payload.usage.primary?.usedPercent !== undefined
-    || payload.usage.secondary?.usedPercent !== undefined
-    || payload.usage.tertiary?.usedPercent !== undefined
-  ));
+  const successfulRaw = matching.filter(hasUsageWindow);
   const successfulByIdentity = new Map<string, CodexbarPayload>();
   successfulRaw.forEach((payload, index) => {
-    const identity = payload.usage?.accountEmail ?? payload.usage?.identity?.accountEmail ?? payload.account ?? `position-${index}`;
-    const existing = successfulByIdentity.get(identity.toLowerCase());
+    const identity = payloadIdentity(payload, `position-${index}`);
+    const existing = successfulByIdentity.get(identity);
     const populatedWindows = (candidate: CodexbarPayload) => [candidate.usage?.primary, candidate.usage?.secondary, candidate.usage?.tertiary]
       .filter((window) => window?.usedPercent !== undefined).length;
     if (!existing || populatedWindows(payload) > populatedWindows(existing) || (existing.error && !payload.error)) {
-      successfulByIdentity.set(identity.toLowerCase(), payload);
+      successfulByIdentity.set(identity, payload);
     }
   });
   const successful = [...successfulByIdentity.values()];
@@ -100,7 +105,12 @@ export function normalizeProviderUsage(providerId: WorkbenchProvider, payloads: 
     .filter((value): value is string => value !== null)
     .sort()
     .at(-1) ?? null;
-  const isPartial = accounts.some((account) => account.windows.length === 0) || successfulRaw.length !== matching.length;
+  const unresolvedFailures = matching.some((payload, index) => {
+    if (hasUsageWindow(payload)) return false;
+    const identity = payloadIdentity(payload, `unresolved-${index}`);
+    return !successfulByIdentity.has(identity);
+  });
+  const isPartial = accounts.some((account) => account.windows.length === 0) || unresolvedFailures;
 
   return {
     providerId,

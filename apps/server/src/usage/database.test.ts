@@ -41,6 +41,53 @@ describe("usage history", () => {
     expect(forecasts).toHaveLength(1);
     expect(forecasts[0]).toMatchObject({ providerId: "opencode", resetsAt: "2099-07-17T10:00:00Z", sampleCount: 3 });
   });
+
+  it("mirrors the current reset credits instead of keeping consumed credits", () => {
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    const accountEmail = "test@example.com";
+    database.importUsage("codex", [
+      {
+        provider: "codex",
+        usage: {
+          accountEmail,
+          secondary: { usedPercent: 10, windowMinutes: 10_080 },
+          codexResetCredits: {
+            availableCount: 2,
+            credits: [
+              { id: "old", title: "Full reset", description: "", status: "available" },
+              { id: "current", title: "Full reset", description: "", status: "available" },
+            ],
+          },
+        },
+      },
+      {
+        provider: "codex",
+        usage: {
+          accountEmail: "removed@example.com",
+          secondary: { usedPercent: 5, windowMinutes: 10_080 },
+          codexResetCredits: {
+            availableCount: 1,
+            credits: [{ id: "removed", title: "Full reset", description: "", status: "available" }],
+          },
+        },
+      },
+    ], "2026-07-15T08:00:00Z");
+    database.importUsage("codex", [{
+      provider: "codex",
+      usage: {
+        accountEmail,
+        secondary: { usedPercent: 20, windowMinutes: 10_080 },
+        codexResetCredits: {
+          availableCount: 1,
+          credits: [{ id: "current", title: "Full reset", description: "", status: "available" }],
+        },
+      },
+    }], "2026-07-15T09:00:00Z");
+
+    expect(database.resetCredits()).toEqual({
+      [accountEmail]: [expect.objectContaining({ id: "current" })],
+    });
+  });
 });
 
 describe("account registry", () => {

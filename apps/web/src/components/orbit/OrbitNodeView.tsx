@@ -15,7 +15,7 @@ import type { OrbitNode, Panel } from "@workbench/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
 import { orbitNodeColor } from "../../lib/orbitAppearance";
-import { orbitProviderWindows } from "../../lib/orbitUsage";
+import { formatUsageReset, orbitProviderWindows } from "../../lib/orbitUsage";
 import { parseOrbitTodo, serializeOrbitTodo, type OrbitTodoItem } from "../../lib/orbitTodo";
 import { useOrbitStore } from "../../stores/orbit";
 import { ToolPanel } from "../ToolPanel";
@@ -234,7 +234,7 @@ function UsageNode({ id, selected }: { id: string; selected: boolean }) {
   const usage = useQuery(workbenchQueries.usage());
   const provider = usage.data?.providers.find((candidate) => candidate.providerId === node.provider);
   const windows = orbitProviderWindows(provider);
-  return <NodeChrome id={id} title={`${provider?.providerName ?? node.title} Limits`} selected={selected}><div className="orbit-usage-list">{windows.length ? windows.map((window) => <div className="orbit-usage-row" key={window.id}><div><span>{window.label}</span><strong>{window.remaining}% frei</strong></div><div className="orbit-usage-track"><i style={{ width: `${window.remaining}%` }} /></div></div>) : <p>{usage.isLoading ? "Nutzung wird geladen…" : "Keine Limitdaten verfügbar."}</p>}</div><small className="orbit-usage-updated">Aktualisierung alle 60 Sekunden</small></NodeChrome>;
+  return <NodeChrome id={id} title={`${provider?.providerName ?? node.title} Limits`} selected={selected}><div className="orbit-usage-list">{windows.length ? windows.map((window) => <div className="orbit-usage-row" key={window.id}><div><span>{window.label}</span><strong>{window.remaining}% frei</strong></div><div className="orbit-usage-track"><i style={{ width: `${window.remaining}%` }} /></div><small className="orbit-usage-reset">{formatUsageReset(window.resetsAt)}</small></div>) : <p>{usage.isLoading ? "Nutzung wird geladen…" : "Keine Limitdaten verfügbar."}</p>}</div><small className="orbit-usage-updated">Aktualisierung alle 60 Sekunden</small></NodeChrome>;
 }
 
 function FrameNode({ id, selected }: { id: string; selected: boolean }) {

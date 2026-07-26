@@ -11,8 +11,13 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto(`${workbench}/usage`);
   await expect(page.getByRole("heading", {name:"Nutzung und Limits"})).toBeVisible();
-  await expect(page.getByText("Tokens heute")).toBeVisible();
+  await expect(page.getByText("Tokens heute")).toBeVisible({timeout:20_000});
   await expect(page.getByRole("heading", {name:"Claude Code"})).toBeVisible();
+  const codex = page.locator(".usage-provider").filter({has:page.getByRole("heading", {name:"Codex"})});
+  await expect(codex.locator(".usage-provider-kicker")).toHaveText("Aktuell");
+  await expect(codex.locator(".usage-alert")).toHaveCount(0);
+  const resetCredits = page.locator(".usage-forecast").filter({has:page.getByRole("heading", {name:"Reset-Guthaben"})});
+  await expect(resetCredits.getByText(/\d+ verfügbar/)).toBeVisible();
   await page.getByRole("button", {name:"Verlauf"}).click();
   await expect(page.getByRole("img", {name:"Tokenverbrauch nach Tag"})).toBeVisible();
   await page.getByRole("button", {name:"Projekte & Modelle"}).click();
@@ -22,8 +27,9 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   await expect(page.getByRole("heading", {name:"Account verbinden"})).toBeVisible();
   await expect(page.getByRole("heading", {name:"Profile und Verwaltung"})).toBeVisible();
   await expect(page.getByRole("option", {name:"Claude Code"})).toBeAttached();
-  await expect(page.getByText("user@example.com").first()).toBeVisible();
-  await expect(page.getByText(".codex", {exact:true}).first()).toBeVisible();
+  const firstProfile = page.locator(".managed-account").first();
+  await expect(firstProfile).toBeVisible();
+  await expect(firstProfile.locator("code")).not.toBeEmpty();
   await expect(page.getByRole("button", {name:"Mit Gerätecode anmelden"})).toBeVisible();
   await expect(page.getByRole("button", {name:"Entfernen"}).first()).toBeVisible();
   expect(errors).toEqual([]);

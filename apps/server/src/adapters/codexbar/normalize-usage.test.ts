@@ -67,6 +67,7 @@ describe("normalizeProviderUsage", () => {
       { provider: "codex", source: "auto", account: "name@example.com", usage: { accountEmail: "name@example.com" }, error: { code: 1, message: "token invalidated" } },
     ]);
     expect(usage.accounts).toEqual([expect.objectContaining({ email: "name@example.com", windows: [expect.objectContaining({ remainingPercent: 72 })] })]);
+    expect(usage).toMatchObject({ status: "available", error: null });
   });
 
   it("keeps independently authenticated Codex accounts and their limits", () => {

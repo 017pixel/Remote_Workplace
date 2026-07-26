@@ -82,22 +82,38 @@ export class UsageDatabase {
     const insertWindow = this.db.prepare(`INSERT OR IGNORE INTO usage_snapshots
       (account_key, provider, window_id, used_percent, window_minutes, resets_at, captured_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const deleteCredits = this.db.prepare("DELETE FROM reset_credits WHERE account_key = ?");
     const insertCredit = this.db.prepare(`INSERT INTO reset_credits
       (account_key, credit_id, title, description, status, granted_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(account_key, credit_id) DO UPDATE SET
       title=excluded.title, description=excluded.description, status=excluded.status,
       granted_at=excluded.granted_at, expires_at=excluded.expires_at`);
-    for (const [index, payload] of payloads.entries()) {
-      if (!payload.usage) continue;
-      const key = payload.usage.accountEmail ?? payload.usage.identity?.accountEmail ?? payload.account ?? `${provider}-${index}`;
-      for (const windowId of ["primary", "secondary", "tertiary"] as const) {
-        const window = payload.usage[windowId];
-        if (window?.usedPercent === undefined) continue;
-        insertWindow.run(key, provider, windowId, window.usedPercent, window.windowMinutes ?? null, window.resetsAt ?? null, capturedAt);
+    const usagePayloads = payloads.filter((payload) => payload.usage && [payload.usage.primary, payload.usage.secondary, payload.usage.tertiary]
+      .some((window) => window?.usedPercent !== undefined));
+    const resetCreditsAreAuthoritative = provider === "codex" && usagePayloads.length > 0
+      && usagePayloads.every((payload) => payload.usage?.codexResetCredits !== undefined);
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      if (resetCreditsAreAuthoritative) this.db.exec("DELETE FROM reset_credits");
+      for (const [index, payload] of payloads.entries()) {
+        if (!payload.usage) continue;
+        const key = payload.usage.accountEmail ?? payload.usage.identity?.accountEmail ?? payload.account ?? `${provider}-${index}`;
+        for (const windowId of ["primary", "secondary", "tertiary"] as const) {
+          const window = payload.usage[windowId];
+          if (window?.usedPercent === undefined) continue;
+          insertWindow.run(key, provider, windowId, window.usedPercent, window.windowMinutes ?? null, window.resetsAt ?? null, capturedAt);
+        }
+        if (payload.usage.codexResetCredits) {
+          if (!resetCreditsAreAuthoritative) deleteCredits.run(key);
+          for (const credit of payload.usage.codexResetCredits.credits) {
+            insertCredit.run(key, credit.id, credit.title, credit.description, credit.status, credit.granted_at ?? null, credit.expires_at ?? null);
+          }
+        }
       }
-      for (const credit of payload.usage.codexResetCredits?.credits ?? []) {
-        insertCredit.run(key, credit.id, credit.title, credit.description, credit.status, credit.granted_at ?? null, credit.expires_at ?? null);
-      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
   }
 
