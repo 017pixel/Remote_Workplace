@@ -33,6 +33,10 @@ import {
   registerProjectRequestSchema,
   registerProjectResponseSchema,
   projectActivityTouchResponseSchema,
+  restartRequestSchema,
+  restartResponseSchema,
+  restartStatusResponseSchema,
+  t3ChannelRequestSchema,
 } from "@workbench/contracts";
 import { createReadStream } from "node:fs";
 import type { FastifyInstance } from "fastify";
@@ -41,7 +45,9 @@ import type { createCommandService } from "../services/commandService.js";
 import type { createProjectService } from "../services/projectService.js";
 import type { createServiceStatusService } from "../services/serviceStatusService.js";
 import { systemService } from "../services/systemService.js";
+import { t3ChannelService } from "../services/t3ChannelService.js";
 import { settings } from "../config/settings.js";
+import { bootId, readRestartStatus, RestartError, triggerRestart, webBuildId } from "../system/restart.js";
 import { createProxyHandler } from "./proxy.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
 import type { UsageAnalyticsService } from "../usage/usage-service.js";
@@ -73,8 +79,31 @@ const projectParamsSchema = z.object({ projectId: z.string().regex(/^[a-z0-9]+(?
 
 export async function registerApiRoutes(app: FastifyInstance, services: RouteServices) {
   app.get("/health", async () =>
-    healthResponseSchema.parse({ status: "ok", version: settings.appVersion, appName: settings.appName, timestamp: new Date().toISOString() }),
+    healthResponseSchema.parse({ status: "ok", version: settings.appVersion, appName: settings.appName, timestamp: new Date().toISOString(), bootId, webBuildId: webBuildId() }),
   );
+  app.post("/system/restart", async (request, reply) => {
+    const { target } = restartRequestSchema.parse(request.body);
+    try {
+      const { logFile } = triggerRestart(target);
+      return reply.status(202).send(restartResponseSchema.parse({ status: "accepted", target, bootId, webBuildId: webBuildId(), logFile }));
+    } catch (error) {
+      if (error instanceof RestartError) {
+        request.log.warn({ err: error, target }, "Neustart abgelehnt");
+        return reply.status(409).send({ error: "RESTART_REJECTED", message: `${error.message} ${error.hint}` });
+      }
+      throw error;
+    }
+  });
+  app.get("/system/restart/status", async () =>
+    restartStatusResponseSchema.parse({ ...readRestartStatus(), bootId, webBuildId: webBuildId() }),
+  );
+  app.get("/system/t3-channel", async () => t3ChannelService.status());
+  // Setzt nur den Wunschkanal. Angewendet wird er beim nächsten Backend-Neustart
+  // (Einstellungen → Dienst neu starten), damit der Nutzer den Zeitpunkt bestimmt.
+  app.post("/system/t3-channel", async (request) => {
+    const { channel } = t3ChannelRequestSchema.parse(request.body);
+    return t3ChannelService.setChannel(channel);
+  });
   app.get("/server/summary", async () => serverSummarySchema.parse(await systemService.getSummary()));
   app.get("/server/metrics", async () => serverMetricsSchema.parse(await systemService.getMetrics()));
   app.get("/services", async () => servicesResponseSchema.parse(await services.statuses.list()));

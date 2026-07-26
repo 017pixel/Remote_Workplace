@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.js";
+import { settings } from "./config/settings.js";
 
 const apps: Awaited<ReturnType<typeof buildApp>>[] = [];
 
@@ -14,7 +15,23 @@ describe("Workbench API", () => {
     const response = await app.inject({ method: "GET", url: "/api/v1/health" });
     expect(response.statusCode).toBe(200);
     expect(response.headers["cache-control"]).toBe("no-store");
-    expect(response.json()).toMatchObject({ status: "ok", version: "0.24.0" });
+    // Gegen die konfigurierte Version prüfen statt gegen eine feste Zahl — sonst
+    // bricht der Test bei jedem Versionssprung, ohne dass etwas kaputt ist.
+    expect(response.json()).toMatchObject({ status: "ok", version: settings.appVersion });
+    // Die Neustart-Marker müssen mitkommen: ohne sie erkennt das UI kein Fertigsein.
+    const health = response.json() as { bootId: string; webBuildId: number | null };
+    expect(health.bootId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(health.webBuildId === null || Number.isInteger(health.webBuildId)).toBe(true);
+  });
+
+  it("liefert einen Neustart-Status, auch wenn noch nie neu gestartet wurde", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const response = await app.inject({ method: "GET", url: "/api/v1/system/restart/status" });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { phase: string; bootId: string };
+    expect(["idle", "running", "succeeded", "failed"]).toContain(body.phase);
+    expect(body.bootId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("returns a validated Orbit document envelope", async () => {

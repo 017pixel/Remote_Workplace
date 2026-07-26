@@ -5,28 +5,38 @@
       "name": "T3 Code",
       "mode": "hybrid",
       "publicUrl": "https://server-name.tailnet.ts.net/",
-      "check": { "type": "systemd", "unit": "t3-code.service" }
+      "check": {
+        "type": "http",
+        "url": "http://127.0.0.1:3773/"
+      }
     },
     {
       "id": "code-server",
       "name": "code-server",
       "mode": "hybrid",
       "publicUrl": "https://server-name.tailnet.ts.net:8443/editor/",
-      "check": { "type": "http", "url": "http://127.0.0.1:8080/" }
+      "check": {
+        "type": "http",
+        "url": "http://127.0.0.1:8080/"
+      }
     },
     {
       "id": "workbench-backend",
       "name": "Workbench Backend",
       "mode": "external",
       "publicUrl": null,
-      "check": { "type": "self" }
+      "check": {
+        "type": "self"
+      }
     },
     {
       "id": "tailscale",
       "name": "Tailscale",
       "mode": "external",
       "publicUrl": null,
-      "check": { "type": "tailscale" }
+      "check": {
+        "type": "tailscale"
+      }
     }
   ]
 }

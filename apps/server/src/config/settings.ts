@@ -121,6 +121,13 @@ const settingsSchema = z.object({
   NEWS_AI_CONCURRENCY: boundedIntegerFromEnvironment(1, 1, 4),
   WORKBENCH_PROFILES_ROOT: z.string().startsWith("/").default(wb.paths.workbenchProfilesRoot),
   CODEXBAR_CONFIG_PATH: z.string().startsWith("/").default(wb.codexbar.configPath),
+  // Der Kanal selbst steht bewusst nicht hier: Er wird zur Laufzeit aus der Config
+  // gelesen und geschrieben (siehe readConfiguredT3Channel). Alles Übrige ist statisch.
+  T3_CLI_PATH: z.string().startsWith("/").default(wb.t3.cliPath ?? join(wb.system.homeDirectory, ".npm-global/bin/t3")),
+  T3_NPM_PACKAGE: z.string().min(1).default(wb.t3.npmPackage),
+  T3_HOST: z.string().min(1).default(wb.t3.host),
+  T3_PORT: integerFromEnvironment(wb.t3.port),
+  T3_SERVICE_UNIT: z.string().min(1).default(wb.t3.serviceUnit),
 });
 
 const environment = settingsSchema.parse(process.env);
@@ -208,4 +215,11 @@ export const settings = Object.freeze({
   newsAiConcurrency: environment.NEWS_AI_CONCURRENCY,
   workbenchProfilesRoot: resolve(environment.WORKBENCH_PROFILES_ROOT),
   codexbarConfigPath: resolve(environment.CODEXBAR_CONFIG_PATH),
+  t3CliPath: resolve(environment.T3_CLI_PATH),
+  t3NpmPackage: environment.T3_NPM_PACKAGE,
+  t3Host: environment.T3_HOST,
+  t3Port: environment.T3_PORT,
+  t3ServiceUnit: environment.T3_SERVICE_UNIT,
+  // Kanal beim Serverstart. Nur Ausgangswert — der aktuelle Wert kommt aus der Config.
+  t3BootChannel: wb.t3.channel,
 });

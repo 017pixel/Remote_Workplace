@@ -11,12 +11,16 @@
     "hostname": "server-name.tailnet.ts.net",
     "ip": "100.100.100.100",
     "httpsPort": 8443,
-    "allowedUsers": ["user@example.com"]
+    "allowedUsers": [
+      "user@example.com"
+    ]
   },
   "paths": {
     "projectsRoot": "/home/your-user/projects",
     "orbitProjectBrowserRoot": "/home/your-user",
-    "terminalAllowedRoots": ["/home/your-user"],
+    "terminalAllowedRoots": [
+      "/home/your-user"
+    ],
     "terminalDefaultCwd": "/home/your-user",
     "dataDir": "/home/your-user/.local/share/remote-workplace",
     "browserProfilesRoot": "/home/your-user/.local/share/remote-workplace/browser-profiles",
@@ -37,5 +41,18 @@
   "codexbar": {
     "configPath": "/home/your-user/.config/codexbar/config.json",
     "oauthProfileHomes": []
+  },
+  "t3": {
+    "channel": "stable",
+    "npmPackage": "t3",
+    "cliPath": "/home/your-user/.npm-global/bin/t3",
+    "host": "127.0.0.1",
+    "port": 3773,
+    "serviceUnit": "t3-code.service",
+    "legacyLauncher": "/home/your-user/.local/bin/t3-code-service",
+    "installTimeoutSeconds": 300,
+    "stopTimeoutSeconds": 20,
+    "portTimeoutSeconds": 30,
+    "healthTimeoutSeconds": 60
   }
 }

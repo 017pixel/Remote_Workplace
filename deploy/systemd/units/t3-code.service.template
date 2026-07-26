@@ -1,0 +1,30 @@
+# T3 Code — genau eine Instanz, die die Workbench über /t3 einbettet.
+# Anders als code-server läuft diese Unit als **User-**Unit (~/.config/systemd/user/),
+# weil kein root verfügbar ist. Installiert wird sie über scripts/install-t3-unit.sh.
+#
+# Der Kanal (stable|nightly) steckt NICHT in dieser Datei: Er bestimmt nur, welches
+# npm-Paket installiert ist. scripts/sync-t3-channel.sh tauscht das Paket beim Neustart
+# aus — die Argumente hier bleiben dabei unverändert, sonst greift der Proxy ins Leere.
+#
+# Hinweis: T3 gibt beim Start Pairing-URL und Token aus. Sie landen damit im
+# User-Journal (journalctl --user -u t3-code.service), das nur diesem Benutzer gehört.
+[Unit]
+Description=T3 Code (Workbench, Port __T3_PORT__)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__PROJECTS_ROOT__
+Environment=HOME=__HOME__
+# Die t3-Binary ist ein Node-Skript mit env-Shebang — ohne node im PATH startet sie nicht.
+Environment=PATH=__NODE_BIN_DIR__:__T3_BIN_DIR__:/usr/local/bin:/usr/bin:/bin
+ExecStart=__T3_BIN__ serve --host __T3_HOST__ --port __T3_PORT__ __PROJECTS_ROOT__
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+UMask=0077
+
+[Install]
+WantedBy=default.target

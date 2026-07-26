@@ -36,6 +36,9 @@ const config = loadConfig();
 const user = process.env.SUDO_USER || userInfo().username;
 const home = config.system?.homeDirectory || process.env.HOME || `/home/${user}`;
 
+const t3Binary = config.t3?.cliPath || which("t3", `${home}/.npm-global/bin/t3`);
+const nodeBinary = which("node", "/usr/bin/node");
+
 const tokens = {
   __USER__: user,
   __GROUP__: user,
@@ -44,6 +47,12 @@ const tokens = {
   __PNPM_BIN__: which("pnpm", "/usr/bin/pnpm"),
   __CODEXBAR_BIN__: config.cli?.codexbar || which("codexbar", `${home}/.local/bin/codexbar`),
   __CODE_SERVER_BIN__: which("code-server", `${home}/.local/bin/code-server`),
+  __T3_BIN__: t3Binary,
+  __T3_BIN_DIR__: dirname(t3Binary),
+  __T3_HOST__: config.t3?.host || "127.0.0.1",
+  __T3_PORT__: String(config.t3?.port || 3773),
+  __NODE_BIN_DIR__: dirname(nodeBinary),
+  __PROJECTS_ROOT__: config.paths?.projectsRoot || `${home}/projects`,
 };
 
 const templatesDir = join(here, "units");

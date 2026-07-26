@@ -1,9 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import WebSocket from "ws";
+import { settings } from "../config/settings.js";
 
 const t3Prefix = "/t3";
-const t3HttpUpstream = "http://127.0.0.1:3773";
-const t3WebSocketUpstream = "ws://127.0.0.1:3773";
+// Genau eine Instanz, unabhängig vom Kanal. Adresse aus der Config, damit Proxy,
+// systemd-Unit und Health-Check nicht auseinanderlaufen können.
+const t3Authority = `${settings.t3Host}:${settings.t3Port}`;
+const t3HttpUpstream = `http://${t3Authority}`;
+const t3WebSocketUpstream = `ws://${t3Authority}`;
 const bufferedMessageLimit = 512 * 1024;
 
 function upstreamPath(rawUrl: string): string {
@@ -19,8 +23,8 @@ function upstreamPath(rawUrl: string): string {
 function proxyHeaders(request: FastifyRequest, headers: Record<string, string | string[] | undefined>) {
   return {
     ...headers,
-    host: request.headers.host ?? "127.0.0.1:3773",
-    "x-forwarded-host": request.headers.host ?? "127.0.0.1:3773",
+    host: request.headers.host ?? t3Authority,
+    "x-forwarded-host": request.headers.host ?? t3Authority,
     "x-forwarded-prefix": t3Prefix,
     "x-forwarded-proto": "https",
   };

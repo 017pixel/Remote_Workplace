@@ -66,6 +66,13 @@ done
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${units[@]}"
+
+# T3 Code läuft als User-Unit (kein root nötig) und wird deshalb separat eingebunden.
+# Gestartet wird sie erst über den Neustart-Flow (scripts/sync-t3-channel.sh).
+if [[ -x "$repo_root/scripts/install-t3-unit.sh" ]]; then
+  sudo -u "$service_user" -- env "XDG_RUNTIME_DIR=/run/user/$(id -u "$service_user")" \
+    bash "$repo_root/scripts/install-t3-unit.sh" || echo "Hinweis: T3-Code-Unit konnte nicht installiert werden." >&2
+fi
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3010/api/v1/health >/dev/null
 trap - ERR
 
