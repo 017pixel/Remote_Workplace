@@ -34,6 +34,20 @@ describe("Workbench API", () => {
     expect(body.bootId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("nimmt den Health-Endpunkt vom Ratenlimit aus", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    // Deutlich mehr Anfragen als das konfigurierte Limit. Zählte `/health` mit,
+    // käme ab der 181. ein 429 — im E2E-Lauf ist genau das passiert, und mit ihm
+    // fielen Ansichten aus, deren Daten hinter derselben Sperre lagen.
+    const responses = await Promise.all(
+      Array.from({ length: settings.apiRateLimitMax + 20 }, () =>
+        app.inject({ method: "GET", url: "/api/v1/health" }),
+      ),
+    );
+    expect(responses.map((response) => response.statusCode)).not.toContain(429);
+  });
+
   it("returns a validated Orbit document envelope", async () => {
     const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);

@@ -132,7 +132,15 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     timeWindow: "1 minute",
     // Vite and code-server legitimately load hundreds of assets and maintain
     // several sockets. Only the Workbench API belongs behind this limiter.
-    allowList: (request) => !request.url.startsWith("/api/"),
+    //
+    // `/health` bleibt ausgenommen: Jeder offene Tab fragt es alle 10 Sekunden ab,
+    // der Neustart-Flow pollt es sekündlich, und es liefert nur Version und
+    // Neustart-Marker. Es ist damit der billigste und häufigste Endpunkt — als
+    // Erstes das Limit zu reißen, obwohl der Schutz teuren Endpunkten gilt, hat
+    // schon den E2E-Lauf rot gefärbt. Das Limit zählt pro IP, und hinter dem
+    // Tailscale-Proxy sehen alle Anfragen wie 127.0.0.1 aus: Es ist praktisch ein
+    // gemeinsames Budget für sämtliche Tabs.
+    allowList: (request) => !request.url.startsWith("/api/") || request.url.startsWith("/api/v1/health"),
   });
   await app.register(websocket, {
     // code-server sends initialisation frames larger than 64 KiB. Terminal
