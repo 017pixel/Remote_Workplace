@@ -15,6 +15,7 @@ import { TerminalWorkspaceSync } from "./terminal/TerminalWorkspaceSync";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell, useVisualViewportVariables } from "../lib/useResponsiveShell";
 import { navItems } from "../routes/navigation";
+import { addBreadcrumb } from "../lib/crashReport";
 import type { ProjectsResponse } from "@workbench/contracts";
 
 const routeTitles = Object.fromEntries(navItems.map((item) => [item.to, item.label]));
@@ -64,7 +65,7 @@ function ContextProjectPicker() {
 
 export function AppShell() {
   const location = useLocation();
-  const title = routeTitles[location.pathname] ?? "Dev Workbench";
+  const title = routeTitles[location.pathname] ?? "Remote Workplace";
   const isProjectDetail = location.pathname.startsWith("/projects/");
   const isOrbit = location.pathname === "/workbench";
   const isNews = location.pathname === "/tech-tldrs";
@@ -111,6 +112,7 @@ export function AppShell() {
 
   useEffect(() => {
     if (previousPathRef.current === location.pathname) return;
+    addBreadcrumb(`Seitenwechsel: ${previousPathRef.current} → ${location.pathname}`);
     previousPathRef.current = location.pathname;
     const timer = window.setTimeout(() => mainRef.current?.focus(), 40);
     return () => window.clearTimeout(timer);
@@ -158,7 +160,7 @@ export function AppShell() {
             <Menu className="h-[18px] w-[18px]" />
           </button> : null}
           <div className="page-crumb min-w-0">
-            <Link to="/" className="page-crumb-root shell-desktop-only">Dev Workbench</Link>
+            <Link to="/" className="page-crumb-root shell-desktop-only">Remote Workplace</Link>
             <ChevronRight className="page-crumb-separator shell-desktop-only" aria-hidden />
             {isProjectDetail ? (
               <>

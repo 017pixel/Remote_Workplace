@@ -21,6 +21,7 @@ export interface NavItem {
   label: string;
   description: string;
   icon: LucideIcon;
+  routeId?: string;
 }
 
 export const primaryNavItems: NavItem[] = [

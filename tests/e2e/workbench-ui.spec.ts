@@ -12,7 +12,7 @@ test("shows every local project and navigable breadcrumbs", async ({ page }) => 
   await expect(page.locator("article")).toHaveCount(21);
   await expect(page.getByRole("link", { name: "Remote_Workplace" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Dev Workbench" }).click();
+  await page.getByRole("link", { name: "Remote Workplace" }).click();
   await expect(page).toHaveURL(/\/workbench$/);
   await expect(page.getByRole("heading", { name: "Übersicht" })).toBeVisible();
 });

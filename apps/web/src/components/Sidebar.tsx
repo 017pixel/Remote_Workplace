@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
+  ChevronDown,
   FolderGit2,
   TerminalSquare,
   PanelLeftClose,
@@ -24,7 +25,18 @@ import {
 } from "lucide-react";
 import { prefetchRoute } from "../lib/routeModules";
 import { workbenchQueries } from "../lib/queryOptions";
-import { footerNavItems, primaryNavItems, toolRouteItems } from "../routes/navigation";
+import { footerNavItems, primaryNavItems, toolRouteItems, type NavItem } from "../routes/navigation";
+import { isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
+
+const pathToRouteId = (path: string): PageRouteId | null => {
+  const map: Record<string, PageRouteId> = {
+    "/": "dashboard", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
+    "/t3-code": "t3-code", "/codex": "codex", "/opencode": "opencode", "/code-editor": "code-editor",
+    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/gallery": "gallery",
+    "/usage": "usage", "/settings": "settings",
+  };
+  return map[path] ?? null;
+};
 
 export interface OrbitPalettePayload {
   type: "project" | "tool" | "note" | "todo" | "snippet" | "file" | "frame" | "usage" | "gallery" | "fileGallery";
@@ -50,6 +62,116 @@ function requestOrbitProjectBrowser() {
   window.dispatchEvent(new Event("orbit:project-browser"));
 }
 
+function SectionHeader({ label, sectionKey, collapsed }: { label: string; sectionKey: SidebarSectionKey; collapsed: boolean }) {
+  const toggle = useSidebarPreferences((s) => s.toggleSection);
+  const isCollapsed = useSidebarPreferences((s) => s.collapsedSections[sectionKey]);
+  if (collapsed) return <span className="sidebar-section-divider" aria-hidden />;
+  return (
+    <button type="button" className="sidebar-section-header" onClick={() => toggle(sectionKey)} aria-expanded={!isCollapsed} aria-label={`${label} ${isCollapsed ? "ausklappen" : "einklappen"}`}>
+      <span>{label}</span>
+      <ChevronDown className={`sidebar-section-chevron ${isCollapsed ? "is-collapsed" : ""}`} />
+    </button>
+  );
+}
+
+function useSectionCollapsed(sectionKey: SidebarSectionKey) {
+  return useSidebarPreferences((s) => s.collapsedSections[sectionKey]);
+}
+
+// Ein Eintrag für beide Sidebar-Breiten. Eingeklappt bleibt nur das Icon stehen,
+// der Text steckt weiterhin in aria-label/title — deshalb genau eine Variante statt zwei Zweigen.
+function SidebarNavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === "/"}
+      className="sidebar-item"
+      onPointerEnter={() => prefetchRoute(item.to)}
+      onFocus={() => prefetchRoute(item.to)}
+      aria-label={item.label}
+      title={item.label}
+    >
+      <item.icon className="h-4 w-4 shrink-0" />
+      {!collapsed ? item.label : null}
+    </NavLink>
+  );
+}
+
+const orbitTools: ReadonlyArray<[OrbitPaletteItem, string, typeof TerminalSquare]> = [
+  ["tool:terminal", "Terminal", TerminalSquare],
+  ["tool:t3-code", "T3 Code", Code2],
+  ["tool:preview", "Preview", Eye],
+  ["tool:browser", "Browser", Globe2],
+  ["tool:code-server", "Code-Server", MonitorSmartphone],
+  ["tool:codex", "Codex", Bot],
+  ["tool:opencode", "OpenCode", Braces],
+];
+const orbitGalleries: ReadonlyArray<[OrbitPaletteItem, OrbitPalettePayload, typeof Images]> = [
+  ["gallery:gallery-media", { type: "gallery", title: "Mediengalerie" } satisfies OrbitPalettePayload, Images],
+  ["gallery:gallery-files", { type: "fileGallery", title: "Dateigalerie" } satisfies OrbitPalettePayload, FolderUp],
+];
+const orbitBlocks: ReadonlyArray<[OrbitPaletteItem, OrbitPalettePayload, typeof StickyNote]> = [
+  ["block:note", { type: "note", title: "Neue Notiz" } satisfies OrbitPalettePayload, StickyNote],
+  ["block:todo", { type: "todo", title: "To-do-Liste" } satisfies OrbitPalettePayload, ListTodo],
+  ["block:snippet", { type: "snippet", title: "Code-Snippet" } satisfies OrbitPalettePayload, FileCode2],
+  ["block:frame", { type: "frame", title: "Neuer Bereich" } satisfies OrbitPalettePayload, Frame],
+  ["block:usage-codex", { type: "usage", title: "Codex Nutzung", provider: "codex" } satisfies OrbitPalettePayload, Gauge],
+  ["block:usage-opencode", { type: "usage", title: "OpenCode Nutzung", provider: "opencode" } satisfies OrbitPalettePayload, Gauge],
+  ["block:usage-claude", { type: "usage", title: "Claude Code Nutzung", provider: "claude" } satisfies OrbitPalettePayload, Gauge],
+];
+
+function OrbitPaletteButton({ payload, Icon, collapsed }: { payload: OrbitPalettePayload; Icon: typeof TerminalSquare; collapsed: boolean }) {
+  return (
+    <button type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} aria-label={payload.title} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}>
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed ? <><span>{payload.title}</span><small>ziehen</small></> : null}
+    </button>
+  );
+}
+
+function OrbitToolSection({ collapsed }: { collapsed: boolean }) {
+  const isOrbitItemVisible = useSidebarPreferences((s) => s.isOrbitItemVisible);
+  const isCollapsed = useSectionCollapsed("tools");
+  const visible = orbitTools.filter(([key]) => isOrbitItemVisible(key));
+  return (
+    <div className="sidebar-section">
+      <SectionHeader label="Werkzeuge" sectionKey="tools" collapsed={collapsed} />
+      {!isCollapsed ? visible.map(([key, label, Icon]) => {
+        const toolType = key.split(":")[1] as NonNullable<OrbitPalettePayload["toolType"]>;
+        return <OrbitPaletteButton key={key} payload={{ type: "tool", title: label, toolType }} Icon={Icon} collapsed={collapsed} />;
+      }) : null}
+    </div>
+  );
+}
+
+function OrbitGallerySection({ collapsed }: { collapsed: boolean }) {
+  const isOrbitItemVisible = useSidebarPreferences((s) => s.isOrbitItemVisible);
+  const isCollapsed = useSectionCollapsed("gallery");
+  const visible = orbitGalleries.filter(([key]) => isOrbitItemVisible(key));
+  return (
+    <div className="sidebar-section">
+      <SectionHeader label="Galerie" sectionKey="gallery" collapsed={collapsed} />
+      {!isCollapsed ? visible.map(([key, payload, Icon]) => (
+        <OrbitPaletteButton key={key} payload={payload} Icon={Icon} collapsed={collapsed} />
+      )) : null}
+    </div>
+  );
+}
+
+function OrbitBlockSection({ collapsed }: { collapsed: boolean }) {
+  const isOrbitItemVisible = useSidebarPreferences((s) => s.isOrbitItemVisible);
+  const isCollapsed = useSectionCollapsed("blocks");
+  const visible = orbitBlocks.filter(([key]) => isOrbitItemVisible(key));
+  return (
+    <div className="sidebar-section">
+      <SectionHeader label="Blöcke" sectionKey="blocks" collapsed={collapsed} />
+      {!isCollapsed ? visible.map(([key, payload, Icon]) => (
+        <OrbitPaletteButton key={key} payload={payload} Icon={Icon} collapsed={collapsed} />
+      )) : null}
+    </div>
+  );
+}
+
 interface SidebarProps {
   collapsed: boolean;
   width: number;
@@ -61,6 +183,17 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
   const location = useLocation();
   const projects = useQuery(workbenchQueries.projects());
   const orbitMode = location.pathname === "/workbench";
+  // Das Set abonnieren, nicht die (stabile) Methode: sonst rechnen die Memos unten
+  // beim Umschalten der Seiten-Sichtbarkeit nie neu.
+  const hiddenPages = useSidebarPreferences((s) => s.hiddenPages);
+  // Alle Sektions-Hooks bedingungslos und ganz oben: früher standen sie hinter `!collapsed &&`
+  // im JSX, wodurch beim Ein-/Ausklappen die Hook-Anzahl sprang und React die Seite abbrach.
+  const workspaceSectionCollapsed = useSectionCollapsed("workspace");
+  const orbitProjectsSectionCollapsed = useSectionCollapsed("orbit-projects");
+  const footerSectionCollapsed = useSectionCollapsed("footer");
+  const visiblePrimaryNavItems = useMemo(() => primaryNavItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
+  const visibleToolRouteItems = useMemo(() => toolRouteItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
+  const visibleFooterNavItems = useMemo(() => footerNavItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
   const availableProjects = useMemo(
     () => (projects.data?.projects ?? []).filter((project) => project.availability === "available"),
     [projects.data?.projects],
@@ -98,7 +231,7 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
       <aside className="workspace-sidebar flex-col">
         <div className="sidebar-brand">
           <div className="sidebar-mark"><TerminalSquare className="h-[18px] w-[18px]" /></div>
-          {!collapsed ? <div className="sidebar-label">Dev Workbench</div> : null}
+          {!collapsed ? <div className="sidebar-label">Remote Workplace</div> : null}
           <button
             type="button"
             className="sidebar-toggle"
@@ -111,26 +244,14 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
         </div>
         <nav className="sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto pt-3">
           <div className="sidebar-section">
-            {!collapsed ? <div className="sidebar-kicker">Workspace</div> : <span className="sidebar-section-divider" aria-hidden />}
-            {primaryNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className="sidebar-item"
-              onPointerEnter={() => prefetchRoute(item.to)}
-              onFocus={() => prefetchRoute(item.to)}
-              aria-label={collapsed ? item.label : undefined}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed ? item.label : null}
-            </NavLink>
-            ))}
+            <SectionHeader label="Workspace" sectionKey="workspace" collapsed={collapsed} />
+            {!workspaceSectionCollapsed ? visiblePrimaryNavItems.map((item) => (
+              <SidebarNavLink key={item.to} item={item} collapsed={collapsed} />
+            )) : null}
           </div>
           <div className="sidebar-section">
-          {!collapsed ? <div className="sidebar-kicker">{orbitMode ? "Orbit-Projekte" : "Werkzeuge"}</div> : <span className="sidebar-section-divider" aria-hidden />}
-          {orbitMode ? (<>{recentProjects.map((project) => (
+            <SectionHeader label={orbitMode ? "Orbit-Projekte" : "Werkzeuge"} sectionKey="orbit-projects" collapsed={collapsed} />
+            {!orbitProjectsSectionCollapsed ? (orbitMode ? (<>{recentProjects.map((project) => (
             <button
               key={project.id}
               type="button"
@@ -138,86 +259,33 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
               draggable
               onDragStart={(event) => beginOrbitDrag(event, { type: "project", title: project.name, projectId: project.id })}
               onClick={() => requestOrbitNode({ type: "project", title: project.name, projectId: project.id })}
-              aria-label={collapsed ? project.name : `${project.name} ziehen`}
+              aria-label={`${project.name} ziehen`}
               title={collapsed ? project.name : "Klicken oder auf den Orbit ziehen"}
             >
               <FolderGit2 className="h-4 w-4 shrink-0" />
               {!collapsed ? <><span className="truncate">{project.name}</span><small>ziehen</small></> : null}
             </button>
           ))}
-            <button type="button" className="sidebar-item orbit-palette-item" onClick={requestOrbitProjectBrowser} aria-label="Alle Projekte auswählen" title={collapsed ? "Alle Projekte" : "Serverordner durchsuchen"}>
+            <button type="button" className="sidebar-item orbit-palette-item" onClick={requestOrbitProjectBrowser} aria-label="Alle Projekte auswählen" title="Serverordner durchsuchen">
               <FolderSearch2 className="h-4 w-4 shrink-0" />
               {!collapsed ? <><span className="truncate">Alle Projekte</span><small>{availableProjects.length}</small></> : null}
             </button>
-          </>) : toolRouteItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className="sidebar-item"
-              onPointerEnter={() => prefetchRoute(item.to)}
-              onFocus={() => prefetchRoute(item.to)}
-              aria-label={collapsed ? item.label : undefined}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed ? item.label : null}
-            </NavLink>
-          ))}
+          </>) : visibleToolRouteItems.map((item) => (
+            <SidebarNavLink key={item.to} item={item} collapsed={collapsed} />
+          ))) : null}
           </div>
           {orbitMode ? (
             <>
-              <div className="sidebar-section">
-              {!collapsed ? <div className="sidebar-kicker">Werkzeuge</div> : <span className="sidebar-section-divider" aria-hidden />}
-              {([
-                ["terminal", "Terminal", TerminalSquare],
-                ["t3-code", "T3 Code", Code2],
-                ["preview", "Preview", Eye],
-                ["browser", "Browser", Globe2],
-                ["code-server", "Code-Server", MonitorSmartphone],
-                ["codex", "Codex", Bot],
-                ["opencode", "OpenCode", Braces],
-              ] as const).map(([toolType, label, Icon]) => {
-                const payload: OrbitPalettePayload = { type: "tool", title: label, toolType };
-                return <button key={toolType} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? label : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{label}</span><small>ziehen</small></> : null}</button>;
-              })}
-              </div>
-              <div className="sidebar-section">
-              {!collapsed ? <div className="sidebar-kicker">Galerie</div> : <span className="sidebar-section-divider" aria-hidden />}
-              {([
-                [{ type: "gallery", title: "Mediengalerie" } satisfies OrbitPalettePayload, Images],
-                [{ type: "fileGallery", title: "Dateigalerie" } satisfies OrbitPalettePayload, FolderUp],
-              ] as const).map(([payload, Icon]) => <button key={payload.type} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{payload.title}</span><small>ziehen</small></> : null}</button>)}
-              </div>
-              <div className="sidebar-section">
-              {!collapsed ? <div className="sidebar-kicker">Blöcke</div> : <span className="sidebar-section-divider" aria-hidden />}
-              {([
-                [{ type: "note", title: "Neue Notiz" } satisfies OrbitPalettePayload, StickyNote],
-                [{ type: "todo", title: "To-do-Liste" } satisfies OrbitPalettePayload, ListTodo],
-                [{ type: "snippet", title: "Code-Snippet" } satisfies OrbitPalettePayload, FileCode2],
-                [{ type: "frame", title: "Neuer Bereich" } satisfies OrbitPalettePayload, Frame],
-                [{ type: "usage", title: "Codex Nutzung", provider: "codex" } satisfies OrbitPalettePayload, Gauge],
-                [{ type: "usage", title: "OpenCode Nutzung", provider: "opencode" } satisfies OrbitPalettePayload, Gauge],
-                [{ type: "usage", title: "Claude Code Nutzung", provider: "claude" } satisfies OrbitPalettePayload, Gauge],
-              ] as const).map(([payload, Icon]) => <button key={`${payload.type}-${payload.title}`} type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}><Icon className="h-4 w-4 shrink-0" />{!collapsed ? <><span>{payload.title}</span><small>ziehen</small></> : null}</button>)}
-              </div>
+              <OrbitToolSection collapsed={collapsed} />
+              <OrbitGallerySection collapsed={collapsed} />
+              <OrbitBlockSection collapsed={collapsed} />
             </>
           ) : null}
           <div className="sidebar-footer sidebar-section">
-            {!collapsed ? <div className="sidebar-kicker">Account und System</div> : <span className="sidebar-section-divider" aria-hidden />}
-            {footerNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className="sidebar-item"
-                onPointerEnter={() => prefetchRoute(item.to)}
-                onFocus={() => prefetchRoute(item.to)}
-                aria-label={collapsed ? item.label : undefined}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed ? item.label : null}
-              </NavLink>
-            ))}
+            <SectionHeader label="Account und System" sectionKey="footer" collapsed={collapsed} />
+            {!footerSectionCollapsed ? visibleFooterNavItems.map((item) => (
+              <SidebarNavLink key={item.to} item={item} collapsed={collapsed} />
+            )) : null}
           </div>
         </nav>
       </aside>

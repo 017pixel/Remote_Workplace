@@ -1,8 +1,19 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { navSections, type NavItem } from "../routes/navigation";
 import { prefetchRoute } from "../lib/routeModules";
+import { isPageVisibleIn, useSidebarPreferences, type PageRouteId } from "../stores/sidebarPreferences";
+
+const pathToRouteId = (path: string): PageRouteId | null => {
+  const map: Record<string, PageRouteId> = {
+    "/": "dashboard", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
+    "/t3-code": "t3-code", "/codex": "codex", "/opencode": "opencode", "/code-editor": "code-editor",
+    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/gallery": "gallery",
+    "/usage": "usage", "/settings": "settings",
+  };
+  return map[path] ?? null;
+};
 
 interface MobileNavProps {
   open: boolean;
@@ -14,6 +25,21 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   const location = useLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openedPath = useRef(location.pathname);
+  // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
+  const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
+  const [query, setQuery] = useState("");
+  // Vierzehn Ziele sind zu viele zum Scannen — die Suche filtert sie live.
+  const filteredSections = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return navSections.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const routeId = pathToRouteId(item.to);
+        if (routeId && !isPageVisibleIn(hiddenPages, routeId)) return false;
+        return needle === "" || item.label.toLowerCase().includes(needle);
+      }),
+    })).filter((section) => section.items.length > 0);
+  }, [hiddenPages, query]);
 
   useEffect(() => {
     if (open) onClose();
@@ -29,6 +55,8 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
     window.history.pushState(overlayState, "", window.location.href);
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
+    // Fokus auf den Schließen-Knopf (erstes fokussierbares Element im Header) —
+    // so landet die Tastatur im Dialog, ohne einen Navigationseintrag auszuwählen.
     window.setTimeout(() => dialogRef.current?.querySelector<HTMLElement>("a, button")?.focus(), 0);
 
     const closeFromHistory = () => onClose();
@@ -84,8 +112,33 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
         </button>
       </header>
 
+      <div className="mobile-navigation-search-wrap">
+        <div className="mobile-navigation-search">
+          <Search className="h-[17px] w-[17px] shrink-0" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Seite suchen …"
+            aria-label="Navigation durchsuchen"
+            autoComplete="off"
+          />
+          {query ? (
+            <button type="button" onClick={() => setQuery("")} aria-label="Suche zurücksetzen">
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <nav className="mobile-navigation-list" aria-label="Hauptnavigation">
-        {navSections.map((section) => (
+        {filteredSections.length === 0 ? (
+          <div className="mobile-navigation-empty">
+            <strong>Keine Seite gefunden</strong>
+            <span>Für „{query}“ gibt es keinen Treffer.</span>
+          </div>
+        ) : null}
+        {filteredSections.map((section) => (
           <div key={section.kicker} className="mobile-navigation-section">
             <p className="mobile-navigation-section-kicker">{section.kicker}</p>
             <div className="mobile-navigation-grid">
