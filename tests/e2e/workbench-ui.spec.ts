@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
 });
 
-const privateWorkbench = "https://server-name.tailnet.ts.net:8443/workbench";
+// Diese Tests erwarten die eingerichtete Instanz: benannte Projekte, laufenden
+// code-server, T3 Code und eine Tailscale-Identität für die Terminals.
+test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+
+const privateWorkbench = workbenchUrl;
 
 test("shows every local project and navigable breadcrumbs", async ({ page }) => {
   await page.goto(`${privateWorkbench}/projects`);

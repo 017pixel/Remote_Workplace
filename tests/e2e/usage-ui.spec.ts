@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL ?? "https://server-name.tailnet.ts.net:8443/workbench";
+// Braucht echte Nutzungsdaten und verbundene Accounts (CodexBar, Profile).
+test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+
+const workbench = workbenchUrl;
 
 test("renders usage analytics, charts and account discovery", async ({page}) => {
   const errors: string[] = [];

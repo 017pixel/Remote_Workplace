@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
 
-const workbench=process.env.WORKBENCH_E2E_URL??"http://127.0.0.1:5173/workbench";
+// Braucht synchronisierte News und einen Mistral-Schlüssel für Fragen und Sammlungen.
+test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+
+const workbench=workbenchUrl;
 const apiOrigin=new URL(workbench).origin;
 
 test("Tech TLDRs supports reading, grounded questions and named collections on desktop",async({page})=>{

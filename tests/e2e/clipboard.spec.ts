@@ -7,9 +7,14 @@ test.use({
   permissions: ["clipboard-read", "clipboard-write"],
 });
 
-test("copies the current terminal selection and pastes plain text instead of stale URLs", async ({ page, browserName }) => {
+// Firefox kennt `clipboard-read` nicht: Schon das Anlegen des Kontexts scheitert, bevor
+// ein Test laufen kann. Der Ausschluss muss deshalb hier auf Dateiebene stehen und nicht
+// erst im Testrumpf — dort wären die Fixtures längst erzeugt.
+// Die Zwischenablage bleibt für Firefox in der manuellen Matrix.
+test.skip(({ browserName }) => browserName !== "chromium", "Zwischenablage-Automatisierung wird in Chromium geprüft.");
+
+test("copies the current terminal selection and pastes plain text instead of stale URLs", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  test.skip(browserName !== "chromium", "System clipboard automation is verified in Chromium; Firefox remains in the manual matrix.");
   await page.goto(`${workbench}/terminal`);
   await expect(page.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
   const input = page.locator(".xterm-helper-textarea");
@@ -39,9 +44,8 @@ test("copies the current terminal selection and pastes plain text instead of sta
   await expect(page.locator(".xterm-screen")).toContainText(pasteMarker, { timeout: 10_000 });
 });
 
-test("keeps VS Code clipboard events inside the same-origin editor frame", async ({ page, browserName }) => {
+test("keeps VS Code clipboard events inside the same-origin editor frame", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  test.skip(browserName !== "chromium", "System clipboard automation is verified in Chromium; Firefox remains in the manual matrix.");
   await page.goto(`${workbench}/code-editor`);
   const frameElement = page.locator('iframe[title="Editor"]');
   await expect(frameElement).toBeVisible({ timeout: 20_000 });
@@ -70,9 +74,8 @@ test("does not grant embedded T3 Code or previews extra clipboard permissions", 
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("title"))).toBe("T3 Code");
 });
 
-test("routes Orbit paste to the focused editor, canvas or terminal only", async ({ page, browserName }) => {
+test("routes Orbit paste to the focused editor, canvas or terminal only", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  test.skip(browserName !== "chromium", "System clipboard automation is verified in Chromium; Firefox remains in the manual matrix.");
   await page.goto(`${workbench}/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await page.getByRole("button", { name: /Neue Notiz/ }).click();
