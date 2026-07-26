@@ -195,7 +195,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     <section
       data-panel-type={panel.type}
       className={`tool-surface group flex h-full min-h-0 flex-col ${standalone ? "tool-surface-standalone" : ""} ${isMaximized ? "tool-surface-maximized" : ""} ${
-        isFocused ? "border-[#4a4a4a]" : "border-line"
+        isFocused ? "border-ink-600" : "border-line"
       }`}
       onPointerDown={onFocus}
     >
