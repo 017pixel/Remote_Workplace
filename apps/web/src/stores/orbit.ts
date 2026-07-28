@@ -11,13 +11,14 @@ import {
   type Workspace,
 } from "@workbench/contracts";
 import { create } from "zustand";
+import { defaultPreviewDeviceId } from "../config/devicePresets";
 import { generateId } from "../lib/id";
 
 const DEFAULT_BOARD_ID = "orbit-default";
 
 export function freshOrbitWorkspace(): OrbitWorkspace {
   return orbitWorkspaceSchema.parse({
-    version: 5,
+    version: 6,
     activeBoardId: DEFAULT_BOARD_ID,
     focusedNodeId: null,
     boards: [{
@@ -41,6 +42,16 @@ export interface AddOrbitNodeInput {
   runtimeId?: string | null;
   toolType?: PanelType | null;
   previewId?: string | null;
+  previewLayout?: "1" | "2" | "3" | "6" | null;
+  previewTarget?: string | null;
+  previewPath?: string;
+  previewDeviceId?: string | null;
+  previewOrientation?: "portrait" | "landscape";
+  previewSlotId?: number | null;
+  previewIsolation?: boolean;
+  previewRuntime?: "iframe" | "shared-browser";
+  previewReferenceId?: string | null;
+  previewLastUsedAt?: string | null;
   assetId?: string | null;
   assetMimeType?: string | null;
   assetBytes?: number | null;
@@ -66,6 +77,8 @@ interface OrbitState {
   markSaveBlocked(message: string): void;
   markSyncError(message: string | null): void;
   addNode(input: AddOrbitNodeInput): string | null;
+  addPreviewGroup(input: { layout: "1" | "2" | "3" | "6"; title?: string; position: { x: number; y: number }; projectId?: string | null; targetPort?: number | null }): string | null;
+  setPreviewGroupLayout(groupId: string, layout: "1" | "2" | "3" | "6"): void;
   updateNode(nodeId: string, patch: Partial<Omit<OrbitNode, "id" | "type">>): void;
   assignProject(nodeId: string, projectId: string | null): void;
   removeNode(nodeId: string): void;
@@ -94,9 +107,74 @@ function updateActiveBoard(document: OrbitWorkspace, updater: (board: OrbitBoard
   };
 }
 
+const sharedPreviewSlotFields = new Set<keyof OrbitNode>([
+  "title",
+  "previewTarget",
+  "previewPath",
+  "previewDeviceId",
+  "previewOrientation",
+  "previewSlotId",
+  "previewIsolation",
+  "previewRuntime",
+  "previewLastUsedAt",
+  "content",
+]);
+
+function updatePreviewReferences(
+  board: OrbitBoard,
+  nodeId: string,
+  patch: Partial<Omit<OrbitNode, "id" | "type">>,
+): OrbitBoard {
+  const source = board.nodes.find((node) => node.id === nodeId);
+  if (!source) return board;
+  const synchronizedPatch = Object.fromEntries(
+    Object.entries(patch).filter(([key]) => sharedPreviewSlotFields.has(key as keyof OrbitNode)),
+  ) as Partial<Omit<OrbitNode, "id" | "type">>;
+  if (source.type === "previewGroup" && patch.title !== undefined) {
+    const canonicalId = source.previewReferenceId ?? source.id;
+    return {
+      ...board,
+      nodes: board.nodes.map((node) =>
+        node.type === "previewGroup" && (node.id === canonicalId || node.previewReferenceId === canonicalId)
+          ? { ...node, title: patch.title! }
+          : node.id === nodeId ? { ...node, ...patch } : node
+      ),
+    };
+  }
+  if (source.type !== "previewSlot" || Object.keys(synchronizedPatch).length === 0) {
+    return { ...board, nodes: board.nodes.map((node) => node.id === nodeId ? { ...node, ...patch } : node) };
+  }
+  const parent = source.parentId ? board.nodes.find((node) => node.id === source.parentId && node.type === "previewGroup") : null;
+  const canonicalGroupId = source.previewReferenceId ?? parent?.previewReferenceId ?? parent?.id ?? null;
+  if (!canonicalGroupId || !source.parentId) {
+    return { ...board, nodes: board.nodes.map((node) => node.id === nodeId ? { ...node, ...patch } : node) };
+  }
+  const sourceSiblings = board.nodes.filter((node) => node.type === "previewSlot" && node.parentId === source.parentId).sort((left, right) => left.zIndex - right.zIndex);
+  const sourceIndex = sourceSiblings.findIndex((node) => node.id === source.id);
+  const relatedGroupIds = new Set(
+    board.nodes
+      .filter((node) => node.type === "previewGroup" && (node.id === canonicalGroupId || node.previewReferenceId === canonicalGroupId))
+      .map((node) => node.id),
+  );
+  const relatedSlotIds = new Set<string>();
+  for (const groupId of relatedGroupIds) {
+    const sibling = board.nodes.filter((node) => node.type === "previewSlot" && node.parentId === groupId).sort((left, right) => left.zIndex - right.zIndex)[sourceIndex];
+    if (sibling) relatedSlotIds.add(sibling.id);
+  }
+  return {
+    ...board,
+    nodes: board.nodes.map((node) => {
+      if (node.id === nodeId) return { ...node, ...patch };
+      return relatedSlotIds.has(node.id) ? { ...node, ...synchronizedPatch } : node;
+    }),
+  };
+}
+
 export function orbitDefaultNodeSize(type: OrbitNode["type"], toolType?: PanelType | null) {
   if (type === "project") return { width: 240, height: 170 };
   if (type === "frame") return { width: 680, height: 440 };
+  if (type === "previewGroup") return { width: 880, height: 420 };
+  if (type === "previewSlot") return { width: 480, height: 360 };
   if (type === "tool") return toolType === "terminal" || toolType === "codex" || toolType === "opencode"
     ? { width: 620, height: 380 }
     : { width: 720, height: 460 };
@@ -106,6 +184,73 @@ export function orbitDefaultNodeSize(type: OrbitNode["type"], toolType?: PanelTy
   if (type === "asset") return { width: 420, height: 300 };
   if (type === "gallery" || type === "fileGallery") return { width: 960, height: 680 };
   return { width: 340, height: 220 };
+}
+
+const PREVIEW_GROUP_GAP = 8;
+const PREVIEW_GROUP_PADDING = 8;
+const PREVIEW_GROUP_HEADER = 44;
+
+// Ein Slot ist so bemessen, dass ein iPhone 13 (390 × 844) im Geräterahmen
+// gut lesbar bleibt. Beim Layoutwechsel bleibt diese Größe erhalten – die
+// Gruppe wächst stattdessen um einen weiteren Slot.
+export const previewSlotBaseSize = { width: 400, height: 660 };
+
+export function previewLayoutMatrix(layout: "1" | "2" | "3" | "6") {
+  return {
+    columns: layout === "1" ? 1 : layout === "2" ? 2 : 3,
+    rows: layout === "6" ? 2 : 1,
+  };
+}
+
+export function previewGroupSizeForSlot(layout: "1" | "2" | "3" | "6", slot = previewSlotBaseSize) {
+  const { columns, rows } = previewLayoutMatrix(layout);
+  return {
+    width: Math.round(PREVIEW_GROUP_PADDING * 2 + columns * slot.width + PREVIEW_GROUP_GAP * (columns - 1)),
+    height: Math.round(PREVIEW_GROUP_HEADER + PREVIEW_GROUP_PADDING * 2 + rows * slot.height + PREVIEW_GROUP_GAP * (rows - 1)),
+  };
+}
+
+export function previewGroupSize(layout: "1" | "2" | "3" | "6") {
+  return previewGroupSizeForSlot(layout);
+}
+
+export function previewSlotGeometry(group: OrbitNode, index: number) {
+  const { columns, rows } = previewLayoutMatrix(group.previewLayout ?? "1");
+  const width = Math.max(160, (group.size.width - PREVIEW_GROUP_PADDING * 2 - PREVIEW_GROUP_GAP * (columns - 1)) / columns);
+  const height = Math.max(96, (group.size.height - PREVIEW_GROUP_HEADER - PREVIEW_GROUP_PADDING * 2 - PREVIEW_GROUP_GAP * (rows - 1)) / rows);
+  return {
+    position: {
+      x: PREVIEW_GROUP_PADDING + (index % columns) * (width + PREVIEW_GROUP_GAP),
+      y: PREVIEW_GROUP_HEADER + PREVIEW_GROUP_PADDING + Math.floor(index / columns) * (height + PREVIEW_GROUP_GAP),
+    },
+    size: { width, height },
+  };
+}
+
+interface PreviewRect { x: number; y: number; width: number; height: number }
+
+function rectsOverlap(left: PreviewRect, right: PreviewRect): boolean {
+  return left.x < right.x + right.width
+    && left.x + left.width > right.x
+    && left.y < right.y + right.height
+    && left.y + left.height > right.y;
+}
+
+// Wächst eine Gruppe, wird der neue Slot bevorzugt rechts angehängt. Ist dort
+// bereits ein anderer Knoten, rutscht die Gruppe stattdessen nach links.
+export function previewGroupGrowthOffset(
+  nodes: readonly OrbitNode[],
+  group: OrbitNode,
+  nextSize: { width: number; height: number },
+): number {
+  const delta = nextSize.width - group.size.width;
+  if (delta <= 0) return 0;
+  const others = nodes.filter((node) => node.id !== group.id && !node.parentId && node.type !== "frame");
+  const collides = (rect: PreviewRect) => others.some((node) => rectsOverlap(rect, { x: node.position.x, y: node.position.y, width: node.size.width, height: node.size.height }));
+  const right = { x: group.position.x + group.size.width, y: group.position.y, width: delta, height: nextSize.height };
+  if (!collides(right)) return 0;
+  const left = { x: group.position.x - delta, y: group.position.y, width: delta, height: nextSize.height };
+  return collides(left) ? 0 : -delta;
 }
 
 function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
@@ -120,6 +265,16 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     runtimeId: input.runtimeId ?? (input.type === "tool" ? generateId() : null),
     toolType: input.type === "tool" ? (input.toolType ?? "terminal") : null,
     previewId: input.previewId ?? null,
+    previewLayout: input.type === "previewGroup" ? (input.previewLayout ?? "1") : null,
+    previewTarget: input.type === "previewSlot" ? (input.previewTarget ?? null) : null,
+    previewPath: input.previewPath ?? "/",
+    previewDeviceId: input.type === "previewSlot" ? (input.previewDeviceId ?? defaultPreviewDeviceId) : null,
+    previewOrientation: input.previewOrientation ?? "portrait",
+    previewSlotId: input.type === "previewSlot" ? (input.previewSlotId ?? null) : null,
+    previewIsolation: input.previewIsolation ?? true,
+    previewRuntime: input.previewRuntime ?? "iframe",
+    previewReferenceId: input.previewReferenceId ?? null,
+    previewLastUsedAt: input.previewLastUsedAt ?? null,
     assetId: input.type === "asset" ? (input.assetId ?? null) : null,
     assetMimeType: input.type === "asset" ? (input.assetMimeType ?? null) : null,
     assetBytes: input.type === "asset" ? (input.assetBytes ?? null) : null,
@@ -181,7 +336,7 @@ export function migrateWorkspaceToOrbit(workspace: Workspace): OrbitWorkspace {
     };
   });
   const safeBoards = boards.length > 0 ? boards : freshOrbitWorkspace().boards;
-  return orbitWorkspaceSchema.parse({ version: 5, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
+  return orbitWorkspaceSchema.parse({ version: 6, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
 }
 
 export const useOrbitStore = create<OrbitState>((set, get) => ({
@@ -259,8 +414,98 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     }));
     return node.id;
   },
+  addPreviewGroup: ({ layout, title, position, projectId = null, targetPort = null }) => {
+    const board = activeBoard(get().document);
+    const slotCount = Number(layout);
+    if (board.nodes.length + slotCount + 1 > ORBIT_LIMITS.maxNodesPerBoard) return null;
+    const maximumZ = Math.max(0, ...board.nodes.map((item) => item.zIndex));
+    const group = nodeFromInput({
+      type: "previewGroup",
+      title: title ?? `Preview-Gruppe · ${layout}`,
+      position,
+      size: previewGroupSize(layout),
+      projectId,
+      previewLayout: layout,
+      previewLastUsedAt: new Date().toISOString(),
+    }, maximumZ + 1);
+    const slots = Array.from({ length: slotCount }, (_, index) => {
+      const geometry = previewSlotGeometry(group, index);
+      return nodeFromInput({
+        type: "previewSlot",
+        title: index === 0 ? "Preview" : `Slot ${index + 1}`,
+        position: geometry.position,
+        size: geometry.size,
+        parentId: group.id,
+        projectId,
+        previewTarget: targetPort === null ? null : String(targetPort),
+        previewPath: "/",
+        previewIsolation: true,
+      }, maximumZ + 2 + index);
+    });
+    set((state) => ({
+      document: updateActiveBoard({ ...state.document, focusedNodeId: group.id }, (current) => ({
+        ...current,
+        nodes: [...current.nodes, group, ...slots],
+      })),
+      dirty: true,
+    }));
+    return group.id;
+  },
+  setPreviewGroupLayout: (groupId, layout) => set((state) => ({
+    document: updateActiveBoard(state.document, (board) => {
+      const requestedGroup = board.nodes.find((node) => node.id === groupId && node.type === "previewGroup");
+      if (!requestedGroup) return board;
+      const canonicalGroupId = requestedGroup.previewReferenceId ?? requestedGroup.id;
+      const groups = board.nodes
+        .filter((node) => node.type === "previewGroup" && (node.id === canonicalGroupId || node.previewReferenceId === canonicalGroupId))
+        .sort((left, right) => left.id === canonicalGroupId ? -1 : right.id === canonicalGroupId ? 1 : left.zIndex - right.zIndex);
+      const needed = Number(layout);
+      let nodes = board.nodes;
+      let maximumZ = Math.max(0, ...nodes.map((item) => item.zIndex));
+      for (const group of groups) {
+        // Die aktuelle Slot-Größe bleibt erhalten: Ein zusätzlicher Preview wird
+        // angehängt statt alle Slots zusammenzuquetschen.
+        const slotSize = previewSlotGeometry(group, 0).size;
+        const size = previewGroupSizeForSlot(layout, slotSize);
+        const offsetX = previewGroupGrowthOffset(nodes, group, size);
+        const nextGroup = {
+          ...group,
+          size,
+          position: offsetX === 0 ? group.position : { ...group.position, x: group.position.x + offsetX },
+          previewLayout: layout,
+          previewLastUsedAt: new Date().toISOString(),
+        };
+        nodes = nodes.map((node) => node.id === group.id ? nextGroup : node);
+        const currentSlots = nodes.filter((node) => node.parentId === group.id && node.type === "previewSlot").sort((left, right) => left.zIndex - right.zIndex);
+        for (let index = currentSlots.length; index < needed; index += 1) {
+          const geometry = previewSlotGeometry(nextGroup, index);
+          const canonicalSlot = group.id === canonicalGroupId
+            ? null
+            : nodes.filter((node) => node.parentId === canonicalGroupId && node.type === "previewSlot").sort((left, right) => left.zIndex - right.zIndex)[index];
+          nodes = [...nodes, nodeFromInput({
+            type: "previewSlot",
+            title: canonicalSlot?.title ?? `Slot ${index + 1}`,
+            position: geometry.position,
+            size: geometry.size,
+            parentId: group.id,
+            projectId: group.projectId,
+            previewTarget: canonicalSlot?.previewTarget ?? null,
+            previewPath: canonicalSlot?.previewPath ?? "/",
+            previewDeviceId: canonicalSlot?.previewDeviceId ?? defaultPreviewDeviceId,
+            previewOrientation: canonicalSlot?.previewOrientation ?? "portrait",
+            previewSlotId: canonicalSlot?.previewSlotId ?? null,
+            previewIsolation: canonicalSlot?.previewIsolation ?? true,
+            previewRuntime: canonicalSlot?.previewRuntime ?? "iframe",
+            previewReferenceId: group.id === canonicalGroupId ? null : canonicalGroupId,
+          }, ++maximumZ)];
+        }
+      }
+      return { ...board, nodes };
+    }),
+    dirty: true,
+  })),
   updateNode: (nodeId, patch) => set((state) => ({
-    document: updateActiveBoard(state.document, (board) => ({ ...board, nodes: board.nodes.map((node) => node.id === nodeId ? { ...node, ...patch } : node) })),
+    document: updateActiveBoard(state.document, (board) => updatePreviewReferences(board, nodeId, patch)),
     dirty: true,
   })),
   assignProject: (nodeId, projectId) => set((state) => ({
@@ -278,17 +523,46 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     dirty: true,
   })),
   removeNode: (nodeId) => set((state) => ({
-    document: updateActiveBoard({ ...state.document, focusedNodeId: state.document.focusedNodeId === nodeId ? null : state.document.focusedNodeId }, (board) => ({
-      ...board,
-      nodes: board.nodes.filter((node) => node.id !== nodeId && node.parentId !== nodeId),
-      edges: board.edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
-    })),
+    document: updateActiveBoard({ ...state.document, focusedNodeId: state.document.focusedNodeId === nodeId ? null : state.document.focusedNodeId }, (board) => {
+      const removedIds = new Set([nodeId, ...board.nodes.filter((node) => node.parentId === nodeId).map((node) => node.id)]);
+      return {
+        ...board,
+        nodes: board.nodes.filter((node) => !removedIds.has(node.id)),
+        edges: board.edges.filter((edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target)),
+      };
+    }),
     dirty: true,
   })),
   duplicateNode: (nodeId) => {
     const board = activeBoard(get().document);
     const source = board.nodes.find((node) => node.id === nodeId);
     if (!source) return null;
+    if (source.type === "previewGroup") {
+      const groupId = get().addPreviewGroup({
+        layout: source.previewLayout ?? "1",
+        title: `${source.title} Kopie`,
+        position: { x: source.position.x + 48, y: source.position.y + 48 },
+        projectId: source.projectId,
+      });
+      if (!groupId) return null;
+      const originalSlots = board.nodes.filter((node) => node.parentId === source.id && node.type === "previewSlot");
+      const nextBoard = activeBoard(get().document);
+      const copies = nextBoard.nodes.filter((node) => node.parentId === groupId && node.type === "previewSlot");
+      copies.forEach((copy, index) => {
+        const original = originalSlots[index];
+        if (original) get().updateNode(copy.id, {
+          title: original.title,
+          previewTarget: original.previewTarget,
+          previewPath: original.previewPath,
+          previewDeviceId: original.previewDeviceId,
+          previewOrientation: original.previewOrientation,
+          previewSlotId: null,
+          previewIsolation: original.previewIsolation,
+          previewRuntime: original.previewRuntime,
+        });
+      });
+      return groupId;
+    }
     return get().addNode({
       ...source,
       title: `${source.title} Kopie`,

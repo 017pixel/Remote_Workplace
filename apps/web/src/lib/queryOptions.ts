@@ -32,6 +32,12 @@ export const workbenchQueries = {
       refetchInterval: 10_000,
       staleTime: 5_000,
     }),
+  previewSlots: () =>
+    queryOptions({
+      queryKey: ["preview-slots"],
+      queryFn: ({ signal }) => apiClient.previewSlots(signal),
+      staleTime: 2_000,
+    }),
   projects: () =>
     queryOptions({ queryKey: ["projects"], queryFn: ({ signal }) => apiClient.projects(signal), staleTime: 30_000 }),
   project: (projectId: string) =>

@@ -36,15 +36,34 @@ test("Tech TLDRs is a snap feed with a thumb-friendly island on mobile",async({p
     await page.screenshot({path:"/tmp/tech-tldrs-mobile-feed.png",fullPage:true});
     const bounds=await page.locator(".tech-tldrs-page").evaluate(element=>({client:element.clientWidth,scroll:element.scrollWidth}));expect(bounds.scroll).toBeLessThanOrEqual(bounds.client);
     const island=page.locator(".news-dynamic-island");await expect(island).toBeVisible();for(const button of await island.getByRole("button").all()){const box=await button.boundingBox();expect(box?.height).toBeGreaterThanOrEqual(44);}
-    const switchButtons=island.locator(".news-island-switch > button");const switchWidths=await switchButtons.evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().width));expect(Math.abs((switchWidths[0]??0)-(switchWidths[1]??0))).toBeLessThanOrEqual(1);const islandBox=await island.boundingBox();expect(Math.abs(((islandBox?.x??0)+(islandBox?.width??0)/2)-195)).toBeLessThanOrEqual(1);await expect(island.getByRole("button",{name:"KI-Assistent öffnen"})).toBeVisible();
-    const feed=page.locator(".news-mobile-feed");const snap=await feed.evaluate(element=>getComputedStyle(element).scrollSnapType);expect(snap).toContain("y");
-    const firstStory=page.locator(".news-story").first();const saveButton=firstStory.getByRole("button",{name:"Speichern"});const saveBox=await saveButton.boundingBox();const saveIconBox=await saveButton.locator("svg").boundingBox();expect(Math.abs(((saveBox?.x??0)+(saveBox?.width??0)/2)-((saveIconBox?.x??0)+(saveIconBox?.width??0)/2))).toBeLessThan(1);
-    await firstStory.getByRole("button",{name:"Vollversion"}).click();await expect(page.locator(".news-reader")).toBeVisible();const mobileChat=page.locator(".news-chat-panel");await expect(mobileChat).toHaveAttribute("aria-hidden","true");await page.getByRole("button",{name:"KI-Chat öffnen"}).click();await expect(mobileChat).toHaveAttribute("aria-hidden","false");await expect(page.locator(".news-reader")).toHaveClass(/is-chat-open/);await page.screenshot({path:"/tmp/tech-tldrs-mobile-reader.png",fullPage:true});await page.getByRole("button",{name:"KI-Chat schließen"}).click();await expect(mobileChat).toHaveAttribute("aria-hidden","true");await page.getByRole("button",{name:"Leser schließen"}).click();
-    await island.getByRole("button",{name:"Gespeichert"}).click();await expect(island.getByRole("button",{name:"Gespeichert"})).toHaveClass(/is-active/);const collectionButton=page.locator(".news-collection-rail button").filter({hasText:collectionName});await expect(collectionButton).toBeVisible();const collectionBounds=await collectionButton.boundingBox();expect(collectionBounds?.height).toBeGreaterThanOrEqual(44);await collectionButton.click();await expect(collectionButton).toHaveAttribute("aria-pressed","true");await expect(page.locator(".news-story h2").first()).toHaveText(item!.title);await page.screenshot({path:"/tmp/tech-tldrs-mobile-saved.png",fullPage:true});await page.locator(".news-story").first().getByRole("button",{name:"Vollversion"}).click();await expect(page.locator(".news-reader-actions").getByRole("button",{name:"Gespeichert"})).toBeVisible();
+    const switchButtons=island.locator(".news-island-switch > button");const switchWidths=await switchButtons.evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().width));expect(Math.abs((switchWidths[0]??0)-(switchWidths[1]??0))).toBeLessThanOrEqual(1);const islandBox=await island.boundingBox();expect(Math.abs(((islandBox?.x??0)+(islandBox?.width??0)/2)-195)).toBeLessThanOrEqual(1);
+    const aiTab=island.getByRole("button",{name:"KI-Recherche öffnen"});await expect(aiTab).toBeVisible();const aiBox=await aiTab.boundingBox();expect(aiBox?.width).toBeGreaterThanOrEqual(52);
+    // Der Feed ist ein Wisch-Pager: nur ein kleines Fenster liegt im DOM, gesteuert per Zeigergeste.
+    const feed=page.locator(".news-mobile-feed");await expect(page.locator(".news-pager-track")).toBeVisible();expect(await feed.evaluate(element=>getComputedStyle(element).touchAction)).toBe("none");expect(await page.locator(".news-story").count()).toBeLessThanOrEqual(4);
+    const firstStory=page.locator(".news-story.is-active");const saveButton=firstStory.getByRole("button",{name:"Speichern"});const saveBox=await saveButton.boundingBox();const saveIconBox=await saveButton.locator("svg").boundingBox();expect(Math.abs(((saveBox?.x??0)+(saveBox?.width??0)/2)-((saveIconBox?.x??0)+(saveIconBox?.width??0)/2))).toBeLessThan(1);
+    await firstStory.getByRole("button",{name:"Lesen"}).click();await expect(page.locator(".news-reader")).toBeVisible();const mobileChat=page.locator(".news-chat-panel");await expect(mobileChat).toHaveAttribute("aria-hidden","true");await page.getByRole("button",{name:"KI-Chat öffnen"}).click();await expect(mobileChat).toHaveAttribute("aria-hidden","false");await expect(page.locator(".news-reader")).toHaveClass(/is-chat-open/);await page.screenshot({path:"/tmp/tech-tldrs-mobile-reader.png",fullPage:true});await page.getByRole("button",{name:"KI-Chat schließen"}).click();await expect(mobileChat).toHaveAttribute("aria-hidden","true");await page.getByRole("button",{name:"Leser schließen"}).click();
+    await island.getByRole("button",{name:"Gespeichert"}).click();await expect(island.getByRole("button",{name:"Gespeichert"})).toHaveClass(/is-active/);const collectionButton=page.locator(".news-collection-rail button").filter({hasText:collectionName});await expect(collectionButton).toBeVisible();const collectionBounds=await collectionButton.boundingBox();expect(collectionBounds?.height).toBeGreaterThanOrEqual(44);await collectionButton.click();await expect(collectionButton).toHaveAttribute("aria-pressed","true");await expect(page.locator(".news-story.is-active h2")).toHaveText(item!.title);await page.screenshot({path:"/tmp/tech-tldrs-mobile-saved.png",fullPage:true});await page.locator(".news-story.is-active").getByRole("button",{name:"Lesen"}).click();await expect(page.locator(".news-reader-actions").getByRole("button",{name:"Gespeichert"})).toBeVisible();
   } finally {
     await page.request.put(`${apiOrigin}/api/v1/news/${item!.id}/collections`,{data:{collectionIds:item!.collectionIds}});
     await page.request.delete(`${apiOrigin}/api/v1/news/collections/${created.collection.id}`);
   }
+});
+
+test("Tech TLDRs opens the AI research page from the ask bar and lists its sources",async({page})=>{
+  test.setTimeout(120_000);
+  await page.goto(`${workbench}/tech-tldrs`);await expect(page.locator(".news-bento-card").first()).toBeVisible({timeout:30_000});
+  const aiPage=page.locator(".news-ai-page");await expect(aiPage).toHaveAttribute("aria-hidden","true");
+  await page.locator(".news-ask-bar input").fill("Fasse die drei wichtigsten Nachrichten von heute zusammen.");
+  await page.locator(".news-ask-bar button").click();
+  await expect(aiPage).toHaveAttribute("aria-hidden","false");
+  await expect(page.locator(".news-ai-question")).toHaveText("Fasse die drei wichtigsten Nachrichten von heute zusammen.");
+  await expect(page.locator(".news-ai-answer")).toBeVisible({timeout:90_000});
+  await expect(page.locator(".news-ai-sources .news-source-list button").first()).toBeVisible();
+  await expect(page.locator(".news-model-picker select")).toHaveValue("auto");
+  await page.locator(".news-model-picker select").selectOption("mistral-small-2603");
+  await page.reload();await expect(page.locator(".news-model-picker select")).toHaveValue("mistral-small-2603");
+  await page.locator(".news-model-picker select").selectOption("auto");
+  await page.screenshot({path:"/tmp/tech-tldrs-desktop-ai.png",fullPage:true});
 });
 
 test("Tech TLDRs embeds YouTube with a referrer and keeps a direct fallback",async({page})=>{

@@ -33,8 +33,8 @@ export function browserClipboardAction(
   const key = event.key.toLowerCase();
   if (key !== "c" && key !== "v") return null;
   if (applePlatform) {
-    if (!event.metaKey || event.ctrlKey || (key === "c" && event.shiftKey)) return null;
-  } else if (!event.ctrlKey || event.metaKey || (key === "c" && event.shiftKey)) return null;
+    if (!event.metaKey || event.ctrlKey) return null;
+  } else if (!event.ctrlKey || event.metaKey) return null;
   return key === "c" ? "copy" : "paste";
 }
 

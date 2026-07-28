@@ -1,14 +1,25 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileCode2,
   File,
+  Check,
+  Copy,
+  ExternalLink,
   FolderGit2,
   Frame,
   ListTodo,
+  Maximize2,
+  MonitorSmartphone,
+  MoreHorizontal,
   Plus,
+  RotateCw,
   Save,
+  Server,
+  ShieldCheck,
+  Smartphone,
   Trash2,
+  X,
 } from "lucide-react";
 import { Handle, NodeResizeControl, Position, type NodeProps } from "@xyflow/react";
 import type { OrbitNode, Panel } from "@workbench/contracts";
@@ -20,6 +31,14 @@ import { parseOrbitTodo, serializeOrbitTodo, type OrbitTodoItem } from "../../li
 import { useOrbitStore } from "../../stores/orbit";
 import { ToolPanel } from "../ToolPanel";
 import { OrbitGalleryNode } from "./OrbitGalleryNode";
+import { LocalPorts } from "../browser/LocalPorts";
+import { PreviewSlotFrame } from "../PreviewSlotFrame";
+import { DevicePreviewFrame } from "../DevicePreviewFrame";
+import { ChromiumBrowser } from "../browser/ChromiumBrowser";
+import { normalizePreviewTarget, previewTargetOrigin } from "../../lib/previewTargets";
+import { openPreviewGroupWindow } from "../../lib/previewWindow";
+import { findDevicePreset, getGroupedDevicePresets, type DevicePresetId } from "../../config/devicePresets";
+import { previewSlotReleasedOnTargetChange, previewSlotsReleasedWithNode, releasePreviewSlots } from "../../lib/previewSlotLifecycle";
 
 const toolLabels: Record<NonNullable<Panel["type"]>, string> = {
   "t3-code": "T3 Code",
@@ -244,6 +263,205 @@ function FrameNode({ id, selected }: { id: string; selected: boolean }) {
   return <div className={`orbit-frame-node ${selected ? "is-selected" : ""}`}><OrbitNodeResizer id={id} selected={selected} minWidth={320} minHeight={240} /><div className="orbit-frame-title orbit-node-drag-handle"><Frame className="h-3.5 w-3.5" />{node.title}</div><EdgeHandles frame /></div>;
 }
 
+function PreviewGroupNode({ id, selected }: { id: string; selected: boolean }) {
+  const node = useActiveOrbitNode(id)!;
+  const updateNode = useOrbitStore((state) => state.updateNode);
+  const setLayout = useOrbitStore((state) => state.setPreviewGroupLayout);
+  const duplicateNode = useOrbitStore((state) => state.duplicateNode);
+  const removeNode = useOrbitStore((state) => state.removeNode);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const layout = node.previewLayout ?? "1";
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const close = () => {
+    const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+    if (board) void releasePreviewSlots(previewSlotsReleasedWithNode(board, id));
+    removeNode(id);
+  };
+  return (
+    <div className={`orbit-preview-group ${selected ? "is-selected" : ""}`}>
+      <OrbitNodeResizer id={id} selected={selected} minWidth={420} minHeight={300} />
+      <header className="orbit-preview-group-header orbit-node-drag-handle">
+        <input
+          className="nodrag"
+          value={node.title}
+          aria-label="Name der Preview-Gruppe"
+          onChange={(event) => updateNode(id, { title: event.target.value || "Preview-Gruppe", previewLastUsedAt: new Date().toISOString() })}
+        />
+        {/* Freie Fläche der Leiste bleibt Ziehgriff für die ganze Gruppe. */}
+        <span className="orbit-preview-group-drag" aria-hidden />
+        <div className="orbit-preview-layout nodrag" aria-label="Gruppenlayout">
+          {(["1", "2", "3", "6"] as const).map((value) => <button type="button" key={value} className={layout === value ? "is-active" : ""} onClick={() => setLayout(id, value)}>{value}</button>)}
+        </div>
+        <button type="button" className="nodrag" title="Alle Slots neu laden" aria-label="Alle Slots neu laden" onClick={() => {
+          const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+          board?.nodes.filter((slot) => slot.parentId === id).forEach((slot) => updateNode(slot.id, { content: String(Number(slot.content || "0") + 1) }));
+        }}><RotateCw className="h-3.5 w-3.5" /></button>
+        <button type="button" className="nodrag" title={fullscreen ? "Vollbild verlassen" : "Orbit mit laufenden Previews im Vollbild anzeigen"} aria-label={fullscreen ? "Vollbild verlassen" : "Vollbild"} onClick={(event) => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void event.currentTarget.closest(".react-flow")?.requestFullscreen?.();
+        }}><Maximize2 className="h-3.5 w-3.5" /></button>
+        <div className="orbit-preview-menu-wrap nodrag" ref={menuRef}>
+          <button type="button" onClick={() => setMenuOpen((open) => !open)} aria-label="Gruppenmenü" aria-expanded={menuOpen}><MoreHorizontal className="h-3.5 w-3.5" /></button>
+          {menuOpen ? <div className="orbit-preview-menu"><button type="button" onClick={() => { openPreviewGroupWindow(id, useOrbitStore.getState().document); setMenuOpen(false); }}><ExternalLink className="h-3.5 w-3.5" />Externes Fenster</button><button type="button" onClick={() => { duplicateNode(id); setMenuOpen(false); }}><Copy className="h-3.5 w-3.5" />Duplizieren</button><button type="button" onClick={() => { updateNode(id, { previewLastUsedAt: new Date().toISOString() }); setMenuOpen(false); }}><Save className="h-3.5 w-3.5" />Als Vorlage merken</button></div> : null}
+        </div>
+        <button type="button" className="nodrag is-danger" title="Gruppe schließen" aria-label="Gruppe schließen" onClick={close}><X className="h-3.5 w-3.5" /></button>
+      </header>
+      <div className="orbit-preview-group-grid" aria-hidden />
+      <EdgeHandles />
+    </div>
+  );
+}
+
+function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
+  const node = useActiveOrbitNode(id)!;
+  const updateNode = useOrbitStore((state) => state.updateNode);
+  const focusNode = useOrbitStore((state) => state.focusNode);
+  const [targetDraft, setTargetDraft] = useState(node.previewTarget ?? "");
+  const [deviceOpen, setDeviceOpen] = useState(false);
+  const [publicUrl, setPublicUrl] = useState<string | null>(null);
+  const deviceMenuRef = useRef<HTMLDivElement>(null);
+  const target = normalizePreviewTarget(node.previewTarget ?? "");
+  const localPorts = useQuery(workbenchQueries.localPorts());
+  const reachable = target?.kind === "external" || (target?.kind === "local" && localPorts.data?.ports.some((port) => port.port === target.port && port.protocol !== "unknown"));
+  const stateTitle = !target ? "Kein Preview-Ziel" : reachable ? "Preview-Ziel erreichbar" : localPorts.isLoading ? "Erreichbarkeit wird geprüft" : "Preview-Ziel nicht erreichbar";
+  const deviceId = (node.previewDeviceId ?? "responsive") as DevicePresetId;
+  const reloadKey = Number(node.content || "0");
+  useEffect(() => {
+    if (!deviceOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!deviceMenuRef.current?.contains(event.target as Node)) setDeviceOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setDeviceOpen(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [deviceOpen]);
+  const saveTarget = (value: string) => {
+    const normalized = normalizePreviewTarget(value);
+    if (!normalized) return;
+    const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+    const release = board ? previewSlotReleasedOnTargetChange(board, id) : null;
+    if (release) void releasePreviewSlots([release]);
+    updateNode(id, {
+      previewTarget: normalized.kind === "local" ? String(normalized.port) : normalized.url,
+      previewPath: normalized.kind === "local" ? normalized.path : "/",
+      previewSlotId: null,
+      previewLastUsedAt: new Date().toISOString(),
+    });
+    setTargetDraft(normalized.kind === "local" ? String(normalized.port) : normalized.url);
+  };
+  const clear = () => {
+    const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+    const release = board ? previewSlotReleasedOnTargetChange(board, id) : null;
+    if (release) void releasePreviewSlots([release]);
+    updateNode(id, { previewTarget: null, previewSlotId: null });
+    setTargetDraft("");
+    setPublicUrl(null);
+  };
+  const detach = () => {
+    if (!node.parentId) return;
+    const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+    const group = board?.nodes.find((candidate) => candidate.id === node.parentId);
+    updateNode(id, {
+      parentId: null,
+      position: group ? { x: group.position.x + node.position.x + 32, y: group.position.y + node.position.y + 32 } : node.position,
+      size: { width: 480, height: 360 },
+    });
+  };
+  return (
+    <div className={`orbit-preview-slot ${selected ? "is-selected" : ""} ${node.previewIsolation ? "is-isolated" : ""}`}>
+      {!node.parentId ? <OrbitNodeResizer id={id} selected={selected} minWidth={320} minHeight={240} /> : null}
+      <header
+        className="orbit-node-drag-handle"
+        title={node.parentId ? "Ziehen oder doppelklicken zum Herauslösen" : "Preview verschieben"}
+        onDoubleClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (node.parentId && (target === event.currentTarget || target.classList.contains("orbit-preview-slot-drag"))) detach();
+        }}
+      >
+        <span className={`orbit-preview-state ${reachable ? "is-active" : target && !localPorts.isLoading ? "is-error" : ""}`} title={stateTitle} />
+        <input className="nodrag" value={node.title} aria-label="Slot-Label" maxLength={40} onChange={(event) => updateNode(id, { title: event.target.value || "Preview" })} />
+        {node.previewIsolation ? <i title="Eigene localStorage-/IndexedDB-Session" /> : null}
+        {/* Freie Fläche zieht den Slot aus der Gruppe heraus. */}
+        <span className="orbit-preview-slot-drag" aria-hidden />
+        <div className="orbit-preview-runtime nodrag" role="group" aria-label="Preview-Quelle">
+          <button
+            type="button"
+            className={node.previewRuntime === "iframe" ? "is-active" : ""}
+            aria-pressed={node.previewRuntime === "iframe"}
+            title="Direkt: iframe auf den lokalen Devserver"
+            onClick={() => updateNode(id, { previewRuntime: "iframe" })}
+          ><ShieldCheck className="h-3 w-3" /><span>Direkt</span></button>
+          <button
+            type="button"
+            className={node.previewRuntime === "shared-browser" ? "is-active" : ""}
+            aria-pressed={node.previewRuntime === "shared-browser"}
+            title="Server: gestreamter Chromium auf dem Entwicklungsserver"
+            onClick={() => updateNode(id, { previewRuntime: "shared-browser" })}
+          ><Server className="h-3 w-3" /><span>Server</span></button>
+        </div>
+        <div className="orbit-preview-device nodrag" ref={deviceMenuRef}>
+          <button type="button" onClick={() => setDeviceOpen((open) => !open)} title="Geräte-Preset wählen" aria-expanded={deviceOpen}><Smartphone className="h-3 w-3" /><span>{findDevicePreset(deviceId).label}</span></button>
+          {deviceOpen ? <div className="orbit-preview-device-menu nodrag nopan nowheel">{getGroupedDevicePresets().map((group) => <div key={group.group}><small>{group.label}</small>{group.devices.map((device) => <button type="button" key={device.id} className={device.id === deviceId ? "is-active" : ""} onClick={() => { updateNode(id, { previewDeviceId: device.id }); setDeviceOpen(false); }}>{device.label}{device.id === deviceId ? <Check className="h-3 w-3" /> : null}</button>)}</div>)}</div> : null}
+        </div>
+        {deviceId !== "responsive" ? <button type="button" className="nodrag" title="Ausrichtung drehen" onClick={() => updateNode(id, { previewOrientation: node.previewOrientation === "portrait" ? "landscape" : "portrait" })}><MonitorSmartphone className="h-3 w-3" /></button> : null}
+        <button type="button" className="nodrag" title="Slot leeren" onClick={clear}><X className="h-3 w-3" /></button>
+      </header>
+      <div className="orbit-preview-slot-body nodrag nopan nowheel">
+        {!target ? <div className="orbit-preview-empty">
+          <form onSubmit={(event) => { event.preventDefault(); saveTarget(targetDraft); }}><input value={targetDraft} onChange={(event) => setTargetDraft(event.target.value)} placeholder="Port oder URL" aria-label="Preview-Port oder URL" /><button type="submit" disabled={!normalizePreviewTarget(targetDraft)}><ExternalLink className="h-3.5 w-3.5" />Öffnen</button></form>
+          <LocalPorts compact onOpen={(port) => saveTarget(String(port.port))} />
+          <small>Port-Slots trennen localStorage und IndexedDB. Cookies gelten weiterhin hostweit.</small>
+        </div> : node.previewRuntime === "shared-browser" ? (
+          <DevicePreviewFrame deviceId={deviceId} orientation={node.previewOrientation} runtime="shared-browser" origin={previewTargetOrigin(target)}>
+            <ChromiumBrowser instanceId={`preview-slot:${id}`} profileKey={`preview-slot:${node.previewSlotId ?? id}`} initialUrl={target.kind === "local" ? `http://127.0.0.1:${target.port}${node.previewPath}` : target.url} />
+          </DevicePreviewFrame>
+        ) : target.kind === "local" ? (
+          <PreviewSlotFrame
+            targetPort={target.port}
+            path={node.previewPath}
+            requestedSlotId={node.previewSlotId}
+            isolate={node.previewIsolation}
+            deviceId={deviceId}
+            orientation={node.previewOrientation}
+            reloadKey={reloadKey}
+            title={node.title}
+            lazy
+            projectId={node.projectId}
+            sessionKey={`orbit-preview:${id}`}
+            onSlotAssigned={(slotId, url) => { if (slotId !== node.previewSlotId) updateNode(id, { previewSlotId: slotId }); setPublicUrl(url); }}
+            onFocus={() => focusNode(id)}
+          />
+        ) : <DevicePreviewFrame deviceId={deviceId} orientation={node.previewOrientation} runtime="iframe" origin={previewTargetOrigin(target)}><iframe src={target.url} title={node.title} className="h-full w-full border-0 bg-white" allowFullScreen /></DevicePreviewFrame>}
+      </div>
+      {publicUrl ? <a className="orbit-preview-external nodrag" href={publicUrl} target="_blank" rel="noopener noreferrer" title="Slot extern öffnen"><Maximize2 className="h-3 w-3" /></a> : null}
+      {!node.parentId ? <EdgeHandles /> : null}
+    </div>
+  );
+}
+
 function OrbitNodeComponent(props: NodeProps) {
   const id = props.id;
   const selected = Boolean(props.selected);
@@ -254,6 +472,8 @@ function OrbitNodeComponent(props: NodeProps) {
   const content = useMemo(() => {
     if (type === "project") return <ProjectNode id={id} selected={selected} />;
     if (type === "tool") return <ToolNode id={id} selected={selected} />;
+    if (type === "previewGroup") return <PreviewGroupNode id={id} selected={selected} />;
+    if (type === "previewSlot") return <PreviewSlotNode id={id} selected={selected} />;
     if (type === "note") return <NoteNode id={id} selected={selected} />;
     if (type === "todo") return <TodoNode id={id} selected={selected} />;
     if (type === "snippet") return <SnippetNode id={id} selected={selected} />;

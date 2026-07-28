@@ -1,6 +1,6 @@
 {
   "name": "@workbench/server",
-  "version": "0.30.3",
+  "version": "0.35.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,7 +18,7 @@
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "11.1.0",
     "@fastify/reply-from": "12.6.3",
-    "@fastify/static": "10.1.0",
+    "@fastify/static": "10.1.2",
     "@fastify/websocket": "^11.3.0",
     "@workbench/contracts": "workspace:*",
     "dotenv": "17.4.2",

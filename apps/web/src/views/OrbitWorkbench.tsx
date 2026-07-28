@@ -61,13 +61,14 @@ import type { OrbitPalettePayload } from "../components/Sidebar";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
+import { previewSlotsReleasedWithNode, releasePreviewSlots } from "../lib/previewSlotLifecycle";
 import { consumeOrbitIntents } from "../lib/workbenchActions";
 import { resolveOrbitProjectId } from "../lib/orbitProjectBinding";
 import { nearestEdgeSides, orbitEdgeColor } from "../lib/orbitAppearance";
 import { OrbitColorPicker } from "../components/orbit/OrbitColorPicker";
 import { compactedOrbitBounds, expandedOrbitBounds, orbitBoundsEqual } from "../lib/orbitTerritory";
 import { serializeOrbitTodo } from "../lib/orbitTodo";
-import { getActiveOrbitBoard, orbitDefaultNodeSize, useOrbitStore } from "../stores/orbit";
+import { getActiveOrbitBoard, orbitDefaultNodeSize, previewGroupSize, previewSlotGeometry, useOrbitStore } from "../stores/orbit";
 import { useWorkspaceStore } from "../stores/workspace";
 
 const nodeTypes = { orbit: OrbitNodeView };
@@ -79,6 +80,8 @@ const DELETE_ZONE_HEIGHT = 128;
 const typeLabels: Record<OrbitNode["type"], string> = {
   project: "Projekt-Hub",
   tool: "Live-Werkzeug",
+  previewGroup: "Preview-Gruppe",
+  previewSlot: "Preview-Slot",
   note: "Notiz",
   todo: "To-do-Liste",
   snippet: "Code-Snippet",
@@ -96,15 +99,22 @@ type CanvasInteraction = "node" | "pane";
 const MINIMAP_WIDTH = 144;
 const MINIMAP_HEIGHT = 94;
 
-function flowNode(node: OrbitNode, focusedNodeId: string | null, interactive = true): FlowNode {
+function flowNode(node: OrbitNode, focusedNodeId: string | null, interactive = true, board?: OrbitBoard): FlowNode {
+  const parent = node.parentId ? board?.nodes.find((candidate) => candidate.id === node.parentId) : undefined;
+  const siblings = parent ? (board?.nodes.filter((candidate) => candidate.parentId === parent.id && candidate.type === "previewSlot") ?? []).sort((left, right) => left.zIndex - right.zIndex) : [];
+  const childIndex = parent ? siblings.findIndex((candidate) => candidate.id === node.id) : -1;
+  const geometry = parent && childIndex >= 0 ? previewSlotGeometry(parent, childIndex) : null;
+  const activeSlots = parent ? Number(parent.previewLayout ?? "1") : 0;
   return {
     id: node.id,
     type: "orbit",
-    position: node.position,
+    position: geometry?.position ?? node.position,
     data: {},
-    width: node.size.width,
-    height: node.size.height,
-    style: { width: node.size.width, height: node.size.height, zIndex: node.type === "frame" ? 0 : Math.max(1, node.zIndex) },
+    width: geometry?.size.width ?? node.size.width,
+    height: geometry?.size.height ?? node.size.height,
+    style: { width: geometry?.size.width ?? node.size.width, height: geometry?.size.height ?? node.size.height, zIndex: node.type === "frame" || node.type === "previewGroup" ? 0 : Math.max(1, node.zIndex) },
+    ...(node.parentId ? { parentId: node.parentId } : {}),
+    hidden: childIndex >= activeSlots && childIndex >= 0,
     dragHandle: ".orbit-node-drag-handle",
     draggable: !node.locked && interactive,
     selectable: interactive,
@@ -211,6 +221,10 @@ function commandPayloads(projects: Project[]): Array<{ keywords: string; payload
     { keywords: "terminal shell konsole", payload: { type: "tool", title: "Terminal", toolType: "terminal" } },
     { keywords: "t3 code agent", payload: { type: "tool", title: "T3 Code", toolType: "t3-code" } },
     { keywords: "preview browser web", payload: { type: "tool", title: "Preview", toolType: "preview" } },
+    { keywords: "preview gruppe einzeln 1er split", payload: { type: "previewGroup", title: "Einzel-Preview", layout: "1" } },
+    { keywords: "preview gruppe 2er split", payload: { type: "previewGroup", title: "2er-Preview-Gruppe", layout: "2" } },
+    { keywords: "preview gruppe 3er split", payload: { type: "previewGroup", title: "3er-Preview-Gruppe", layout: "3" } },
+    { keywords: "preview gruppe 6er 2x3 split", payload: { type: "previewGroup", title: "6er-Preview-Gruppe", layout: "6" } },
     { keywords: "browser chromium google web", payload: { type: "tool", title: "Browser", toolType: "browser" } },
     { keywords: "editor code server vscode", payload: { type: "tool", title: "Code-Server", toolType: "code-server" } },
     { keywords: "codex agent", payload: { type: "tool", title: "Codex", toolType: "codex" } },
@@ -345,6 +359,7 @@ function OrbitCanvas() {
   const syncNotice = useOrbitStore((state) => state.syncNotice);
   const updatedAt = useOrbitStore((state) => state.updatedAt);
   const addNode = useOrbitStore((state) => state.addNode);
+  const addPreviewGroup = useOrbitStore((state) => state.addPreviewGroup);
   const updateNode = useOrbitStore((state) => state.updateNode);
   const removeNode = useOrbitStore((state) => state.removeNode);
   const duplicateNode = useOrbitStore((state) => state.duplicateNode);
@@ -354,6 +369,11 @@ function OrbitCanvas() {
   const updateEdge = useOrbitStore((state) => state.updateEdge);
   const setViewport = useOrbitStore((state) => state.setViewport);
   const setWorldBounds = useOrbitStore((state) => state.setWorldBounds);
+  const removeNodeAndReleaseSlots = useCallback((nodeId: string) => {
+    const current = getActiveOrbitBoard();
+    void releasePreviewSlots(previewSlotsReleasedWithNode(current, nodeId));
+    removeNode(nodeId);
+  }, [removeNode]);
   const activateBoard = useOrbitStore((state) => state.activateBoard);
   const addBoard = useOrbitStore((state) => state.addBoard);
   const renameBoard = useOrbitStore((state) => state.renameBoard);
@@ -405,7 +425,7 @@ function OrbitCanvas() {
   const suppressContextMenuRef = useRef(false);
   const toolbarRef = useRef<HTMLElement>(null);
   const prevFocusedNodeIdRef = useRef<string | null>(document.focusedNodeId);
-  const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}`).join("|");
+  const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.parentId ?? ""}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}:${node.previewLayout ?? ""}:${node.previewTarget ?? ""}:${node.previewDeviceId ?? ""}:${node.previewSlotId ?? ""}`).join("|");
   const nodeProjectKey = board.nodes.map((node) => `${node.id}:${node.projectId ?? ""}`).join("|");
   // Die Kantenfarbe hängt an der Knotenfarbe (siehe orbitEdgeColor). Ohne diesen
   // Schlüssel wurde `nodesById` beim Umfärben nicht neu berechnet: Der Knoten
@@ -435,12 +455,12 @@ function OrbitCanvas() {
     setFlowNodes((current) => {
       const selectedIds = focusedChanged ? null : new Set(current.filter((n) => n.selected).map((n) => n.id));
       return board.nodes.map((node) => {
-        const flow = flowNode(node, document.focusedNodeId, canvasInteractive);
+        const flow = flowNode(node, document.focusedNodeId, canvasInteractive, board);
         if (selectedIds?.has(node.id)) flow.selected = true;
         return flow;
       });
     });
-  }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive]);
+  }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive, board]);
   const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey, nodeColorKey]);
   useEffect(() => { setFlowEdges(board.edges.map((edge) => flowEdge(edge, nodesById))); }, [board.edges, nodesById]);
   useEffect(() => {
@@ -633,6 +653,45 @@ function OrbitCanvas() {
   const addPayload = useCallback((payload: OrbitPalettePayload, requestedPosition?: { x: number; y: number }) => {
     const requestedCenter = requestedPosition ?? centerPosition();
     const current = getActiveOrbitBoard();
+    if (payload.type === "previewGroup") {
+      const layout = payload.layout ?? "1";
+      const size = previewGroupSize(layout);
+      const position = requestedPosition
+        ? { x: requestedCenter.x - size.width / 2, y: requestedCenter.y - size.height / 2 }
+        : freePosition(current, requestedCenter, size);
+      const source = payload.referenceId ? current.nodes.find((node) => node.id === payload.referenceId && node.type === "previewGroup") : undefined;
+      const sourceSlots = source ? current.nodes.filter((node) => node.parentId === source.id && node.type === "previewSlot").sort((left, right) => left.zIndex - right.zIndex) : [];
+      const id = addPreviewGroup({
+        layout,
+        title: payload.title,
+        position,
+        projectId: source?.projectId ?? selectedProjectId,
+        targetPort: payload.targetPort ?? null,
+      });
+      if (id && source) {
+        updateNode(id, { previewReferenceId: source.id });
+        const created = getActiveOrbitBoard().nodes.filter((node) => node.parentId === id && node.type === "previewSlot").sort((left, right) => left.zIndex - right.zIndex);
+        created.forEach((slot, index) => {
+          const original = sourceSlots[index];
+          if (original) updateNode(slot.id, {
+            title: original.title,
+            previewTarget: original.previewTarget,
+            previewPath: original.previewPath,
+            previewDeviceId: original.previewDeviceId,
+            previewOrientation: original.previewOrientation,
+            previewSlotId: original.previewSlotId,
+            previewIsolation: original.previewIsolation,
+            previewRuntime: original.previewRuntime,
+            previewReferenceId: source.id,
+          });
+        });
+      }
+      if (id) {
+        focusNode(isMobile ? null : id);
+        if (!requestedPosition) revealPosition(position, size);
+      }
+      return;
+    }
     if (payload.type === "project" && payload.projectId) {
       const existing = current.nodes.find((node) => node.type === "project" && node.projectId === payload.projectId);
       selectProject(payload.projectId);
@@ -667,7 +726,7 @@ function OrbitCanvas() {
       focusNode(payload.type === "project" || !isMobile ? id : null);
       if (!requestedPosition) revealPosition(position, size);
     }
-  }, [addNode, centerPosition, document.focusedNodeId, focusNode, isMobile, projects, revealPosition, selectProject, selectedProjectId]);
+  }, [addNode, addPreviewGroup, centerPosition, document.focusedNodeId, focusNode, isMobile, projects, revealPosition, selectProject, selectedProjectId, updateNode]);
 
   const [pasteStatus, setPasteStatus] = useState("");
   const queryClient = useQueryClient();
@@ -757,9 +816,9 @@ function OrbitCanvas() {
       if (change.type === "select" && change.selected) {
         if (stored?.type === "project" && stored.projectId) selectProject(stored.projectId);
       }
-      if (change.type === "remove") removeNode(change.id);
+      if (change.type === "remove") removeNodeAndReleaseSlots(change.id);
     }
-  }, [removeNode, selectProject]);
+  }, [removeNodeAndReleaseSlots, selectProject]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setFlowEdges((current) => applyEdgeChanges(changes, current));
@@ -839,13 +898,49 @@ function OrbitCanvas() {
     setDraggingNodeId(null);
     setDeleteArmed(false);
     if (shouldDelete) {
-      window.setTimeout(() => removeNode(dragged.id), 120);
+      window.setTimeout(() => removeNodeAndReleaseSlots(dragged.id), 120);
       return;
+    }
+    const point = dragPoint(event);
+    const currentBefore = getActiveOrbitBoard();
+    const stored = currentBefore.nodes.find((node) => node.id === dragged.id);
+    if (stored?.type === "previewSlot" && point) {
+      const targetId = orbitNodeIdAtPoint(point, dragged.id);
+      const hit = currentBefore.nodes.find((node) => node.id === targetId);
+      const targetGroupId = hit?.type === "previewGroup" ? hit.id : hit?.type === "previewSlot" ? hit.parentId : null;
+      if (stored.parentId) {
+        const parentElement = globalThis.document.querySelector<HTMLElement>(`.react-flow__node-orbit[data-id="${CSS.escape(stored.parentId)}"]`);
+        const bounds = parentElement?.getBoundingClientRect();
+        const outside = bounds ? point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom : false;
+        if (outside) {
+          const absolute = instanceRef.current?.screenToFlowPosition(point) ?? dragged.position;
+          updateNode(stored.id, { parentId: null, position: { x: absolute.x - 240, y: absolute.y - 180 }, size: { width: 480, height: 360 } });
+          return;
+        }
+        if (hit?.type === "previewSlot" && hit.parentId === stored.parentId && hit.id !== stored.id) {
+          updateNode(stored.id, { zIndex: hit.zIndex });
+          updateNode(hit.id, { zIndex: stored.zIndex });
+          return;
+        }
+      } else if (targetGroupId) {
+        const targetGroup = currentBefore.nodes.find((node) => node.id === targetGroupId);
+        if (targetGroup?.type === "previewGroup") {
+          const occupied = currentBefore.nodes.filter((node) => node.parentId === targetGroupId && node.type === "previewSlot").length;
+          if (occupied >= 6) return;
+          const capacity = Number(targetGroup.previewLayout ?? "1");
+          const required = occupied + 1;
+          if (required > capacity) {
+            useOrbitStore.getState().setPreviewGroupLayout(targetGroupId, required <= 2 ? "2" : required <= 3 ? "3" : "6");
+          }
+          updateNode(stored.id, { parentId: targetGroupId, position: { x: 8, y: 52 }, size: { width: 320, height: 240 } });
+          return;
+        }
+      }
     }
     updateNode(dragged.id, { position: dragged.position });
     const current = getActiveOrbitBoard();
     setWorldBounds(compactedOrbitBounds(current.nodes.map((node) => node.id === dragged.id ? { ...node, position: dragged.position } : node)));
-  }, [endCanvasInteraction, isOverDeleteZone, removeNode, setWorldBounds, updateNode]);
+  }, [endCanvasInteraction, isOverDeleteZone, removeNodeAndReleaseSlots, setWorldBounds, updateNode]);
 
   const startCanvasPan: OnMoveStart = useCallback(() => {
     beginCanvasInteraction("pane");
@@ -1063,7 +1158,7 @@ function OrbitCanvas() {
             value={contextNode.color}
             onSelect={(color) => { updateNode(contextNode.id, { color }); setContextMenu(null); }}
           />
-          <button type="button" role="menuitem" className="is-danger" onClick={() => { removeNode(contextNode.id); setContextMenu(null); }}><Trash2 className="h-4 w-4" /><span>Komplett löschen</span></button>
+          <button type="button" role="menuitem" className="is-danger" onClick={() => { removeNodeAndReleaseSlots(contextNode.id); setContextMenu(null); }}><Trash2 className="h-4 w-4" /><span>Komplett löschen</span></button>
         </div> : <div className="orbit-context-actions">
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "note", title: "Neue Textfläche" })}><StickyNote className="h-4 w-4" /><span>Neue Textfläche</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "todo", title: "To-do-Liste" })}><ListTodo className="h-4 w-4" /><span>Neue To-do-Liste</span></button>
@@ -1071,6 +1166,8 @@ function OrbitCanvas() {
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Codex", toolType: "codex" })}><Command className="h-4 w-4" /><span>Codex öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "OpenCode", toolType: "opencode" })}><Command className="h-4 w-4" /><span>OpenCode öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "frame", title: "Neuer Bereich" })}><Frame className="h-4 w-4" /><span>Neuer Bereich</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "Einzel-Preview", layout: "1" })}><Frame className="h-4 w-4" /><span>Einzel-Preview</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "3er-Preview-Gruppe", layout: "3" })}><Frame className="h-4 w-4" /><span>3er-Preview-Gruppe</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "gallery", title: "Mediengalerie" })}><Frame className="h-4 w-4" /><span>Mediengalerie öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => addFromContext({ type: "fileGallery", title: "Dateigalerie" })}><Frame className="h-4 w-4" /><span>Dateigalerie öffnen</span></button>
           <button type="button" role="menuitem" onClick={() => { setContextMenu(null); setCommandOpen(true); }}><Search className="h-4 w-4" /><span>Alle Aktionen</span></button>

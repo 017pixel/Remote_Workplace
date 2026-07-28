@@ -350,9 +350,12 @@ class BrowserSession {
   }
 
   private async startScreencast(metrics = browserCaptureMetrics(this.width, this.height, this.captureOptions())) {
+    const pixelCount = metrics.captureWidth * metrics.captureHeight;
+    const baseQuality = this.captureOptions().captureJpegQuality;
+    const quality = pixelCount > 1_000_000 ? Math.max(40, baseQuality - 30) : pixelCount > 500_000 ? Math.max(50, baseQuality - 15) : baseQuality;
     await this.cdp.send("Page.startScreencast", {
       format: "jpeg",
-      quality: this.captureOptions().captureJpegQuality,
+      quality,
       maxWidth: metrics.captureWidth,
       maxHeight: metrics.captureHeight,
       everyNthFrame: this.captureOptions().captureEveryNthFrame,

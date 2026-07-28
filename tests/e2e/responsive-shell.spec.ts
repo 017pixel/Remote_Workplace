@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.use({ extraHTTPHeaders: { "tailscale-user-login": "user@example.com" } });
 
@@ -6,6 +6,30 @@ const routes = [
   "", "projects", "settings", "usage", "workbench", "tech-tldrs",
   "browser", "terminal", "previews", "code-editor", "t3-code", "codex", "opencode", "notion",
 ];
+
+async function mockPreviewSlots(page: Page) {
+  const slots = Array.from({ length: 6 }, (_, index) => ({
+    id: index + 1,
+    internalPort: 3_901 + index,
+    publicPort: 8_451 + index,
+    targetPort: null as number | null,
+    publicUrl: `https://preview-${index + 1}.example.test/`,
+    updatedAt: null as string | null,
+  }));
+  await page.route("**/api/v1/previews/slots", async (route) => {
+    let assignedSlotId: number | null = null;
+    if (route.request().method() === "PUT") {
+      const input = route.request().postDataJSON() as { slotId?: number | null; targetPort: number | null };
+      assignedSlotId = input.slotId ?? slots.find((slot) => slot.targetPort === null)?.id ?? null;
+      const slot = slots.find((candidate) => candidate.id === assignedSlotId);
+      if (slot) {
+        slot.targetPort = input.targetPort;
+        slot.updatedAt = new Date().toISOString();
+      }
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ slots, assignedSlotId }) });
+  });
+}
 
 test("uses the touch shell without desktop chrome", async ({ page }) => {
   await page.goto("/workbench/");
@@ -74,6 +98,7 @@ test("keeps route floating controls behind the navigation page", async ({ page }
 
 test("keeps all main routes inside the viewport", async ({ page }) => {
   test.setTimeout(90_000);
+  await mockPreviewSlots(page);
   for (const route of routes) {
     await page.goto(`/workbench/${route}`);
     await expect(page.locator(".app-shell")).toBeVisible();

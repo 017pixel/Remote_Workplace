@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export interface ModalFrameProps {
@@ -53,7 +54,9 @@ export function ModalFrame({ open, title, description, className, backdropClassN
   }, [open]);
 
   if (!open) return null;
-  return (
+  /* Über einen Portal an <body>, damit transformierte Eltern (z. B. Karten mit Hover-Transform)
+     kein neues Bezugssystem für position:fixed aufspannen und der Dialog immer mittig sitzt. */
+  return createPortal(
     <div className={`modal-backdrop ${backdropClassName ?? ""}`} role="presentation" onPointerDown={requestClose}>
       <div ref={frameRef} className={`modal-sheet ${className ?? ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? "modal-description" : undefined} onPointerDown={(event) => event.stopPropagation()}>
         <header>
@@ -62,7 +65,8 @@ export function ModalFrame({ open, title, description, className, backdropClassN
         </header>
         {children(requestClose)}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

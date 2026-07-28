@@ -4,12 +4,14 @@ import { persist } from "zustand/middleware";
 export type OrbitToolType = "terminal" | "t3-code" | "preview" | "browser" | "code-server" | "codex" | "opencode";
 export type OrbitBlockType = "note" | "todo" | "snippet" | "frame" | "usage-codex" | "usage-opencode" | "usage-claude";
 export type OrbitGalleryType = "gallery-media" | "gallery-files";
+export type OrbitPreviewType = "layout-1" | "layout-2" | "layout-3" | "layout-6";
 export type OrbitPaletteItem =
   | `tool:${OrbitToolType}`
+  | `preview:${OrbitPreviewType}`
   | `block:${OrbitBlockType}`
   | `gallery:${OrbitGalleryType}`;
 
-export type SidebarSectionKey = "workspace" | "orbit-projects" | "tools" | "gallery" | "blocks" | "footer";
+export type SidebarSectionKey = "workspace" | "orbit-projects" | "tools" | "previews" | "gallery" | "blocks" | "footer";
 
 export type PageRouteId =
   | "dashboard" | "workbench" | "tech-tldrs" | "projects"
@@ -18,6 +20,7 @@ export type PageRouteId =
 
 const allOrbitPaletteItems: OrbitPaletteItem[] = [
   "tool:terminal", "tool:t3-code", "tool:preview", "tool:browser", "tool:code-server", "tool:codex", "tool:opencode",
+  "preview:layout-1", "preview:layout-2", "preview:layout-3", "preview:layout-6",
   "gallery:gallery-media", "gallery:gallery-files",
   "block:note", "block:todo", "block:snippet", "block:frame",
   "block:usage-codex", "block:usage-opencode", "block:usage-claude",
@@ -58,6 +61,7 @@ export const useSidebarPreferences = create<SidebarPreferencesState>()(
         workspace: false,
         "orbit-projects": false,
         tools: false,
+        previews: false,
         gallery: false,
         blocks: false,
         footer: false,

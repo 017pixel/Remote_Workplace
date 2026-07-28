@@ -412,6 +412,10 @@ const orbitItemLabels: Record<OrbitPaletteItem, string> = {
   "tool:code-server": "Code-Server",
   "tool:codex": "Codex",
   "tool:opencode": "OpenCode",
+  "preview:layout-1": "Einzel-Preview",
+  "preview:layout-2": "2er-Preview-Gruppe",
+  "preview:layout-3": "3er-Preview-Gruppe",
+  "preview:layout-6": "6er-Preview-Gruppe",
   "gallery:gallery-media": "Mediengalerie",
   "gallery:gallery-files": "Dateigalerie",
   "block:note": "Notiz",
@@ -425,6 +429,7 @@ const orbitItemLabels: Record<OrbitPaletteItem, string> = {
 
 const orbitSections: { label: string; items: OrbitPaletteItem[] }[] = [
   { label: "Werkzeuge", items: ["tool:terminal", "tool:t3-code", "tool:preview", "tool:browser", "tool:code-server", "tool:codex", "tool:opencode"] },
+  { label: "Previews", items: ["preview:layout-1", "preview:layout-2", "preview:layout-3", "preview:layout-6"] },
   { label: "Galerie", items: ["gallery:gallery-media", "gallery:gallery-files"] },
   { label: "Blöcke", items: ["block:note", "block:todo", "block:snippet", "block:frame", "block:usage-codex", "block:usage-opencode", "block:usage-claude"] },
 ];

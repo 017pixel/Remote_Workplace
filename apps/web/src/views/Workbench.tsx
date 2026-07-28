@@ -3,23 +3,17 @@ import { Group, Panel as RPanel, Separator, type Layout } from "react-resizable-
 import { useQuery } from "@tanstack/react-query";
 import {
   AppWindow,
-  Bot,
-  Braces,
   Columns2,
-  Code2,
-  Eye,
   Grid2X2,
-  Globe2,
   LayoutPanelLeft,
-  MonitorSmartphone,
   MoreHorizontal,
   PanelTop,
   Pencil,
   Plus,
   Rows2,
-  SquareTerminal,
   X,
 } from "lucide-react";
+import { BrowserIcon, CodeServerIcon, CodexIcon, OpenCodeIcon, PreviewsIcon, T3CodeIcon, TerminalIcon } from "../components/ToolIcons";
 import {
   WORKBENCH_LIMITS,
   type Panel,
@@ -46,14 +40,14 @@ const panelLabels: Record<PanelType, string> = {
 };
 
 const panelIcons = {
-  "t3-code": Code2,
-  "code-server": MonitorSmartphone,
-  preview: Eye,
-  browser: Globe2,
-  terminal: SquareTerminal,
-  codex: Bot,
-  opencode: Braces,
-} satisfies Record<PanelType, typeof Code2>;
+  "t3-code": T3CodeIcon,
+  "code-server": CodeServerIcon,
+  preview: PreviewsIcon,
+  browser: BrowserIcon,
+  terminal: TerminalIcon,
+  codex: CodexIcon,
+  opencode: OpenCodeIcon,
+} satisfies Record<PanelType, React.ComponentType<{ className?: string }>>;
 
 function groupProject(panel: Panel, projects: Project[]): Project | undefined {
   return projects.find((project) => project.id === panel.projectId);
@@ -152,7 +146,7 @@ function ToolGroup({
               className="quiet-button"
               onClick={() => openPanel({ type: "terminal", groupId: group.id })}
             >
-              <SquareTerminal className="h-3.5 w-3.5" /> Terminal öffnen
+              <TerminalIcon className="h-3.5 w-3.5" /> Terminal öffnen
             </button>
           </div>
         ) : null}
@@ -359,26 +353,26 @@ function WorkbenchToolbar({ project, workspace }: { project: Project | undefined
   return (
     <><div className="workbench-toolbar" data-has-tools={Boolean(focusedGroup?.panelIds.length)}>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={!project?.links.t3Code || atToolLimit} onClick={() => add("t3-code")}>
-        <Code2 className="h-3.5 w-3.5" /><span>T3 Code</span>
+        <T3CodeIcon className="h-3.5 w-3.5" /><span>T3 Code</span>
       </button>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={!project?.links.codeServer || atToolLimit} onClick={() => add("code-server")}>
-        <MonitorSmartphone className="h-3.5 w-3.5" /><span>Editor</span>
+        <CodeServerIcon className="h-3.5 w-3.5" /><span>Editor</span>
       </button>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("terminal")}>
-        <SquareTerminal className="h-3.5 w-3.5" /><span>Terminal</span>
-      </button>
-      <button type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("codex")}>
-        <Bot className="h-3.5 w-3.5" /><span>Codex</span>
+        <TerminalIcon className="h-3.5 w-3.5" /><span>Terminal</span>
       </button>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("opencode")}>
-        <Braces className="h-3.5 w-3.5" /><span>OpenCode</span>
+        <OpenCodeIcon className="h-3.5 w-3.5" /><span>OpenCode</span>
+      </button>
+      <button type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("codex")}>
+        <CodexIcon className="h-3.5 w-3.5" /><span>Codex</span>
       </button>
       <button type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("browser")}>
-        <Globe2 className="h-3.5 w-3.5" /><span>Browser</span>
+        <BrowserIcon className="h-3.5 w-3.5" /><span>Browser</span>
       </button>
       {project?.previews.map((preview) => (
         <button key={preview.id} type="button" className="workbench-tool-button workbench-add-tool" disabled={atToolLimit} onClick={() => add("preview", preview.id)}>
-          <Eye className="h-3.5 w-3.5" /><span>{preview.name}</span>
+          <PreviewsIcon className="h-3.5 w-3.5" /><span>{preview.name}</span>
         </button>
       ))}
       <span className="workbench-runtime-count">{panels.length}/{WORKBENCH_LIMITS.maxResidentTools} geladen</span>
@@ -428,12 +422,12 @@ function WorkbenchToolbar({ project, workspace }: { project: Project | undefined
       <details className="workbench-mobile-more">
         <summary aria-label="Weitere Workbench-Aktionen"><MoreHorizontal className="h-5 w-5" /></summary>
         <div className="workbench-mobile-menu is-actions">
-          <button type="button" onClick={() => add("t3-code")} disabled={!project?.links.t3Code || atToolLimit}><Code2 className="h-4 w-4" /> T3 Code öffnen</button>
-          <button type="button" onClick={() => add("code-server")} disabled={!project?.links.codeServer || atToolLimit}><MonitorSmartphone className="h-4 w-4" /> Editor öffnen</button>
-          <button type="button" onClick={() => add("terminal")} disabled={atToolLimit}><SquareTerminal className="h-4 w-4" /> Terminal öffnen</button>
-          <button type="button" onClick={() => add("codex")} disabled={atToolLimit}><Bot className="h-4 w-4" /> Codex öffnen</button>
-          <button type="button" onClick={() => add("opencode")} disabled={atToolLimit}><Braces className="h-4 w-4" /> OpenCode öffnen</button>
-          {project?.previews.map((preview) => <button key={preview.id} type="button" onClick={() => add("preview", preview.id)} disabled={atToolLimit}><Eye className="h-4 w-4" /> {preview.name}</button>)}
+          <button type="button" onClick={() => add("t3-code")} disabled={!project?.links.t3Code || atToolLimit}><T3CodeIcon className="h-4 w-4" /> T3 Code öffnen</button>
+          <button type="button" onClick={() => add("code-server")} disabled={!project?.links.codeServer || atToolLimit}><CodeServerIcon className="h-4 w-4" /> Editor öffnen</button>
+          <button type="button" onClick={() => add("terminal")} disabled={atToolLimit}><TerminalIcon className="h-4 w-4" /> Terminal öffnen</button>
+          <button type="button" onClick={() => add("opencode")} disabled={atToolLimit}><OpenCodeIcon className="h-4 w-4" /> OpenCode öffnen</button>
+          <button type="button" onClick={() => add("codex")} disabled={atToolLimit}><CodexIcon className="h-4 w-4" /> Codex öffnen</button>
+          {project?.previews.map((preview) => <button key={preview.id} type="button" onClick={() => add("preview", preview.id)} disabled={atToolLimit}><PreviewsIcon className="h-4 w-4" /> {preview.name}</button>)}
           <button type="button" onClick={() => addGroup()} disabled={workspace.groups.length >= WORKBENCH_LIMITS.maxVisibleGroups}><Plus className="h-4 w-4" /> Neue Gruppe</button>
           <button type="button" onClick={() => addWorkspace()}><AppWindow className="h-4 w-4" /> Neue Arbeitsfläche</button>
           <button type="button" onClick={() => setRenameOpen(true)}><Pencil className="h-4 w-4" /> Umbenennen</button>

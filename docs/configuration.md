@@ -13,6 +13,7 @@ Konfigurationsquelle für alles Umgebungsspezifische:
   Backups, Assets und Profile.
 - `cli` — Pfade zu `codexbar`, `codex`, `opencode`, `claude`, `tmux`, `chromium`.
 - `codexbar` — Pfad zur CodexBar-`config.json` und optionale OAuth-Profil-Homes.
+- `previews` — interne Loopback-Listener und zugehörige öffentliche Tailscale-HTTPS-Ports.
 
 Der Server (`apps/server/src/config/settings.ts`) und der Vite-Build (`apps/web/vite.config.ts`)
 lesen diese Datei beim Start; fehlt sie, wird auf `config/workbench.example.json` zurückgegriffen.
@@ -54,11 +55,12 @@ ORBIT_RECENT_PROJECT_LIMIT=8
 
 Manuell ausgewählte Ordner werden in der lokalen `DATABASE_PATH`-SQLite-Datei gespeichert. Ihre stabilen Projekt-IDs bleiben über Browser- und Serverneustarts erhalten. Die erlaubte Browser-Root muss absolut sein; die Seitengröße liegt zwischen 1 und 500.
 
-Preview-URLs müssen vom Server-Chromium und vom Benutzergerät per HTTPS erreichbar sein und dürfen nicht auf localhost zeigen. Für Vite-Projekte mit absoluten Pfaden wird der WebSocket-fähige code-server-Pfad `https://HOST:8443/editor/absproxy/PORT/` verwendet. Der Darstellungsmodus ist `embedded`, `external` oder `hybrid`; `runtime` ist standardmäßig `shared-browser` und kann für kompatible Anwendungen explizit auf `iframe` gestellt werden.
+Projekt-Previews können entweder eine öffentliche `url` oder einen lokalen `targetPort` plus optionalen Root-Pfad enthalten. `runtime` ist standardmäßig `iframe`; `shared-browser` bleibt der Fallback für geräteübergreifend geteilte Sitzungen, klassische Session-Cookies und Seiten mit blockiertem Embedding. Lokale Ports werden über einen freien Preview-Slot am Root veröffentlicht. Vite benötigt dafür weder `base` noch einen gepflegten `allowedHosts`-Eintrag, weil der Proxy den Host-Header auf `127.0.0.1:PORT` umschreibt.
 
-Vite muss mit derselben Basis gestartet werden, zum Beispiel `vite --base /editor/absproxy/1234/`. code-server erhält dazu `abs-proxy-base-path: /editor`. Dadurch landen Assets, Routerpfade und HMR-WebSockets auch hinter beiden Reverse-Proxies am richtigen Ziel. T3 Code und code-server laufen über denselben Origin und behalten native Copy/Paste-Ereignisse im fokussierten Iframe. Cross-Origin-Previews erhalten bewusst keine programmatischen `clipboard-read`-/`clipboard-write`-Rechte; native Tastatur-, Auswahl- und Kontextmenüaktionen bleiben davon unberührt.
+Die Arrays `previews.slotPorts` und `previews.publicPorts` müssen gleich lang und jeweils eindeutig sein. Nach einer Änderung muss `deploy/proxy/configure-tailscale-serve.sh` einmal mit sudo ausgeführt werden. Die voreingestellten zwölf Paare sind `3901–3912` intern und `8451–8462` öffentlich. Bestätigte Begleitdienste eines Projekts erhalten eigene HTTPS-Slots; die Haupt-Preview schreibt lokale HTTP-, Fetch-, XHR-, EventSource- und WebSocket-Ziele auf diese Tailscale-Adressen um. Web Storage ist portgetrennt; Cookies kennen keine Ports und bleiben auf demselben Host geteilt.
 
-Wenn die Root-HTML nur über einen absoluten Meta-Refresh weiterleitet, wird direkt die eigentliche Seite konfiguriert, zum Beispiel `/editor/absproxy/1234/anmeldung/`. So bleibt auch die erste Navigation innerhalb des Proxy-Pfads.
+Bei Multi-Page-Apps kann `path` direkt auf den gewünschten Einstieg zeigen, zum Beispiel
+`/anmeldung/`. Der Devserver bleibt trotzdem am Root des jeweiligen Slot-Origins erreichbar.
 
 ## Dienste
 
@@ -108,6 +110,9 @@ DATABASE_PATH=/home/your-user/.local/share/remote-workplace/workbench.sqlite
 USAGE_SNAPSHOT_INTERVAL_MS=300000
 WORKBENCH_PROFILES_ROOT=/home/your-user/.workbench-profiles
 CODEXBAR_CONFIG_PATH=/home/your-user/.config/codexbar/config.json
+CODEX_SHARED_HOME=/home/your-user/.codex
+CLAUDE_SHARED_HOME=/home/your-user/.claude
+OPENCODE_SHARED_HOME=/home/your-user/.local/share/opencode
 ```
 
 Die SQLite-Datei und angelegte Profile enthalten lokale, nicht zu veröffentlichende Laufzeitdaten. Ein Account-Entfernen verändert nur die Registry und die CodexBar-Profilzuordnung; vorhandene CLI-Credentials werden nie gelöscht.
@@ -145,6 +150,29 @@ ORBIT_DESTRUCTIVE_DROP_PERCENT=50
 `ORBIT_SYNC_INTERVAL_MS` darf zwischen einer und 60 Sekunden liegen. `ORBIT_DESTRUCTIVE_DROP_PERCENT` blockiert große automatische Rückgänge ab mindestens drei Knoten; der abgewiesene Entwurf wird trotzdem als Wiederherstellungsstand gesichert. Revisionskonflikte überschreiben niemals den neueren Serverstand. Die Vertragsgrenzen erlauben höchstens acht Boards, 600 Knoten, 1.200 Kanten und 96 Live-Werkzeuge pro Board. Projektdateien werden nur relativ zu einer bekannten Projekt-ID erstellt; absolute Pfade, Traversal und Symlink-Ausbrüche werden serverseitig abgewiesen.
 
 Für mehrere Codex-Accounts wird pro Account ein separates Codex-Home mit eigener Anmeldung verwendet. Die absoluten Pfade liegen ausschließlich in der privaten CodexBar-Konfiguration (`~/.config/codexbar/config.json`) im Feld `codexProfileHomePaths`; Authentifizierungsdateien und diese Konfiguration gehören nicht ins Repository.
+
+### Aktiver Account je Werkzeug
+
+Serverweit ist je Werkzeug genau ein Account aktiv — für Codex, Claude Code und OpenCode. Umgeschaltet wird ausschließlich die Anmeldung: Die Anmeldedatei im gemeinsamen Home ist ein Symlink in den Anmeldespeicher des aktiven Accounts und wird beim Wechsel atomar umgehängt. Konfiguration, Sessions und Verlauf bleiben gemeinsam — es gibt weiterhin nur einen Projekt- und Sessionbestand. Jeder danach gestartete Prozess des Werkzeugs verwendet den neuen Account, auch außerhalb der Workbench (SSH, tmux, Skripte). Bereits laufende Prozesse behalten ihren Account, bis sie neu gestartet werden.
+
+| Werkzeug | Gemeinsames Home (Standard) | Anmeldedatei | Config-Feld / Env |
+|---|---|---|---|
+| Codex | `<homeDirectory>/.codex` | `auth.json` | `paths.codexSharedHome` / `CODEX_SHARED_HOME` |
+| Claude Code | `<homeDirectory>/.claude` | `.credentials.json` | `paths.claudeSharedHome` / `CLAUDE_SHARED_HOME` |
+| OpenCode | `<homeDirectory>/.local/share/opencode` | `auth.json` | `paths.opencodeSharedHome` / `OPENCODE_SHARED_HOME` |
+
+Codex und OpenCode lesen und schreiben ihre Anmeldedatei durch den Symlink hindurch, ohne ihn zu ersetzen; aufgefrischte Token landen damit im Anmeldespeicher des Accounts, dem sie gehören. Claude Code entfernt den Symlink beim Abmelden. Damit in keinem Fall Zugangsdaten verloren gehen, verlässt sich die Workbench nicht auf dieses Verhalten: Findet sie an der Stelle des Symlinks wieder eine reguläre Datei, übernimmt sie deren — neuere — Inhalte in den Anmeldespeicher des zuletzt aktivierten Accounts und hängt den Symlink neu ein. Die vorherige Fassung bleibt als `*.ersetzt-<Zeitstempel>` daneben liegen.
+
+Ein gemeinsames Home ist selbst kein Account. Solange dort noch eine eigenständige Anmeldung liegt, wird sie zum Registrieren angeboten; beim ersten Aktivieren bekommt sie automatisch einen eigenen Anmeldespeicher unter `paths.workbenchProfilesRoot`. Danach taucht das gemeinsame Home nicht mehr in der Accountliste auf.
+
+Umschalten geht über **Nutzung → Accounts → Aktivieren** oder über die Kommandozeile:
+
+```bash
+scripts/ki-account.sh                    # alle Accounts, der aktive ist je Werkzeug mit * markiert
+scripts/ki-account.sh list claude        # nur ein Werkzeug anzeigen
+scripts/ki-account.sh use arbeit         # per Name, E-Mail oder Profilpfad aktivieren
+scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug voranstellen
+```
 
 Lokale automatisierte Browsertests können den ansonsten von Tailscale Serve gesetzten Identitätsheader über den Vite-Proxy ergänzen. `WORKBENCH_DEV_TAILSCALE_USER` ist ausschließlich zusammen mit einem isolierten Test-Backend und einer separaten Datenbank zu verwenden. Der Produktionsserver wertet diese Variable nicht aus und akzeptiert weiterhin nur den tatsächlich am Request vorhandenen Tailscale-Header.
 

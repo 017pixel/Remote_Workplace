@@ -1,16 +1,84 @@
 import { access, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { execa } from "execa";
 import { z } from "zod";
 import type { CreateAccountRequest, DiscoveredAccount, ManagedAccount, UpdateAccountRequest, UsageProviderId } from "@workbench/contracts";
 import { AppError } from "../utils/errors.js";
+import { AccountSwitch, type ProviderLayout } from "./account-switch.js";
 import type { UsageDatabase } from "./database.js";
 
 export class AccountService {
-  constructor(private readonly options: { database: UsageDatabase; allowedRoots: string[]; profilesRoot: string; codexbarConfigPath: string; codexbarCliPath?: string; claudeCliPath?: string; homeDirectory?: string }) {}
+  private readonly switcher: AccountSwitch;
+
+  constructor(private readonly options: { database: UsageDatabase; allowedRoots: string[]; profilesRoot: string; codexbarConfigPath: string; codexbarCliPath?: string; claudeCliPath?: string; homeDirectory?: string; sharedHomes: Record<UsageProviderId, ProviderLayout> }) {
+    this.switcher = new AccountSwitch(options.sharedHomes);
+  }
 
   list() { return this.options.database.listAccounts(); }
+
+  /** Registrierte Accounts samt Identität und serverweit aktivem Account je Werkzeug. */
+  async listWithState(): Promise<ManagedAccount[]> {
+    await this.repairActiveLinks();
+    const accounts = this.list();
+    const activeProfiles = new Map<UsageProviderId, string | null>();
+    for (const provider of new Set(accounts.map((account) => account.provider))) {
+      activeProfiles.set(provider, await this.switcher.activeProfilePath(provider));
+    }
+    return Promise.all(accounts.map(async (account) => {
+      const identity = await this.switcher.identity(account.provider, account.profilePath);
+      const claudeEmail = account.provider === "claude" ? (await this.claudeStatus(account.profilePath))?.email : undefined;
+      return {
+        ...account,
+        email: identity?.email ?? claudeEmail ?? account.email,
+        plan: identity?.plan ?? null,
+        active: activeProfiles.get(account.provider) === resolve(account.profilePath),
+      };
+    }));
+  }
+
+  /**
+   * Schaltet den serverweit aktiven Account des Werkzeugs um. Zeigt der Account noch direkt auf
+   * das gemeinsame Home — so waren Claude Code und OpenCode ursprünglich registriert —, bekommt
+   * er zuerst einen eigenen Anmeldespeicher, damit der Symlink nicht auf sich selbst zeigt.
+   */
+  async activate(id: string) {
+    let account: ManagedAccount;
+    try { account = this.options.database.getAccount(id); } catch { throw new AppError(404, "ACCOUNT_NOT_FOUND", "Der Account wurde nicht gefunden."); }
+    if (!this.allowed(account.profilePath)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Profilpfad liegt außerhalb der erlaubten Bereiche.");
+
+    let migratedTo: string | null = null;
+    if (resolve(account.profilePath) === this.switcher.sharedHome(account.provider)) {
+      const store = resolve(this.options.profilesRoot, account.provider, slug(account.label));
+      if (!this.allowed(store)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Anmeldespeicher liegt außerhalb der erlaubten Bereiche.");
+      await this.switcher.moveSharedHomeIntoStore(account.provider, store);
+      if (account.provider === "codex") {
+        await this.setCodexProfile(account.profilePath, false).catch(() => undefined);
+        await this.setCodexProfile(store, true).catch(() => undefined);
+      }
+      account = this.options.database.setAccountProfilePath(account.id, store);
+      migratedTo = store;
+    }
+
+    const candidates = this.list().filter((item) => item.provider === account.provider).map((item) => item.profilePath);
+    const result = await this.switcher.activate(account.provider, account.profilePath, candidates);
+    this.options.database.setActiveAccount(account.provider, account.id);
+    const identity = await this.switcher.identity(account.provider, account.profilePath);
+    return { ...result, migratedTo, account: { ...account, email: identity?.email ?? account.email, plan: identity?.plan ?? null, active: true } };
+  }
+
+  /**
+   * Stellt Symlinks wieder her, die ein CLI durch eine reguläre Datei ersetzt hat. Ohne diesen
+   * Schritt würden dort aufgefrischte Zugangsdaten am Anmeldespeicher des Accounts vorbeilaufen.
+   */
+  private async repairActiveLinks() {
+    const intended = this.options.database.listActiveAccounts();
+    for (const [provider, accountId] of Object.entries(intended) as Array<[UsageProviderId, string]>) {
+      const account = this.list().find((item) => item.id === accountId);
+      if (!account || !this.allowed(account.profilePath)) continue;
+      await this.switcher.repair(provider, account.profilePath).catch(() => undefined);
+    }
+  }
 
   async discover(): Promise<DiscoveredAccount[]> {
     const candidates: Array<{provider: UsageProviderId; path: string}> = [];
@@ -29,10 +97,23 @@ export class AccountService {
     const registered = this.list();
     for (const account of registered) candidates.push({ provider: account.provider, path: account.profilePath });
     const registeredByProfile = new Map(registered.map((account) => [`${account.provider}:${account.profilePath}`, account]));
-    const accounts = await Promise.all([...new Map(candidates.filter((item) => this.allowed(item.path)).map((item) => [`${item.provider}:${item.path}`, item])).values()]
+    const activeProfiles = new Map<UsageProviderId, string | null>();
+    for (const provider of ["codex", "claude", "opencode"] as const) activeProfiles.set(provider, await this.switcher.activeProfilePath(provider));
+    // Sobald ein gemeinsames Home verwaltet wird, ist seine Anmeldedatei nur noch ein Symlink
+    // auf einen Account — dann ist es selbst keiner mehr und taucht nicht auf. Liegt dort noch
+    // eine eigenständige Anmeldung, bleibt sie sichtbar und lässt sich registrieren; beim
+    // Aktivieren bekommt sie einen eigenen Anmeldespeicher.
+    const managed = new Map<UsageProviderId, boolean>();
+    for (const provider of ["codex", "claude", "opencode"] as const) managed.set(provider, await this.switcher.isManaged(provider));
+    const selectable = candidates.filter((item) => this.allowed(item.path)
+      && (registeredByProfile.has(`${item.provider}:${item.path}`)
+        || resolve(item.path) !== this.switcher.sharedHome(item.provider)
+        || !managed.get(item.provider)));
+    const accounts = await Promise.all([...new Map(selectable.map((item) => [`${item.provider}:${item.path}`, item])).values()]
       .map(async (item) => {
         const account = registeredByProfile.get(`${item.provider}:${item.path}`);
         const claudeStatus = item.provider === "claude" ? await this.claudeStatus(item.path) : null;
+        const identity = await this.switcher.identity(item.provider, item.path);
         return {
           accountId: account?.id ?? null,
           provider: item.provider,
@@ -42,6 +123,9 @@ export class AccountService {
           authenticated: claudeStatus?.loggedIn ?? await this.authenticated(item.provider, item.path),
           enabled: account?.enabled ?? null,
           source: account?.source ?? null,
+          active: activeProfiles.get(item.provider) === resolve(item.path),
+          email: identity?.email ?? claudeStatus?.email ?? null,
+          plan: identity?.plan ?? null,
         };
       }));
     return accounts.filter((account) => account.registered || account.authenticated);
@@ -50,6 +134,9 @@ export class AccountService {
   async create(input: CreateAccountRequest): Promise<ManagedAccount> {
     const profilePath = input.profilePath ?? resolve(this.options.profilesRoot, input.provider, `${slug(input.label)}-${Date.now()}`);
     if (!this.allowed(profilePath)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Profilpfad liegt außerhalb der erlaubten Bereiche.");
+    if (resolve(profilePath) === this.switcher.sharedHome(input.provider)) {
+      throw new AppError(400, "PROFILE_IS_SHARED_HOME", "Das gemeinsame Home ist kein Account. Bitte einen eigenen Anmeldespeicher verwenden.");
+    }
     if (input.source === "login") await mkdir(profilePath, { recursive: true, mode: 0o700 });
     try {
       const account = this.options.database.createAccount({ ...input, profilePath });
@@ -77,9 +164,10 @@ export class AccountService {
 
   loginCommand(account: ManagedAccount) { return account.provider === "codex" ? "codex login --device-auth" : account.provider === "claude" ? "claude auth login" : "opencode auth login"; }
 
-  private async authenticated(_provider: UsageProviderId, profilePath: string): Promise<boolean> {
-    const authPath = join(profilePath, "auth.json");
-    try { await access(authPath); return true; } catch { return false; }
+  private async authenticated(provider: UsageProviderId, profilePath: string): Promise<boolean> {
+    // Jedes Werkzeug hat eine eigene Anmeldedatei: auth.json bei Codex und OpenCode,
+    // .credentials.json bei Claude Code.
+    return this.switcher.hasCredentials(provider, profilePath);
   }
 
   private async claudeStatus(profilePath: string): Promise<{loggedIn:boolean;email:string|undefined} | null> {

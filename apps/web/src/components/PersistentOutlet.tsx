@@ -21,6 +21,16 @@ export function PersistentOutlet() {
   const visitCounter = useRef(0);
   const routeKey = location.pathname;
 
+  // Die aktive Ansicht gleitet auf Touch-Shells von rechts herein. Der erste
+  // Aufbau nach dem Laden bleibt bewusst ruhig — animiert wird erst, sobald
+  // wirklich gewechselt wurde.
+  const previousKey = useRef(routeKey);
+  const navigated = useRef(false);
+  if (previousKey.current !== routeKey) {
+    previousKey.current = routeKey;
+    navigated.current = true;
+  }
+
   // Das Element wird je Route genau einmal festgehalten und danach nie ersetzt.
   // Beim Zurückwechseln liefert `useOutlet()` ein frisches Element; würde man das
   // übernehmen, hängt React den Teilbaum neu ein und iframe, xterm und WebSocket
@@ -51,7 +61,7 @@ export function PersistentOutlet() {
         return (
           <div
             key={key}
-            className={`persistent-route ${active ? "is-active" : "is-parked"}`}
+            className={`persistent-route ${active ? "is-active" : "is-parked"}${active && navigated.current ? " is-entering" : ""}`}
             aria-hidden={!active}
             inert={!active}
             data-route-cache-key={key}

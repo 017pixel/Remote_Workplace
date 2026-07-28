@@ -7,6 +7,11 @@ import {
   serverSummarySchema,
   servicesResponseSchema,
   localPortsResponseSchema,
+  previewSlotAssignmentRequestSchema,
+  previewSlotsResponseSchema,
+  previewDependenciesResponseSchema,
+  previewSessionRequestSchema,
+  previewSessionResponseSchema,
   usageResponseSchema,
   usageDashboardResponseSchema,
   usageRangeSchema,
@@ -15,6 +20,7 @@ import {
   createAccountRequestSchema,
   updateAccountRequestSchema,
   accountResponseSchema,
+  activateAccountResponseSchema,
   loginSessionResponseSchema,
   orbitDocumentResponseSchema,
   saveOrbitDocumentRequestSchema,
@@ -57,6 +63,7 @@ import type { createProjectFileService } from "../services/projectFileService.js
 import type { createLocalPortService } from "../services/localPortService.js";
 import type { OrbitAssetRepository } from "../orbit/assets.js";
 import type { ProjectBrowserService } from "../filesystem/projectBrowserService.js";
+import type { PreviewSlotService } from "../previews/slots.js";
 import { AppError } from "../utils/errors.js";
 
 interface RouteServices {
@@ -69,6 +76,7 @@ interface RouteServices {
   orbit: OrbitDatabase;
   projectFiles: ReturnType<typeof createProjectFileService>;
   localPorts: ReturnType<typeof createLocalPortService>;
+  previewSlots: PreviewSlotService;
   orbitAssets: OrbitAssetRepository;
   fileGallery: OrbitAssetRepository;
   projectBrowser: ProjectBrowserService;
@@ -108,6 +116,31 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.get("/server/metrics", async () => serverMetricsSchema.parse(await systemService.getMetrics()));
   app.get("/services", async () => servicesResponseSchema.parse(await services.statuses.list()));
   app.get("/local-ports", async () => localPortsResponseSchema.parse(await services.localPorts.list()));
+  app.get("/previews/slots", async () => previewSlotsResponseSchema.parse(services.previewSlots.list()));
+  app.put("/previews/slots", async (request) => {
+    const input = previewSlotAssignmentRequestSchema.parse(request.body);
+    return previewSlotsResponseSchema.parse(services.previewSlots.assign(input));
+  });
+  const previewDependencyQuerySchema = z.object({
+    projectId: z.string().min(1).max(160),
+    primaryPort: z.coerce.number().int().min(1).max(65_535),
+  });
+  app.get("/previews/dependencies", async (request) => {
+    const query = previewDependencyQuerySchema.parse(request.query);
+    return previewDependenciesResponseSchema.parse(services.previewSlots.dependencies(query.projectId, query.primaryPort));
+  });
+  app.put("/previews/dependencies", async (request) => {
+    const input = previewDependenciesResponseSchema.parse(request.body);
+    return previewDependenciesResponseSchema.parse(services.previewSlots.saveDependencies(input.projectId, input.primaryPort, input.dependencies));
+  });
+  app.post("/previews/sessions", async (request) =>
+    previewSessionResponseSchema.parse(services.previewSlots.openSession(previewSessionRequestSchema.parse(request.body))),
+  );
+  app.delete("/previews/sessions/:sessionKey", async (request, reply) => {
+    const { sessionKey } = z.object({ sessionKey: z.string().min(1).max(160) }).parse(request.params);
+    services.previewSlots.closeSession(sessionKey);
+    return reply.status(204).send();
+  });
   app.get("/filesystem/tree", async (request) => {
     const query = z.object({
       path: z.string().max(4_096).optional(),
@@ -282,7 +315,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
     return usageDashboardResponseSchema.parse(await services.analytics.dashboard(range));
   });
   app.post("/usage/sync", async () => { services.usage.invalidate(); await services.analytics.sync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
-  app.get("/accounts", async () => accountsResponseSchema.parse({ accounts: services.accounts.list() }));
+  app.get("/accounts", async () => accountsResponseSchema.parse({ accounts: await services.accounts.listWithState() }));
   app.get("/accounts/discover", async () => discoveredAccountsResponseSchema.parse({ accounts: await services.accounts.discover() }));
   app.post("/accounts", async (request, reply) => {
     const account = await services.accounts.create(createAccountRequestSchema.parse(request.body));
@@ -298,6 +331,14 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.delete("/accounts/:accountId", async (request, reply) => {
     const { accountId } = z.object({ accountId: z.string().uuid() }).parse(request.params);
     await services.accounts.remove(accountId); services.usage.invalidate(); return reply.status(204).send();
+  });
+  // Schaltet den serverweit aktiven Codex-Account um. Alle danach gestarteten Codex-Prozesse
+  // verwenden diesen Account, ohne dass eine erneute Anmeldung nötig ist.
+  app.post("/accounts/:accountId/activate", async (request) => {
+    const { accountId } = z.object({ accountId: z.string().uuid() }).parse(request.params);
+    const result = await services.accounts.activate(accountId);
+    services.usage.invalidate();
+    return activateAccountResponseSchema.parse(result);
   });
   app.post("/accounts/login-session", async (request, reply) => {
     const body = createAccountRequestSchema.parse({ ...(request.body as object), source: "login" });

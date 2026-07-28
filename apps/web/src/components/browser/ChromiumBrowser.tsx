@@ -1,8 +1,15 @@
 import { ArrowLeft, ArrowRight, Braces, Camera, ExternalLink, Globe2, Hand, LoaderCircle, MoreHorizontal, MousePointer2, Plus, RotateCw, Search, SquareCode, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { LocalPort } from "@workbench/contracts";
 import { LocalPorts } from "./LocalPorts";
 import { browserClipboardAction, utf8ByteLength, writeClipboardText } from "../../lib/clipboard";
+import { normalizePreviewTarget } from "../../lib/previewTargets";
+
+export interface ChromiumBrowserState {
+  url: string;
+  title: string;
+  loading: boolean;
+}
 
 type BrowserStatus = "connecting" | "ready" | "disconnected" | "error";
 type ServerMessage =
@@ -46,12 +53,30 @@ function storeSession(key: string, value: string | null) {
 const browserClipboardMaximumBytes = 1_048_576;
 type ClipboardRequestPurpose = "copy" | "sync";
 
-export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instanceId: string; profileKey?: string; initialUrl?: string }) {
+export function ChromiumBrowser({
+  instanceId,
+  profileKey,
+  initialUrl,
+  onLocalAddress,
+  onStateChange,
+  extraToolbarActions,
+}: {
+  instanceId: string;
+  profileKey?: string;
+  initialUrl?: string;
+  /** Ziel löst sich zu einem lokalen Port auf: Aufrufer übernimmt (z. B. schnelle iframe-Vorschau statt Chromium-Stream). */
+  onLocalAddress?: (value: string) => void;
+  onStateChange?: (state: ChromiumBrowserState) => void;
+  extraToolbarActions?: ReactNode;
+}) {
   const storageKey = `workbench-browser-session:${instanceId}`;
   const viewportRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const controllerIdRef = useRef(createUuid());
+  const controllerChannelRef = useRef<BroadcastChannel | null>(null);
+  const activeControllerRef = useRef(true);
   const sessionRef = useRef<string | null>(readSession(storageKey));
   const disposedRef = useRef(false);
   const reconnectRef = useRef<number | null>(null);
@@ -68,7 +93,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
   const fatalConnectionRef = useRef(false);
   const retriesRef = useRef(0);
   const frameTimeoutRef = useRef<number | null>(null);
-  const [status, setStatus] = useState<BrowserStatus>("connecting");
+  const [status, setStatus] = useState<BrowserStatus>(initialUrl || sessionRef.current ? "connecting" : "disconnected");
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [state, setState] = useState({ url: "about:blank", title: "Neuer Tab", loading: false, canGoBack: false, canGoForward: false });
@@ -79,9 +104,38 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
   const [sourceView, setSourceView] = useState<{ source: string; url: string } | null>(null);
   const [touchMode, setTouchMode] = useState<"interact" | "scroll">("scroll");
   const [clipboardStatus, setClipboardStatus] = useState("");
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
+
+  useEffect(() => {
+    onStateChangeRef.current?.(state);
+  }, [state]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(`workbench-browser-control:${profileKey ?? instanceId}`);
+    controllerChannelRef.current = channel;
+    channel.onmessage = (event) => {
+      if ((event.data as { controllerId?: string } | null)?.controllerId !== controllerIdRef.current) activeControllerRef.current = false;
+    };
+    channel.postMessage({ controllerId: controllerIdRef.current });
+    return () => { channel.close(); controllerChannelRef.current = null; };
+  }, [instanceId, profileKey]);
+
+  const claimControl = useCallback(() => {
+    activeControllerRef.current = true;
+    controllerChannelRef.current?.postMessage({ controllerId: controllerIdRef.current });
+    const sessionId = sessionRef.current;
+    const viewport = viewportRef.current;
+    if (sessionId && viewport && socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "browser.resize", sessionId, width: Math.max(320, Math.min(2_400, Math.round(viewport.clientWidth))), height: Math.max(220, Math.min(1_600, Math.round(viewport.clientHeight))) }));
+    }
+  }, []);
 
   const send = useCallback((message: object) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
+    const type = (message as { type?: string }).type ?? "";
+    if (["browser.resize", "browser.pointer", "browser.wheel", "browser.key", "browser.text"].includes(type) && !activeControllerRef.current) return false;
     socketRef.current.send(JSON.stringify(message));
     return true;
   }, []);
@@ -250,6 +304,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
 
   useEffect(() => {
     disposedRef.current = false;
+    const clipboardRequests = clipboardRequestsRef.current;
     const viewport = viewportRef.current;
     if (!viewport) return;
     const observer = new ResizeObserver(() => {
@@ -257,10 +312,13 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
       resizeRef.current = window.setTimeout(() => {
         const sessionId = sessionRef.current;
         if (sessionId) send({ type: "browser.resize", sessionId, ...dimensions() });
-      }, 120);
+      }, 60);
     });
     observer.observe(viewport);
-    connect();
+    // Kein Chromium-Prozess für den bloßen Blank-Zustand: Erst ein bekanntes
+    // Ziel (initialUrl) oder eine wiederaufnehmbare Session rechtfertigt die
+    // Verbindung. Freie Navigation stößt sie in navigate() selbst an.
+    if (initialUrl || sessionRef.current) connect();
     return () => {
       disposedRef.current = true;
       observer.disconnect();
@@ -268,19 +326,37 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
       if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
       clearFrameTimeout();
-      for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
-      clipboardRequestsRef.current.clear();
+      for (const pending of clipboardRequests.values()) window.clearTimeout(pending.timeout);
+      clipboardRequests.clear();
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [clearFrameTimeout, connect, dimensions, send]);
+  }, [clearFrameTimeout, connect, dimensions, initialUrl, send]);
 
   const navigate = (value?: string) => {
+    claimControl();
     const requestedAddress = value ?? addressRef.current?.value ?? address;
-    if (!requestedAddress.trim()) return;
+    const trimmed = requestedAddress.trim();
+    if (!trimmed) return;
+    if (onLocalAddress && trimmed !== "about:blank" && normalizePreviewTarget(trimmed)?.kind === "local") {
+      onLocalAddress(trimmed);
+      return;
+    }
     const url = normalizeAddress(requestedAddress);
     clipboardSelectionRef.current = "";
     setClipboardStatus("");
+    if (url === "about:blank" && !sessionRef.current) {
+      // Ohne laufende Session reicht ein lokaler Reset auf den Blank-Zustand –
+      // dafür braucht es keinen Chromium-Prozess.
+      requestedUrlRef.current = null;
+      pendingUrlRef.current = null;
+      setAddress("");
+      setFrameReady(false);
+      setError(null);
+      setStatus("disconnected");
+      setState((current) => ({ ...current, url: "about:blank", loading: false, canGoBack: false, canGoForward: false }));
+      return;
+    }
     requestedUrlRef.current = url;
     setAddress(url);
     setFrameReady(false);
@@ -288,15 +364,21 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     const sessionId = sessionRef.current;
     if (!sessionId) {
       pendingUrlRef.current = url;
+      if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) connect();
       return;
     }
     send({ type: "browser.navigate", sessionId, url });
   };
   const simpleAction = (type: "browser.back" | "browser.forward" | "browser.reload") => {
+    claimControl();
     const sessionId = sessionRef.current;
     if (sessionId) send({ type, sessionId });
   };
-  const localPort = (port: LocalPort) => { if (port.localUrl) navigate(port.localUrl); };
+  const localPort = (port: LocalPort) => {
+    if (!port.localUrl) return;
+    if (onLocalAddress) onLocalAddress(port.localUrl);
+    else navigate(port.localUrl);
+  };
 
   const pointFor = (clientX: number, clientY: number) => {
     const bounds = viewportRef.current?.getBoundingClientRect();
@@ -332,6 +414,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     if (action === "up" && event.button === 0) window.setTimeout(() => requestSelection("sync"), 30);
   };
   const wheel = (event: React.WheelEvent) => {
+    claimControl();
     if (event.ctrlKey) { event.preventDefault(); return; }
     const sessionId = sessionRef.current;
     const point = pointFor(event.clientX, event.clientY);
@@ -361,6 +444,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
     ? `/workbench/devtools/inspector.html?ws=${encodeURIComponent(`${window.location.host}/api/v1/browser/devtools/${devtoolsSessionId}`)}`
     : null;
   const key = (event: React.KeyboardEvent) => {
+    claimControl();
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") { event.preventDefault(); addressRef.current?.focus(); addressRef.current?.select(); return; }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "r") { event.preventDefault(); simpleAction("browser.reload"); return; }
     const sessionId = sessionRef.current;
@@ -407,6 +491,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
         <button type="button" className="browser-touch-mode" onClick={() => setTouchMode((current) => current === "scroll" ? "interact" : "scroll")} aria-label={touchMode === "scroll" ? "Browsermodus: Scrollen. Zu Interagieren wechseln" : "Browsermodus: Interagieren. Zu Scrollen wechseln"} aria-pressed={touchMode === "interact"}>{touchMode === "scroll" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}</button>
         <button type="button" className="browser-more-button" onClick={() => { const viewport = viewportRef.current; setContextMenu(viewport ? { x: Math.max(8, viewport.clientWidth - 222), y: 8 } : { x: 8, y: 8 }); }} aria-label="Weitere Browseraktionen" aria-expanded={contextMenu !== null}><MoreHorizontal className="h-4 w-4" /></button>
         {/^https?:/.test(state.url) ? <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Seite in neuem Tab öffnen"><ExternalLink className="h-4 w-4" /></a> : null}
+        {extraToolbarActions}
         <span className={`browser-connection is-${status}`} title={error ?? state.title} />
       </header>
       <div
@@ -414,7 +499,7 @@ export function ChromiumBrowser({ instanceId, profileKey, initialUrl }: { instan
         className="browser-viewport"
         tabIndex={0}
         onPointerMove={(event) => pointer("move", event)}
-        onPointerDown={(event) => { if (event.button === 2) openBrowserMenu(event); else { setContextMenu(null); pointer("down", event); } }}
+        onPointerDown={(event) => { claimControl(); if (event.button === 2) openBrowserMenu(event); else { setContextMenu(null); pointer("down", event); } }}
         onPointerUp={(event) => pointer("up", event)}
         onPointerCancel={() => { touchScrollRef.current = null; }}
         onWheel={wheel}

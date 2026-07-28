@@ -9,6 +9,7 @@ const routeLoaders = {
   cliTerminal: () => import("../views/CliTerminal"),
   techTldrs: () => import("../views/TechTldrs"),
   gallery: () => import("../views/GalleryView"),
+  previewGroup: () => import("../views/PreviewGroupRoute"),
 } as const;
 
 export const loadWorkbench = routeLoaders.workbench;
@@ -21,6 +22,7 @@ export const loadTerminal = routeLoaders.terminal;
 export const loadCliTerminal = routeLoaders.cliTerminal;
 export const loadTechTldrs = routeLoaders.techTldrs;
 export const loadGallery = routeLoaders.gallery;
+export const loadPreviewGroup = routeLoaders.previewGroup;
 
 const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
   ["/workbench", loadWorkbench],
@@ -35,6 +37,8 @@ const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
   ["/opencode", loadCliTerminal],
   ["/t3-code", loadToolRoute],
   ["/code-editor", loadToolRoute],
+  ["/previews/gruppe/", loadPreviewGroup],
+  ["/previews/fenster/", loadPreviewGroup],
   ["/previews", loadToolRoute],
   ["/browser", loadToolRoute],
 ];

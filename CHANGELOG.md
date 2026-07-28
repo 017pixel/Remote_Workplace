@@ -2,6 +2,120 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [0.35.0] - 2026-07-28
+
+### Erstellt
+
+- Projektweite Preview-Sessions verbinden Frontend, Backend und weitere bestätigte Dienste über getrennte Tailscale-HTTPS-Ports
+- Dauerhafte Freigabe neu erkannter Begleitdienste direkt in der Preview
+- Laufzeit-Bridge für Fetch, XHR, EventSource, WebSocket und Beacon bei lokalen Port-Zielen
+- Prozess- und Projektzuordnung in der Erkennung laufender lokaler Ports
+- Zwölf statt sechs gleichzeitig nutzbare, isolierte Preview-Slots
+
+### Verändert
+
+- Vollbild bleibt im bestehenden Orbit und erhält die bereits laufende Direkt- oder Server-Preview
+- Ein externes Fenster ist eine eigene Menüaktion und übernimmt den aktuellen, noch nicht gespeicherten Orbit-Zustand
+- Preview-Slots werden atomar reserviert, zeitlich geleast und erst nach der letzten Session freigegeben
+- HTTP-, HTTPS- und WebSocket-Proxys übernehmen Anwendungsheader und entfernen einbettungsfeindliche Antwortheader
+- Preview-Ports und Tailscale-Zuordnungen werden vollständig aus der zentralen Workbench-Konfiguration erzeugt
+
+### Repariert
+
+- Frontends können Backends auf anderen lokalen Ports ohne Mixed-Content- oder Netzwerkfehler erreichen
+- Server-Chromium wechselt beim Vollbild nicht mehr ungewollt auf eine lokale iframe-Preview
+- Alte Einzel-Slot-Aufräumvorgänge trennen keine aktiven oder geteilten Preview-Sessions mehr
+- Abgelaufene Sessions geben nur tatsächlich unbenutzte Slots frei
+- Doppelte Fastify-HEAD-Routen und komprimierte HTML-Antworten verhindern keine Bridge-Injektion mehr
+
+## [0.34.0] - 2026-07-28
+
+### Erstellt
+
+- Schnellwechsel des serverweit aktiven Accounts mit einem Klick — für Codex, Claude Code und OpenCode
+- Aktiv-Kennzeichnung, E-Mail-Adresse und Tarif auf jeder Accountkarte
+- Verbleibende Limits aus CodexBar direkt bei jedem Account statt nur in der Übersicht
+- `scripts/ki-account.sh` zum Anzeigen und Umschalten der aktiven Accounts auf der Kommandozeile
+- Selbstheilung: ersetzt ein CLI die Anmeldeverknüpfung, wandern die neueren Zugangsdaten zurück in ihren Speicher
+
+### Verändert
+
+- Accounts eines Werkzeugs teilen sich Projekte, Sessions und Konfiguration; getauscht wird nur die Anmeldung
+- Ein Accountwechsel braucht weder Abmeldung noch neue Geräteanmeldung
+- Der Knopf für die CodexBar-Überwachung heißt jetzt „Überwachen“ und nicht mehr „Aktivieren“
+- Accounts, die noch auf das gemeinsame Home zeigen, bekommen beim Aktivieren einen eigenen Anmeldespeicher
+- Der serverweit aktive Account lässt sich nicht versehentlich entfernen
+
+## [0.33.0] - 2026-07-28
+
+### Erstellt
+
+- Eigene KI-Recherche-Seite in den Tech TLDRs mit Chat, Quellenspalte und Bildvorschau
+- Auswahl des Mistral-Modells für Antworten, inklusive Merken der letzten Wahl
+- Kopier- und Neu-erzeugen-Knopf für jede KI-Antwort
+- Wisch-Pager im mobilen Feed mit Flug-Erkennung, Gummiband und kurzem Haptik-Impuls
+- Mitzählende Zahlen im Fortschritt statt springender Werte
+
+### Verändert
+
+- Der Aktualisieren-Knopf ist nur noch ein kleines Symbol in der Kopfzeile
+- Kopfbereich, Kategorieleiste und Filterknopf laufen weich aus statt an harten Kanten zu enden
+- Der Bereichswechsler unten ist größer, der KI-Knopf bekommt einen eigenen, luftigen Platz
+- Der Feed sortiert nach Wichtigkeit mit Altersabschlag, damit frische Meldungen vorn stehen
+- Sammlungen zeigen auf beiden Ansichten Titelbilder und einen dauerhaft sichtbaren Löschknopf
+
+### Repariert
+
+- Weiße Schrift auf allen blauen Knöpfen — sie war zuvor unsichtbar
+- Bestätigungsdialoge sitzen wieder mittig, weil sie an den Seitenkörper gehängt werden
+- Der mobile Feed lädt nicht mehr den kompletten Nachrichtenbestand in den Browser
+- Überschriften und Listen aus KI-Antworten werden gerendert statt als Rohtext gezeigt
+- Das Filtersymbol sitzt mittig in seinem Knopf
+
+## [0.32.0] - 2026-07-27
+
+### Erstellt
+
+- Schnelle iframe-Vorschau für lokale Ports direkt im Browser-Werkzeug
+- Geräteansicht und Direkt/Server-Umschalter auch im Browser-Werkzeug
+- Quellenanzeige im Browser-Werkzeug: iframe-Origin oder Chromium-Ziel
+
+### Verändert
+
+- Ein Klick auf einen lokalen Port im Browser öffnet ihn direkt im selben Fenster statt in einem neuen Preview
+- Der Server-Chromium im Browser-Werkzeug startet erst bei echter externer Navigation, nicht mehr beim bloßen Öffnen
+- Lokale Browser-Vorschauen teilen sich einen Preview-Slot pro Zielport
+
+### Gelöscht
+
+- Ungenutzten Chromium-Prozess beim Öffnen des leeren Browser-Werkzeugs
+
+## [0.31.0] - 2026-07-27
+
+### Erstellt
+
+- Sechs getrennte HTTPS-Preview-Slots für schnelle lokale Entwicklungsansichten
+- Benannte Preview-Gruppen mit einem, zwei, drei oder sechs parallelen Slots
+- Eigenes Browserfenster mit allen Slots einer Gruppe nebeneinander im Vollbild
+- Geräteansichten mit Notch, Dynamic Island, Punch-Hole und Home-Indikator
+- Sichtbare Quellenanzeige je Preview: direktes iframe oder Server-Chromium
+
+### Verändert
+
+- Lokale Previews rendern standardmäßig direkt im iframe statt als JPEG-Browserstream
+- Neue Preview-Slots starten mit iPhone-13-Maßen statt im freien Responsive-Modus
+- Ein Layoutwechsel hängt Slots an, statt vorhandene Previews zusammenzuquetschen
+- Preview-Leisten lassen sich auf ihrer gesamten freien Fläche verschieben
+- Gerätewahl, Isolation, Laufzeit und Ausrichtung lassen sich pro Slot festlegen
+
+### Gelöscht
+
+- code-server-Absproxy als Standardweg für Development-Previews
+- Server-Chromium als versteckter Standard für lokale Preview-Panels
+- Projektabhängige Vite-Basis-Pfade für Preview-Router und HMR
+- Zusätzliche Griff-Symbole in den Kopfleisten von Gruppen und Slots
+- Systemdienste und Ports ohne HTTP-Antwort in der lokalen Portübersicht
+
 ## [0.30.3] - 2026-07-26
 
 ### Erstellt

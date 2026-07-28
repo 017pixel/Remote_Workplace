@@ -52,16 +52,18 @@ erreichbar über Tailscale.
 - Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter dem konfigurierten Projekt-Root; Orbit sortiert die jüngste Auswahl aus Workbench-Nutzung, Dateisystemänderungen und Git-Commits und bietet zusätzlich eine vollständige Suche.
 - Großer Orbit-Serverbrowser zeigt den vollständigen Dateibaum unter dem konfigurierten Home-Verzeichnis, springt direkt zu eingegebenen Pfaden und registriert beliebige Unterordner dauerhaft als Projekt-Hubs.
 - code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Workbench-HTTPS-Origin bereitgestellt.
-- Development-Previews laufen standardmäßig in einem synchronisierten Server-Chromium; ohne gewählte Preview zeigt die Workbench alle erkannten lokalen HTTP-Ports als Schnellstart an.
+- Development-Previews laufen direkt und ohne Bildstream über sechs getrennte HTTPS-Slot-Origins; Web Storage kann damit pro Rolle isoliert werden und Vite-HMR bleibt am Root erhalten.
+- Benannte Orbit-Preview-Gruppen mit 1er-, 2er-, 3er- und 6er-Layout, Gerätepresets, Vollbildroute sowie lös- und andockbaren Slots.
 - Ein eigener, serverseitig isolierter Chromium-Browser mit dauerhaften, benutzergebundenen Profilen erhält Cookies und Logins über Geräte- und Backendwechsel hinweg.
 - Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Workbench und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
 - Besuchte Hauptansichten, Iframes, xterm-Instanzen und WebSockets bleiben während der Browser-Session gemountet und wechseln ohne Neustart.
 - Alle Live-Werkzeuge lassen sich frei positionieren und skalieren; stabile Laufzeit-IDs erhalten Terminal- und Agent-Sitzungen über Canvas-Interaktionen hinweg.
-- Preview-Island mit Reload, externem Tab, Vollbild ohne Reload, Schließen, Geräteauswahl und Portrait-/Landscape-Wechsel sowie getrennte Vollseiten für Preview und Browser.
+- Preview-Island mit Slot-Anzeige, Reload, externem Tab, Vollbild, iframe-/Chromium-Umschaltung, Geräteauswahl und Portrait-/Landscape-Wechsel.
 - Lazy geladene Routen, Idle-Prefetch, Brotli/Gzip und langfristig gecachte Build-Assets reduzieren Start- und Wechselzeiten.
 - Desktop-Sidebar, echte Breadcrumbs, mobile Gruppenansicht und Statuszeile mit Codex-, OpenCode- und Claude-Code-Limits.
 - SQLite-gestützte Token-, Kosten-, Projekt- und Modellhistorie aus CodexBar mit Diagrammen und Limitprognosen.
 - Sichere Codex-/OpenCode-/Claude-Code-Accountverwaltung mit lokaler Profilerkennung und isolierten CLI-Neuanmeldungen.
+- **Schnellwechsel zwischen Accounts:** je Werkzeug genau ein serverweit aktiver Account — mehrere OpenAI-/Codex-Abos (privat, Arbeit) ebenso wie Claude Code und OpenCode. Ein Klick auf „Aktivieren“ oder `scripts/ki-account.sh use arbeit` schaltet um, ohne Abmeldung und ohne neue Geräteanmeldung; Projekte, Sessions und Konfiguration bleiben gemeinsam.
 - Zod-validierte API, strenge CSP, loopback-only Dienste und Tailscale Serve ohne öffentlichen Funnel.
 - Reproduzierbare systemd-Units mit Neustart, Healthchecks und Rollback-Vorbereitung.
 

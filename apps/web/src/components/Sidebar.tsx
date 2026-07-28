@@ -1,32 +1,33 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { OrbitNode } from "@workbench/contracts";
 import {
   ChevronDown,
   FolderGit2,
   TerminalSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  MonitorSmartphone,
-  Bot,
-  Braces,
-  Code2,
   Eye,
   FileCode2,
   Frame,
   Gauge,
   ListTodo,
   StickyNote,
-  Globe2,
   FolderSearch2,
   FolderUp,
   Images,
 } from "lucide-react";
+import { BrowserIcon, CodeServerIcon, CodexIcon, OpenCodeIcon, T3CodeIcon, TerminalIcon } from "./ToolIcons";
 import { prefetchRoute } from "../lib/routeModules";
 import { workbenchQueries } from "../lib/queryOptions";
 import { footerNavItems, primaryNavItems, toolRouteItems, type NavItem } from "../routes/navigation";
 import { isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
+import { useOrbitStore } from "../stores/orbit";
+import { PromptDialog } from "./ModalDialog";
+import { previewSlotsReleasedWithNode, releasePreviewSlots } from "../lib/previewSlotLifecycle";
+import { openPreviewGroupWindow } from "../lib/previewWindow";
 
 const pathToRouteId = (path: string): PageRouteId | null => {
   const map: Record<string, PageRouteId> = {
@@ -39,12 +40,15 @@ const pathToRouteId = (path: string): PageRouteId | null => {
 };
 
 export interface OrbitPalettePayload {
-  type: "project" | "tool" | "note" | "todo" | "snippet" | "file" | "frame" | "usage" | "gallery" | "fileGallery";
+  type: "project" | "tool" | "previewGroup" | "note" | "todo" | "snippet" | "file" | "frame" | "usage" | "gallery" | "fileGallery";
   title: string;
   projectId?: string;
   toolType?: "t3-code" | "code-server" | "preview" | "browser" | "terminal" | "codex" | "opencode";
   provider?: "codex" | "opencode" | "claude";
   previewId?: string;
+  layout?: "1" | "2" | "3" | "6";
+  targetPort?: number;
+  referenceId?: string;
 }
 
 function beginOrbitDrag(event: ReactDragEvent, payload: OrbitPalettePayload) {
@@ -97,14 +101,13 @@ function SidebarNavLink({ item, collapsed }: { item: NavItem; collapsed: boolean
   );
 }
 
-const orbitTools: ReadonlyArray<[OrbitPaletteItem, string, typeof TerminalSquare]> = [
-  ["tool:terminal", "Terminal", TerminalSquare],
-  ["tool:t3-code", "T3 Code", Code2],
-  ["tool:preview", "Preview", Eye],
-  ["tool:browser", "Browser", Globe2],
-  ["tool:code-server", "Code-Server", MonitorSmartphone],
-  ["tool:codex", "Codex", Bot],
-  ["tool:opencode", "OpenCode", Braces],
+const orbitTools: ReadonlyArray<[OrbitPaletteItem, string, React.ComponentType<{ className?: string }>]> = [
+  ["tool:t3-code", "T3 Code", T3CodeIcon],
+  ["tool:code-server", "Code-Server", CodeServerIcon],
+  ["tool:terminal", "Terminal", TerminalIcon],
+  ["tool:opencode", "OpenCode", OpenCodeIcon],
+  ["tool:codex", "Codex", CodexIcon],
+  ["tool:browser", "Browser", BrowserIcon],
 ];
 const orbitGalleries: ReadonlyArray<[OrbitPaletteItem, OrbitPalettePayload, typeof Images]> = [
   ["gallery:gallery-media", { type: "gallery", title: "Mediengalerie" } satisfies OrbitPalettePayload, Images],
@@ -120,7 +123,7 @@ const orbitBlocks: ReadonlyArray<[OrbitPaletteItem, OrbitPalettePayload, typeof 
   ["block:usage-claude", { type: "usage", title: "Claude Code Nutzung", provider: "claude" } satisfies OrbitPalettePayload, Gauge],
 ];
 
-function OrbitPaletteButton({ payload, Icon, collapsed }: { payload: OrbitPalettePayload; Icon: typeof TerminalSquare; collapsed: boolean }) {
+function OrbitPaletteButton({ payload, Icon, collapsed }: { payload: OrbitPalettePayload; Icon: React.ComponentType<{ className?: string }>; collapsed: boolean }) {
   return (
     <button type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} aria-label={payload.title} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}>
       <Icon className="h-4 w-4 shrink-0" />
@@ -140,6 +143,80 @@ function OrbitToolSection({ collapsed }: { collapsed: boolean }) {
         const toolType = key.split(":")[1] as NonNullable<OrbitPalettePayload["toolType"]>;
         return <OrbitPaletteButton key={key} payload={{ type: "tool", title: label, toolType }} Icon={Icon} collapsed={collapsed} />;
       }) : null}
+    </div>
+  );
+}
+
+const previewTemplates: ReadonlyArray<[OrbitPaletteItem, "1" | "2" | "3" | "6", string]> = [
+  ["preview:layout-1", "1", "Einzel-Preview"],
+  ["preview:layout-2", "2", "2er-Gruppe"],
+  ["preview:layout-3", "3", "3er-Gruppe"],
+  ["preview:layout-6", "6", "6er-Gruppe (2×3)"],
+];
+
+function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {
+  const isCollapsed = useSectionCollapsed("previews");
+  const isOrbitItemVisible = useSidebarPreferences((state) => state.isOrbitItemVisible);
+  const document = useOrbitStore((state) => state.document);
+  const duplicateNode = useOrbitStore((state) => state.duplicateNode);
+  const removeNode = useOrbitStore((state) => state.removeNode);
+  const updateNode = useOrbitStore((state) => state.updateNode);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [renameGroup, setRenameGroup] = useState<OrbitNode | null>(null);
+  const board = document.boards.find((candidate) => candidate.id === document.activeBoardId);
+  const savedGroups = [...(board?.nodes.filter((node) => node.type === "previewGroup" && node.previewReferenceId === null) ?? [])]
+    .sort((left, right) => (right.previewLastUsedAt ?? "").localeCompare(left.previewLastUsedAt ?? ""));
+  useEffect(() => {
+    if (!menuId) return;
+    const close = (event: MouseEvent) => {
+      if (!(event.target as Element | null)?.closest(".sidebar-preview-saved")) setMenuId(null);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuId(null); };
+    globalThis.document.addEventListener("mousedown", close);
+    globalThis.document.addEventListener("keydown", escape);
+    return () => {
+      globalThis.document.removeEventListener("mousedown", close);
+      globalThis.document.removeEventListener("keydown", escape);
+    };
+  }, [menuId]);
+  const deleteGroup = (group: OrbitNode) => {
+    if (board) void releasePreviewSlots(previewSlotsReleasedWithNode(board, group.id));
+    removeNode(group.id);
+    setMenuId(null);
+  };
+  return (
+    <div className="sidebar-section orbit-preview-section">
+      <SectionHeader label="Previews" sectionKey="previews" collapsed={collapsed} />
+      {!isCollapsed ? <>
+        {previewTemplates.filter(([key]) => isOrbitItemVisible(key)).map(([key, layout, label]) => (
+          <OrbitPaletteButton key={key} payload={{ type: "previewGroup", title: label, layout }} Icon={Eye} collapsed={collapsed} />
+        ))}
+        {savedGroups.length ? <span className="sidebar-preview-divider" /> : null}
+        {savedGroups.map((group) => {
+          const count = Number(group.previewLayout ?? "1");
+          return <div className="sidebar-preview-saved" key={group.id} onContextMenu={(event) => { event.preventDefault(); setMenuId(group.id); }}>
+            <button type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, { type: "previewGroup", title: group.title, layout: group.previewLayout ?? "1", referenceId: group.id })} onClick={() => requestOrbitNode({ type: "previewGroup", title: group.title, layout: group.previewLayout ?? "1", referenceId: group.id })} title={collapsed ? `${group.title} · ${count} Slots` : "Gespeicherte Gruppe einsetzen"}>
+              <Eye className="h-4 w-4 shrink-0" />
+              {!collapsed ? <><span>{group.title}</span><small>{count} Slots</small></> : null}
+            </button>
+            {menuId === group.id ? <div className="sidebar-preview-menu">
+              <button type="button" onClick={() => { setRenameGroup(group); setMenuId(null); }}>Umbenennen</button>
+              <button type="button" onClick={() => { duplicateNode(group.id); setMenuId(null); }}>Duplizieren</button>
+              <button type="button" onClick={() => { openPreviewGroupWindow(group.id); setMenuId(null); }}>In eigenem Fenster öffnen</button>
+              <button type="button" className="is-danger" onClick={() => deleteGroup(group)}>Löschen</button>
+            </div> : null}
+          </div>;
+        })}
+      </> : null}
+      <PromptDialog
+        open={renameGroup !== null}
+        title="Preview-Gruppe umbenennen"
+        description="Der Name wird im Orbit und in der Preview-Übersicht synchronisiert."
+        label="Gruppenname"
+        initialValue={renameGroup?.title ?? ""}
+        onConfirm={(name) => { if (renameGroup) updateNode(renameGroup.id, { title: name, previewLastUsedAt: new Date().toISOString() }); }}
+        onClose={() => setRenameGroup(null)}
+      />
     </div>
   );
 }
@@ -277,6 +354,7 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
           {orbitMode ? (
             <>
               <OrbitToolSection collapsed={collapsed} />
+              <OrbitPreviewSection collapsed={collapsed} />
               <OrbitGallerySection collapsed={collapsed} />
               <OrbitBlockSection collapsed={collapsed} />
             </>

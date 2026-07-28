@@ -24,6 +24,19 @@ describe("Workbench API", () => {
     expect(health.webBuildId === null || Number.isInteger(health.webBuildId)).toBe(true);
   });
 
+  it("liefert die zentral konfigurierten Preview-Slots", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const response = await app.inject({ method: "GET", url: "/api/v1/previews/slots" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      assignedSlotId: null,
+      slots: expect.arrayContaining([
+        expect.objectContaining({ id: 1, internalPort: settings.previewSlotPorts[0], publicPort: settings.previewPublicPorts[0] }),
+      ]),
+    });
+  });
+
   it("liefert einen Neustart-Status, auch wenn noch nie neu gestartet wurde", async () => {
     const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
@@ -56,7 +69,7 @@ describe("Workbench API", () => {
     expect(response.json()).toMatchObject({
       revision: expect.any(Number),
       initialized: expect.any(Boolean),
-      document: { version: 5, boards: expect.any(Array) },
+      document: { version: 6, boards: expect.any(Array) },
     });
   });
 

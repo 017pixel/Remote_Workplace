@@ -14,12 +14,12 @@ export function LocalPorts({ onOpen, compact = false }: { onOpen: (port: LocalPo
     <section className={`local-port-start ${compact ? "is-compact" : ""}`}>
       <header>
         <div className="local-port-mark"><Network className="h-4 w-4" /></div>
-        <div><strong>Laufende lokale Dienste</strong><span>Direkt auf dem Entwicklungsserver erkannt</span></div>
+        <div><strong>Laufende Projekt-Dienste</strong><span>HTTP-Devserver auf dem Entwicklungsserver</span></div>
         <button type="button" onClick={() => void query.refetch()} aria-label="Lokale Ports neu laden" title="Neu laden"><RefreshCw className={`h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} /></button>
       </header>
       {query.isError ? <p className="local-port-message">Lokale Ports konnten nicht geladen werden.</p> : null}
       {query.isLoading ? <div className="local-port-skeleton"><span /><span /><span /></div> : null}
-      {!query.isLoading && ports.length === 0 ? <p className="local-port-message">Momentan wurden keine offenen lokalen Ports erkannt.</p> : null}
+      {!query.isLoading && ports.length === 0 ? <p className="local-port-message">Momentan läuft kein lokaler Projekt-Devserver.</p> : null}
       <div className="local-port-grid">
         {ports.map((port) => {
           const canOpen = port.localUrl !== null;

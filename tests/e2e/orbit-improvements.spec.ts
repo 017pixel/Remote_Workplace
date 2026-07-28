@@ -23,7 +23,7 @@ test("covers precise canvas chrome, menus, zoom and editable routing", async ({ 
   const current = await (await page.request.get(orbitUrl)).json();
   const boardId = `improvements-${Date.now()}`;
   const seed = await page.request.put(orbitUrl, { data: { expectedRevision: current.revision, document: {
-    version: 4, activeBoardId: boardId, focusedNodeId: null, boards: [{
+    version: 6, activeBoardId: boardId, focusedNodeId: null, boards: [{
       id: boardId, name: "Verbesserungen", viewport: { x: 180, y: 170, zoom: .68 }, worldBounds: { minX: -1_600, minY: -1_000, maxX: 6_400, maxY: 1_400 },
       nodes: [
         node("project", "project", "Sample", -100, 0),

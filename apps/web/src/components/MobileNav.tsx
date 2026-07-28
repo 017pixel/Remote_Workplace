@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { navSections, type NavItem } from "../routes/navigation";
 import { prefetchRoute } from "../lib/routeModules";
 import { isPageVisibleIn, useSidebarPreferences, type PageRouteId } from "../stores/sidebarPreferences";
@@ -21,29 +21,48 @@ interface MobileNavProps {
   triggerRef?: RefObject<HTMLButtonElement | null>;
 }
 
+// Muss zur Dauer von `navigation-page-exit` in index.css passen: Solange läuft
+// die Seite nach links aus dem Bild, erst danach verlässt sie den Baum.
+const NAVIGATION_EXIT_MS = 240;
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+
 export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   const location = useLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openedPath = useRef(location.pathname);
+  // Beim Schließen bleibt die Seite noch kurz im Baum, damit sie nicht
+  // verschwindet, sondern nach links hinausgleitet, während die gewählte
+  // Ansicht von rechts nachrückt.
+  const [phase, setPhase] = useState<"closed" | "open" | "closing">(open ? "open" : "closed");
   // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
   const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
-  const [query, setQuery] = useState("");
-  // Vierzehn Ziele sind zu viele zum Scannen — die Suche filtert sie live.
-  const filteredSections = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return navSections.map((section) => ({
-      ...section,
-      items: section.items.filter((item) => {
-        const routeId = pathToRouteId(item.to);
-        if (routeId && !isPageVisibleIn(hiddenPages, routeId)) return false;
-        return needle === "" || item.label.toLowerCase().includes(needle);
-      }),
-    })).filter((section) => section.items.length > 0);
-  }, [hiddenPages, query]);
+  const filteredSections = useMemo(() => navSections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => {
+      const routeId = pathToRouteId(item.to);
+      return routeId === null || isPageVisibleIn(hiddenPages, routeId);
+    }),
+  })).filter((section) => section.items.length > 0), [hiddenPages]);
 
   useEffect(() => {
     if (open) onClose();
   }, [location.pathname, onClose]);
+
+  useEffect(() => {
+    if (open) {
+      setPhase("open");
+      return;
+    }
+    if (prefersReducedMotion()) {
+      setPhase("closed");
+      return;
+    }
+    setPhase((current) => (current === "open" ? "closing" : current));
+    const timer = window.setTimeout(() => setPhase("closed"), NAVIGATION_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,10 +118,20 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
     else onClose();
   };
 
-  if (!open) return null;
+  if (phase === "closed") return null;
+
+  const closing = phase === "closing";
 
   return (
-    <div ref={dialogRef} className="mobile-navigation-page" role="dialog" aria-modal="true" aria-labelledby="mobile-navigation-title">
+    <div
+      ref={dialogRef}
+      className={`mobile-navigation-page ${closing ? "is-closing" : "is-opening"}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mobile-navigation-title"
+      aria-hidden={closing || undefined}
+      inert={closing || undefined}
+    >
       <header className="mobile-navigation-header">
         <div>
           <h2 id="mobile-navigation-title">Navigation</h2>
@@ -112,30 +141,11 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
         </button>
       </header>
 
-      <div className="mobile-navigation-search-wrap">
-        <div className="mobile-navigation-search">
-          <Search className="h-[17px] w-[17px] shrink-0" aria-hidden />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Seite suchen …"
-            aria-label="Navigation durchsuchen"
-            autoComplete="off"
-          />
-          {query ? (
-            <button type="button" onClick={() => setQuery("")} aria-label="Suche zurücksetzen">
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-      </div>
-
       <nav className="mobile-navigation-list" aria-label="Hauptnavigation">
         {filteredSections.length === 0 ? (
           <div className="mobile-navigation-empty">
-            <strong>Keine Seite gefunden</strong>
-            <span>Für „{query}“ gibt es keinen Treffer.</span>
+            <strong>Keine Seite sichtbar</strong>
+            <span>In den Einstellungen sind alle Seiten ausgeblendet.</span>
           </div>
         ) : null}
         {filteredSections.map((section) => (

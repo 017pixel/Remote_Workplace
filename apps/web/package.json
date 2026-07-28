@@ -1,6 +1,6 @@
 {
   "name": "@workbench/web",
-  "version": "0.30.3",
+  "version": "0.35.0",
   "private": true,
   "type": "module",
   "scripts": {

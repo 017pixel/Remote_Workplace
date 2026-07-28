@@ -137,6 +137,9 @@ export const localPortSchema = z.object({
   port: z.number().int().min(1).max(65_535),
   address: z.string().min(1),
   process: z.string().min(1).nullable(),
+  pid: z.number().int().positive().nullable().default(null),
+  projectId: z.string().min(1).nullable().default(null),
+  projectName: z.string().min(1).nullable().default(null),
   protocol: z.enum(["http", "https", "unknown"]),
   localUrl: z.url().nullable(),
   proxyUrl: z.string().startsWith("/").nullable(),
@@ -147,12 +150,88 @@ export const localPortsResponseSchema = z.object({
   scannedAt: isoDateSchema,
 });
 
+export const previewSlotSchema = z.object({
+  id: z.number().int().min(1).max(32),
+  internalPort: z.number().int().min(1).max(65_535),
+  publicPort: z.number().int().min(1).max(65_535),
+  targetPort: z.number().int().min(1).max(65_535).nullable(),
+  publicUrl: z.url(),
+  updatedAt: isoDateSchema.nullable(),
+});
+
+export const previewSlotsResponseSchema = z.object({
+  slots: z.array(previewSlotSchema).max(32),
+  assignedSlotId: z.number().int().min(1).max(32).nullable().default(null),
+});
+
+export const previewDependencySchema = z.object({
+  port: z.number().int().min(1).max(65_535),
+  label: z.string().trim().min(1).max(80),
+  protocol: z.enum(["auto", "http", "https"]).default("auto"),
+  enabled: z.boolean().default(true),
+});
+
+export const previewDependenciesResponseSchema = z.object({
+  projectId: z.string().min(1),
+  primaryPort: z.number().int().min(1).max(65_535),
+  dependencies: z.array(previewDependencySchema).max(11),
+});
+
+export const previewSessionRequestSchema = z.object({
+  sessionKey: z.string().trim().min(1).max(160),
+  projectId: z.string().trim().min(1).max(160).nullable().default(null),
+  primaryPort: z.number().int().min(1).max(65_535),
+  primaryProtocol: z.enum(["http", "https"]).default("http"),
+  requestedSlotId: z.number().int().min(1).max(32).nullable().optional(),
+  isolate: z.boolean().default(true),
+});
+
+export const previewSessionBindingSchema = z.object({
+  role: z.enum(["primary", "dependency"]),
+  label: z.string().min(1).max(80),
+  targetPort: z.number().int().min(1).max(65_535),
+  targetProtocol: z.enum(["http", "https"]),
+  slotId: z.number().int().min(1).max(32),
+  publicUrl: z.url(),
+});
+
+export const previewSessionResponseSchema = z.object({
+  id: z.string().uuid(),
+  sessionKey: z.string().min(1),
+  projectId: z.string().nullable(),
+  primaryPort: z.number().int().min(1).max(65_535),
+  bindings: z.array(previewSessionBindingSchema).min(1).max(12),
+  leaseExpiresAt: isoDateSchema,
+});
+
+export const previewSlotAssignmentRequestSchema = z.object({
+  slotId: z.number().int().min(1).max(32).nullable().optional(),
+  targetPort: z.number().int().min(1).max(65_535).nullable(),
+  expectedTargetPort: z.number().int().min(1).max(65_535).optional(),
+  isolate: z.boolean().default(true),
+}).superRefine((input, context) => {
+  if (input.targetPort === null && input.slotId == null) {
+    context.addIssue({ code: "custom", message: "Zum Freigeben muss ein Preview-Slot angegeben werden." });
+  }
+  if (input.targetPort !== null && input.expectedTargetPort !== undefined) {
+    context.addIssue({ code: "custom", message: "Der erwartete Zielport ist nur beim Freigeben erlaubt." });
+  }
+});
+
+export const previewPathSchema = z.string().startsWith("/").max(4_096).refine(
+  (value) => !value.startsWith("//") && !value.includes("\\") && ![...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127),
+  "Preview-Pfade müssen relative Root-Pfade ohne Backslashes oder Steuerzeichen sein.",
+);
+
 export const previewSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   name: z.string().min(1),
-  url: z.url(),
+  url: z.url().nullable().default(null),
+  targetPort: z.number().int().min(1).max(65_535).nullable().default(null),
+  path: previewPathSchema.default("/"),
   mode: serviceModeSchema,
-  runtime: z.enum(["iframe", "shared-browser"]).default("shared-browser"),
+  runtime: z.enum(["iframe", "shared-browser"]).default("iframe"),
+  dependencies: z.array(previewDependencySchema).max(11).default([]),
 });
 
 export const projectAvailabilitySchema = z.enum([
@@ -323,6 +402,10 @@ export const managedAccountSchema = z.object({
   profilePath: z.string().startsWith("/"),
   source: z.enum(["local", "login", "codexbar"]),
   enabled: z.boolean(),
+  // Serverweit aktiver Account des Anbieters. Bei Codex ergibt sich der Wert aus dem
+  // Symlink des gemeinsamen Codex-Homes, ist also immer der tatsächlich genutzte Stand.
+  active: z.boolean().default(false),
+  plan: z.string().min(1).nullable().default(null),
   createdAt: isoDateSchema,
   updatedAt: isoDateSchema,
 });
@@ -336,6 +419,9 @@ export const discoveredAccountSchema = z.object({
   authenticated: z.boolean(),
   enabled: z.boolean().nullable(),
   source: z.enum(["local", "login", "codexbar"]).nullable(),
+  active: z.boolean().default(false),
+  email: z.string().email().nullable().default(null),
+  plan: z.string().min(1).nullable().default(null),
 });
 export const discoveredAccountsResponseSchema = z.object({ accounts: z.array(discoveredAccountSchema) });
 export const createAccountRequestSchema = z.object({
@@ -349,6 +435,16 @@ export const updateAccountRequestSchema = z.object({
   enabled: z.boolean().optional(),
 }).refine((value) => Object.keys(value).length > 0);
 export const accountResponseSchema = z.object({ account: managedAccountSchema });
+export const activateAccountResponseSchema = z.object({
+  account: managedAccountSchema,
+  // Gesetzt, wenn beim Umschalten eine noch reguläre Anmeldedatei aus dem gemeinsamen
+  // Home in einen Anmeldespeicher übernommen oder beiseitegelegt wurde.
+  adoptedInto: z.string().startsWith("/").nullable(),
+  backupPath: z.string().startsWith("/").nullable(),
+  // Gesetzt, wenn der Account bisher direkt auf das gemeinsame Home zeigte und dafür
+  // einen eigenen Anmeldespeicher bekommen hat.
+  migratedTo: z.string().startsWith("/").nullable().default(null),
+});
 export const loginSessionResponseSchema = z.object({
   account: managedAccountSchema,
   terminalKind: z.enum(["codex", "opencode", "claude"]),
@@ -516,6 +612,8 @@ export const ORBIT_ASSET_LIMITS = {
 export const orbitNodeTypeSchema = z.enum([
   "project",
   "tool",
+  "previewGroup",
+  "previewSlot",
   "note",
   "todo",
   "snippet",
@@ -555,6 +653,16 @@ export const orbitNodeSchema = z.object({
   runtimeId: z.string().max(100).nullable(),
   toolType: panelTypeSchema.nullable(),
   previewId: z.string().max(120).nullable(),
+  previewLayout: z.enum(["1", "2", "3", "6"]).nullable().default(null),
+  previewTarget: z.string().max(4_096).nullable().default(null),
+  previewPath: previewPathSchema.default("/"),
+  previewDeviceId: z.string().max(80).nullable().default(null),
+  previewOrientation: z.enum(["portrait", "landscape"]).default("portrait"),
+  previewSlotId: z.number().int().min(1).max(32).nullable().default(null),
+  previewIsolation: z.boolean().default(true),
+  previewRuntime: z.enum(["iframe", "shared-browser"]).default("iframe"),
+  previewReferenceId: z.string().max(100).nullable().default(null),
+  previewLastUsedAt: isoDateSchema.nullable().default(null),
   assetId: z.string().uuid().nullable().default(null),
   assetMimeType: z.string().max(160).nullable().default(null),
   assetBytes: z.number().int().nonnegative().nullable().default(null),
@@ -624,7 +732,7 @@ export const orbitBoardSchema = z.object({
 });
 
 export const orbitWorkspaceSchema = z.object({
-  version: z.literal(5),
+  version: z.literal(6),
   activeBoardId: z.string().min(1).max(100),
   focusedNodeId: z.string().max(100).nullable(),
   boards: z.array(orbitBoardSchema).min(1).max(ORBIT_LIMITS.maxBoards),
@@ -739,7 +847,16 @@ export const saveNewsItemRequestSchema = z.object({ collectionIds: z.array(z.str
 export const markNewsReadRequestSchema = z.object({ read: z.boolean() });
 export const newsSyncResponseSchema = z.object({ accepted: z.boolean(), running: z.boolean() });
 export const newsChatMessageSchema = z.object({ question: z.string().trim().min(1).max(2_000), answer: z.string().trim().min(1).max(8_000) });
-export const newsChatRequestSchema = z.object({ question: z.string().trim().min(2).max(2_000), itemId: z.string().uuid().nullable().default(null), history: z.array(newsChatMessageSchema).max(10).default([]) });
+/* Auswählbare Mistral-Modelle für den Nachrichten-Chat. "auto" überlässt die Wahl der Server-Konfiguration. */
+export const newsChatModelSchema = z.enum(["auto", "mistral-large-2512", "mistral-medium-2604", "magistral-medium-2509", "mistral-small-2603"]);
+export const newsChatModelOptions = [
+  { id: "auto", label: "Automatisch", hint: "Wählt je nach Frage das passende Modell" },
+  { id: "mistral-large-2512", label: "Mistral Large", hint: "Höchste Qualität, etwas langsamer" },
+  { id: "mistral-medium-2604", label: "Mistral Medium", hint: "Ausgewogen zwischen Tempo und Tiefe" },
+  { id: "magistral-medium-2509", label: "Magistral", hint: "Denkt Schritt für Schritt, gut für Analysen" },
+  { id: "mistral-small-2603", label: "Mistral Small", hint: "Schnellste Antworten" },
+] as const satisfies ReadonlyArray<{ id: z.infer<typeof newsChatModelSchema>; label: string; hint: string }>;
+export const newsChatRequestSchema = z.object({ question: z.string().trim().min(2).max(2_000), itemId: z.string().uuid().nullable().default(null), history: z.array(newsChatMessageSchema).max(10).default([]), model: newsChatModelSchema.default("auto") });
 export const newsCitationSchema = z.object({ itemId: z.string().uuid(), title: z.string().min(1), url: z.url(), excerpt: z.string() });
 export const newsChatResponseSchema = z.object({ answer: z.string().min(1), citations: z.array(newsCitationSchema), model: z.string().min(1), grounded: z.boolean() });
 
@@ -760,6 +877,14 @@ export type Service = z.infer<typeof serviceSchema>;
 export type ServicesResponse = z.infer<typeof servicesResponseSchema>;
 export type LocalPort = z.infer<typeof localPortSchema>;
 export type LocalPortsResponse = z.infer<typeof localPortsResponseSchema>;
+export type PreviewSlot = z.infer<typeof previewSlotSchema>;
+export type PreviewSlotsResponse = z.infer<typeof previewSlotsResponseSchema>;
+export type PreviewSlotAssignmentRequest = z.infer<typeof previewSlotAssignmentRequestSchema>;
+export type PreviewDependency = z.infer<typeof previewDependencySchema>;
+export type PreviewDependenciesResponse = z.infer<typeof previewDependenciesResponseSchema>;
+export type PreviewSessionRequest = z.infer<typeof previewSessionRequestSchema>;
+export type PreviewSessionBinding = z.infer<typeof previewSessionBindingSchema>;
+export type PreviewSessionResponse = z.infer<typeof previewSessionResponseSchema>;
 export type Preview = z.infer<typeof previewSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectActivity = z.infer<typeof projectActivitySchema>;
@@ -790,6 +915,7 @@ export type DiscoveredAccountsResponse = z.infer<typeof discoveredAccountsRespon
 export type CreateAccountRequest = z.infer<typeof createAccountRequestSchema>;
 export type UpdateAccountRequest = z.infer<typeof updateAccountRequestSchema>;
 export type AccountResponse = z.infer<typeof accountResponseSchema>;
+export type ActivateAccountResponse = z.infer<typeof activateAccountResponseSchema>;
 export type LoginSessionResponse = z.infer<typeof loginSessionResponseSchema>;
 export type TerminalKind = z.infer<typeof terminalKindSchema>;
 export type TerminalSessionStatus = z.infer<typeof terminalSessionStatusSchema>;
@@ -842,6 +968,7 @@ export type CreateNewsCollectionRequest = z.infer<typeof createNewsCollectionReq
 export type SaveNewsItemRequest = z.infer<typeof saveNewsItemRequestSchema>;
 export type MarkNewsReadRequest = z.infer<typeof markNewsReadRequestSchema>;
 export type NewsChatMessage = z.infer<typeof newsChatMessageSchema>;
+export type NewsChatModel = z.infer<typeof newsChatModelSchema>;
 export type NewsChatRequest = z.infer<typeof newsChatRequestSchema>;
 export type NewsCitation = z.infer<typeof newsCitationSchema>;
 export type NewsChatResponse = z.infer<typeof newsChatResponseSchema>;

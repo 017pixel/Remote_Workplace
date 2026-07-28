@@ -11,9 +11,17 @@ const privatePublicUrlSchema = z.url().refine((value) => {
 const previewConfigSchema = z.object({
   id: identifierSchema,
   name: z.string().min(1),
-  url: privatePublicUrlSchema,
+  url: privatePublicUrlSchema.nullable().default(null),
+  targetPort: z.number().int().min(1).max(65_535).nullable().default(null),
+  path: z.string().startsWith("/").default("/"),
   mode: serviceModeSchema.default("hybrid"),
-  runtime: z.enum(["iframe", "shared-browser"]).default("shared-browser"),
+  runtime: z.enum(["iframe", "shared-browser"]).default("iframe"),
+  dependencies: z.array(z.object({
+    port: z.number().int().min(1).max(65_535),
+    label: z.string().trim().min(1).max(80),
+    protocol: z.enum(["auto", "http", "https"]).default("auto"),
+    enabled: z.boolean().default(true),
+  })).max(11).default([]),
 });
 
 export const projectsConfigSchema = z.object({

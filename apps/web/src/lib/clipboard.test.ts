@@ -26,10 +26,11 @@ describe("clipboard helpers", () => {
 
   it("recognizes browser copy and regular or plain-text paste shortcuts", () => {
     expect(browserClipboardAction(event({ ctrlKey: true }), false)).toBe("copy");
-    expect(browserClipboardAction(event({ ctrlKey: true, shiftKey: true }), false)).toBeNull();
+    expect(browserClipboardAction(event({ ctrlKey: true, shiftKey: true }), false)).toBe("copy");
     expect(browserClipboardAction(event({ key: "v", ctrlKey: true }), false)).toBe("paste");
     expect(browserClipboardAction(event({ key: "v", ctrlKey: true, shiftKey: true }), false)).toBe("paste");
     expect(browserClipboardAction(event({ metaKey: true }), true)).toBe("copy");
+    expect(browserClipboardAction(event({ metaKey: true, shiftKey: true }), true)).toBe("copy");
   });
 
   it("uses the asynchronous Clipboard API when available", async () => {

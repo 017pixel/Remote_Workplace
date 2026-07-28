@@ -44,6 +44,7 @@ import { ProjectActivityService } from "./projects/activity-service.js";
 import { TmuxSupervisor } from "./terminal/TmuxSupervisor.js";
 import { ProjectRegistryDatabase } from "./projects/registry-database.js";
 import { ProjectBrowserService } from "./filesystem/projectBrowserService.js";
+import { PreviewSlotDatabase, PreviewSlotService } from "./previews/slots.js";
 
 const require = createRequire(import.meta.url);
 const devtoolsDirectory = dirname(require.resolve("@chrome-devtools/inspector/inspector.html"));
@@ -74,13 +75,26 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     if (service.publicUrl !== null) frameSources.add(new URL(service.publicUrl).origin);
   }
   for (const project of projectsConfig.projects) {
-    for (const preview of project.previews) frameSources.add(new URL(preview.url).origin);
+    for (const preview of project.previews) {
+      if (preview.url) frameSources.add(new URL(preview.url).origin);
+    }
+  }
+  for (const publicPort of settings.previewPublicPorts) {
+    frameSources.add(`https://${settings.tailscaleHostname}:${publicPort}`);
   }
   const proxyOrigins = [...frameSources].filter((origin) => origin !== "'self'");
   const usageDatabase = new UsageDatabase(settings.databasePath);
   const projectActivityDatabase = new ProjectActivityDatabase(settings.databasePath);
   const projectRegistryDatabase = new ProjectRegistryDatabase(settings.databasePath);
   const browserDatabase = new BrowserDatabase(settings.databasePath);
+  const previewSlotDatabase = new PreviewSlotDatabase(settings.databasePath);
+  const previewSlots = new PreviewSlotService({
+    database: previewSlotDatabase,
+    slotPorts: settings.previewSlotPorts,
+    publicPorts: settings.previewPublicPorts,
+    hostname: settings.tailscaleHostname,
+    forbiddenTargetPorts: [settings.port, settings.t3Port, settings.tailscaleHttpsPort],
+  });
   const projectActivity = new ProjectActivityService({ database: projectActivityDatabase, cacheMilliseconds: settings.projectActivityCacheMilliseconds, maximumDepth: settings.projectActivityMaximumDepth });
   const projectBrowser = await ProjectBrowserService.create(settings.orbitProjectBrowserRoot, settings.orbitProjectBrowserPageSize);
   const projects = createProjectService(projectsConfig, servicesConfig.services, undefined, projectActivity, projectRegistryDatabase);
@@ -97,11 +111,19 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     ...(settings.codexOauthPrimaryFallbackEnabled ? { primaryWindowFallback: new CodexOAuthPrimaryWindowFallback({ profileHomes: settings.codexOauthProfileHomes, configPath: settings.codexbarConfigPath, timeoutMilliseconds: settings.codexOauthTimeoutMilliseconds }) } : {}),
   });
   const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds });
-  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath });
+  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
     cacheMilliseconds: settings.localPortCacheMilliseconds,
     probeTimeoutMilliseconds: settings.localPortProbeTimeoutMilliseconds,
+    excludedPorts: [
+      settings.port,
+      settings.t3Port,
+      settings.tailscaleHttpsPort,
+      ...settings.previewSlotPorts,
+      ...settings.previewPublicPorts,
+    ],
+    projects: async () => (await projects.list()).projects.map((project) => ({ id: project.id, name: project.name, path: project.path })),
   });
 
   await app.register(compress, {
@@ -195,6 +217,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     projectBrowser,
     projectFiles,
     localPorts,
+    previewSlots,
     proxyOrigins,
   });
   await app.register(registerNewsRoutes, { prefix: "/api/v1", news, newsDatabase });
@@ -258,8 +281,9 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   if (options.startBackgroundServices !== false) {
     analytics.start();
     news.start();
+    await previewSlots.startListeners();
   }
-  app.addHook("onClose", async () => { news.stop(); await analytics.stop(); terminals.shutdown(); await browsers.shutdown(); terminalDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); usageDatabase.close(); });
+  app.addHook("onClose", async () => { news.stop(); await analytics.stop(); await previewSlots.stopListeners(); terminals.shutdown(); await browsers.shutdown(); previewSlotDatabase.close(); terminalDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); usageDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);

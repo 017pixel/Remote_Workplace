@@ -31,6 +31,12 @@ export const workbenchConfigSchema = z.object({
     orbitAssetDir: absolutePath,
     fileGalleryDir: absolutePath.optional(),
     workbenchProfilesRoot: absolutePath,
+    // Gemeinsame Homes der KI-Werkzeuge für Sessions und Konfiguration; der Accountwechsel
+    // tauscht nur die darin liegende Anmeldedatei aus. Ohne Angabe `<home>/.codex`,
+    // `<home>/.claude` und `<home>/.local/share/opencode`.
+    codexSharedHome: absolutePath.optional(),
+    claudeSharedHome: absolutePath.optional(),
+    opencodeSharedHome: absolutePath.optional(),
     databasePath: absolutePath,
   }),
   cli: z.object({
@@ -45,6 +51,12 @@ export const workbenchConfigSchema = z.object({
     configPath: absolutePath,
     oauthProfileHomes: z.array(absolutePath),
   }),
+  previews: z.object({
+    slotPorts: z.array(z.number().int().min(1).max(65_535)).min(1).max(32)
+      .default([3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912]),
+    publicPorts: z.array(z.number().int().min(1).max(65_535)).min(1).max(32)
+      .default([8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462]),
+  }).prefault({}),
   // T3 Code läuft als eine einzige Instanz hinter dem /t3-Proxy. Alle Werte sind optional,
   // damit ältere Konfigurationen ohne diesen Abschnitt weiter laden.
   t3: z.object({
@@ -66,6 +78,26 @@ export const workbenchConfigSchema = z.object({
     // prefault statt default: Fehlt der Abschnitt ganz, wird ein leeres Objekt geparst
     // und die Feld-Defaults greifen — sonst müsste hier jeder Wert ausgeschrieben werden.
   }).prefault({}),
+}).superRefine((config, context) => {
+  if (config.previews.slotPorts.length !== config.previews.publicPorts.length) {
+    context.addIssue({ code: "custom", path: ["previews"], message: "Interne und öffentliche Preview-Ports müssen gleich viele Einträge enthalten." });
+  }
+  if (new Set(config.previews.slotPorts).size !== config.previews.slotPorts.length) {
+    context.addIssue({ code: "custom", path: ["previews", "slotPorts"], message: "Interne Preview-Ports müssen eindeutig sein." });
+  }
+  if (new Set(config.previews.publicPorts).size !== config.previews.publicPorts.length) {
+    context.addIssue({ code: "custom", path: ["previews", "publicPorts"], message: "Öffentliche Preview-Ports müssen eindeutig sein." });
+  }
+  const internalAndPublic = [...config.previews.slotPorts, ...config.previews.publicPorts];
+  if (new Set(internalAndPublic).size !== internalAndPublic.length) {
+    context.addIssue({ code: "custom", path: ["previews"], message: "Interne und öffentliche Preview-Ports dürfen sich nicht überschneiden." });
+  }
+  if (config.previews.slotPorts.includes(config.t3.port)) {
+    context.addIssue({ code: "custom", path: ["previews", "slotPorts"], message: "Ein interner Preview-Port kollidiert mit T3 Code." });
+  }
+  if (config.previews.publicPorts.includes(config.tailscale.httpsPort)) {
+    context.addIssue({ code: "custom", path: ["previews", "publicPorts"], message: "Ein öffentlicher Preview-Port kollidiert mit dem Workbench-HTTPS-Port." });
+  }
 });
 
 export type WorkbenchConfig = z.infer<typeof workbenchConfigSchema>;

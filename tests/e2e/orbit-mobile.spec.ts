@@ -24,7 +24,7 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
     data: {
       expectedRevision: current.revision,
       document: {
-        version: 4,
+        version: 6,
         activeBoardId: boardId,
         focusedNodeId: null,
         boards: [{

@@ -95,7 +95,7 @@ describe("account registry", () => {
     const root = await mkdtemp(join(tmpdir(), "workbench-account-")); const profile = join(root,"codex-profile"); const config = join(root,"codexbar","config.json");
     await mkdir(profile); await writeFile(join(profile,"auth.json"),"credential-placeholder");
     const database = new UsageDatabase(":memory:"); databases.push(database);
-    const service = new AccountService({database,allowedRoots:[root],profilesRoot:join(root,"profiles"),codexbarConfigPath:config});
+    const service = new AccountService({database,allowedRoots:[root],profilesRoot:join(root,"profiles"),codexbarConfigPath:config,sharedHomes:{codex:{sharedHome:join(root,".codex"),authFileName:"auth.json"},claude:{sharedHome:join(root,".claude"),authFileName:".credentials.json"},opencode:{sharedHome:join(root,"share/opencode"),authFileName:"auth.json"}}});
     const account = await service.create({provider:"codex",label:"Test",profilePath:profile,source:"local"});
     await expect(service.discover()).resolves.toContainEqual(expect.objectContaining({
       accountId: account.id,
@@ -137,7 +137,7 @@ describe("account registry", () => {
     await writeFile(claude, `#!/bin/sh\nprintf '%s' '{"loggedIn":true,"email":"claude@example.com"}'\n`);
     await chmod(claude, 0o700);
     const database = new UsageDatabase(":memory:"); databases.push(database);
-    const service = new AccountService({ database, allowedRoots: [root], profilesRoot: join(root, "profiles"), codexbarConfigPath: join(root, "codexbar.json"), claudeCliPath: claude, homeDirectory: root });
+    const service = new AccountService({ database, allowedRoots: [root], profilesRoot: join(root, "profiles"), codexbarConfigPath: join(root, "codexbar.json"), claudeCliPath: claude, homeDirectory: root, sharedHomes:{codex:{sharedHome:join(root,".codex"),authFileName:"auth.json"},claude:{sharedHome:join(root,".claude"),authFileName:".credentials.json"},opencode:{sharedHome:join(root,"share/opencode"),authFileName:"auth.json"}} });
 
     await expect(service.discover()).resolves.toContainEqual(expect.objectContaining({
       provider: "claude",

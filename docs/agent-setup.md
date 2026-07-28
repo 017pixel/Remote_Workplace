@@ -63,6 +63,7 @@ Antworten aus Schritt 1 ein. Bedeutung der Felder:
 | `tailscale.hostname` / `ip` / `httpsPort` | Für Dev-Server-Hosts und den Reverse-Proxy. |
 | `tailscale.allowedUsers` | Erlaubte Login-E-Mails (Terminal/Editor-Zugriff). |
 | `paths.*` | Projekt-Roots, Datenverzeichnis, Datenbank, Backups, Assets, Profile. |
+| `paths.codexSharedHome` / `claudeSharedHome` / `opencodeSharedHome` | Optional. Gemeinsame Homes der KI-Werkzeuge für den Accountwechsel (Standard: `<home>/.codex`, `<home>/.claude`, `<home>/.local/share/opencode`). |
 | `cli.*` | Pfade zu `codexbar`, `codex`, `opencode`, `claude`, `tmux`, `chromium`. |
 | `codexbar.configPath` / `oauthProfileHomes` | CodexBar-Konfiguration und optionale OAuth-Profile. |
 
@@ -105,6 +106,32 @@ sudo bash deploy/systemd/install-codexbar.sh # optionaler CodexBar-Dienst
 ```
 Die systemd-Units werden aus den Templates in `deploy/systemd/units/` gerendert und mit den
 Werten aus `config/workbench.local.json` gefüllt (siehe `deploy/systemd/render-units.mjs`).
+
+---
+
+## 4b. KI-Accounts registrieren (optional)
+
+Je Werkzeug — Codex, Claude Code, OpenCode — ist serverweit **genau ein Account aktiv**.
+Umgeschaltet wird nur die Anmeldung: Die Anmeldedatei im gemeinsamen Home (`auth.json`, bei
+Claude Code `.credentials.json`) ist ein Symlink in den Anmeldespeicher des aktiven Accounts.
+Konfiguration, Sessions und Verlauf bleiben geteilt, es gibt also weiterhin nur einen
+Projekt- und Sessionbestand.
+
+1. Bestehende Anmeldungen erkennt die Workbench unter **Nutzung → Accounts** automatisch;
+   mit „Registrieren“ werden sie aufgenommen.
+2. Weitere Accounts über „Neu anmelden“ hinzufügen — die Anmeldung läuft in einem
+   eingebetteten Terminal, bei Codex per Gerätecode ohne localhost-Rückruf.
+3. Umschalten per „Aktivieren“ oder auf der Kommandozeile:
+
+```bash
+scripts/ki-account.sh                  # alle Accounts, der aktive ist mit * markiert
+scripts/ki-account.sh use arbeit       # per Name, E-Mail oder Profilpfad aktivieren
+scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug voranstellen
+```
+
+Ein Account, der noch direkt auf das gemeinsame Home zeigt, bekommt beim ersten Aktivieren
+automatisch einen eigenen Anmeldespeicher unter `paths.workbenchProfilesRoot`. Zugangsdaten
+werden dabei nie gelöscht, sondern verschoben und gesichert.
 
 ---
 

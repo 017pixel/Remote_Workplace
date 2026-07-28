@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, Code2, Eye, MonitorSmartphone } from "lucide-react";
+import { ChevronDown, Eye } from "lucide-react";
+import { CodeServerIcon, T3CodeIcon } from "./ToolIcons";
 import type { Project } from "@workbench/contracts";
 import { Badge } from "./primitives";
 import { openPreviewForProject, openProjectDefault, openToolForProject } from "../lib/workbenchActions";
@@ -62,7 +63,7 @@ export function ProjectCard({ project }: { project: Project }) {
           disabled={project.availability !== "available"}
           className="quiet-button-primary max-md:basis-full"
         >
-          <Code2 className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
+          <T3CodeIcon className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
         </button>
         <div className="project-desktop-actions contents"><button
           type="button"
@@ -74,7 +75,7 @@ export function ProjectCard({ project }: { project: Project }) {
           className="quiet-button"
           title={project.links.codeServer === null ? "code-server nicht installiert" : undefined}
         >
-          <MonitorSmartphone className="h-3.5 w-3.5" /> Editor
+          <CodeServerIcon className="h-3.5 w-3.5" /> Editor
         </button>
         {project.previews.length > 0 ? (
           project.previews.map((preview) => (
@@ -94,7 +95,7 @@ export function ProjectCard({ project }: { project: Project }) {
         {project.links.codeServer || project.previews.length > 0 ? <details className="project-touch-actions">
           <summary><span>Weitere Werkzeuge</span><ChevronDown className="h-4 w-4" /></summary>
           <div>
-            {project.links.codeServer ? <button type="button" onClick={() => { openToolForProject(project, "code-server"); navigate("/code-editor"); }}><MonitorSmartphone className="h-4 w-4" /> Editor öffnen</button> : null}
+            {project.links.codeServer ? <button type="button" onClick={() => { openToolForProject(project, "code-server"); navigate("/code-editor"); }}><CodeServerIcon className="h-4 w-4" /> Editor öffnen</button> : null}
             {project.previews.map((preview) => <button key={preview.id} type="button" onClick={() => { openPreviewForProject(project, preview.id); navigate(`/previews?preview=${encodeURIComponent(preview.id)}`); }}><Eye className="h-4 w-4" /> {preview.name}</button>)}
           </div>
         </details> : null}

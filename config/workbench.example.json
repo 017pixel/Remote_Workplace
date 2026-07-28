@@ -28,6 +28,9 @@
     "orbitAssetDir": "/home/your-user/.local/share/remote-workplace/orbit-assets",
     "fileGalleryDir": "/home/your-user/.local/share/remote-workplace/file-gallery",
     "workbenchProfilesRoot": "/home/your-user/.workbench-profiles",
+    "codexSharedHome": "/home/your-user/.codex",
+    "claudeSharedHome": "/home/your-user/.claude",
+    "opencodeSharedHome": "/home/your-user/.local/share/opencode",
     "databasePath": "/home/your-user/.local/share/remote-workplace/workbench.sqlite"
   },
   "cli": {
@@ -41,6 +44,10 @@
   "codexbar": {
     "configPath": "/home/your-user/.config/codexbar/config.json",
     "oauthProfileHomes": []
+  },
+  "previews": {
+    "slotPorts": [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],
+    "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462]
   },
   "t3": {
     "channel": "stable",

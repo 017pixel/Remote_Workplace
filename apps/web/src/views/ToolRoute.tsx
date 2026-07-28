@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";
 import { ToolPanel } from "../components/ToolPanel";
 import { EmptyState } from "../components/EmptyState";
 import type { Panel, Project } from "@workbench/contracts";
+import { useResponsiveShell } from "../lib/useResponsiveShell";
+import { PreviewSlotCarousel } from "./PreviewGroupRoute";
 
 type ProjectPanelType = "t3-code" | "code-server" | "preview";
 
@@ -54,7 +56,37 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
 
 export function T3Code() { return <SingleTool type="t3-code" />; }
 export function CodeEditor() { return <SingleTool type="code-server" />; }
-export function Previews() { return <SingleTool type="preview" />; }
+export function Previews() {
+  const responsive = useResponsiveShell();
+  const orbit = useQuery(workbenchQueries.orbit());
+  if (!responsive.isTouchShell) return <SingleTool type="preview" />;
+
+  const groups = (orbit.data?.document.boards ?? []).flatMap((board) =>
+    board.nodes
+      .filter((node) => node.type === "previewGroup" && node.previewReferenceId === null)
+      .map((group) => ({
+        group,
+        slots: board.nodes
+          .filter((node) => node.type === "previewSlot" && node.parentId === group.id)
+          .sort((left, right) => left.zIndex - right.zIndex)
+          .slice(0, Number(group.previewLayout ?? "1")),
+      })),
+  );
+
+  if (orbit.isLoading) return <div className="route-skeleton" aria-label="Preview-Gruppen werden geladen"><span /><span /><span /></div>;
+  if (groups.length === 0) return <SingleTool type="preview" />;
+  return (
+    <main className="mobile-preview-groups">
+      <header><span>Previews</span><h1>Preview-Gruppen</h1></header>
+      {groups.map(({ group, slots }) => (
+        <section key={group.id} className="mobile-preview-group">
+          <header><div><strong>{group.title}</strong><small>{slots.length} {slots.length === 1 ? "Slot" : "Slots"}</small></div><Link to={`/workbench/previews/gruppe/${group.id}`}>Vollbild</Link></header>
+          <PreviewSlotCarousel slots={slots} className="mobile-preview-group-track" lazy />
+        </section>
+      ))}
+    </main>
+  );
+}
 export function Browser() {
   const panel: Panel = { id: "standalone-browser", type: "browser", projectId: null, previewId: null, reloadKey: 0 };
   return <div className="standalone-tool-page"><div className="standalone-tool-content"><ToolPanel panel={panel} project={undefined} isFocused standalone /></div></div>;

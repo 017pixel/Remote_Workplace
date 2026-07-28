@@ -7,11 +7,15 @@ import {
   serverSummarySchema,
   servicesResponseSchema,
   localPortsResponseSchema,
+  previewSlotsResponseSchema,
+  previewDependenciesResponseSchema,
+  previewSessionResponseSchema,
   usageResponseSchema,
   usageDashboardResponseSchema,
   accountsResponseSchema,
   discoveredAccountsResponseSchema,
   accountResponseSchema,
+  activateAccountResponseSchema,
   loginSessionResponseSchema,
   orbitDocumentResponseSchema,
   orbitAssetResponseSchema,
@@ -44,6 +48,9 @@ import {
   type SaveTerminalWorkspaceRequest,
   type RegisterProjectRequest,
   type UpdateGalleryFileRequest,
+  type PreviewSlotAssignmentRequest,
+  type PreviewDependenciesResponse,
+  type PreviewSessionRequest,
 } from "@workbench/contracts";
 import type { ZodType } from "zod";
 
@@ -140,6 +147,13 @@ export const apiClient = {
   serverMetrics: (signal?: AbortSignal) => request("/server/metrics", serverMetricsSchema, signal),
   services: (signal?: AbortSignal) => request("/services", servicesResponseSchema, signal),
   localPorts: (signal?: AbortSignal) => request("/local-ports", localPortsResponseSchema, signal),
+  previewSlots: (signal?: AbortSignal) => request("/previews/slots", previewSlotsResponseSchema, signal),
+  assignPreviewSlot: (body: PreviewSlotAssignmentRequest) => mutate("/previews/slots", "PUT", previewSlotsResponseSchema, body),
+  previewDependencies: (projectId: string, primaryPort: number, signal?: AbortSignal) =>
+    request(`/previews/dependencies?projectId=${encodeURIComponent(projectId)}&primaryPort=${primaryPort}`, previewDependenciesResponseSchema, signal),
+  savePreviewDependencies: (body: PreviewDependenciesResponse) => mutate("/previews/dependencies", "PUT", previewDependenciesResponseSchema, body),
+  openPreviewSession: (body: PreviewSessionRequest) => mutate("/previews/sessions", "POST", previewSessionResponseSchema, body),
+  closePreviewSession: (sessionKey: string) => mutate(`/previews/sessions/${encodeURIComponent(sessionKey)}`, "DELETE", null),
   projects: (signal?: AbortSignal) => request("/projects", projectsResponseSchema, signal),
   project: (projectId: string, signal?: AbortSignal) =>
     request(`/projects/${encodeURIComponent(projectId)}`, projectResponseSchema, signal),
@@ -156,6 +170,7 @@ export const apiClient = {
   startLogin: (body: Omit<CreateAccountRequest, "source">) => mutate("/accounts/login-session", "POST", loginSessionResponseSchema, body),
   updateAccount: (id: string, body: UpdateAccountRequest) => mutate(`/accounts/${encodeURIComponent(id)}`, "PATCH", accountResponseSchema, body),
   deleteAccount: (id: string) => mutate(`/accounts/${encodeURIComponent(id)}`, "DELETE", null),
+  activateAccount: (id: string) => mutate(`/accounts/${encodeURIComponent(id)}/activate`, "POST", activateAccountResponseSchema),
   orbit: (signal?: AbortSignal) => request("/orbit", orbitDocumentResponseSchema, signal),
   saveOrbit: (body: SaveOrbitDocumentRequest) => mutate("/orbit", "PUT", orbitDocumentResponseSchema, body),
   uploadOrbitAsset,

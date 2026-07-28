@@ -46,14 +46,14 @@ function stripRemovedToolNodes(value: unknown): unknown {
   };
 }
 
-/** Accept documents written by Orbit v4 and make the new asset fields explicit. */
+/** Accept documents written by Orbit v4/v5 and add the current preview metadata. */
 function parseOrbitDocument(value: unknown): OrbitWorkspace {
   const cleaned = stripRemovedToolNodes(value);
   const source = cleaned as { version?: number; boards?: Array<{ nodes?: Array<Record<string, unknown>> }> };
-  if (source?.version === 4) {
+  if (source?.version === 4 || source?.version === 5) {
     return orbitWorkspaceSchema.parse({
       ...source,
-      version: 5,
+      version: 6,
       boards: source.boards?.map((board) => ({
         ...board,
         nodes: board.nodes?.map((node) => ({ assetId: null, assetMimeType: null, assetBytes: null, ...node })),
@@ -65,7 +65,7 @@ function parseOrbitDocument(value: unknown): OrbitWorkspace {
 
 export function createDefaultOrbitWorkspace(): OrbitWorkspace {
   return orbitWorkspaceSchema.parse({
-    version: 5,
+    version: 6,
     activeBoardId: DEFAULT_BOARD_ID,
     focusedNodeId: null,
     boards: [{

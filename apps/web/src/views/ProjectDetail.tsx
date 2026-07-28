@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Code2, Eye, MonitorSmartphone, FolderTree } from "lucide-react";
+import { ArrowLeft, Eye, FolderTree } from "lucide-react";
+import { CodeServerIcon, T3CodeIcon } from "../components/ToolIcons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { QueryBoundary } from "../components/QueryBoundary";
 import { Card } from "../components/Card";
@@ -65,7 +66,7 @@ export function ProjectDetail() {
                       }}
                       className="quiet-button-primary"
                     >
-                      <Code2 className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
+                      <T3CodeIcon className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
                     </button>
                     <button
                       type="button"
@@ -76,7 +77,7 @@ export function ProjectDetail() {
                       }}
                       className="quiet-button"
                     >
-                      <MonitorSmartphone className="h-3.5 w-3.5" /> Editor
+                      <CodeServerIcon className="h-3.5 w-3.5" /> Editor
                     </button>
                   </div>
                 </Card>

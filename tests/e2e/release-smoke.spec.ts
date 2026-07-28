@@ -15,7 +15,7 @@ test("verifies Browser, local ports and direct project tool navigation", async (
   const address = page.getByLabel("Browser-Adresse");
   await expect(address).toBeVisible();
   await page.getByRole("button", { name: "Neuer Tab" }).click();
-  await expect(page.getByText("Laufende lokale Dienste")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator(".local-port-grid > button")).not.toHaveCount(0);
 
   await address.fill("example.com");
@@ -40,7 +40,7 @@ test("verifies Browser, local ports and direct project tool navigation", async (
   await expect(page).toHaveURL(/\/workbench\/previews\?preview=/);
 
   await page.goto(`${workbench}/previews`);
-  await expect(page.getByText("Laufende lokale Dienste")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator(".local-port-grid > button")).not.toHaveCount(0);
 
   const dashboard = await (await page.request.get(new URL("/api/v1/usage/dashboard", workbench).toString())).json() as { forecasts: Array<{ providerId: string; accountId: string; windowId: string }> };
@@ -153,7 +153,7 @@ test("keeps Browser and Orbit controls usable on mobile", async ({ page }) => {
 
   await page.goto(`${workbench}/browser`);
   await page.getByRole("button", { name: "Neuer Tab" }).click();
-  await expect(page.getByText("Laufende lokale Dienste")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 20_000 });
   const browserBounds = await page.locator(".app-shell").evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }));
   expect(browserBounds.scrollWidth).toBeLessThanOrEqual(browserBounds.clientWidth);
   await expect(page.getByLabel("Browser-Adresse")).toBeVisible();

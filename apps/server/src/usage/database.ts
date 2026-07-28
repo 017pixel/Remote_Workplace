@@ -76,6 +76,14 @@ export class UsageDatabase {
       `);
     }
     this.db.exec("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (2, datetime('now'))");
+    // Zuletzt aktivierter Account je Werkzeug. Die Wahrheit über den tatsächlich aktiven Account
+    // steht im Symlink des gemeinsamen Homes; dieser Eintrag sagt nur, wohin er zeigen soll —
+    // nötig, um den Symlink zu reparieren, wenn ein CLI ihn durch eine reguläre Datei ersetzt.
+    this.db.exec(`CREATE TABLE IF NOT EXISTS active_accounts (
+      provider TEXT PRIMARY KEY CHECK(provider IN ('codex','opencode','claude')),
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      updated_at TEXT NOT NULL
+    )`);
   }
 
   importUsage(provider: UsageProviderId, payloads: CodexbarPayload[], capturedAt: string) {
@@ -213,7 +221,9 @@ export class UsageDatabase {
   listAccounts(): ManagedAccount[] {
     return this.db.prepare(`SELECT id,provider,label,email,profile_path profilePath,source,
       enabled,created_at createdAt,updated_at updatedAt FROM accounts ORDER BY provider,label`).all()
-      .map((row) => ({ ...(row as Omit<ManagedAccount,"enabled"> & {enabled:number}), enabled: Boolean((row as {enabled:number}).enabled) }));
+      // `active` und `plan` stammen nicht aus der Datenbank: Sie werden vom AccountService aus
+      // dem gemeinsamen Codex-Home und der auth.json ermittelt, damit sie nie veralten können.
+      .map((row) => ({ ...(row as Omit<ManagedAccount,"enabled"|"active"|"plan"> & {enabled:number}), enabled: Boolean((row as {enabled:number}).enabled), active: false, plan: null }));
   }
   createAccount(input: { provider: UsageProviderId; label: string; profilePath: string; source: "local"|"login" }): ManagedAccount {
     const now = new Date().toISOString(); const id = randomUUID();
@@ -228,4 +238,18 @@ export class UsageDatabase {
     return this.getAccount(id);
   }
   deleteAccount(id: string) { this.getAccount(id); this.db.prepare("DELETE FROM accounts WHERE id=?").run(id); }
+  setAccountProfilePath(id: string, profilePath: string): ManagedAccount {
+    this.db.prepare("UPDATE accounts SET profile_path=?,updated_at=? WHERE id=?").run(profilePath, new Date().toISOString(), id);
+    return this.getAccount(id);
+  }
+  /** Zuletzt aktivierter Account je Werkzeug, als Zuordnung Werkzeug → Account-ID. */
+  listActiveAccounts(): Partial<Record<UsageProviderId, string>> {
+    const rows = this.db.prepare("SELECT provider, account_id accountId FROM active_accounts").all() as Array<{provider:UsageProviderId;accountId:string}>;
+    return Object.fromEntries(rows.map((row) => [row.provider, row.accountId]));
+  }
+  setActiveAccount(provider: UsageProviderId, accountId: string) {
+    this.db.prepare(`INSERT INTO active_accounts(provider,account_id,updated_at) VALUES(?,?,?)
+      ON CONFLICT(provider) DO UPDATE SET account_id=excluded.account_id, updated_at=excluded.updated_at`)
+      .run(provider, accountId, new Date().toISOString());
+  }
 }

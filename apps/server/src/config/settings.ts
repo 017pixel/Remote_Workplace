@@ -47,7 +47,7 @@ const localhostUrl = z.url().refine((value) => {
 const settingsSchema = z.object({
   HOST: z.string().default("127.0.0.1"),
   PORT: integerFromEnvironment(3010),
-  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.30.3"),
+  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.35.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   CONFIG_DIR: z.string().default("./config"),
   WEB_DIST_DIR: z.string().default("./apps/web/dist"),
@@ -124,6 +124,11 @@ const settingsSchema = z.object({
   NEWS_AI_CONCURRENCY: boundedIntegerFromEnvironment(1, 1, 4),
   WORKBENCH_PROFILES_ROOT: z.string().startsWith("/").default(wb.paths.workbenchProfilesRoot),
   CODEXBAR_CONFIG_PATH: z.string().startsWith("/").default(wb.codexbar.configPath),
+  // Gemeinsame Homes der KI-Werkzeuge: dort liegen Konfiguration, Sessions und Verlauf.
+  // Beim Accountwechsel wird ausschließlich die darin liegende Anmeldedatei umgehängt.
+  CODEX_SHARED_HOME: z.string().startsWith("/").default(wb.paths.codexSharedHome ?? join(wb.system.homeDirectory, ".codex")),
+  CLAUDE_SHARED_HOME: z.string().startsWith("/").default(wb.paths.claudeSharedHome ?? join(wb.system.homeDirectory, ".claude")),
+  OPENCODE_SHARED_HOME: z.string().startsWith("/").default(wb.paths.opencodeSharedHome ?? join(wb.system.homeDirectory, ".local/share/opencode")),
   // Der Kanal selbst steht bewusst nicht hier: Er wird zur Laufzeit aus der Config
   // gelesen und geschrieben (siehe readConfiguredT3Channel). Alles Übrige ist statisch.
   T3_CLI_PATH: z.string().startsWith("/").default(wb.t3.cliPath ?? join(wb.system.homeDirectory, ".npm-global/bin/t3")),
@@ -134,6 +139,10 @@ const settingsSchema = z.object({
 });
 
 const environment = settingsSchema.parse(process.env);
+const listenerPorts = [environment.PORT, environment.T3_PORT, ...wb.previews.slotPorts];
+if (new Set(listenerPorts).size !== listenerPorts.length) {
+  throw new Error("Workbench-, T3- und interne Preview-Ports müssen eindeutig sein.");
+}
 
 export const settings = Object.freeze({
   host: environment.HOST,
@@ -147,6 +156,8 @@ export const settings = Object.freeze({
   tailscaleHostname: wb.tailscale.hostname,
   tailscaleIp: wb.tailscale.ip,
   tailscaleHttpsPort: wb.tailscale.httpsPort,
+  previewSlotPorts: wb.previews.slotPorts,
+  previewPublicPorts: wb.previews.publicPorts,
   webDistDirectory: resolve(projectRoot, environment.WEB_DIST_DIR),
   projectsRootDirectory: resolve(environment.PROJECTS_ROOT),
   projectDiscoveryEnabled: environment.PROJECT_DISCOVERY_ENABLED,
@@ -218,6 +229,12 @@ export const settings = Object.freeze({
   newsAiConcurrency: environment.NEWS_AI_CONCURRENCY,
   workbenchProfilesRoot: resolve(environment.WORKBENCH_PROFILES_ROOT),
   codexbarConfigPath: resolve(environment.CODEXBAR_CONFIG_PATH),
+  // Gemeinsames Home und Name der Anmeldedatei je Werkzeug.
+  sharedHomes: {
+    codex: { sharedHome: resolve(environment.CODEX_SHARED_HOME), authFileName: "auth.json" },
+    claude: { sharedHome: resolve(environment.CLAUDE_SHARED_HOME), authFileName: ".credentials.json" },
+    opencode: { sharedHome: resolve(environment.OPENCODE_SHARED_HOME), authFileName: "auth.json" },
+  },
   t3CliPath: resolve(environment.T3_CLI_PATH),
   t3NpmPackage: environment.T3_NPM_PACKAGE,
   t3Host: environment.T3_HOST,

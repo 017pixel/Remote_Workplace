@@ -23,6 +23,7 @@ interface NewsRow {
   url:string; title:string; tldr:string; longSummary:string; content:string; author:string|null; category:NewsCategory;
   importanceScore:number; importanceReason:string; mediaType:"article"|"video"; coverUrl:string|null; videoId:string|null;
   publishedAt:string; fetchedAt:string; processedAt:string|null; language:string; read:number; aiProcessed:number;
+  rankScore:number;
 }
 
 export interface NewsListQuery { search?:string; category?:NewsCategory; importance?:"top"|"important"|"relevant"|"more"; mediaType?:"article"|"video"; saved?:boolean; unread?:boolean; collectionId?:string; cursor?:string; limit:number }
@@ -121,7 +122,11 @@ export class NewsDatabase {
     const collectionIds=(this.db.prepare("SELECT collection_id id FROM news_collection_items WHERE item_id=?").all(row.id) as Array<{id:string}>).map(x=>x.id);
     return {id:row.id,source:{id:row.sourceId,name:row.sourceName,homepageUrl:row.sourceUrl,kind:row.sourceKind,priority:row.sourcePriority},url:row.url,title:row.title,tldr:row.tldr||row.title,longSummary:row.longSummary||row.tldr||row.content,content:row.content,author:row.author,category:row.category,importanceScore:row.importanceScore,importanceBand:band(row.importanceScore),importanceReason:row.importanceReason,mediaType:row.mediaType,coverUrl:row.coverUrl,videoId:row.videoId,publishedAt:row.publishedAt,fetchedAt:row.fetchedAt,processedAt:row.processedAt,language:row.language,read:Boolean(row.read),saved:collectionIds.length>0,collectionIds,aiProcessed:Boolean(row.aiProcessed)};
   }
-  private selectSql() { return `SELECT i.id,i.source_id sourceId,s.name sourceName,s.homepage_url sourceUrl,s.kind sourceKind,s.priority sourcePriority,i.url,i.title,i.tldr,i.long_summary longSummary,i.content,i.author,i.category,i.importance_score importanceScore,i.importance_reason importanceReason,i.media_type mediaType,i.cover_url coverUrl,i.video_id videoId,i.published_at publishedAt,i.fetched_at fetchedAt,i.processed_at processedAt,i.language,COALESCE(r.is_read,0) read,i.ai_processed aiProcessed FROM news_items i JOIN news_sources s ON s.id=i.source_id LEFT JOIN news_read_state r ON r.item_id=i.id`; }
+  /* Wichtigkeit allein sortiert alte Top-Meldungen ewig nach vorn. Deshalb zieht ein
+     Altersabschlag pro Tag vom Score ab (gedeckelt), damit frische Nachrichten aufsteigen.
+     Referenz ist der Tagesbeginn, damit die Reihenfolge während einer Blätter-Sitzung stabil bleibt. */
+  private static readonly rankSql = "(i.importance_score - MIN(55.0, MAX(0.0, (julianday(date('now')) - julianday(date(i.published_at))) * 3.5)))";
+  private selectSql() { return `SELECT ${NewsDatabase.rankSql} rankScore,i.id,i.source_id sourceId,s.name sourceName,s.homepage_url sourceUrl,s.kind sourceKind,s.priority sourcePriority,i.url,i.title,i.tldr,i.long_summary longSummary,i.content,i.author,i.category,i.importance_score importanceScore,i.importance_reason importanceReason,i.media_type mediaType,i.cover_url coverUrl,i.video_id videoId,i.published_at publishedAt,i.fetched_at fetchedAt,i.processed_at processedAt,i.language,COALESCE(r.is_read,0) read,i.ai_processed aiProcessed FROM news_items i JOIN news_sources s ON s.id=i.source_id LEFT JOIN news_read_state r ON r.item_id=i.id`; }
   get(id:string) { const row=this.db.prepare(`${this.selectSql()} WHERE i.id=?`).get(id) as NewsRow|undefined;if(!row)throw new AppError(404,"NEWS_NOT_FOUND","Die Nachricht wurde nicht gefunden.");return this.map(row); }
   list(query:NewsListQuery) {
     const where:string[]=[];const params:Array<string|number>=[];
@@ -132,12 +137,12 @@ export class NewsDatabase {
     if(query.unread) where.push("NOT EXISTS(SELECT 1 FROM news_read_state unread_state WHERE unread_state.item_id=i.id AND unread_state.is_read=1)");
     if(query.collectionId){where.push("EXISTS(SELECT 1 FROM news_collection_items ci WHERE ci.item_id=i.id AND ci.collection_id=?)");params.push(query.collectionId);}
     const totalWhere=[...where];const totalParams=[...params];
-    if(query.cursor){try{const cursor=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8")) as {score:number;date:string};where.push("(i.importance_score < ? OR (i.importance_score = ? AND i.published_at < ?))");params.push(cursor.score,cursor.score,cursor.date);}catch{/* An invalid cursor simply starts from the first page. */}}
+    if(query.cursor){try{const cursor=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8")) as {rank:number;date:string};if(typeof cursor.rank==="number"&&typeof cursor.date==="string"){where.push(`(${NewsDatabase.rankSql} < ? OR (${NewsDatabase.rankSql} = ? AND i.published_at < ?))`);params.push(cursor.rank,cursor.rank,cursor.date);}}catch{/* An invalid cursor simply starts from the first page. */}}
     const clause=where.length?` WHERE ${where.join(" AND ")}`:"";
-    const rows=this.db.prepare(`${this.selectSql()}${clause} ORDER BY i.importance_score DESC,i.published_at DESC LIMIT ?`).all(...params,query.limit+1) as unknown as NewsRow[];
-    const hasMore=rows.length>query.limit;const items=rows.slice(0,query.limit).map(row=>this.map(row));
+    const rows=this.db.prepare(`${this.selectSql()}${clause} ORDER BY rankScore DESC,i.published_at DESC LIMIT ?`).all(...params,query.limit+1) as unknown as NewsRow[];
+    const hasMore=rows.length>query.limit;const page=rows.slice(0,query.limit);const items=page.map(row=>this.map(row));
     const totalClause=totalWhere.length?` WHERE ${totalWhere.join(" AND ")}`:"";const total=(this.db.prepare(`SELECT COUNT(*) count FROM news_items i${totalClause}`).get(...totalParams) as {count:number}).count;
-    const last=items.at(-1);const nextCursor=hasMore&&last?Buffer.from(JSON.stringify({score:last.importanceScore,date:last.publishedAt})).toString("base64url"):null;
+    const last=page.at(-1);const nextCursor=hasMore&&last?Buffer.from(JSON.stringify({rank:last.rankScore,date:last.publishedAt})).toString("base64url"):null;
     return {items,nextCursor,total};
   }
   setRead(id:string,read:boolean){this.get(id);this.db.prepare(`INSERT INTO news_read_state(item_id,is_read,updated_at) VALUES(?,?,?) ON CONFLICT(item_id) DO UPDATE SET is_read=excluded.is_read,updated_at=excluded.updated_at`).run(id,Number(read),new Date().toISOString());return this.get(id);}

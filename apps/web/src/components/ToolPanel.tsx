@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorSmartphone, RotateCw, Smartphone, X } from "lucide-react";
+import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorSmartphone, RotateCw, Server, ShieldCheck, X } from "lucide-react";
 import type { Panel, Project, ServiceMode } from "@workbench/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
 import { StateDot } from "./primitives";
+import { DevicePickerButton } from "./DevicePickerButton";
 import { DevicePreviewFrame } from "./DevicePreviewFrame";
-import { devicePresets, type DeviceOrientation, type DevicePresetId } from "../config/devicePresets";
+import type { DeviceOrientation, DevicePresetId } from "../config/devicePresets";
 import { TerminalArea } from "./terminal/TerminalArea";
 import { LocalPorts } from "./browser/LocalPorts";
+import { BrowserPanel } from "./browser/BrowserPanel";
 import { ChromiumBrowser } from "./browser/ChromiumBrowser";
+import { PreviewSlotFrame, relayCanvasPinch } from "./PreviewSlotFrame";
+import { apiClient } from "../lib/apiClient";
 
 const panelTitles: Record<Panel["type"], string> = {
   "t3-code": "T3 Code",
@@ -26,27 +30,9 @@ interface ResolvedPanel {
   embed: boolean;
   proxyUrl: string | null;
   reason: string | null;
-}
-
-function relayCanvasPinch(iframe: HTMLIFrameElement) {
-  try {
-    const target = iframe.contentWindow;
-    if (!target || target.__orbitPinchRelayInstalled) return;
-    target.__orbitPinchRelayInstalled = true;
-    target.addEventListener("wheel", (event) => {
-      if (!event.ctrlKey) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const bounds = iframe.getBoundingClientRect();
-      window.dispatchEvent(new CustomEvent("orbit:iframe-pinch", { detail: {
-        clientX: bounds.left + event.clientX,
-        clientY: bounds.top + event.clientY,
-        deltaY: event.deltaY,
-      } }));
-    }, { passive: false, capture: true });
-  } catch {
-    // Cross-origin tools retain their native input; proxied Workbench tools are same-origin.
-  }
+  targetPort: number | null;
+  path: string;
+  runtime: "iframe" | "shared-browser";
 }
 
 export function projectBoundCodeServerUrl(baseUrl: string, projectPath: string): string {
@@ -61,11 +47,11 @@ export function projectBoundCodeServerProxyUrl(projectPath: string): string {
 
 function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode: ServiceMode): ResolvedPanel | null {
   if (panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode") {
-    return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null };
+    return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/", runtime: "iframe" };
   }
-  if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null };
+  if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/", runtime: "iframe" };
   if (panel.type === "preview" && !project) {
-    return { url: null, mode: "embedded", embed: false, proxyUrl: null, reason: "Keine Preview ausgewählt." };
+    return { url: null, mode: "embedded", embed: false, proxyUrl: null, reason: "Keine Preview ausgewählt.", targetPort: null, path: "/", runtime: "iframe" };
   }
   if (!project) return null;
   if (panel.type === "t3-code") {
@@ -76,6 +62,9 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
       embed: url !== null,
       proxyUrl: url === null ? null : "/t3",
       reason: url === null ? "T3 Code ist für dieses Projekt nicht verfügbar." : null,
+      targetPort: null,
+      path: "/",
+      runtime: "iframe",
     };
   }
   if (panel.type === "code-server") {
@@ -88,18 +77,24 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
       embed,
       proxyUrl: embed ? projectBoundCodeServerProxyUrl(project.path) : null,
       reason: configuredUrl === null ? "code-server ist auf dem Server nicht installiert." : null,
+      targetPort: null,
+      path: "/",
+      runtime: "iframe",
     };
   }
   const preview = project.previews.find((p) => p.id === panel.previewId);
   if (!preview) {
-    return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Preview wurde nicht gefunden." };
+    return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Preview wurde nicht gefunden.", targetPort: null, path: "/", runtime: "iframe" };
   }
   return {
-    url: preview.url,
+    url: preview.url ?? (preview.targetPort ? `http://127.0.0.1:${preview.targetPort}${preview.path}` : null),
     mode: preview.mode,
-    embed: preview.url !== null,
+    embed: preview.url !== null || preview.targetPort !== null,
     proxyUrl: null,
-    reason: null,
+    reason: preview.url === null && preview.targetPort === null ? "Für diese Preview ist kein Ziel konfiguriert." : null,
+    targetPort: preview.targetPort,
+    path: preview.path,
+    runtime: preview.runtime,
   };
 }
 
@@ -131,11 +126,31 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   const [deviceId, setDeviceId] = useState<DevicePresetId>("responsive");
   const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
   const [localPreview, setLocalPreview] = useState<ResolvedPanel | null>(null);
+  const [previewRuntimeOverride, setPreviewRuntimeOverride] = useState<"iframe" | "shared-browser" | null>(null);
+  const [previewPublicUrl, setPreviewPublicUrl] = useState<string | null>(null);
+  const [previewSlotId, setPreviewSlotId] = useState<number | null>(() => {
+    try {
+      const raw = window.sessionStorage.getItem(`workbench:preview-slot:${panel.id}`);
+      return raw ? Number(raw) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    if (panel.type !== "preview" || localPreview) return;
+    const queryPort = standalone ? Number(new URLSearchParams(window.location.search).get("port")) : NaN;
+    let storedPort = NaN;
+    try { storedPort = Number(window.sessionStorage.getItem(`workbench:preview-target:${panel.id}`)); } catch { /* session storage may be unavailable */ }
+    const port = Number.isInteger(queryPort) && queryPort > 0 ? queryPort : storedPort;
+    if (Number.isInteger(port) && port > 0 && port <= 65_535) {
+      setLocalPreview({ url: `http://127.0.0.1:${port}/`, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: port, path: "/", runtime: "iframe" });
+    }
+  }, [localPreview, panel.id, panel.type, standalone]);
 
   const configuredPanel = resolvePanel(panel, project, codeServerMode);
   const resolved = panel.type === "preview" && localPreview ? localPreview : configuredPanel;
   const configuredPreview = panel.type === "preview" ? project?.previews.find((preview) => preview.id === panel.previewId) : undefined;
-  const sharedPreview = panel.type === "preview" && Boolean(resolved?.url) && (localPreview !== null || configuredPreview?.runtime === "shared-browser");
+  const previewRuntime = previewRuntimeOverride ?? resolved?.runtime ?? configuredPreview?.runtime ?? "iframe";
+  const sharedPreview = panel.type === "preview" && Boolean(resolved?.url) && previewRuntime === "shared-browser";
 
   const [loaded, setLoaded] = useState(false);
   const effectiveReloadKey = panel.reloadKey + standaloneReloadKey;
@@ -173,21 +188,34 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     else if (standalone) setStandaloneReloadKey((key) => key + 1);
     else reloadPanel(panel.id);
   };
+  const close = () => {
+    if (panel.type === "preview" && previewSlotId !== null) {
+      void apiClient.assignPreviewSlot({
+        slotId: previewSlotId,
+        targetPort: null,
+        isolate: true,
+        ...(resolved?.targetPort ? { expectedTargetPort: resolved.targetPort } : {}),
+      });
+      try {
+        window.sessionStorage.removeItem(`workbench:preview-slot:${panel.id}`);
+        window.sessionStorage.removeItem(`workbench:preview-target:${panel.id}`);
+      } catch {
+        // Der Server gibt den Slot trotzdem frei.
+      }
+    }
+    if (onClose) onClose();
+    else closePanel(panel.id);
+  };
   const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" ? (
     <div className={`panel-island ${actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""} ${isMaximized ? "is-maximized-actions" : ""}`}>
-      {panel.type === "preview" ? (
-        <label className="panel-device-picker" title="Geräteansicht wählen">
-          <Smartphone className="h-4 w-4" aria-hidden />
-          <select aria-label="Preview-Gerät" value={deviceId} onChange={(event) => setDeviceId(event.target.value as DevicePresetId)}>
-            {devicePresets.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}
-          </select>
-        </label>
-      ) : null}
+      {panel.type === "preview" ? <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} /> : null}
       {panel.type === "preview" && deviceId !== "responsive" ? <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")} className="icon-button"><MonitorSmartphone className="h-4 w-4" /></button> : null}
+      {panel.type === "preview" && resolved?.targetPort ? <span className="preview-slot-badge">{previewSlotId ? `SLOT ${previewSlotId}` : "SLOT"}</span> : null}
+      {panel.type === "preview" && resolved?.url ? <button type="button" title={previewRuntime === "iframe" ? "Server-Chromium verwenden: geteilte Geräte- oder Cookie-Session" : "Direkte iframe-Preview verwenden"} aria-label="Preview-Laufzeit wechseln" onClick={() => setPreviewRuntimeOverride(previewRuntime === "iframe" ? "shared-browser" : "iframe")} className={`icon-button ${previewRuntime === "shared-browser" ? "is-active" : ""}`}>{previewRuntime === "iframe" ? <ShieldCheck className="h-4 w-4" /> : <Server className="h-4 w-4" />}</button> : null}
       {resolved.url ? <button type="button" title="Neu laden" aria-label="Neu laden" onClick={reload} className="icon-button"><RotateCw className="h-4 w-4" /></button> : null}
-      {resolved.url ? <a href={resolved.proxyUrl ?? resolved.url} target="_blank" rel="noopener noreferrer" title="In neuem Tab öffnen" aria-label="In neuem Tab öffnen" className="icon-button"><ExternalLink className="h-4 w-4" /></a> : null}
+      {resolved.url ? <a href={previewPublicUrl ?? resolved.proxyUrl ?? resolved.url} target="_blank" rel="noopener noreferrer" title="In neuem Tab öffnen" aria-label="In neuem Tab öffnen" className="icon-button"><ExternalLink className="h-4 w-4" /></a> : null}
       {isMaximized ? <button type="button" title="Wiederherstellen" aria-label="Wiederherstellen" onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()} className="icon-button"><Minimize2 className="h-4 w-4" /></button> : <button type="button" title="Vollbild" aria-label="Vollbild" onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)} className="icon-button"><Maximize2 className="h-4 w-4" /></button>}
-      {!standalone ? <button type="button" title="Schließen" aria-label="Schließen" onClick={() => onClose ? onClose() : closePanel(panel.id)} className="icon-button danger"><X className="h-4 w-4" /></button> : null}
+      {!standalone ? <button type="button" title="Schließen" aria-label="Schließen" onClick={close} className="icon-button danger"><X className="h-4 w-4" /></button> : null}
     </div>
   ) : null;
 
@@ -227,7 +255,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
 
       <div className="relative min-h-0 flex-1 bg-ink-950">
         {panel.type === "browser" ? (
-          <ChromiumBrowser instanceId={panel.id} />
+          <BrowserPanel instanceId={panel.id} />
         ) : sharedPreview && resolved?.url ? (
           <DevicePreviewFrame deviceId={deviceId} orientation={orientation}>
             <ChromiumBrowser
@@ -236,6 +264,22 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
               initialUrl={resolved.url}
             />
           </DevicePreviewFrame>
+        ) : panel.type === "preview" && resolved?.targetPort && previewRuntime === "iframe" ? (
+          <PreviewSlotFrame
+            targetPort={resolved.targetPort}
+            path={resolved.path}
+            requestedSlotId={previewSlotId}
+            deviceId={deviceId}
+            orientation={orientation}
+            reloadKey={effectiveReloadKey}
+            title={`${project?.name ?? "Lokale"} Preview`}
+            onSlotAssigned={(slotId, url) => {
+              setPreviewSlotId(slotId);
+              setPreviewPublicUrl(url);
+              try { window.sessionStorage.setItem(`workbench:preview-slot:${panel.id}`, String(slotId)); } catch { /* Session remains server-side. */ }
+            }}
+            {...(onFocus ? { onFocus } : {})}
+          />
         ) : panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode" ? (
           <div className="flex h-full min-h-0">
             <TerminalArea
@@ -249,7 +293,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         ) : showPreviewStart ? (
           <LocalPorts onOpen={(port) => {
             if (!port.localUrl) return;
-            setLocalPreview({ url: port.localUrl, mode: "embedded", embed: true, proxyUrl: port.proxyUrl, reason: null });
+            setLocalPreview({ url: port.localUrl, mode: "embedded", embed: true, proxyUrl: port.proxyUrl, reason: null, targetPort: port.port, path: "/", runtime: "iframe" });
           }} />
         ) : resolved === null ? (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-faint">
@@ -280,6 +324,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
                   event.currentTarget.focus();
                   event.currentTarget.contentWindow?.focus();
                 }}
+                onContextMenu={(event) => event.preventDefault()}
                 className="h-full w-full border-0 bg-white"
                 allowFullScreen
                 referrerPolicy="same-origin"

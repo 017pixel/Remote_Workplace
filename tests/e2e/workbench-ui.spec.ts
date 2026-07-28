@@ -171,7 +171,7 @@ test("runs a real Chromium session from the Browser tool", async ({ page }) => {
   await page.goto(`${privateWorkbench}/browser`);
   const address = page.getByLabel("Browser-Adresse");
   await expect(address).toBeVisible();
-  await expect(page.getByText("Laufende lokale Dienste")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 15_000 });
   await address.fill("example.com");
   await address.press("Enter");
   await expect(address).toHaveValue(/https:\/\/example\.com\/?/, { timeout: 20_000 });

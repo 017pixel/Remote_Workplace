@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { orbitWorkspaceSchema, type Workspace } from "@workbench/contracts";
-import { freshOrbitWorkspace, migrateWorkspaceToOrbit, useOrbitStore } from "./orbit";
+import { freshOrbitWorkspace, migrateWorkspaceToOrbit, previewSlotGeometry, useOrbitStore } from "./orbit";
 
 const legacy: Workspace = {
   version: 3,
@@ -19,7 +19,7 @@ beforeEach(() => {
 describe("Orbit store", () => {
   it("migrates project-bound v3 panels into hubs, tool nodes and edges", () => {
     const migrated = migrateWorkspaceToOrbit(legacy);
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.boards[0]!.nodes.map((node) => node.type)).toEqual(["project", "tool"]);
     expect(migrated.boards[0]!.edges).toHaveLength(1);
     expect(migrated.boards[0]!.nodes[1]).toMatchObject({ runtimeId: "terminal-one", projectId: "remote-workplace" });
@@ -41,6 +41,58 @@ describe("Orbit store", () => {
     const id = useOrbitStore.getState().addNode({ type: "gallery", title: "Mediengalerie", position: { x: 0, y: 0 } });
     const node = useOrbitStore.getState().document.boards[0]!.nodes.find((candidate) => candidate.id === id);
     expect(node).toMatchObject({ type: "gallery", toolType: null, runtimeId: null, size: { width: 960, height: 680 } });
+  });
+
+  it("creates, grows, duplicates and removes complete preview groups", () => {
+    const groupId = useOrbitStore.getState().addPreviewGroup({
+      layout: "2",
+      title: "Rollen-Test",
+      position: { x: 120, y: 80 },
+      targetPort: 1234,
+    });
+    expect(groupId).toBeTruthy();
+    let board = useOrbitStore.getState().document.boards[0]!;
+    expect(board.nodes.find((node) => node.id === groupId)).toMatchObject({
+      type: "previewGroup",
+      previewLayout: "2",
+      size: { width: 824, height: 720 },
+    });
+    expect(board.nodes.filter((node) => node.parentId === groupId)).toHaveLength(2);
+    expect(board.nodes.filter((node) => node.parentId === groupId).every((node) => node.previewTarget === "1234")).toBe(true);
+    expect(board.nodes.filter((node) => node.parentId === groupId).every((node) => node.previewDeviceId === "iphone-13")).toBe(true);
+
+    // Die Gruppe wächst um die zusätzlichen Slots, statt die vorhandenen zu stauchen.
+    const slotBefore = previewSlotGeometry(board.nodes.find((node) => node.id === groupId)!, 0).size;
+    useOrbitStore.getState().setPreviewGroupLayout(groupId!, "6");
+    board = useOrbitStore.getState().document.boards[0]!;
+    const grown = board.nodes.find((node) => node.id === groupId)!;
+    expect(grown).toMatchObject({
+      previewLayout: "6",
+      size: { width: 1232, height: 1388 },
+    });
+    expect(previewSlotGeometry(grown, 0).size).toEqual(slotBefore);
+    expect(board.nodes.filter((node) => node.parentId === groupId)).toHaveLength(6);
+
+    const duplicateId = useOrbitStore.getState().duplicateNode(groupId!);
+    expect(duplicateId).toBeTruthy();
+    board = useOrbitStore.getState().document.boards[0]!;
+    expect(board.nodes.find((node) => node.id === duplicateId)?.previewReferenceId).toBeNull();
+    expect(board.nodes.filter((node) => node.parentId === duplicateId)).toHaveLength(6);
+
+    useOrbitStore.getState().updateNode(duplicateId!, { previewReferenceId: groupId });
+    board = useOrbitStore.getState().document.boards[0]!;
+    const originalSlots = board.nodes.filter((node) => node.parentId === groupId).sort((left, right) => left.zIndex - right.zIndex);
+    const referenceSlots = board.nodes.filter((node) => node.parentId === duplicateId).sort((left, right) => left.zIndex - right.zIndex);
+    referenceSlots.forEach((slot) => useOrbitStore.getState().updateNode(slot.id, { previewReferenceId: groupId }));
+    useOrbitStore.getState().updateNode(originalSlots[0]!.id, { title: "Admin", previewTarget: "4173" });
+    useOrbitStore.getState().setPreviewGroupLayout(duplicateId!, "3");
+    board = useOrbitStore.getState().document.boards[0]!;
+    expect(board.nodes.find((node) => node.id === referenceSlots[0]!.id)).toMatchObject({ title: "Admin", previewTarget: "4173" });
+    expect(board.nodes.filter((node) => node.id === groupId || node.id === duplicateId).every((node) => node.previewLayout === "3")).toBe(true);
+
+    useOrbitStore.getState().removeNode(groupId!);
+    board = useOrbitStore.getState().document.boards[0]!;
+    expect(board.nodes.some((node) => node.id === groupId || node.parentId === groupId)).toBe(false);
   });
 
   it("does not overwrite edits created while an older autosave is in flight", () => {
