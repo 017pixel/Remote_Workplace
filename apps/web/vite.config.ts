@@ -62,6 +62,10 @@ export default defineConfig(({mode}) => {
   },
   build: {
     target: "es2022",
+    // Gehashte Chunks bleiben für bereits geöffnete Tabs erreichbar. Die
+    // Lazy-Loader können dadurch bei einem laufenden Build weiterladen, statt
+    // auf eine fehlende Datei zu treffen.
+    emptyOutDir: false,
     sourcemap: false,
   },
   });

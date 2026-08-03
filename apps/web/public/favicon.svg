@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <path d="M132 148 252 256 132 364" fill="none" stroke="#7DA47F" stroke-linecap="round" stroke-linejoin="round" stroke-width="46"/>
-  <path d="M302 364h88" fill="none" stroke="#7DA47F" stroke-linecap="round" stroke-width="46"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+  <rect x="2.5" y="4" width="13.5" height="12" rx="2.4" fill="var(--icon-surface-raised, #262626)" stroke="var(--icon-blue-bright, #79a5df)" stroke-width="1.8"/>
+  <path d="M6.25 8.25 8.5 10.5l-2.25 2.25M10.25 12.75h2.5" stroke="var(--icon-text, #e8e8e8)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 8.2h2.2a2 2 0 0 1 2 2v1.1M16 14.1h2.2a2 2 0 0 0 2-2v-.8" stroke="var(--icon-cyan, #4aaebd)" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="20.2" cy="7.1" r="1.55" fill="var(--icon-cyan, #4aaebd)" stroke="var(--icon-text, #e8e8e8)" stroke-width="1"/>
+  <circle cx="20.2" cy="16.9" r="1.55" fill="var(--icon-violet, #8f6bc9)" stroke="var(--icon-text, #e8e8e8)" stroke-width="1"/>
 </svg>
