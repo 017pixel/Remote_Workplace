@@ -1,0 +1,13 @@
+[Unit]
+Description=Täglicher Hermes-Updatelauf
+
+[Timer]
+# Die Serverzeitzone ist UTC. Die Zone muss deshalb explizit im Ausdruck stehen.
+OnCalendar=*-*-* __HERMES_UPDATE_TIME__:00 __HERMES_UPDATE_TZ__
+Persistent=true
+AccuracySec=1min
+RandomizedDelaySec=5min
+Unit=hermes-update.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,38 @@
+# Hermes-Dashboard-Theme für die Einbettung in Remote Workplace.
+#
+# Grundhaltung: Das ist die offizielle Hermes-Oberfläche und die soll auch so
+# aussehen. Basis ist deshalb der Hermes-Teal-Look ("default" / LENS_0), nicht
+# das Workbench-Grau. Remote Workplace steuert nur die Akzentfarbe bei.
+#
+# WICHTIG — die Palette bedeutet bei Hermes etwas anderes, als der Name nahelegt
+# (`hermes_cli/web_server.py:16057`, `web/src/themes/context.tsx:80`):
+#   background  opake Grundfläche              (#041c1c)
+#   midground   die HELLE Schrift- und Linienfarbe, aus der das Design-System
+#               fast alles ableitet (#ffe6cb). Ein dunkler Wert hier macht die
+#               komplette Oberfläche unlesbar — schwarze Schrift auf Schwarz.
+#   foreground  Overlay-Ebene, in JEDEM Hermes-Preset #ffffff mit alpha 0.
+#
+# Installation: nach $HERMES_HOME/dashboard-themes/ (außerhalb des Checkouts,
+# übersteht damit jedes `hermes update`). Aktiv über `dashboard.theme`.
+name: remote-workplace
+description: Hermes Teal mit dem Grünakzent von Remote Workplace
+palette:
+  background: "#041c1c"
+  midground: "#ffe6cb"
+  foreground:
+    hex: "#ffffff"
+    alpha: 0
+  # Remote-Workplace-Akzent statt Hermes-Amber, deutlich zurückgenommen.
+  warmGlow: "rgba(75, 179, 139, 0.20)"
+  noiseOpacity: 0.7
+layout:
+  radius: "0.5rem"
+  density: comfortable
+# Nur die Akzente kommen aus Remote Workplace (--icon-green / --color-ok).
+# Flächen, Karten, Ränder und Schrift bleiben bewusst beim Hermes-Design-System,
+# damit die Oberfläche ihren eigenen Charakter behält.
+colorOverrides:
+  primary: "#4bb38b"
+  primaryForeground: "#041c1c"
+  ring: "#4bb38b"
+  success: "#4bb38b"

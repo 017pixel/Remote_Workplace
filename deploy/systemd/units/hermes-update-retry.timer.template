@@ -1,0 +1,10 @@
+[Unit]
+Description=Wiederholter Hermes-Updateversuch bei aktiver Arbeit
+
+[Timer]
+OnUnitActiveSec=30min
+OnBootSec=30min
+Unit=hermes-update.service
+
+[Install]
+WantedBy=timers.target

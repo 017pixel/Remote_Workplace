@@ -1,0 +1,15 @@
+# Hermes-Update — gemeinsamer Lauf für Timer, Retry und UI.
+# Das Skript prüft selbst die flock-Sperre und den Beschäftigungszustand.
+[Unit]
+Description=Hermes Agent Update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=__HOME__
+Environment=HERMES_HOME=__HERMES_HOME__
+Environment=PATH=__HERMES_CHECKOUT__/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=__REPO_ROOT__/scripts/hermes-update.sh
+TimeoutStartSec=3600
+UMask=0077

@@ -1,0 +1,23 @@
+# Hermes-Dashboard — offizielle Verwaltung, eingebettet über /hermes.
+# Diese Datei ist eine User-Unit. Der Dashboard-Port bleibt ausschließlich Loopback.
+[Unit]
+Description=Hermes Agent Dashboard (Workbench, Port __HERMES_PORT__)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__HERMES_CHECKOUT__
+Environment=HOME=__HOME__
+Environment=HERMES_HOME=__HERMES_HOME__
+Environment=PATH=__HERMES_CHECKOUT__/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=__HERMES_PYTHON__ -m hermes_cli.main dashboard --host __HERMES_HOST__ --port __HERMES_PORT__ --no-open --skip-build
+Restart=always
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=default.target
