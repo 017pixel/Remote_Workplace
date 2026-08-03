@@ -20,15 +20,15 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 | ![Development Workbench im Infinite Canvas](docs/screenshots/02-workbench.png) | ![Tech TLDRs News Intelligence](docs/screenshots/03-tech-tldrs.png) |
 | Freier Orbit-Workspace mit Terminals, Agenten und Tools nebeneinander. | RSS-/HN-/YouTube-Feeds mit deutschen Zusammenfassungen und semantischer Suche. |
 
-| T3 Code | code-server Editor |
+| T3 Code | Code-Server Editor |
 |:--:|:--:|
-| ![T3 Code Agent](docs/screenshots/04-t3-code.png) | ![Eingebetteter code-server Editor](docs/screenshots/05-code-server.png) |
-| Agentengestützte Entwicklung direkt im Browser. | Vollwertiger VS-Code-Editor unter `/editor/`. |
+| ![T3 Code Agent](docs/screenshots/04-t3-code.png) | ![Code-Server Editor](docs/screenshots/05-code-server.png) |
+| Agentengestützte Entwicklung direkt im Browser. | Vollwertiger VS-Code-Editor im Browser. |
 
-| Medien- & Dateigalerie | Terminal |
+| Dateimanager | Terminal |
 |:--:|:--:|
-| ![Medien- und Dateigalerie](docs/screenshots/06-gallery.png) | ![Natives PTY-Terminal](docs/screenshots/07-terminal.png) |
-| Bento-Mediengalerie und Dateiablage – hoch- und herunterladen von jedem Gerät. | Native `node-pty`-/xterm.js-Terminals mit Reconnect und Verlauf. |
+| ![Dateimanager](docs/screenshots/06-gallery.png) | ![Natives PTY-Terminal](docs/screenshots/07-terminal.png) |
+| Finder-Dateimanager mit Verzeichnisbaum, Listenansicht und Dateiaktionen. | Native `node-pty`-/xterm.js-Terminals mit Reconnect und Verlauf. |
 
 | Nutzung & Limits | Einstellungen |
 |:--:|:--:|
