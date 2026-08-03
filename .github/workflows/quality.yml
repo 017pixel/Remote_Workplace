@@ -1,0 +1,58 @@
+name: Qualität
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm exec eslint . --max-warnings=0
+      - run: pnpm test
+      - run: pnpm test:coverage
+      - run: pnpm build
+      - run: pnpm security:audit
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WORKBENCH_DEV_TAILSCALE_USER: e2e@workbench.invalid
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium firefox
+      - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
