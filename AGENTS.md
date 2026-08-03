@@ -88,10 +88,31 @@ Das Frontend (Einstellungen → „Dienst neu starten") macht genau das und läd
   in `[Service]` ignoriert systemd den Schlüssel und der Dienst gibt nach 5 Fehlstarts auf).
   Steuern:
   `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user <status|restart|stop> workbench.service`.
-  Es ist **kein** `sudo`/root nötig und auch keins verfügbar.
+  `sudo` kann auf dem Server vorhanden sein, wird von der Workbench aber bewusst nicht verwendet.
+  Alle Workbench-, T3- und Hermes-Dienste sind User-Units und werden mit `systemctl --user` gesteuert.
 - **Entwicklung (`pnpm dev`):** `tsx watch` startet das Backend bei Dateiänderung selbst neu,
   Vite macht HMR fürs Frontend. Ein Dienst-Neustart ist dann unnötig; die Skripte erkennen das
   und überspringen den Neustart mit einem Hinweis.
+
+## Hermes Agent
+
+Hermes bleibt in seinem eigenen Checkout und verwendet weiterhin `HERMES_HOME`. Die Workbench
+verschiebt diese Daten nicht. Die sichtbare Chat- und Verwaltungsoberfläche ist ausschließlich
+die offizielle Hermes-SPA unter `/hermes`, inklusive ihres PTY-Chats und Events Feed. Interne
+ACP-Funktionen dürfen für Hintergrundaufgaben bestehen bleiben, sind aber keine zweite sichtbare
+Chatfläche. Der Dashboard-Port bindet nur an Loopback und ist nicht über Tailscale Serve oder
+Funnel veröffentlicht.
+
+- `hermes-dashboard.service` und die beiden Update-Timer sind User-Units. Die bestehende
+  `hermes-gateway.service` wird übernommen und nicht ersetzt.
+- Installation und SPA-Build laufen mit `bash scripts/install-hermes.sh`; der Lauf erstellt ein
+  Hermes-Backup, installiert das Workbench-Theme und setzt die Approval-Grundlage auf `ask`.
+- Updates laufen über `hermes-update.service`, eine Sperre und den Beschäftigungscheck. Ein
+  fehlgeschlagenes Update bleibt in der Diagnose und der Benachrichtigungszentrale sichtbar.
+- API-Schlüssel und Session-Tokens bleiben in Hermes beziehungsweise im serverseitigen Adapter.
+  Sie werden niemals in Browserzustand, Logs oder Implementierungsberichte geschrieben.
+- Konfiguration, Diagnose und Rollback: [`docs/configuration.md`](docs/configuration.md),
+  [`docs/troubleshooting.md`](docs/troubleshooting.md) und [`docs/security-exceptions.md`](docs/security-exceptions.md).
 
 ## T3 Code: Stable oder Nightly
 
@@ -122,6 +143,89 @@ keinen Parallelbetrieb beider Kanäle.
   (NICHT `data/workbench.sqlite` im Repo — das ist eine alte Kopie) → unberührt.
 - **Laufende Terminals** werden beim **Backend-**Neustart unterbrochen — unvermeidlich, so erwartet.
 
+## Aktiver KI-Account (Codex, Claude Code, OpenCode)
+
+Serverweit ist je Werkzeug genau ein Account aktiv. Umgeschaltet wird nur die Anmeldung: Die
+Anmeldedatei im gemeinsamen Home ist ein Symlink in den Anmeldespeicher des aktiven Accounts
+und wird atomar umgehängt. Konfiguration, Sessions und Verlauf bleiben gemeinsam — es gibt
+weiterhin nur einen Projekt- und Sessionbestand.
+
+| Werkzeug | Gemeinsames Home | Anmeldedatei |
+|---|---|---|
+| Codex | `~/.codex` | `auth.json` |
+| Claude Code | `~/.claude` | `.credentials.json` |
+| OpenCode | `~/.local/share/opencode` | `auth.json` |
+
+```bash
+scripts/ki-account.sh                    # Accounts anzeigen, der aktive ist mit * markiert
+scripts/ki-account.sh use arbeit         # per Name, E-Mail oder Profilpfad aktivieren
+scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug voranstellen
+```
+
+- Jeder **danach gestartete** Prozess nutzt den neuen Account, auch außerhalb der Workbench.
+  Bereits laufende Prozesse behalten ihren — also gegebenenfalls das Terminal neu starten.
+- Eine erneute Anmeldung ist nie nötig. Ersetzt ein CLI den Symlink durch eine reguläre Datei,
+  übernimmt die Workbench deren neuere Zugangsdaten in den Speicher des aktiven Accounts und
+  hängt den Symlink wieder ein; die alte Fassung bleibt als `*.ersetzt-<Zeitstempel>` liegen.
+- Ein gemeinsames Home ist selbst kein Account. Zeigt ein Account noch darauf, bekommt er beim
+  ersten Aktivieren automatisch einen eigenen Anmeldespeicher.
+
+## Preview-Slots und Browser
+
+- Development-Previews verwenden standardmäßig direkte iframes über getrennte HTTPS-Slot-Origins. Die internen Ports stehen in `previews.slotPorts`, die Tailscale-Ports in `previews.publicPorts`.
+- Slot-Zuordnungen liegen in derselben externen SQLite-Datenbank wie Orbit und überleben Neustarts. HTTP und WebSocket werden am Root weitergeleitet; Vite braucht keinen besonderen `base`.
+- localStorage und IndexedDB sind pro Slot getrennt, Cookies jedoch nicht. Für Cookie-Isolation, geräteübergreifend geteilte Sitzungen oder blockiertes Embedding den Server-Chromium-Fallback verwenden.
+- **Externe URLs erreichen den lokalen Preview-Gateway nie.** Sie werden im echten Client-Browser oder im Server-Chromium geöffnet.
+- Alle Preview-Endpunkte verlangen eine erlaubte Tailscale-Identität, mutierende zusätzlich Same-Origin. Benutzer sehen nur eigene Sessions, Snapshots und Storage-Profile; fremde Slots erscheinen nur als „belegt".
+- Ein Slot, dessen Storage-Reset nicht verifizierbar war, bleibt fail-closed in Quarantäne und wird nicht neu vergeben.
+- Die Feature-Flags stehen unter `previews` in `config/workbench.local.json` (`gatewayV2Enabled`, `bridgeEnabled`, `diagnosticsEnabled`, `storageSyncMode`, `slotResetEnabled`) — Details in [`docs/configuration.md`](docs/configuration.md).
+- Der eigenständige Browser bleibt ein serverseitiger Chromium-Stream. Seine lokale Portübersicht öffnet ein Preview-Panel beziehungsweise eine 1er-Preview-Gruppe.
+- Nach Änderungen an Preview-Ports einmalig `sudo bash deploy/proxy/configure-tailscale-serve.sh` ausführen.
+
+### Doctor und sichere Reparatur
+
+```bash
+bash scripts/preview-doctor.sh --status     # Slots, Routing-Revision, Kandidaten
+bash scripts/preview-doctor.sh --probe      # Dienste erneut prüfen (nur Vorschläge)
+bash scripts/preview-doctor.sh --logs --since 1h --severity error
+```
+
+Der Doctor läuft ohne `sudo`, spricht nur über Loopback und liest sein Capability-Token aus
+`<paths.dataDir>/preview-agent-capability`. Er verändert **keinen** Projektcode, schließt keine
+fremde Session, bestätigt keinen Storage-Reset und liest keine Snapshots.
+
+### Browser-Verifikation durch Coding-Agenten
+
+- Die T3-eigenen `preview_*`-Werkzeuge benötigen einen verfügbaren Automation-Host der
+  Desktop-App. Ein `PreviewAutomationNoAvailableHostError` in Web-, TUI- oder headless-
+  Umgebungen bedeutet deshalb nicht, dass Browser-Verifikation grundsätzlich unmöglich ist.
+- Wenn dieser Fehler auftritt, verwenden Agenten den konfigurierten headless
+  `playwright`-MCP-Server für UI-Prüfungen: zuerst `browser_navigate`, danach
+  `browser_snapshot` und bei Bedarf die fokussierten Browser-Aktionen. Für lokale Dienste
+  sind `http://127.0.0.1:<port>` oder `http://localhost:<port>` zu verwenden.
+- `curl` oder ein API-Smoke-Test kann zusätzlich sinnvoll sein, ersetzt aber bei UI-Änderungen
+  nicht die Browser-Verifikation. Ist auch der `playwright`-MCP nicht verfügbar, muss das als
+  separates MCP-/Browser-Problem gemeldet werden.
+
+### Zugriff auf Preview-Logs (max. sieben Tage)
+
+Preview-Logs dürfen gelesen werden, wenn sie für eine **aktuelle** Diagnose nötig sind oder der
+Benutzer es verlangt — nie vorsorglich oder flächendeckend. Zeitraum, Preview und Severity so eng
+wie möglich wählen, Ergebnisse zusammenfassen und keine Secrets, Tokens oder personenbezogenen
+Inhalte in Antworten kopieren. Standardweg ist die redigierte API beziehungsweise der Doctor;
+direkter Dateizugriff auf `<paths.dataDir>/preview-logs/` nur, wenn API/Doctor defekt sind, der
+Logger untersucht wird oder der Benutzer es ausdrücklich verlangt. Logs sind Best-Effort-Diagnose
+und nicht so vollständig wie CDP/Chrome DevTools. Vollständige Anleitung:
+[`docs/previews-for-agents.md`](docs/previews-for-agents.md).
+
+### Design-Pflicht für Preview-UI
+
+Vor Änderungen an Preview-, Diagnose-, Storage-, Quarantäne- oder Browser-Komponenten sind die
+Skills `design-system-guide` und `mobile-design` zu lesen und anzuwenden. Das bestehende
+Remote-Workplace-Design hat Vorrang; einzige Farbquelle bleibt der `@theme`-Block in
+`apps/web/src/index.css`. Keine Gradients, keine Emojis, keine neuen Hex-Farben in Komponenten,
+Touch-Ziele ab 44 × 44 px, Diagnose mobil als Bottom Sheet.
+
 ## Design-System
 
 Die Oberfläche folgt der Palette von **T3 Code Nightly**. Einzige Quelle ist der `@theme`-Block
@@ -138,8 +242,9 @@ ganz oben in `apps/web/src/index.css` — Farben gehören dort hinein, nicht in 
   selbst gehostet — keine externen Font-CDNs).
 - **Radius** rechnet aus `--radius: .625rem`; Schatten sind auf der dunklen Basis kräftiger.
 - Neue Styles nutzen ausschließlich Tokens. Vor dem Abschluss prüfen:
-  `grep -oE '#[0-9a-fA-F]{3,8}' apps/web/src/index.css` darf nur die drei bewusst weißen
-  Flächen (Geräte-Vorschau, Browser-Canvas) und den `@theme`-Block treffen.
+  `grep -oE '#[0-9a-fA-F]{3,8}' apps/web/src/index.css` darf nur den `@theme`-Block,
+  die drei bewusst weißen Flächen (Geräte-Vorschau, Browser-Canvas) und den
+  bewusst abgegrenzten `.hermes-shell`-Tokenblock (Hermes-Farbwelt) treffen.
 
 ## Konventionen
 

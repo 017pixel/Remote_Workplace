@@ -13,12 +13,81 @@ Konfigurationsquelle für alles Umgebungsspezifische:
   Backups, Assets und Profile.
 - `cli` — Pfade zu `codexbar`, `codex`, `opencode`, `claude`, `tmux`, `chromium`.
 - `codexbar` — Pfad zur CodexBar-`config.json` und optionale OAuth-Profil-Homes.
-- `previews` — interne Loopback-Listener und zugehörige öffentliche Tailscale-HTTPS-Ports.
+- `dashboard` — serverseitige Sichtbarkeitsdefaults für Dashboard-Bereiche und Polling-Intervalle. Die lokale Oberfläche kann diese Bereiche zusätzlich pro Browser ausblenden.
+- `notifications` — Aufbewahrung, Erkennungsschwellen sowie Toast- und Push-Regeln pro Quelle.
+- `previews` — interne Loopback-Listener, zugehörige öffentliche Tailscale-HTTPS-Ports und die Feature-Flags der Preview-Laufzeit (siehe unten).
+- `hermes` — Loopback-Dashboard, ACP-Chat, User-Units, Updatezeit und serverseitige Betriebsgrenzen.
 
 Der Server (`apps/server/src/config/settings.ts`) und der Vite-Build (`apps/web/vite.config.ts`)
 lesen diese Datei beim Start; fehlt sie, wird auf `config/workbench.example.json` zurückgegriffen.
 Die Werte aus dieser Config bilden die **Defaults**; eine gesetzte Umgebungsvariable in `.env`
 überschreibt den jeweiligen Einzelwert.
+
+## Hermes Agent
+
+Hermes wird nicht in den Workbench-Checkout verschoben. `hermes-agent` bleibt das Git-Repository,
+das `hermes update` aktualisiert; `homeDirectory` bleibt die Quelle für Sessions, Telegram, Cron,
+Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine Hermes-Credentials.
+
+```json
+{
+  "hermes": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 9119,
+    "proxyPrefix": "/hermes",
+    "defaultSurface": "admin",
+    "updateTime": "04:15",
+    "updateTimezone": "Europe/Berlin",
+    "acpMaxSessions": 8,
+    "acpIdleTimeoutSeconds": 3600
+  }
+}
+```
+
+`defaultSurface` bleibt als rückwärtskompatibles Konfigurationsfeld erhalten. Die Workbench
+öffnet Hermes unabhängig vom alten Wert immer als offizielle Hermes-SPA. Der Einstiegspunkt ist
+der offizielle Terminal-Chat; Verwaltungsseiten werden innerhalb derselben Oberfläche geöffnet.
+
+Die Installationsroutine erkennt CLI, Checkout, virtuelle Python-Umgebung und `HERMES_HOME` und
+schreibt die erkannten Pfade atomar in die lokale Config. `host` muss Loopback sein, `port` darf
+nicht mit Workbench, T3 oder Preview-Ports kollidieren. Die Verwaltung läuft über den geschützten
+Pfad `/hermes`; der sichtbare Chat verwendet die offiziellen Hermes-WebSockets unter
+`/hermes/api/pty`, `/hermes/api/ws` und `/hermes/api/events`. Die ACP-Bridge unter
+`/api/v1/hermes/chat` bleibt eine interne Schnittstelle für Hintergrundfunktionen.
+
+Folgende Env-Variablen können die nicht-sensiblen Defaults überschreiben:
+
+```dotenv
+HERMES_ENABLED=true
+HERMES_HOST=127.0.0.1
+HERMES_PORT=9119
+HERMES_CLI_PATH=/home/your-user/.local/bin/hermes
+HERMES_HOME=/home/your-user/.hermes
+HERMES_PROXY_PREFIX=/hermes
+HERMES_DASHBOARD_UNIT=hermes-dashboard.service
+HERMES_GATEWAY_UNIT=hermes-gateway.service
+HERMES_UPDATE_UNIT=hermes-update.service
+```
+
+`HERMES_HOME` enthält die sensible Hermes-Konfiguration und bleibt außerhalb des Repositories.
+Die Dienste werden immer als User-Units mit `systemctl --user` gesteuert. `sudo`, Root-Helper und
+eine systemweite Unit gehören nicht zum Hermes-Integrationspfad.
+
+## Inbox und Benachrichtigungen
+
+Die Inbox liest T3 Code defensiv aus dessen eigener SQLite-Projektion und ergänzt die Ergebnisse
+um Hermes- sowie Terminal-/CLI-Ereignisse. `notifications.pollSeconds` steuert das serverseitige
+Intervall. Die Mindestlaufzeiten liegen zentral in `terminalMinimumSeconds`,
+`agentMinimumSeconds`, `t3CompletionMinimumSeconds`, `t3MiniTaskSeconds` und
+`hermesCompletionMinimumSeconds`. Aktive ungelesene Einträge bleiben erhalten; erledigte,
+verworfene und normale gelesene Einträge werden nach `pruneAfterHours` entfernt.
+
+Unter `notifications.preferences` lassen sich Toasts und Web-Push global sowie pro Quelle
+schalten. Das VAPID-Schlüsselpaar wird beim ersten Start mit Dateirechten `0600` unter
+`<paths.dataDir>/notifications/vapid.json` erzeugt. Push-Abos liegen in der externen
+Workbench-SQLite-Datenbank. Private Schlüssel und Browser-Abos werden nie an das Frontend
+ausgeliefert; dort ist ausschließlich der öffentliche VAPID-Schlüssel sichtbar.
 
 ## Umgebungsvariablen (`.env`)
 
@@ -36,6 +105,12 @@ BROTLI_QUALITY=4
 
 Qualitätsstufe 4 hält Buildzeit und Dateigröße in einem guten Verhältnis. Der Produktionsbuild erzeugt `.br`- und `.gz`-Varianten vorab; dynamische API-Antworten verwenden dieselben Werte, falls sie groß genug sind.
 
+## Dashboard
+
+Der Abschnitt `dashboard` in `config/workbench.local.json` steuert, welche Bereiche der Server an die Oberfläche freigibt und wie oft die Live-Daten abgefragt werden. Die Schlüssel unter `sections` sind `quickActions`, `server`, `metrics`, `services`, `runtime`, `diagnostics`, `usage`, `news` und `commands`. Die Intervalle unter `refresh` werden in Millisekunden angegeben und serverseitig begrenzt.
+
+Die Schalter unter Einstellungen → Dashboard gelten nur für den aktuellen Browser und werden in `localStorage` gespeichert. Ein Bereich, der in `dashboard.sections` auf `false` steht, bleibt auch dort gesperrt. Nach Änderungen an der zentralen Config ist ein Backend-Neustart erforderlich.
+
 ```dotenv
 API_RATE_LIMIT_MAX=180
 WEBSOCKET_MAX_PAYLOAD_BYTES=16777216
@@ -43,19 +118,30 @@ WEBSOCKET_MAX_PAYLOAD_BYTES=16777216
 
 ## Projekte
 
-Alle direkten Unterordner aus `PROJECTS_ROOT` werden automatisch als Projekte erkannt. `config/projects.local.json` wird von Git ignoriert und ergänzt für ausgewählte Projekte feste IDs, Anzeigenamen, Beschreibungen, Reihenfolge und Previews. Jede explizite Projekt-ID muss lowercase kebab-case und eindeutig sein; Pfade müssen absolut sein. Mit `PROJECT_DISCOVERY_ENABLED=false` kann die automatische Erkennung abgeschaltet werden.
+Alle direkten Unterordner aus `paths.projectsRoot` in `config/workbench.local.json` werden automatisch als Projekte erkannt. Die Projekte-Seite fragt diese Liste live über die API ab und benötigt keine hardcodierten Projektnamen. `config/projects.local.json` wird von Git ignoriert und kann für ausgewählte Projekte ergänzend feste IDs, Anzeigenamen, Beschreibungen, Reihenfolge und Previews liefern. Jede explizite Projekt-ID muss lowercase kebab-case und eindeutig sein; Pfade müssen absolut sein. Mit `PROJECT_DISCOVERY_ENABLED=false` kann die automatische Erkennung abgeschaltet werden.
 
 Der Orbit-Projektbrowser kann zusätzlich alle Dateien und Ordner unter einer eigenen, read-only durchsuchten Root anzeigen. Nur echte lesbare Unterordner dürfen als Projekt registriert werden; die Root selbst, Dateien und symbolische Verweise sind ausgeschlossen. Verzeichnisantworten werden für große Ordner paginiert und liefern ausschließlich Namen sowie Metadaten, niemals Dateiinhalte.
 
 ```dotenv
+PROJECT_DISCOVERY_ENABLED=true
 ORBIT_PROJECT_BROWSER_ROOT=/home/your-user
 ORBIT_PROJECT_BROWSER_PAGE_SIZE=300
 ORBIT_RECENT_PROJECT_LIMIT=8
 ```
 
+Der Projektpfad wird zentral konfiguriert:
+
+```json
+{
+  "paths": {
+    "projectsRoot": "/home/your-user/projects"
+  }
+}
+```
+
 Manuell ausgewählte Ordner werden in der lokalen `DATABASE_PATH`-SQLite-Datei gespeichert. Ihre stabilen Projekt-IDs bleiben über Browser- und Serverneustarts erhalten. Die erlaubte Browser-Root muss absolut sein; die Seitengröße liegt zwischen 1 und 500.
 
-Projekt-Previews können entweder eine öffentliche `url` oder einen lokalen `targetPort` plus optionalen Root-Pfad enthalten. `runtime` ist standardmäßig `iframe`; `shared-browser` bleibt der Fallback für geräteübergreifend geteilte Sitzungen, klassische Session-Cookies und Seiten mit blockiertem Embedding. Lokale Ports werden über einen freien Preview-Slot am Root veröffentlicht. Vite benötigt dafür weder `base` noch einen gepflegten `allowedHosts`-Eintrag, weil der Proxy den Host-Header auf `127.0.0.1:PORT` umschreibt.
+Projekt-Previews können entweder eine öffentliche `url` oder einen lokalen `targetPort` plus optionalen Root-Pfad enthalten. Lokale Ziele laufen immer direkt im iframe über einen freien Preview-Slot am Root. Das ältere Feld `runtime` wird aus Kompatibilitätsgründen weiterhin akzeptiert, beeinflusst die Preview-Laufzeit aber nicht mehr. Vite benötigt weder `base` noch einen gepflegten `allowedHosts`-Eintrag, weil der Proxy den Host-Header auf `127.0.0.1:PORT` umschreibt.
 
 Die Arrays `previews.slotPorts` und `previews.publicPorts` müssen gleich lang und jeweils eindeutig sein. Nach einer Änderung muss `deploy/proxy/configure-tailscale-serve.sh` einmal mit sudo ausgeführt werden. Die voreingestellten zwölf Paare sind `3901–3912` intern und `8451–8462` öffentlich. Bestätigte Begleitdienste eines Projekts erhalten eigene HTTPS-Slots; die Haupt-Preview schreibt lokale HTTP-, Fetch-, XHR-, EventSource- und WebSocket-Ziele auf diese Tailscale-Adressen um. Web Storage ist portgetrennt; Cookies kennen keine Ports und bleiben auf demselben Host geteilt.
 
@@ -123,7 +209,7 @@ Der integrierte Browser sucht mit `CHROMIUM_PATH=auto` zuerst in lokalen Playwri
 
 ```dotenv
 CHROMIUM_PATH=auto
-BROWSER_MAX_SESSIONS=4
+BROWSER_MAX_SESSIONS=6
 BROWSER_PROFILES_ROOT=/home/your-user/.local/share/remote-workplace/browser-profiles
 BROWSER_STARTUP_TIMEOUT_MS=15000
 BROWSER_IDLE_TIMEOUT_MS=1800000
@@ -132,6 +218,66 @@ LOCAL_PORT_PROBE_TIMEOUT_MS=450
 ```
 
 Die Profilwurzel liegt außerhalb des Repositorys. Darunter gespeicherte Cookies, Tokens und Website-Daten sind sensible Laufzeitdaten und müssen mit denselben Rechten wie CLI-Anmeldungen geschützt und aus Quellcode-Backups ausgeschlossen werden. Der Port-Scanner liest ausschließlich lokale TCP-Listener und prüft sie gegen Loopback. Er öffnet keine externen Netzwerkziele. Die Browser- und Terminal-WebSockets benötigen eine erlaubte Tailscale-Identität und einen identischen Workbench-Origin.
+
+## Preview-Slots, Gateway und Diagnose
+
+Lokale Previews laufen als direkte iframes über dedizierte Slot-Origins. Alle Teilfunktionen
+lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren:
+
+```json
+{
+  "previews": {
+    "slotPorts": [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],
+    "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462],
+    "gatewayV2Enabled": false,
+    "bridgeEnabled": false,
+    "diagnosticsEnabled": false,
+    "storageSyncMode": "off",
+    "slotResetEnabled": false,
+    "maxInjectableHtmlBytes": 2097152,
+    "diagnosticRetentionDays": 7,
+    "diagnosticMaxEventBytes": 65536,
+    "diagnosticMaxBatchBytes": 262144,
+    "localStorageMaxBytes": 262144,
+    "localStorageMaxKeys": 1000
+  }
+}
+```
+
+- `gatewayV2Enabled` — atomarer Routing-Snapshot, gezielte Embedding-Anpassung statt pauschalem
+  Entfernen von CSP und `X-Frame-Options`, Header- und Redirect-Regeln. `false` verwendet den
+  bisherigen Gateway.
+- `bridgeEnabled` — injiziert das externe Bridge-Script `/__workbench/preview-bridge.v1.js`
+  in HTML-Antworten (nur zusammen mit `gatewayV2Enabled`).
+- `diagnosticsEnabled` — Client- und Gatewaydiagnose samt redigierten JSONL-Logs unter
+  `<paths.dataDir>/preview-logs/` (Verzeichnis `0700`, Dateien `0600`).
+- `storageSyncMode` — `off` oder `opt-in`. Nur `opt-in` erlaubt localStorage-Snapshots, und
+  auch dann bleiben sie pro Preview standardmäßig aus.
+- `slotResetEnabled` — erlaubt den verifizierten Storage-Reset einer Slot-Origin. Ohne
+  bestandene Verifikation bleibt der Slot in Quarantäne.
+
+Jeder Wert lässt sich per Umgebungsvariable überschreiben (`PREVIEW_GATEWAY_V2`,
+`PREVIEW_BRIDGE`, `PREVIEW_DIAGNOSTICS`, `PREVIEW_STORAGE_SYNC_MODE`, `PREVIEW_SLOT_RESET`,
+`PREVIEW_MAX_INJECTABLE_HTML_BYTES`, `PREVIEW_DIAGNOSTIC_RETENTION_DAYS`,
+`PREVIEW_DIAGNOSTIC_MAX_EVENT_BYTES`, `PREVIEW_DIAGNOSTIC_MAX_BATCH_BYTES`,
+`PREVIEW_LOCAL_STORAGE_MAX_BYTES`, `PREVIEW_LOCAL_STORAGE_MAX_KEYS`).
+
+Zwei Werte sind ausschließlich für Entwicklung und Tests gedacht:
+
+```dotenv
+# Slot-Origins als http://127.0.0.1:<internalPort> ausgeben statt HTTPS über Tailscale
+PREVIEW_PUBLIC_ORIGIN_MODE=loopback-http
+# Identität ohne vorgeschalteten Tailscale-Proxy (in Produktion leer lassen)
+WORKBENCH_DEV_TAILSCALE_USER=user@example.com
+```
+
+Preview-Endpunkte verlangen immer eine erlaubte Tailscale-Identität aus
+`tailscale.allowedUsers`; mutierende Aufrufe zusätzlich eine gültige Same-Origin-Anfrage.
+Der lokale Doctor benutzt stattdessen ein Capability-Token
+(`<paths.dataDir>/preview-agent-capability`, Modus `0600`) und wird nur über Loopback
+akzeptiert. Snapshots werden mit AES-256-GCM verschlüsselt; der Schlüssel liegt in
+`<paths.dataDir>/preview-storage.key`, das Log-Pseudonym nutzt
+`<paths.dataDir>/preview-log-hmac.key`. Beide Dateien werden nie über eine API ausgegeben.
 
 ## Orbit Workspace
 
@@ -202,8 +348,8 @@ Die Agent-Terminals verwenden feste serverseitige CLI-Pfade und getrennte Prozes
 CODEX_CLI_PATH=/home/your-user/.local/bin/codex
 OPENCODE_CLI_PATH=/home/your-user/.npm-global/bin/opencode
 CLAUDE_CLI_PATH=/home/your-user/.local/bin/claude
-CODEX_MAX_SESSIONS=4
-OPENCODE_MAX_SESSIONS=4
+CODEX_MAX_SESSIONS=12
+OPENCODE_MAX_SESSIONS=12
 CLAUDE_MAX_SESSIONS=4
 TERMINAL_SUPERVISOR=tmux
 TMUX_PATH=/usr/bin/tmux

@@ -28,10 +28,12 @@ Der empfohlene Weg ist die Einrichtung durch einen Coding-Agent
 
 **Produktion (manuell):** `pnpm build && pnpm start`.
 
-**Produktion (systemd):** `sudo bash deploy/systemd/install.sh` rendert die Units aus
+**Produktion (systemd):** `bash deploy/systemd/install.sh` rendert die User-Units aus
 `deploy/systemd/units/` mit den Werten aus `config/workbench.local.json`, baut als
-Dienstbenutzer, prüft die Units, sichert vorhandene System-Units und führt einen Healthcheck
-aus. code-server wird nur eingebunden, wenn es im PATH vorhanden ist.
+aktueller Benutzer, prüft Typen und Build, sichert vorhandene User-Units und führt einen
+Healthcheck aus. code-server wird nur eingebunden, wenn es im PATH vorhanden ist. Die kanonische
+Unit heißt `workbench.service` und liegt unter `~/.config/systemd/user/`; sie entspricht damit
+den tatsächlichen Schreibpfaden in Repository, Datenverzeichnis, Browserprofilen und CLI-Homes.
 
 code-server bindet an `127.0.0.1:8080`, deaktiviert eigene TLS-Terminierung und wird
 ausschließlich durch die private Workbench unter `/editor/` erreicht. Eine Beispiel-Konfiguration
@@ -46,7 +48,44 @@ selben Origin bereitstellen. Funnel und öffentliche Portweiterleitungen bleiben
 
 ## Abschlussprüfung
 
-- `systemctl status remote-workplace.service`
+- `systemctl --user status workbench.service`
 - `curl -f http://127.0.0.1:3010/api/v1/health`
 - Optional: `curl -f http://127.0.0.1:8080/healthz` (code-server), `tailscale serve status`
 - Private Workbench, Terminal, Codex, OpenCode und Editor im Browser testen.
+
+Ein bestehender alter Systemdienst `remote-workplace.service` muss nach erfolgreichem
+Healthcheck bewusst deaktiviert werden, damit nicht zwei Prozesse um Port 3010 konkurrieren:
+`sudo systemctl disable --now remote-workplace.service`. Für den normalen Betrieb und spätere
+Updates ist danach kein `sudo` erforderlich.
+
+## Hermes Agent
+
+Voraussetzung ist eine vorhandene Hermes-Installation mit funktionierender virtueller Python-
+Umgebung und Node/npm für den Dashboard-SPA-Build. Der Checkout wird nicht neu geklont und nicht
+in dieses Repository verschoben:
+
+```bash
+bash scripts/install-hermes.sh
+```
+
+Das Skript erstellt zunächst ein offizielles Hermes-Backup, baut die Dashboard-SPA, erkennt die
+lokalen Pfade, installiert das Workbench-Theme und rendert `hermes-dashboard.service`,
+`hermes-update.service`, `hermes-update.timer` sowie den Retry-Timer als User-Units. Die bestehende
+`hermes-gateway.service` bleibt unverändert und wird nur aktiviert, falls sie noch nicht aktiviert
+ist. Approval-Härtung wird mit Vorher-/Nachher-Anzahl der Dauerfreigaben ausgegeben.
+
+Für Checkouts mit `package-lock.json` wird `npm ci` verwendet. Hermes-Versionen ohne Lockfile
+werden mit `npm install --no-audit --no-fund` gebaut; dadurch bleibt der Installations- und
+Updatepfad auch für den aktuellen Hermes-Checkout funktionsfähig.
+
+Prüfen:
+
+```bash
+XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user is-active hermes-dashboard.service hermes-gateway.service
+XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user list-timers 'hermes-*' --all
+curl -f -H 'Host: 127.0.0.1:9119' http://127.0.0.1:9119/api/status
+```
+
+Der direkte Hermes-Port wird nicht veröffentlicht. Zugriff auf die offizielle Hermes-SPA erfolgt
+nur über die identitätsgeschützte Workbench-URL `/hermes/`; die Workbench öffnet sie unter
+`/workbench/hermes-agent`.

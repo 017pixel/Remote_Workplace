@@ -1,10 +1,10 @@
 # Remote Workplace
 
 Selbst gehostete Remote-Development-Workbench: ein privater Arbeitsplatz im Browser mit
-Editor (code-server / T3 Code), nativen PTY-Terminals, KI-CLIs (Codex, OpenCode, Claude Code),
-lokalen Projekten, Development-Previews, einem eingebetteten Browser, einem freien
-Orbit-Workspace und einer Tech-News-Intelligence — alles auf deinem eigenen Server, privat
-erreichbar über Tailscale.
+Editor (code-server / T3 Code), nativen PTY-Terminals, KI-CLIs (Codex, OpenCode, Claude Code)
+und dem Hermes-Agenten (Chat, Cron, Systemverwaltung), lokalen Projekten, Development-Previews,
+einem eingebetteten Browser, einem freien Orbit-Workspace und einer Tech-News-Intelligence —
+alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 
 > **Für wen?** Entwickler:innen, die von überall auf einen leistungsstarken, persönlichen
 > Server-Arbeitsplatz zugreifen wollen, ohne Code oder Zugänge aus der Hand zu geben.
@@ -35,6 +35,11 @@ erreichbar über Tailscale.
 | ![Nutzung, Kosten und Limits](docs/screenshots/08-usage.png) | ![Einstellungen](docs/screenshots/09-settings.png) |
 | Token-, Kosten- und Limithistorie für Codex, OpenCode und Claude Code. | Zentrale Konfiguration von Accounts, Diensten und Oberfläche. |
 
+| Hermes Agent – Chat | Hermes Agent – System |
+|:--:|:--:|
+| ![Hermes Agent Chat](docs/screenshots/10-hermes-chat.png) | ![Hermes Agent System](docs/screenshots/11-hermes-system.png) |
+| Nativer Chat und die vollständige offizielle Hermes-Web-UI im eingebetteten Dashboard. | Host- und Dienstzustand des Hermes-Agenten: Version, Ressourcen und Gateway. |
+
 ## Funktionen
 
 - React-19-/Vite-Frontend und Fastify-5-Backend in einem strikten TypeScript-Monorepo.
@@ -49,16 +54,22 @@ erreichbar über Tailscale.
 - Sidebar-Palette und Slash-Menü erzeugen Knoten per Klick oder Drag-and-drop; Inspector, Szenen und Undo/Redo ermöglichen freie Organisation.
 - Native `node-pty`-/xterm.js-Terminals mit Tailscale-Identität, tmux-Supervisor, serverseitiger Session-Registry, geräteübergreifender Wiederaufnahme, Resize, Verlauf und Reconnect.
 - Eigenständige Codex- und OpenCode-Seiten mit automatisch gestarteten CLIs, Projektbindung und bis zu vier persistenten Bento-Instanzen je Werkzeug.
+- Hermes-Agent als eigenständige Fläche: nativer ACP-Chat mit Freigaben im Verlauf, Sessionliste, Betriebszustandsanzeige und die vollständige offizielle Hermes-Verwaltung (System, Cron, Logs, Modelle, Skills, MCP u. a.) im eingebetteten Dashboard.
+- Zentrale Inbox für Hermes, T3 Code, Codex, OpenCode, Claude Code und lange Terminal-Prozesse mit Live-Zustellung, Deep-Links, Swipe-Aktionen, Fehlerberichten und optionalem Web-Push.
+- Werkzeug „KI-Skills": globale Agenten-Regeln und alle Skills des Harness-Ordners im Browser bearbeiten, mit Autosave ohne Speichern-Knopf, Konflikterkennung, Skill-Gerüst im offiziellen Format, automatischer Verteilung per Symlink und Commit/Push ins Skills-Repository.
 - Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter dem konfigurierten Projekt-Root; Orbit sortiert die jüngste Auswahl aus Workbench-Nutzung, Dateisystemänderungen und Git-Commits und bietet zusätzlich eine vollständige Suche.
 - Großer Orbit-Serverbrowser zeigt den vollständigen Dateibaum unter dem konfigurierten Home-Verzeichnis, springt direkt zu eingegebenen Pfaden und registriert beliebige Unterordner dauerhaft als Projekt-Hubs.
 - code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Workbench-HTTPS-Origin bereitgestellt.
-- Development-Previews laufen direkt und ohne Bildstream über sechs getrennte HTTPS-Slot-Origins; Web Storage kann damit pro Rolle isoliert werden und Vite-HMR bleibt am Root erhalten.
+- Development-Previews laufen direkt und ohne Bildstream über getrennte HTTPS-Slot-Origins; localStorage und IndexedDB sind pro Slot getrennt und Vite-HMR bleibt am Root erhalten. Cookies gelten weiterhin hostweit, und externe Websites laufen nie über diesen Gateway.
+- Canvas, Sidebar, Vollbildroute und Browser-Panel teilen sich dieselbe lokale Preview-Laufzeit: eine Session-Lease je Fläche, Slot-Affinität pro Storage-Profil und ein fail-closed Quarantänezustand, falls ein Slot-Reset nicht verifizierbar ist.
+- Optionale Best-Effort-Diagnose (Console, Fehler, Netzwerk, Routing) mit gekennzeichneter Quelle und Vollständigkeit, redigierten Logs für höchstens sieben Tage und einem Doctor ohne `sudo`.
+- Opt-in-Snapshots des localStorage je Preview, AES-256-GCM verschlüsselt und konfliktbewusst. IndexedDB, Cache Storage, Service Worker, sessionStorage und Cookies werden ausdrücklich **nicht** synchronisiert.
 - Benannte Orbit-Preview-Gruppen mit 1er-, 2er-, 3er- und 6er-Layout, Gerätepresets, Vollbildroute sowie lös- und andockbaren Slots.
 - Ein eigener, serverseitig isolierter Chromium-Browser mit dauerhaften, benutzergebundenen Profilen erhält Cookies und Logins über Geräte- und Backendwechsel hinweg.
 - Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Workbench und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
 - Besuchte Hauptansichten, Iframes, xterm-Instanzen und WebSockets bleiben während der Browser-Session gemountet und wechseln ohne Neustart.
 - Alle Live-Werkzeuge lassen sich frei positionieren und skalieren; stabile Laufzeit-IDs erhalten Terminal- und Agent-Sitzungen über Canvas-Interaktionen hinweg.
-- Preview-Island mit Slot-Anzeige, Reload, externem Tab, Vollbild, iframe-/Chromium-Umschaltung, Geräteauswahl und Portrait-/Landscape-Wechsel.
+- Preview-Island mit Slot-Anzeige, Reload, externem Tab, Vollbild, direkter iframe-Laufzeit, Geräteauswahl und Portrait-/Landscape-Wechsel.
 - Lazy geladene Routen, Idle-Prefetch, Brotli/Gzip und langfristig gecachte Build-Assets reduzieren Start- und Wechselzeiten.
 - Desktop-Sidebar, echte Breadcrumbs, mobile Gruppenansicht und Statuszeile mit Codex-, OpenCode- und Claude-Code-Limits.
 - SQLite-gestützte Token-, Kosten-, Projekt- und Modellhistorie aus CodexBar mit Diagrammen und Limitprognosen.
@@ -152,6 +163,8 @@ integrieren und orchestrieren:
 - **[code-server](https://github.com/coder/code-server)** — vollwertiger VS-Code-Editor im Browser.
 - **[node-pty](https://github.com/microsoft/node-pty)** & **[xterm.js](https://github.com/xtermjs/xterm.js)** — native Terminal-Emulation.
 - **[Tailscale](https://github.com/tailscale/tailscale)** — privater, sicherer Remote-Zugriff.
+- **[Hermes](https://github.com/NousResearch/hermes-agent)** von [Nous Research](https://nousresearch.com)
+  — der persönliche KI-Agent mit Chat, Cron und Verwaltung, eingebettet über seine offizielle Weboberfläche.
 
 Ein besonderer Dank an Theo Brown und alle Mitwirkenden von T3 Code für das
 offene, inspirierende Fundament, auf dem dieser Arbeitsplatz aufbaut.

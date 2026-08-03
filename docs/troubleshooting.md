@@ -48,6 +48,32 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - Meldet Firefox für `.ts`, `.tsx` oder Vite-Abhängigkeiten den MIME-Typ `application/json`, den Response-Status und Body prüfen. Eine JSON-Antwort mit `RATE_LIMITED` stammt von einer alten globalen Limitierung; `/editor/**` darf keine `x-ratelimit-*`-Header mehr tragen.
 - Wenn der primäre HMR-Socket unter `wss://HOST:8443/editor/absproxy/...` scheitert und Vite anschließend localhost versucht, zuerst Workbench-Logs auf 429- oder WebSocket-Payload-Fehler prüfen. Der localhost-Versuch ist nur Vites Fallback.
 
+## Preview-Slot steht in Quarantäne
+
+- Ein Slot wird `quarantined`, wenn ein Storage-Reset nicht nachweislich alles geleert hat.
+  Das ist fail-closed gewollt: Ein fremdes Projekt darf keinen alten Service Worker erben.
+- Zustand prüfen: `bash scripts/preview-doctor.sh --status`.
+- In der Preview-Diagnose unter **Preview-Info → Slot-Speicher zurücksetzen** einen neuen,
+  verifizierten Reset auslösen. Erst ein sauberer Bericht erhöht die `slotGeneration` und
+  gibt den Slot frei.
+- Meldet der Browser keine `indexedDB.databases()`, bleibt der Reset unverifizierbar. Dann
+  hilft nur ein Browser, der die Inventur unterstützt, oder ein anderer Slot.
+
+## Cookies verhalten sich zwischen Slots gleich
+
+- Cookies gelten hostweit; Ports isolieren sie nicht. Das ist keine Fehlfunktion, sondern
+  die Cookie-Spezifikation.
+- Für echte Cookie-Isolation das Browser-Werkzeug mit einem eigenen Server-Chromium-Profil verwenden.
+
+## Bridge meldet „nicht verfügbar"
+
+- Die Bridge wird nur in `text/html`-Antworten mit UTF-8 unterhalb von
+  `previews.maxInjectableHtmlBytes` injiziert. Größere, streamende oder nicht parsebare
+  Antworten laufen unverändert weiter — nur ohne Client-Diagnose.
+- Blockiert ein strenger CSP das externe Script, ergänzt der Gateway für bestätigte lokale
+  Dienste `script-src 'self'` und protokolliert die Änderung in der Diagnose.
+- Ist `previews.bridgeEnabled` oder `previews.gatewayV2Enabled` aus, gibt es bewusst keine Bridge.
+
 ## Vollbild oder Geräteansicht funktioniert nicht
 
 - Vollbild wird vom Panel selbst gesteuert und mit Escape beendet; Browser-Vollbildrechte sind am Iframe freigegeben.
@@ -59,3 +85,47 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - `systemctl restart code-server.service` ausführen.
 - Logs mit `journalctl -u code-server.service -n 100 --no-pager` prüfen.
 - `deploy/systemd/install.sh` wartet nach dem Start auf den Health-Endpunkt; ein einmaliger unmittelbarer Curl direkt nach `systemctl start` kann zu früh sein.
+
+## Hermes Agent
+
+### Dashboard nicht erreichbar
+
+- `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user status hermes-dashboard.service` prüfen.
+- Der direkte Healthcheck braucht den DNS-Rebinding-Schutz: `curl -H 'Host: 127.0.0.1:9119' http://127.0.0.1:9119/api/status`.
+- Der Proxy setzt bewusst `Host: 127.0.0.1:9119`. Ein durchgereichter Tailscale-Host führt bei Hermes zu HTTP 400.
+- `bash scripts/install-hermes.sh` baut fehlende `hermes_cli/web_dist/index.html` neu und installiert die User-Unit erneut.
+
+### Offizieller Hermes-Chat getrennt oder Events Feed nicht verbunden
+
+Die sichtbare Hermes-Oberfläche verwendet die offiziellen PTY- und Events-WebSockets über den
+Workbench-Pfad `/hermes`. Der direkte Hermes-Port bleibt absichtlich nur auf Loopback erreichbar.
+Der Proxy setzt für den Upstream `Host: 127.0.0.1:9119` und übersetzt beim WebSocket-Handshake den
+äußeren Browser-Origin auf den Loopback-Origin. Die Workbench prüft den ursprünglichen Origin vor
+der Weiterleitung.
+
+Wenn Hermes trotzdem `Chat disconnected` oder `events feed disconnected` anzeigt, zuerst
+`/api/v1/hermes/diagnostics` und die User-Unit `hermes-dashboard.service` prüfen. Danach die
+Workbench-Seite neu laden. Ein Reload löscht keine Session, die offizielle Hermes-Chatroute kann
+eine bestehende Session über `?resume=<id>` wieder aufnehmen.
+
+Die ACP-Bridge und die Fehlercodes `ACP_CRASHED`, `ACP_UNAVAILABLE` und `SESSION_NOT_FOUND`
+betreffen nur interne Workbench-Hintergrundfunktionen, nicht die sichtbare Hermes-Weboberfläche.
+
+### Update fehlgeschlagen
+
+Update-Zustand und redigierte letzte Schritte stehen in der Hermes-Diagnose und bleiben als Fehler-
+Benachrichtigung sichtbar. Vor dem Update wird ein Hermes-Backup erzwungen; zusätzlich entsteht
+höchstens einmal pro Woche ein vollständiges Backup. Rollback:
+
+```bash
+git -C <hermes-checkout> reset --hard <vorheriger-commit>
+<hermes-checkout>/venv/bin/pip install -e <hermes-checkout>
+cd <hermes-checkout>/web && npm ci && npm run build
+XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user restart hermes-dashboard.service hermes-gateway.service
+```
+
+Hat der Hermes-Checkout kein `package-lock.json`, verwendet der Workbench-Updatepfad bewusst
+`npm install --no-audit --no-fund` statt `npm ci`.
+
+Alternativ das offizielle Backup mit `hermes import <backup>.zip` zurückspielen. Der Checkout,
+`HERMES_HOME`, Gateway und Telegram werden von der Workbench nicht verschoben oder gelöscht.

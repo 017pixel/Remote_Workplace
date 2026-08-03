@@ -9,6 +9,37 @@
 - Ein kurzzeitig gecachter Port-Scanner ermittelt lokale TCP-Listener, prüft HTTP und HTTPS und stellt erreichbare Dienste als Schnellstart bereit. Angezeigt werden nur Projekt-Devserver: privilegierte Ports unter 1024, bekannte Systemprozesse und Listener ohne HTTP-Antwort bleiben ausgeblendet. Prozessdetails bleiben auf Name und Port begrenzt.
 - Es gibt weder Funnel noch öffentliche Router-Portweiterleitungen. Tailscale authentifiziert den Benutzer und ergänzt die Identitätsheader für das Terminal.
 
+Hermes Agent läuft als eigener User-Dienst auf Loopback. Die sichtbare Chat- und
+Verwaltungsoberfläche ist ausschließlich die offizielle Hermes-SPA im Iframe. Ihr PTY-Chat und
+Events Feed verwenden die offiziellen WebSocket-Endpunkte `/api/pty`, `/api/ws`, `/api/pub` und
+`/api/events`. Der Dashboard-Proxy liegt ausschließlich unter `/hermes`, setzt den Upstream-
+`Host` auf die Hermes-Bind-Adresse, leitet `X-Forwarded-Prefix` weiter und übersetzt den äußeren
+Browser-Origin beim WebSocket-Handshake auf den Loopback-Upstream. Die Workbench prüft den
+äußeren Same-Origin-Zugriff vorher. ACP-Funktionen können intern für Hintergrundaufgaben bestehen;
+eine zweite sichtbare Chatfläche gibt es nicht. Das ephemere Hermes-Session-Token wird nur
+serverseitig aus dem Dashboard-HTML gelesen und nie an den Browser oder in Logs weitergereicht.
+Telegram, Cron und Web schreiben weiterhin in denselben Hermes-Sessionbestand.
+
+Das Iframe wird genau einmal montiert; Seitenwechsel laufen über eine Routen-Brücke, die der
+Proxy vor `</head>` injiziert und die in beide Richtungen spricht. `route.changed` meldet den
+offiziellen Hermes-Pfad an die Workbench, `route.navigate` nimmt Deep-Links aus der Workbench
+entgegen. Die Brücke prüft Origin und Pfadform. Fällt sie aus, lädt der iframe den offiziellen
+Pfad direkt neu.
+
+**Markenzeichen.** Die Workbench verwendet das offizielle Hermes-Agent-Icon (MIT © 2025 Nous
+Research) aus `apps/desktop/assets/icon.png` des Hermes-Checkouts. `scripts/build-hermes-icon.mjs`
+leitet daraus `apps/web/public/icons/hermes-agent.png` ab; `HermesIcon` bettet es ein, damit alle
+Aufrufstellen es wie jedes andere Werkzeugicon verwenden können.
+
+**Theme.** `deploy/hermes/dashboard-themes/remote-workplace.yaml` wird nach
+`$HERMES_HOME/dashboard-themes/` installiert und überlebt damit jedes `hermes update`. Es bleibt
+absichtlich nah am Hermes-Original und ändert nur den Akzent. Eine Falle steckt in der Benennung
+der Palette (`hermes_cli/web_server.py`, `web/src/themes/context.tsx`): `midground` ist nicht die
+mittlere Fläche, sondern die **helle Schrift- und Linienfarbe**, aus der das Nous-Design-System
+fast alles ableitet; `foreground` ist eine Overlay-Ebene, die in jedem Hermes-Preset auf
+`#ffffff` mit `alpha: 0` steht. Ein dunkler `midground` macht die komplette Oberfläche
+unlesbar — schwarze Schrift auf schwarzem Grund.
+
 ## Terminal
 
 Das Terminal besteht aus xterm.js im Browser, einem versionierten JSON-WebSocket-Protokoll, einem `node-pty`-Gateway, einem tmux-Supervisor und einer SQLite-Registry für Session-Metadaten und geräteübergreifende Terminal-Layouts. `create`, `attach`, `input`, `resize`, `clear`, `restart`, `close` und `ping` sind getrennte Nachrichten. Jede UI-Instanz sendet eine stabile `runtimeId`; ein Create mit derselben Benutzer- und Runtime-ID hängt an die vorhandene tmux-Sitzung an, statt einen zweiten Prozess zu starten. Beim Erstellen wird ausschließlich der validierte Typ `shell`, `codex` oder `opencode` akzeptiert; ausführbare Dateien und Argumente stammen aus der serverseitigen Konfiguration. Browser-, Socket- und Backend-Trennungen beenden keine beaufsichtigte Session. Beim Neustart werden Registry und tmux abgeglichen, Verlauf aus dem Pane übernommen und vorhandene Einzelbenutzer-Sitzungen in der UI angeboten. Projekt-IDs werden serverseitig in freigegebene Arbeitsverzeichnisse aufgelöst. Sitzungen sind an die durch Tailscale bestätigte Identität gebunden, auf erlaubte Wurzelverzeichnisse beschränkt und pro Typ zahlenmäßig begrenzt.
@@ -19,7 +50,7 @@ Der Browser-Manager startet einen echten headless Chromium-Prozess mit einem iso
 
 Das Browser-Werkzeug übernimmt die schnelle Preview-Logik für lokale Ziele: Löst sich die eingegebene oder aus der Portübersicht gewählte Adresse auf einen lokalen Port auf, übernimmt `BrowserPanel` (`apps/web/src/components/browser/BrowserPanel.tsx`) die Anzeige über denselben Slot-Proxy-Mechanismus wie Previews (`isolate: false`, geteilter Slot pro Zielport) statt über den Chromium-Stream. Ein Umschalter erlaubt weiterhin den expliziten Wechsel auf den Server-Chromium für dasselbe lokale Ziel, etwa für geräteübergreifend geteilte Sessions. Der Chromium-Prozess startet erst bei echter externer Navigation oder explizitem Umschalten – der bloße Blank-Zustand mit der Portübersicht verbraucht keine der begrenzten Browser-Sessions. Dieselbe Komponente läuft unverändert als eigenständige Route und als Orbit-Werkzeugknoten im Infinite Canvas; Entfernen des Knotens gibt einen gehaltenen Preview-Slot beim Unmount frei.
 
-Die Preview-Startansicht verwendet die lokale Portübersicht. Konfigurierte und lokal erkannte Previews laufen standardmäßig direkt im Client-iframe über einen der getrennten HTTPS-Slot-Origins. Root-Proxying erhält absolute Assets, Client-Router und Vite-HMR ohne `base`-Anpassung. Verschiedene Ports trennen localStorage und IndexedDB; Cookies sind hostweit und deshalb nicht port-isoliert. Für geräteübergreifend geteilte Anmeldung, Cookie-Isolation oder Seiten mit blockiertem Embedding kann jeder Slot explizit in den Server-Chromium wechseln.
+Die Preview-Startansicht verwendet die lokale Portübersicht. Konfigurierte und lokal erkannte Previews laufen immer direkt im Client-iframe über einen der getrennten HTTPS-Slot-Origins. Root-Proxying erhält absolute Assets, Client-Router und Vite-HMR ohne `base`-Anpassung. Verschiedene Ports trennen localStorage und IndexedDB; Cookies sind hostweit und deshalb nicht port-isoliert. Der Server-Chromium bleibt ausschließlich dem Browser-Werkzeug vorbehalten.
 
 Slot-Zuordnungen liegen in SQLite und überleben Backend-Neustarts. Die API `/api/v1/previews/slots` weist freie Slots atomar zu, kann ein Ziel bewusst teilen und gibt Slots wieder frei. Orbit-Preview-Gruppen verwenden dasselbe System für Layouts mit einem, zwei, drei oder sechs Slots. Neue Slots starten mit iPhone-13-Maßen; ein Layoutwechsel behält die Slot-Größe bei und lässt die Gruppe zur freien Seite wachsen. Ziel, Label, Gerätewahl, Isolation und Laufzeit liegen im Orbit-Dokument. Die Route `/previews/gruppe/:id` rendert dieselbe Gruppe ohne Canvas, `/previews/fenster/:id` zusätzlich ohne Workbench-Navigation für ein eigenes Browserfenster; beide folgen dem Orbit-Dokument und übernehmen Gerät, Ausrichtung und Laufzeit jedes Slots.
 
@@ -31,7 +62,7 @@ Der Orbit-Serverbrowser ergänzt diese flache Erkennung durch einen lazy geladen
 
 Der aktive Workspace verwendet das validierte Orbit-Schema Version 6. Boards enthalten Knoten, Kanten, Viewport und Arbeitsgebietsgrenzen. Projekt-Hubs stellen den gemeinsamen Kontext her; Werkzeuge, Preview-Gruppen und ihre Slot-Kinder, Notizen, Snippets, Dateien, Bereiche und Nutzungsanzeigen bleiben frei beweglich und skalierbar. Preview-Slots verwenden `parentId`, folgen dadurch einer Gruppe ohne iframe-Neuladen und können aus ihr herausgelöst oder wieder angedockt werden.
 
-Die kanonische Orbit-Datei liegt revisioniert in derselben lokalen SQLite-Datenbank wie die Nutzungsdaten. Der Browser speichert Änderungen nach kurzer Ruhezeit und fragt in einem konfigurierbaren Intervall nach neueren Revisionen. Bei einem Revisionskonflikt wird die aktuelle Serverrevision geladen und die noch nicht gespeicherte lokale Änderung erneut darauf geschrieben. Da die Workbench für eine Person ausgelegt ist, genügt dieses deterministische Last-Edit-Verfahren ohne Mehrbenutzer-CRDT.
+Die kanonische Orbit-Datei liegt revisioniert in derselben lokalen SQLite-Datenbank wie die Nutzungsdaten. Der Browser speichert Änderungen nach kurzer Ruhezeit und fragt in einem konfigurierbaren Intervall nach neueren Revisionen. Bei einem Revisionskonflikt wird die aktuelle Serverrevision geladen und die noch nicht gespeicherte lokale Änderung erneut darauf geschrieben. Hermes-Status, Aufgaben, Cron und Ergebnisse sind additive Knotentypen; alte Dokumente der Versionen 6 und 7 bleiben lesbar, geschrieben wird Version 8. Da die Workbench für eine Person ausgelegt ist, genügt dieses deterministische Last-Edit-Verfahren ohne Mehrbenutzer-CRDT.
 
 Ein vorhandener Workspace der Schema-Version 3 in `localStorage` wird nur dann in Orbit-Boards migriert, wenn auf dem Server noch kein Orbit-Dokument existiert. Gruppen und Tabs werden als Live-Werkzeugknoten übernommen, Projekt-Hubs und Verbindungen ergänzt. Anschließend ist SQLite die geräteübergreifende Quelle; der alte lokale Zustand bleibt als Rückfallkopie unangetastet.
 
@@ -52,8 +83,8 @@ Nicht besuchte Routen werden als getrennte Vite-Chunks gebaut und bei Browser-Le
 ## Monorepo
 
 - `packages/contracts`: gemeinsame Zod-Schemas und TypeScript-Typen.
-- `apps/server`: API, PTY- und Browser-Manager, Systemmetriken, Port- und Projekterkennung, Reverse Proxy und statische Web-Auslieferung.
-- `apps/web`: React-Oberfläche, Navigation, xterm.js, Browser- und Preview-Geräteansicht sowie persistenter Workspace.
+- `apps/server`: API, PTY-, Browser- und Hermes-Manager, Systemmetriken, Port- und Projekterkennung, Reverse Proxys und statische Web-Auslieferung.
+- `apps/web`: React-Oberfläche, Navigation, xterm.js, Browser- und Preview-Geräteansicht, Hermes-Chat sowie persistenter Workspace.
 - `config`: zentrale Laufzeitwerte sowie committete Beispiele und lokal ignorierte Serverkonfigurationen.
 - `deploy`: System- und User-systemd-Units sowie Tailscale-Serve-Skripte.
 
@@ -71,5 +102,7 @@ Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade.
 - Projekt-CWDs müssen innerhalb der konfigurierten Wurzelverzeichnisse liegen; freie Shell-Pfade werden kanonisch geprüft.
 - Editor und Workbench teilen ihren privaten HTTPS-Origin; Preview-Slots erhalten bewusst eigene private HTTPS-Origins für getrennte Web-Storage-Sitzungen.
 - CSP-Framequellen entstehen ausschließlich aus validierten Service- und Preview-Konfigurationen.
+- Der Hermes-Dashboard-Port bleibt Loopback-only; `/hermes` ist identitätsgeschützt, mutierende Aktionen verlangen zusätzlich Same-Origin.
+- Hermes-Freigaben stehen auf `ask`; die native UI bietet keine dauerhafte globale Freigabe für destruktive Befehle.
 - Fehlerantworten enthalten keine Secrets, Umgebungsvariablen oder internen Stacktraces.
 - Terminal- und Editorprozesse benötigen absichtlich Schreibzugriff auf `/home/your-user/projects`; Kernel- und Systempfade bleiben über systemd gehärtet.
