@@ -1,4 +1,5 @@
 import { access, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { execa } from "execa";
@@ -10,6 +11,7 @@ import type { UsageDatabase } from "./database.js";
 
 export class AccountService {
   private readonly switcher: AccountSwitch;
+  private readonly providerQueues = new Map<UsageProviderId, Promise<void>>();
 
   constructor(private readonly options: { database: UsageDatabase; allowedRoots: string[]; profilesRoot: string; codexbarConfigPath: string; codexbarCliPath?: string; claudeCliPath?: string; homeDirectory?: string; sharedHomes: Record<UsageProviderId, ProviderLayout> }) {
     this.switcher = new AccountSwitch(options.sharedHomes);
@@ -19,6 +21,7 @@ export class AccountService {
 
   /** Registrierte Accounts samt Identität und serverweit aktivem Account je Werkzeug. */
   async listWithState(): Promise<ManagedAccount[]> {
+    await this.reconcileActivationJournal();
     await this.repairActiveLinks();
     const accounts = this.list();
     const activeProfiles = new Map<UsageProviderId, string | null>();
@@ -45,26 +48,62 @@ export class AccountService {
   async activate(id: string) {
     let account: ManagedAccount;
     try { account = this.options.database.getAccount(id); } catch { throw new AppError(404, "ACCOUNT_NOT_FOUND", "Der Account wurde nicht gefunden."); }
+    return this.serialized(account.provider, () => this.activateUnlocked(account));
+  }
+
+  private async activateUnlocked(initialAccount: ManagedAccount) {
+    let account = initialAccount;
     if (!this.allowed(account.profilePath)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Profilpfad liegt außerhalb der erlaubten Bereiche.");
+    this.options.database.setActivationJournal(account.provider, account.id, "requested");
 
-    let migratedTo: string | null = null;
-    if (resolve(account.profilePath) === this.switcher.sharedHome(account.provider)) {
-      const store = resolve(this.options.profilesRoot, account.provider, slug(account.label));
-      if (!this.allowed(store)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Anmeldespeicher liegt außerhalb der erlaubten Bereiche.");
-      await this.switcher.moveSharedHomeIntoStore(account.provider, store);
-      if (account.provider === "codex") {
-        await this.setCodexProfile(account.profilePath, false).catch(() => undefined);
-        await this.setCodexProfile(store, true).catch(() => undefined);
+    try {
+      let migratedTo: string | null = null;
+      if (resolve(account.profilePath) === this.switcher.sharedHome(account.provider)) {
+        // Labels sind nicht eindeutig und veränderlich. Die persistierte
+        // Account-ID ist deshalb der kollisionsfreie Speichername.
+        const store = resolve(this.options.profilesRoot, account.provider, account.id);
+        if (!this.allowed(store)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Anmeldespeicher liegt außerhalb der erlaubten Bereiche.");
+        await this.switcher.moveSharedHomeIntoStore(account.provider, store);
+        if (account.provider === "codex") {
+          await this.setCodexProfile(account.profilePath, false);
+          await this.setCodexProfile(store, true);
+        }
+        account = this.options.database.setAccountProfilePath(account.id, store);
+        migratedTo = store;
       }
-      account = this.options.database.setAccountProfilePath(account.id, store);
-      migratedTo = store;
-    }
 
-    const candidates = this.list().filter((item) => item.provider === account.provider).map((item) => item.profilePath);
-    const result = await this.switcher.activate(account.provider, account.profilePath, candidates);
-    this.options.database.setActiveAccount(account.provider, account.id);
-    const identity = await this.switcher.identity(account.provider, account.profilePath);
-    return { ...result, migratedTo, account: { ...account, email: identity?.email ?? account.email, plan: identity?.plan ?? null, active: true } };
+      const candidates = this.list().filter((item) => item.provider === account.provider).map((item) => item.profilePath);
+      const result = await this.switcher.activate(account.provider, account.profilePath, candidates);
+      this.options.database.setActivationJournal(account.provider, account.id, "filesystem-switched");
+      this.options.database.setActiveAccount(account.provider, account.id);
+      this.options.database.clearActivationJournal(account.provider);
+      const identity = await this.switcher.identity(account.provider, account.profilePath);
+      return { ...result, migratedTo, account: { ...account, email: identity?.email ?? account.email, plan: identity?.plan ?? null, active: true } };
+    } catch (error) {
+      const activePath = await this.switcher.activeProfilePath(account.provider).catch(() => null);
+      this.options.database.setActivationJournal(
+        account.provider,
+        account.id,
+        activePath === resolve(account.profilePath) ? "filesystem-switched" : "failed",
+        error instanceof Error ? error.message.slice(0, 500) : "Unbekannter Fehler",
+      );
+      throw error;
+    }
+  }
+
+  private async serialized<T>(provider: UsageProviderId, operation: () => Promise<T>): Promise<T> {
+    const previous = this.providerQueues.get(provider) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    const queued = previous.then(() => current);
+    this.providerQueues.set(provider, queued);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.providerQueues.get(provider) === queued) this.providerQueues.delete(provider);
+    }
   }
 
   /**
@@ -76,7 +115,43 @@ export class AccountService {
     for (const [provider, accountId] of Object.entries(intended) as Array<[UsageProviderId, string]>) {
       const account = this.list().find((item) => item.id === accountId);
       if (!account || !this.allowed(account.profilePath)) continue;
-      await this.switcher.repair(provider, account.profilePath).catch(() => undefined);
+      try {
+        await this.switcher.repair(provider, account.profilePath);
+      } catch {
+        throw new AppError(
+          503,
+          "ACCOUNT_CREDENTIAL_LINK_DIVERGED",
+          "Die aktive Anmeldedatei konnte nicht sicher mit dem Accountspeicher abgeglichen werden.",
+          { provider },
+          true,
+        );
+      }
+    }
+  }
+
+  /** Schließt nach einem Prozessabbruch eine begonnene Umschaltung deterministisch ab. */
+  private async reconcileActivationJournal() {
+    for (const entry of this.options.database.listActivationJournal()) {
+      await this.serialized(entry.provider, async () => {
+        let account: ManagedAccount;
+        try {
+          account = this.options.database.getAccount(entry.accountId);
+        } catch {
+          this.options.database.clearActivationJournal(entry.provider);
+          return;
+        }
+        const activePath = await this.switcher.activeProfilePath(entry.provider);
+        if (activePath === resolve(account.profilePath)) {
+          this.options.database.setActiveAccount(entry.provider, account.id);
+          this.options.database.clearActivationJournal(entry.provider);
+          return;
+        }
+        // Eine fehlgeschlagene Operation wird nicht bei jedem Read endlos
+        // wiederholt. Angefangene, nicht als fehlgeschlagen markierte Sagas
+        // werden dagegen beim nächsten Start/Read abgeschlossen.
+        if (entry.phase === "failed") return;
+        await this.activateUnlocked(account);
+      });
     }
   }
 
@@ -132,34 +207,38 @@ export class AccountService {
   }
 
   async create(input: CreateAccountRequest): Promise<ManagedAccount> {
-    const profilePath = input.profilePath ?? resolve(this.options.profilesRoot, input.provider, `${slug(input.label)}-${Date.now()}`);
-    if (!this.allowed(profilePath)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Profilpfad liegt außerhalb der erlaubten Bereiche.");
-    if (resolve(profilePath) === this.switcher.sharedHome(input.provider)) {
-      throw new AppError(400, "PROFILE_IS_SHARED_HOME", "Das gemeinsame Home ist kein Account. Bitte einen eigenen Anmeldespeicher verwenden.");
-    }
-    if (input.source === "login") await mkdir(profilePath, { recursive: true, mode: 0o700 });
-    try {
-      const account = this.options.database.createAccount({ ...input, profilePath });
-      if (input.provider === "codex") {
-        try { await this.setCodexProfile(profilePath, true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
+    return this.serialized(input.provider, async () => {
+      const profilePath = input.profilePath ?? resolve(this.options.profilesRoot, input.provider, `${slug(input.label)}-${randomUUID()}`);
+      if (!this.allowed(profilePath)) throw new AppError(400, "INVALID_PROFILE_PATH", "Der Profilpfad liegt außerhalb der erlaubten Bereiche.");
+      if (resolve(profilePath) === this.switcher.sharedHome(input.provider)) {
+        throw new AppError(400, "PROFILE_IS_SHARED_HOME", "Das gemeinsame Home ist kein Account. Bitte einen eigenen Anmeldespeicher verwenden.");
       }
-      if (input.provider === "claude") {
-        try { await this.setProviderEnabled("claude", true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
+      if (input.source === "login") await mkdir(profilePath, { recursive: true, mode: 0o700 });
+      try {
+        const account = this.options.database.createAccount({ ...input, profilePath });
+        if (input.provider === "codex") {
+          try { await this.setCodexProfile(profilePath, true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
+        }
+        if (input.provider === "claude") {
+          try { await this.setProviderEnabled("claude", true); } catch (error) { this.options.database.deleteAccount(account.id); throw error; }
+        }
+        return account;
+      } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError(409, "ACCOUNT_EXISTS", "Dieses lokale Profil ist bereits registriert.");
       }
-      return account;
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      throw new AppError(409, "ACCOUNT_EXISTS", "Dieses lokale Profil ist bereits registriert.");
-    }
+    });
   }
 
   update(id: string, input: UpdateAccountRequest) { try { return this.options.database.updateAccount(id, { ...(input.label === undefined ? {} : {label:input.label}), ...(input.enabled === undefined ? {} : {enabled:input.enabled}) }); } catch { throw new AppError(404, "ACCOUNT_NOT_FOUND", "Der Account wurde nicht gefunden."); } }
 
   async remove(id: string) {
     let account: ManagedAccount; try { account = this.options.database.getAccount(id); } catch { throw new AppError(404, "ACCOUNT_NOT_FOUND", "Der Account wurde nicht gefunden."); }
-    if (account.provider === "codex") await this.setCodexProfile(account.profilePath, false);
-    if (account.provider === "claude" && this.list().filter((item) => item.provider === "claude" && item.id !== id).length === 0) await this.setProviderEnabled("claude", false);
-    this.options.database.deleteAccount(id);
+    return this.serialized(account.provider, async () => {
+      if (account.provider === "codex") await this.setCodexProfile(account.profilePath, false);
+      if (account.provider === "claude" && this.list().filter((item) => item.provider === "claude" && item.id !== id).length === 0) await this.setProviderEnabled("claude", false);
+      this.options.database.deleteAccount(id);
+    });
   }
 
   loginCommand(account: ManagedAccount) { return account.provider === "codex" ? "codex login --device-auth" : account.provider === "claude" ? "claude auth login" : "opencode auth login"; }

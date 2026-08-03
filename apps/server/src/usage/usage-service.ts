@@ -47,11 +47,11 @@ export class UsageAnalyticsService {
     if (codexUsage.status === "fulfilled") this.options.database.importUsage("codex", codexUsage.value, capturedAt);
     if (openCodeUsage.status === "fulfilled") this.options.database.importUsage("opencode", openCodeUsage.value, capturedAt);
     if (claudeUsage.status === "fulfilled") this.options.database.importUsage("claude", claudeUsage.value, capturedAt);
-    if (codexCost.status === "fulfilled") this.options.database.importCost(codexCost.value);
-    if (openCodeCost.status === "fulfilled") this.options.database.importCost(openCodeCost.value);
-    if (claudeCost.status === "fulfilled") this.options.database.importCost(claudeCost.value);
-    if (codexProjectCost.status === "fulfilled") this.options.database.importCost(codexProjectCost.value);
-    if (claudeProjectCost.status === "fulfilled") this.options.database.importCost(claudeProjectCost.value);
+    if (codexCost.status === "fulfilled") this.options.database.importCost(codexCost.value, "daily");
+    if (openCodeCost.status === "fulfilled") this.options.database.importCost(openCodeCost.value, "daily");
+    if (claudeCost.status === "fulfilled") this.options.database.importCost(claudeCost.value, "daily");
+    if (codexProjectCost.status === "fulfilled") this.options.database.importCost(codexProjectCost.value, "projects");
+    if (claudeProjectCost.status === "fulfilled") this.options.database.importCost(claudeProjectCost.value, "projects");
   }
   async dashboard(range: UsageRange): Promise<UsageDashboardResponse> {
     const live: UsageResponse = await this.options.live.getUsage(); const history = this.options.database.dashboard(range);

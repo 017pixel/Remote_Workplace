@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, readlink, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -17,6 +17,45 @@ describe("usage history", () => {
     const dashboard = database.dashboard("30d");
     expect(dashboard.totals.totalTokens).toBe(100);
     expect(dashboard.models).toMatchObject([{ label:"gpt-test", totalTokens:100 }]);
+  });
+
+  it("replaces authoritative cost scopes atomically without deleting the other scope", () => {
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    database.importCost([{
+      provider: "codex",
+      source: "local",
+      updatedAt: "2026-07-15T10:00:00Z",
+      projects: [{ name: "Alt", totalTokens: 20, totalCost: 0.2 }],
+      daily: [
+        { date: "2026-07-14", inputTokens: 10, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 10, totalCost: 0.1, modelBreakdowns: [] },
+        { date: "2026-07-15", inputTokens: 20, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 20, totalCost: 0.2, modelBreakdowns: [] },
+      ],
+    }], "both");
+    database.importCost([{
+      provider: "codex",
+      source: "local",
+      updatedAt: "2026-07-16T10:00:00Z",
+      projects: [],
+      daily: [{ date: "2026-07-16", inputTokens: 30, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 30, totalCost: 0.3, modelBreakdowns: [] }],
+    }], "daily");
+    const dashboard = database.dashboard("365d");
+    expect(dashboard.daily).toHaveLength(1);
+    expect(dashboard.daily[0]).toMatchObject({ date: "2026-07-16", totalTokens: 30 });
+    expect(dashboard.projects).toContainEqual(expect.objectContaining({ label: "Alt" }));
+  });
+
+  it("aggregates mehrere Provider je Tag statt doppelte Tagespunkte zu liefern", () => {
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    const today = new Date().toISOString().slice(0, 10);
+    database.importCost([
+      { provider: "codex", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [], daily: [{ date: today, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 100, totalCost: 0.5, modelBreakdowns: [] }] },
+      { provider: "claude", source: "local", updatedAt: "2026-07-16T11:00:00Z", projects: [], daily: [{ date: today, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 200, totalCost: 1.0, modelBreakdowns: [] }] },
+    ]);
+    const dashboard = database.dashboard("7d");
+    expect(dashboard.daily).toHaveLength(1);
+    expect(dashboard.daily[0]).toMatchObject({ totalTokens: 300, totalCost: 1.5 });
+    expect(dashboard.totals.todayTokens).toBe(300);
+    expect(dashboard.totals.totalTokens).toBe(300);
   });
 
   it("forecasts a limit only after three snapshots", () => {
@@ -146,5 +185,41 @@ describe("account registry", () => {
       authenticated: true,
       registered: false,
     }));
+  });
+
+  it("serializes concurrent account activation and reconciles a filesystem-switched journal", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-account-concurrency-"));
+    const sharedHome = join(root, ".codex");
+    const firstProfile = join(root, "first");
+    const secondProfile = join(root, "second");
+    await Promise.all([mkdir(sharedHome), mkdir(firstProfile), mkdir(secondProfile)]);
+    await Promise.all([
+      writeFile(join(firstProfile, "auth.json"), "{}"),
+      writeFile(join(secondProfile, "auth.json"), "{}"),
+    ]);
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    const service = new AccountService({
+      database,
+      allowedRoots: [root],
+      profilesRoot: join(root, "profiles"),
+      codexbarConfigPath: join(root, "codexbar.json"),
+      sharedHomes: {
+        codex: { sharedHome, authFileName: "auth.json" },
+        claude: { sharedHome: join(root, ".claude"), authFileName: ".credentials.json" },
+        opencode: { sharedHome: join(root, "opencode"), authFileName: "auth.json" },
+      },
+    });
+    const first = await service.create({ provider: "codex", label: "Erster", profilePath: firstProfile, source: "local" });
+    const second = await service.create({ provider: "codex", label: "Zweiter", profilePath: secondProfile, source: "local" });
+    await Promise.all([service.activate(first.id), service.activate(second.id)]);
+    expect(await readlink(join(sharedHome, "auth.json"))).toBe(join(secondProfile, "auth.json"));
+    expect(database.listActiveAccounts()).toMatchObject({ codex: second.id });
+
+    await unlink(join(sharedHome, "auth.json"));
+    await symlink(join(firstProfile, "auth.json"), join(sharedHome, "auth.json"));
+    database.setActivationJournal("codex", first.id, "filesystem-switched");
+    await service.listWithState();
+    expect(database.listActiveAccounts()).toMatchObject({ codex: first.id });
+    expect(database.listActivationJournal()).toEqual([]);
   });
 });

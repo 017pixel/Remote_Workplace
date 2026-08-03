@@ -83,6 +83,13 @@ export class UsageDatabase {
       provider TEXT PRIMARY KEY CHECK(provider IN ('codex','opencode','claude')),
       account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS account_activation_journal (
+      provider TEXT PRIMARY KEY CHECK(provider IN ('codex','opencode','claude')),
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      phase TEXT NOT NULL CHECK(phase IN ('requested','filesystem-switched','failed')),
+      error TEXT,
+      updated_at TEXT NOT NULL
     )`);
   }
 
@@ -102,6 +109,9 @@ export class UsageDatabase {
       && usagePayloads.every((payload) => payload.usage?.codexResetCredits !== undefined);
     this.db.exec("BEGIN IMMEDIATE");
     try {
+      // Limitfenster sind kurzlebige Messreihen. Eine feste Retention hält
+      // Prognosen schnell und verhindert unbegrenztes Tabellenwachstum.
+      this.db.prepare("DELETE FROM usage_snapshots WHERE captured_at < datetime(?, '-400 days')").run(capturedAt);
       if (resetCreditsAreAuthoritative) this.db.exec("DELETE FROM reset_credits");
       for (const [index, payload] of payloads.entries()) {
         if (!payload.usage) continue;
@@ -125,7 +135,7 @@ export class UsageDatabase {
     }
   }
 
-  importCost(payloads: CodexbarCostPayload[]) {
+  importCost(payloads: CodexbarCostPayload[], scope: "daily" | "projects" | "both" = "both") {
     const daily = this.db.prepare(`INSERT INTO daily_usage VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(provider,date) DO UPDATE SET input_tokens=excluded.input_tokens,
       output_tokens=excluded.output_tokens, cache_read_tokens=excluded.cache_read_tokens,
@@ -135,25 +145,52 @@ export class UsageDatabase {
       ON CONFLICT(provider,date,model) DO UPDATE SET total_tokens=excluded.total_tokens,total_cost=excluded.total_cost`);
     const project = this.db.prepare(`INSERT INTO project_usage VALUES (?, ?, ?, ?, ?, ?, 'exact')
       ON CONFLICT(provider,project_key) DO UPDATE SET label=excluded.label,total_tokens=excluded.total_tokens,total_cost=excluded.total_cost,updated_at=excluded.updated_at`);
-    for (const payload of payloads) {
-      for (const point of payload.daily) {
-        daily.run(payload.provider, point.date, point.inputTokens, point.outputTokens, point.cacheReadTokens, point.cacheCreationTokens, point.totalTokens, point.totalCost, payload.updatedAt);
-        for (const item of point.modelBreakdowns) model.run(payload.provider, point.date, item.modelName, item.totalTokens, item.cost);
+    const providers = [...new Set(payloads.map((payload) => payload.provider))];
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      if (scope === "daily" || scope === "both") {
+        const deleteDaily = this.db.prepare("DELETE FROM daily_usage WHERE provider = ?");
+        const deleteModels = this.db.prepare("DELETE FROM model_usage WHERE provider = ?");
+        for (const provider of providers) {
+          deleteDaily.run(provider);
+          deleteModels.run(provider);
+        }
       }
-      for (const [index, item] of payload.projects.entries()) {
-        const key = item.projectPath ?? item.project ?? item.name ?? `project-${index}`;
-        project.run(payload.provider, key, item.name ?? item.project ?? item.projectPath ?? "Unbekannt", item.totalTokens, item.totalCost, payload.updatedAt);
+      if (scope === "projects" || scope === "both") {
+        const deleteProjects = this.db.prepare("DELETE FROM project_usage WHERE provider = ?");
+        for (const provider of providers) deleteProjects.run(provider);
       }
+      for (const payload of payloads) {
+        if (scope === "daily" || scope === "both") {
+          for (const point of payload.daily) {
+            daily.run(payload.provider, point.date, point.inputTokens, point.outputTokens, point.cacheReadTokens, point.cacheCreationTokens, point.totalTokens, point.totalCost, payload.updatedAt);
+            for (const item of point.modelBreakdowns) model.run(payload.provider, point.date, item.modelName, item.totalTokens, item.cost);
+          }
+        }
+        if (scope === "projects" || scope === "both") {
+          for (const [index, item] of payload.projects.entries()) {
+            const key = item.projectPath ?? item.project ?? item.name ?? `project-${index}`;
+            project.run(payload.provider, key, item.name ?? item.project ?? item.projectPath ?? "Unbekannt", item.totalTokens, item.totalCost, payload.updatedAt);
+          }
+        }
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
   }
 
   dashboard(range: UsageRange) {
     const days = rangeDays[range];
     const cutoff = `-${days - 1} days`;
-    const daily = this.db.prepare(`SELECT date, input_tokens inputTokens, output_tokens outputTokens,
-      cache_read_tokens cacheReadTokens, cache_creation_tokens cacheCreationTokens,
-      total_tokens totalTokens, total_cost totalCost FROM daily_usage
-      WHERE date >= date('now', ?) ORDER BY date`).all(cutoff) as UsageDailyPoint[];
+    // Pro Tag liegt bis zu eine Zeile je Provider vor. Erst die Aggregation über
+    // alle Provider macht die Tageswerte, „Tokens heute" und die 30-Tage-Projektion
+    // korrekt — sonst zählt die Zeilenzahl statt der Tagesszahl (F03-1).
+    const daily = this.db.prepare(`SELECT date, SUM(input_tokens) inputTokens, SUM(output_tokens) outputTokens,
+      SUM(cache_read_tokens) cacheReadTokens, SUM(cache_creation_tokens) cacheCreationTokens,
+      SUM(total_tokens) totalTokens, SUM(total_cost) totalCost FROM daily_usage
+      WHERE date >= date('now', ?) GROUP BY date ORDER BY date`).all(cutoff) as UsageDailyPoint[];
     const projects = this.db.prepare(`SELECT project_key id, label, total_tokens totalTokens,
       total_cost totalCost, quality FROM project_usage ORDER BY total_tokens DESC LIMIT 20`).all() as UsageBreakdown[];
     const models = this.db.prepare(`SELECT model id, model label, SUM(total_tokens) totalTokens,
@@ -163,7 +200,7 @@ export class UsageDatabase {
     const todayTokens = daily.find((point) => point.date === new Date().toISOString().slice(0, 10))?.totalTokens ?? 0;
     const observed = Math.max(1, daily.length);
     return {
-      daily, projects, models,
+      daily, projects, projectRange: "365d" as const, models,
       totals: {
         totalTokens: totals.tokens, totalCost: totals.cost, todayTokens,
         projected30DayTokens: Math.round(totals.tokens / observed * 30),
@@ -175,10 +212,18 @@ export class UsageDatabase {
 
   forecasts(): UsageForecast[] {
     type ForecastRow = {accountKey:string;provider:UsageProviderId;windowId:"primary"|"secondary"|"tertiary";windowMinutes:number|null;resetsAt:string;usedPercent:number;capturedAt:string};
-    const rows = this.db.prepare(`SELECT account_key accountKey, provider, window_id windowId,
-      window_minutes windowMinutes, resets_at resetsAt, used_percent usedPercent, captured_at capturedAt
-      FROM usage_snapshots WHERE resets_at IS NOT NULL AND resets_at > datetime('now')
-      ORDER BY captured_at`).all() as ForecastRow[];
+    const rows = this.db.prepare(`WITH ranked AS (
+      SELECT account_key accountKey, provider, window_id windowId,
+        window_minutes windowMinutes, resets_at resetsAt, used_percent usedPercent, captured_at capturedAt,
+        ROW_NUMBER() OVER (
+          PARTITION BY account_key, provider, window_id
+          ORDER BY captured_at DESC
+        ) sample_rank
+      FROM usage_snapshots
+      WHERE resets_at IS NOT NULL AND resets_at > datetime('now')
+    )
+    SELECT accountKey, provider, windowId, windowMinutes, resetsAt, usedPercent, capturedAt
+    FROM ranked WHERE sample_rank <= 96 ORDER BY capturedAt`).all() as ForecastRow[];
     const byIdentity = new Map<string, ForecastRow[]>();
     for (const row of rows) {
       const key = `${row.provider}|${row.accountKey}|${row.windowId}`;
@@ -251,5 +296,24 @@ export class UsageDatabase {
     this.db.prepare(`INSERT INTO active_accounts(provider,account_id,updated_at) VALUES(?,?,?)
       ON CONFLICT(provider) DO UPDATE SET account_id=excluded.account_id, updated_at=excluded.updated_at`)
       .run(provider, accountId, new Date().toISOString());
+  }
+  setActivationJournal(provider: UsageProviderId, accountId: string, phase: "requested" | "filesystem-switched" | "failed", error: string | null = null) {
+    this.db.prepare(`INSERT INTO account_activation_journal(provider,account_id,phase,error,updated_at)
+      VALUES(?,?,?,?,?) ON CONFLICT(provider) DO UPDATE SET
+      account_id=excluded.account_id,phase=excluded.phase,error=excluded.error,updated_at=excluded.updated_at`)
+      .run(provider, accountId, phase, error, new Date().toISOString());
+  }
+  listActivationJournal() {
+    return this.db.prepare(`SELECT provider,account_id accountId,phase,error,updated_at updatedAt
+      FROM account_activation_journal ORDER BY provider`).all() as Array<{
+        provider: UsageProviderId;
+        accountId: string;
+        phase: "requested" | "filesystem-switched" | "failed";
+        error: string | null;
+        updatedAt: string;
+      }>;
+  }
+  clearActivationJournal(provider: UsageProviderId) {
+    this.db.prepare("DELETE FROM account_activation_journal WHERE provider=?").run(provider);
   }
 }

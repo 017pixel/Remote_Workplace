@@ -102,7 +102,14 @@ export class AccountSwitch {
       throw new AppError(409, "ACCOUNT_NOT_AUTHENTICATED", "Für dieses Werkzeug liegen keine Anmeldedaten vor. Bitte zuerst einmalig anmelden.");
     }
     await mkdir(resolve(storePath), { recursive: true, mode: 0o700 });
-    await rename(source, this.authPathFor(provider, storePath));
+    const destination = this.authPathFor(provider, storePath);
+    const backup = await moveAside(destination);
+    try {
+      await rename(source, destination);
+    } catch (error) {
+      if (backup) await rename(backup, destination).catch(() => undefined);
+      throw error;
+    }
   }
 
   /** Schaltet den serverweit aktiven Account um. */
@@ -131,9 +138,8 @@ export class AccountSwitch {
     const current = await lstat(this.sharedAuthPath(provider)).catch(() => null);
     if (current?.isSymbolicLink()) return false;
     if (current?.isFile()) {
-      const stamp = timestamp();
       await mkdir(target, { recursive: true, mode: 0o700 });
-      await rename(this.authPathFor(provider, target), `${this.authPathFor(provider, target)}.ersetzt-${stamp}`).catch(() => undefined);
+      await moveAside(this.authPathFor(provider, target));
       await rename(this.sharedAuthPath(provider), this.authPathFor(provider, target));
     } else if (!await this.hasCredentials(provider, target)) {
       return false;
@@ -180,8 +186,7 @@ export class AccountSwitch {
         ? shared.accountId === identity.accountId
         : Boolean(shared?.email && identity?.email && shared.email === identity.email);
       if (!sameAccount) continue;
-      const backupPath = `${this.authPathFor(provider, target)}.ersetzt-${stamp}`;
-      await rename(this.authPathFor(provider, target), backupPath).catch(() => undefined);
+      const backupPath = await moveAside(this.authPathFor(provider, target));
       await rename(authPath, this.authPathFor(provider, target));
       return { adoptedInto: target, backupPath };
     }
@@ -193,6 +198,17 @@ export class AccountSwitch {
 }
 
 function timestamp() { return new Date().toISOString().replace(/[:.]/g, "-"); }
+
+async function moveAside(path: string): Promise<string | null> {
+  const existing = await lstat(path).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (!existing) return null;
+  const backup = `${path}.ersetzt-${timestamp()}`;
+  await rename(path, backup);
+  return backup;
+}
 
 function decodeJwtClaims(token: string): Record<string, unknown> | null {
   const payload = token.split(".")[1];
