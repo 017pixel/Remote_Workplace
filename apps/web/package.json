@@ -1,6 +1,6 @@
 {
   "name": "@workbench/web",
-  "version": "0.35.0",
+  "version": "0.39.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,30 +13,35 @@
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
-    "@tanstack/react-query": "5.101.2",
+    "@lobehub/icons": "^5.15.0",
+    "@tanstack/react-query": "5.101.4",
     "@workbench/contracts": "workspace:*",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "12.11.2",
-    "lucide-react": "1.24.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "dompurify": "^3.4.12",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-resizable-panels": "4.12.2",
-    "react-router-dom": "7.18.1",
+    "react-router": "8.3.0",
     "zod": "4.4.3",
     "zustand": "5.0.14"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.3.2",
+    "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
+    "@types/dompurify": "^3.2.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
+    "@vitejs/plugin-react": "6.0.5",
     "jsdom": "29.1.1",
-    "tailwindcss": "4.3.2",
+    "postcss": "8.5.18",
+    "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "vite": "8.1.4",
+    "vite": "8.2.0",
     "vitest": "4.1.10"
   }
 }
