@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { workbenchConfigSchema, type WorkbenchConfig } from "./workbench-config.js";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { loadWorkbenchConfig, persistUsageMonitoring, readUsageMonitoring, workbenchConfigSchema, type WorkbenchConfig } from "./workbench-config.js";
 
 function exampleConfig(): WorkbenchConfig {
   return workbenchConfigSchema.parse(JSON.parse(readFileSync(resolve(process.cwd(), "../../config/workbench.example.json"), "utf8")) as unknown);
@@ -48,5 +49,41 @@ describe("Workbench-Preview-Konfiguration", () => {
     const workbenchCollision = exampleConfig();
     workbenchCollision.previews.publicPorts[0] = workbenchCollision.tailscale.httpsPort;
     expect(() => workbenchConfigSchema.parse(workbenchCollision)).toThrowError(/Workbench-HTTPS-Port/);
+  });
+});
+
+describe("Limitüberwachung in der Config", () => {
+  const directories: string[] = [];
+  const baseConfig = () => {
+    const config = exampleConfig() as unknown as Record<string, unknown>;
+    delete config.usage;
+    return config;
+  };
+
+  function createConfigDirectory(config: unknown): string {
+    const directory = mkdtempSync(join(tmpdir(), "workbench-usage-config-"));
+    directories.push(directory);
+    writeFileSync(join(directory, "workbench.local.json"), JSON.stringify(config, null, 2), "utf8");
+    return directory;
+  }
+
+  afterEach(() => {
+    for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  });
+
+  it("überwacht alle Werkzeuge, wenn der Abschnitt fehlt", () => {
+    expect(readUsageMonitoring(createConfigDirectory(baseConfig()))).toEqual({ codex: true, opencode: true, claude: true });
+  });
+
+  it("übernimmt gesetzte Werte aus der Config", () => {
+    const config = { ...baseConfig(), usage: { monitoring: { codex: true, opencode: true, claude: false } } };
+    expect(readUsageMonitoring(createConfigDirectory(config))).toEqual({ codex: true, opencode: true, claude: false });
+  });
+
+  it("schreibt die Limitüberwachung und lässt übrige Werte unverändert", () => {
+    const directory = createConfigDirectory(baseConfig());
+    persistUsageMonitoring(directory, { codex: false, opencode: true, claude: true });
+    expect(readUsageMonitoring(directory)).toEqual({ codex: false, opencode: true, claude: true });
+    expect(loadWorkbenchConfig(directory).paths.projectsRoot).toBe(exampleConfig().paths.projectsRoot);
   });
 });

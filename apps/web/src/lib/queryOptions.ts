@@ -12,6 +12,8 @@ export const workbenchQueries = {
     queryOptions({ queryKey: ["system", "operational-metrics"], queryFn: ({ signal }) => apiClient.operationalMetrics(signal), refetchInterval, staleTime: Math.min(refetchInterval, 5_000) }),
   t3Channel: () =>
     queryOptions({ queryKey: ["system", "t3-channel"], queryFn: ({ signal }) => apiClient.t3Channel(signal), staleTime: 5_000 }),
+  usageMonitoring: () =>
+    queryOptions({ queryKey: ["system", "usage-monitoring"], queryFn: ({ signal }) => apiClient.usageMonitoring(signal), staleTime: 15_000 }),
   hermesStatus: () => queryOptions({ queryKey: ["hermes", "status"], queryFn: ({ signal }) => apiClient.hermesStatus(signal), refetchInterval: 30_000, staleTime: 10_000 }),
   hermesSessions: (query = "") => queryOptions({ queryKey: ["hermes", "sessions", query], queryFn: ({ signal }) => apiClient.hermesSessions({ limit: 100, ...(query ? { q: query } : {}) }, signal), refetchInterval: 10_000, staleTime: 3_000 }),
   hermesTasks: () => queryOptions({ queryKey: ["hermes", "tasks"], queryFn: ({ signal }) => apiClient.hermesTasks(signal), refetchInterval: 6_000, staleTime: 2_000, refetchIntervalInBackground: false }),

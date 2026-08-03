@@ -54,6 +54,7 @@ import {
   restartResponseSchema,
   restartStatusResponseSchema,
   t3ChannelRequestSchema,
+  usageMonitoringResponseSchema,
 } from "@workbench/contracts";
 import { createReadStream } from "node:fs";
 import type { FastifyInstance } from "fastify";
@@ -63,6 +64,7 @@ import type { createProjectService } from "../services/projectService.js";
 import type { createServiceStatusService } from "../services/serviceStatusService.js";
 import { systemService } from "../services/systemService.js";
 import { t3ChannelService } from "../services/t3ChannelService.js";
+import { usageMonitoringService } from "../services/usageMonitoringService.js";
 import { settings } from "../config/settings.js";
 import { bootId, readRestartStatus, RestartError, triggerRestart, webBuildId } from "../system/restart.js";
 import { createProxyHandler } from "./proxy.js";
@@ -127,6 +129,16 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.post("/system/t3-channel", async (request) => {
     const { channel } = t3ChannelRequestSchema.parse(request.body);
     return t3ChannelService.setChannel(channel);
+  });
+  app.get("/system/usage-monitoring", async () => usageMonitoringResponseSchema.parse({ monitoring: usageMonitoringService.get() }));
+  // Wirkt sofort: Der Sync überspringt deaktivierte Anbieter, der Live-Cache meldet sie
+  // als deaktiviert. Persistiert wird ausschließlich in config/workbench.local.json.
+  app.put("/system/usage-monitoring", async (request) => {
+    const { monitoring } = usageMonitoringResponseSchema.parse(request.body);
+    const result = usageMonitoringService.update(monitoring);
+    // Gespeicherte Live-Antwort verwerfen, damit der neue Stand ohne Wartezeit ankommt.
+    services.usage.invalidate();
+    return usageMonitoringResponseSchema.parse({ monitoring: result });
   });
   app.get("/server/summary", async () => serverSummarySchema.parse(await systemService.getSummary()));
   app.get("/server/metrics", async () => serverMetricsSchema.parse(await systemService.getMetrics()));

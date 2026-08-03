@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
+import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient, ApiClientError } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
@@ -7,7 +7,7 @@ import { usePwaInstall } from "../lib/usePwaInstall";
 import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
-import { WORKBENCH_LIMITS, type DashboardConfig, type DashboardSection, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel } from "@workbench/contracts";
+import { WORKBENCH_LIMITS, type DashboardConfig, type DashboardSection, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
 import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem, type PageRouteId } from "../stores/sidebarPreferences";
@@ -61,6 +61,10 @@ export function Settings() {
 
         <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
           <T3ChannelControls onJumpToRestart={jumpToRestart} />
+        </Card>
+
+        <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
+          <UsageMonitoringSettings />
         </Card>
 
         <Card title="Workspace" subtitle="Lokaler, persistenter Zustand">
@@ -210,6 +214,52 @@ function NotificationSettings() {
     </div>
     {message ? <p className="text-[12px] text-muted" role="status">{message}</p> : null}
   </div>;
+}
+
+const usageMonitoringLabels: Record<UsageProviderId, string> = {
+  codex: "Codex",
+  opencode: "OpenCode Go",
+  claude: "Claude Code",
+};
+const usageMonitoringOrder: UsageProviderId[] = ["opencode", "codex", "claude"];
+
+function UsageMonitoringSettings() {
+  const queryClient = useQueryClient();
+  const monitoring = useQuery(workbenchQueries.usageMonitoring());
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const current = monitoring.data?.monitoring;
+
+  const save = async (next: UsageMonitoring) => {
+    setSaving(true); setMessage("");
+    try {
+      const response = await apiClient.saveUsageMonitoring(next);
+      if (response) queryClient.setQueryData(workbenchQueries.usageMonitoring().queryKey, response);
+      setMessage("Die Limitüberwachung wurde gespeichert.");
+      // Nutzung und Limitanzeige sollen den neuen Stand sofort zeigen.
+      void queryClient.invalidateQueries({ queryKey: ["usage"] });
+    } catch {
+      setMessage("Die Limitüberwachung konnte nicht gespeichert werden.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!current) return <div className="settings-notification-skeleton"><span /><span /><span /></div>;
+  return (
+    <div className="notification-settings">
+      <p className="mb-2 text-[12px] text-muted">Ausgeschaltete Werkzeuge werden nicht mehr auf ihre Limits abgefragt. Die Nutzungshistorie (Tokens und Kosten) bleibt davon unberührt.</p>
+      {usageMonitoringOrder.map((provider) => (
+        <button key={provider} type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...current, [provider]: !current[provider] })}>
+          <span><strong>{usageMonitoringLabels[provider]}</strong><small>Limitfenster, Prognosen und Warnungen für {usageMonitoringLabels[provider]}</small></span>
+          <span className={`settings-toggle-switch ${current[provider] ? "is-on" : ""}`} role="switch" aria-checked={current[provider]} aria-label={`Limitüberwachung ${usageMonitoringLabels[provider]}`}>
+            <span className="settings-toggle-thumb" />
+          </span>
+        </button>
+      ))}
+      {message ? <p className="text-[12px] text-muted" role="status">{message}</p> : null}
+    </div>
+  );
 }
 
 function DashboardSectionToggles({ config }: { config: DashboardConfig | undefined }) {

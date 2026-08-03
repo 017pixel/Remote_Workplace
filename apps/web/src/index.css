@@ -2450,6 +2450,8 @@ a:hover .app-icon,
   .usage-provider-title { margin: 0; color: var(--color-text); font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 24px; }
   .usage-provider-updated { margin: 4px 0 0; color: var(--color-faint); font-size: 12px; line-height: 18px; }
   .usage-alert { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; border: 1px solid var(--color-warn); border-radius: var(--radius-md); background: var(--color-warn-soft); padding: 12px; color: var(--color-muted); font-size: 12px; line-height: 18px; }
+  .usage-disabled-note { display: flex; align-items: flex-start; gap: 8px; margin: 20px 0 0; color: var(--color-faint); font-size: 12px; line-height: 18px; }
+  .usage-disabled-note svg { flex: none; margin-top: 1px; }
   .usage-accounts { margin-top: 24px; }
   .usage-account { border-top: 1px solid var(--color-line); padding-top: 20px; }
   .usage-account + .usage-account { margin-top: 24px; }

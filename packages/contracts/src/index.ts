@@ -868,7 +868,9 @@ export const accountUsageSchema = z.object({
 export const providerUsageSchema = z.object({
   providerId: z.enum(["codex", "opencode", "claude"]),
   providerName: z.string().min(1),
-  status: z.enum(["available", "partial", "unavailable"]),
+  // `disabled` bedeutet: Die Limitüberwachung für diesen Anbieter ist über die
+  // Einstellungen pauschal ausgeschaltet — kein Fehler, sondern eine bewusste Wahl.
+  status: z.enum(["available", "partial", "unavailable", "disabled"]),
   updatedAt: isoDateSchema.nullable(),
   accounts: z.array(accountUsageSchema),
   error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
@@ -883,6 +885,19 @@ export const usageResponseSchema = z.object({
 
 export const usageProviderIdSchema = z.enum(["codex", "opencode", "claude"]);
 export const usageRangeSchema = z.enum(["7d", "30d", "90d", "365d"]);
+
+// Limitüberwachung je Werkzeug. Steht ein Anbieter auf false, werden seine
+// Limitfenster weder abgerufen noch gespeichert und in der Oberfläche als
+// deaktiviert ausgewiesen. Defaults: alle drei überwacht.
+export const usageMonitoringSchema = z.object({
+  codex: z.boolean().default(true),
+  opencode: z.boolean().default(true),
+  claude: z.boolean().default(true),
+});
+export const usageMonitoringResponseSchema = z.object({
+  monitoring: usageMonitoringSchema,
+});
+export type UsageMonitoring = z.infer<typeof usageMonitoringSchema>;
 export const usageDailyPointSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   inputTokens: z.number().int().nonnegative(),

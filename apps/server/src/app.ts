@@ -35,6 +35,7 @@ import { OrbitDatabase } from "./orbit/database.js";
 import { OrbitAssetRepository } from "./orbit/assets.js";
 import { createProjectFileService } from "./services/projectFileService.js";
 import { createLocalPortService } from "./services/localPortService.js";
+import { usageMonitoringService } from "./services/usageMonitoringService.js";
 import { BrowserManager } from "./browser/Manager.js";
 import { BrowserDatabase } from "./browser/database.js";
 import { registerBrowserRoutes } from "./browser/routes.js";
@@ -240,9 +241,10 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const liveUsage = createCodexbarUsageService({
     client: codexbarClient,
     ttlMilliseconds: settings.codexbarCacheMilliseconds,
+    monitoring: () => usageMonitoringService.get(),
     ...(settings.codexOauthPrimaryFallbackEnabled ? { primaryWindowFallback: new CodexOAuthPrimaryWindowFallback({ profileHomes: settings.codexOauthProfileHomes, configPath: settings.codexbarConfigPath, timeoutMilliseconds: settings.codexOauthTimeoutMilliseconds }) } : {}),
   });
-  const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds });
+  const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get() });
   const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
