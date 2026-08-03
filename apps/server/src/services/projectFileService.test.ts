@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,14 +22,38 @@ describe("project file service", () => {
   it("creates nested UTF-8 files below the project root", async () => {
     const { root, files } = await service();
     const result = await files.create("test", { path: "notes/orbit.md", content: "# Orbit", overwrite: false });
-    expect(result).toMatchObject({ path: "notes/orbit.md", bytes: 7, created: true });
+    expect(result).toMatchObject({ path: "notes/orbit.md", bytes: 7, created: true, version: expect.stringMatching(/^[0-9a-f]{64}$/) });
     expect(await readFile(join(root, "notes/orbit.md"), "utf8")).toBe("# Orbit");
   });
 
   it("rejects traversal and implicit overwrites", async () => {
-    const { files } = await service();
+    const { root, files } = await service();
     await expect(files.create("test", { path: "../outside.txt", content: "no", overwrite: false })).rejects.toMatchObject({ code: "INVALID_PROJECT_PATH" });
     await files.create("test", { path: "inside.txt", content: "first", overwrite: false });
-    await expect(files.create("test", { path: "inside.txt", content: "second", overwrite: false })).rejects.toMatchObject({ code: "FILE_EXISTS" });
+    const conflict = await files.create("test", { path: "inside.txt", content: "second", overwrite: false }).catch((error: unknown) => error);
+    expect(conflict).toMatchObject({ code: "FILE_EXISTS", details: { currentVersion: expect.stringMatching(/^[0-9a-f]{64}$/) } });
+    const updated = await files.create("test", {
+      path: "inside.txt",
+      content: "second",
+      overwrite: true,
+      expectedVersion: (conflict as { details: { currentVersion: string } }).details.currentVersion,
+    });
+    expect(updated).toMatchObject({ created: false });
+    expect(await readFile(join(root, "inside.txt"), "utf8")).toBe("second");
+  });
+
+  it("rejects stale overwrites without changing the newer file", async () => {
+    const { root, files } = await service();
+    await files.create("test", { path: "shared.txt", content: "first", overwrite: false });
+    const conflict = await files.create("test", { path: "shared.txt", content: "mine", overwrite: false }).catch((error: unknown) => error);
+    const staleVersion = (conflict as { details: { currentVersion: string } }).details.currentVersion;
+    await writeFile(join(root, "shared.txt"), "external", "utf8");
+    await expect(files.create("test", {
+      path: "shared.txt",
+      content: "mine",
+      overwrite: true,
+      expectedVersion: staleVersion,
+    })).rejects.toMatchObject({ code: "FILE_CHANGED" });
+    expect(await readFile(join(root, "shared.txt"), "utf8")).toBe("external");
   });
 });

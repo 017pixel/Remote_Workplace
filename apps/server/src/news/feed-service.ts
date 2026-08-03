@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import type { NewsSource } from "@workbench/contracts";
 import { settings } from "../config/settings.js";
+import { fetchPublic, readBodyLimited } from "../security/public-http.js";
 import type { IncomingNewsItem, NewsDatabase } from "./database.js";
 
 export interface FeedDefinition {
@@ -110,17 +111,6 @@ const safeUrl = (value: string, base: string) => {
   }
 };
 
-const isPublicUrl = (value: string) => {
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol)
-      && url.hostname !== "localhost"
-      && !/^127\.|^10\.|^192\.168\.|^169\.254\.|^172\.(1[6-9]|2\d|3[01])\./.test(url.hostname);
-  } catch {
-    return false;
-  }
-};
-
 const rawEntryContent = (entry: FeedEntry, group: FeedEntry | undefined) =>
   [entry.encoded, entry.description, entry.summary, entry.content, group?.description]
     .map(text)
@@ -194,11 +184,9 @@ const imageFromMetadata = (markup: string, base: string) => {
 };
 
 async function discoverArticleImage(url: string, signal?: AbortSignal) {
-  if (!isPublicUrl(url)) return null;
   try {
-    const response = await fetch(url, {
+    const response = await fetchPublic(url, {
       ...(signal ? { signal } : {}),
-      redirect: "follow",
       headers: {
         Accept: "text/html,application/xhtml+xml;q=0.9",
         "User-Agent": "RemoteWorkplace-TechTLDRs/0.20",
@@ -206,7 +194,7 @@ async function discoverArticleImage(url: string, signal?: AbortSignal) {
     });
     const type = response.headers.get("content-type") ?? "";
     if (!response.ok || !type.includes("text/html")) return null;
-    const markup = (await response.text()).slice(0, 2_000_000);
+    const markup = (await readBodyLimited(response, 2_000_000)).toString("utf8");
     return imageFromMetadata(markup, response.url || url);
   } catch {
     return null;
@@ -216,7 +204,7 @@ async function discoverArticleImage(url: string, signal?: AbortSignal) {
 export class FeedService {
   constructor(private readonly db: NewsDatabase) {}
 
-  async fetchDefinition(definition: FeedDefinition) {
+  async fetchDefinition(definition: FeedDefinition, outerSignal?: AbortSignal) {
     this.db.upsertSource(definition.source);
     const state = this.db.sourceState(definition.source.id);
     const controller = new AbortController();
@@ -228,14 +216,14 @@ export class FeedService {
       };
       if (state?.etag) headers["If-None-Match"] = state.etag;
       if (state?.lastModified) headers["If-Modified-Since"] = state.lastModified;
-      const response = await fetch(definition.feedUrl, { headers, signal: controller.signal, redirect: "follow" });
+      const signal = outerSignal ? AbortSignal.any([controller.signal, outerSignal]) : controller.signal;
+      const response = await fetchPublic(definition.feedUrl, { headers, signal });
       if (response.status === 304) {
         this.db.updateSourceSync(definition.source.id, { error: null });
         return 0;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const xml = await response.text();
-      if (xml.length > 8_000_000) throw new Error("Feed zu groß");
+      const xml = (await readBodyLimited(response, 8_000_000)).toString("utf8");
       const parsed = parser.parse(xml) as ParsedFeed;
       const entries = array(parsed.rss?.channel?.item ?? parsed.feed?.entry)
         .slice(0, settings.newsMaxItemsPerSource);
@@ -248,7 +236,7 @@ export class FeedService {
           const input = parseFeedEntry(entry, definition);
           if (!input) continue;
           if (!input.coverUrl && !input.videoId) {
-            input.coverUrl = await discoverArticleImage(input.url, controller.signal);
+            input.coverUrl = await discoverArticleImage(input.url, signal);
           }
           const result = this.db.upsert(input);
           if (result.created) count += 1;
@@ -269,55 +257,72 @@ export class FeedService {
     }
   }
 
-  async fetchHackerNews() {
+  async fetchHackerNews(outerSignal?: AbortSignal) {
     const source: NewsSource = { id: "hacker-news", name: "Hacker News", homepageUrl: "https://news.ycombinator.com/", kind: "hacker-news", priority: 3 };
     this.db.upsertSource(source);
     let count = 0;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), settings.newsFetchTimeoutMilliseconds);
+    const signal = outerSignal ? AbortSignal.any([controller.signal, outerSignal]) : controller.signal;
     try {
-      const ids = await fetch("https://hacker-news.firebaseio.com/v0/topstories.json").then((response) => response.json()) as number[];
-      for (const id of ids.slice(0, Math.min(12, settings.newsMaxItemsPerSource))) {
-        const item = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then((response) => response.json()) as { id: number; title: string; url?: string; by?: string; time: number; text?: string };
-        const url = safeUrl(item.url ?? `https://news.ycombinator.com/item?id=${id}`, source.homepageUrl);
-        if (!url) continue;
-        const result = this.db.upsert({
-          source,
-          externalId: String(id),
-          url,
-          title: clean(item.title),
-          excerpt: clean(item.text ?? "Diskussion auf Hacker News"),
-          content: clean(item.text ?? ""),
-          author: item.by ?? null,
-          coverUrl: null,
-          videoId: null,
-          publishedAt: new Date(item.time * 1_000).toISOString(),
-        });
-        if (result.created) count += 1;
-      }
+      const idsResponse = await fetchPublic("https://hacker-news.firebaseio.com/v0/topstories.json", { signal });
+      if (!idsResponse.ok) throw new Error(`HTTP ${idsResponse.status}`);
+      const ids = JSON.parse((await readBodyLimited(idsResponse, 1_000_000)).toString("utf8")) as number[];
+      const selectedIds = ids.slice(0, Math.min(12, settings.newsMaxItemsPerSource));
+      let nextIndex = 0;
+      const worker = async () => {
+        while (nextIndex < selectedIds.length) {
+          const id = selectedIds[nextIndex++];
+          if (!Number.isInteger(id)) continue;
+          const itemResponse = await fetchPublic(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, { signal });
+          if (!itemResponse.ok) continue;
+          const item = JSON.parse((await readBodyLimited(itemResponse, 512_000)).toString("utf8")) as { id: number; title: string; url?: string; by?: string; time: number; text?: string };
+          const url = safeUrl(item.url ?? `https://news.ycombinator.com/item?id=${id}`, source.homepageUrl);
+          if (!url) continue;
+          const result = this.db.upsert({
+            source,
+            externalId: String(id),
+            url,
+            title: clean(item.title),
+            excerpt: clean(item.text ?? "Diskussion auf Hacker News"),
+            content: clean(item.text ?? ""),
+            author: item.by ?? null,
+            coverUrl: null,
+            videoId: null,
+            publishedAt: new Date(item.time * 1_000).toISOString(),
+          });
+          if (result.created) count += 1;
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, selectedIds.length) }, worker));
       this.db.updateSourceSync(source.id, { error: null });
     } catch (error) {
       this.db.updateSourceSync(source.id, { error: error instanceof Error ? error.message : "Hacker-News-Fehler" });
+    } finally {
+      clearTimeout(timer);
     }
     return count;
   }
 
-  private async backfillCovers() {
+  private async backfillCovers(outerSignal?: AbortSignal) {
     const candidates = this.db.coverBackfillCandidates();
     let nextIndex = 0;
     const worker = async () => {
       while (nextIndex < candidates.length) {
         const candidate = candidates[nextIndex++];
         if (!candidate) continue;
-        const coverUrl = await discoverArticleImage(candidate.url, AbortSignal.timeout(7_000));
+        const timeout = AbortSignal.timeout(7_000);
+        const coverUrl = await discoverArticleImage(candidate.url, outerSignal ? AbortSignal.any([timeout, outerSignal]) : timeout);
         if (coverUrl) this.db.updateCover(candidate.id, coverUrl);
       }
     };
     await Promise.all(Array.from({ length: Math.min(4, candidates.length) }, worker));
   }
 
-  async syncAll() {
-    const results = await Promise.all(feedDefinitions.map((definition) => this.fetchDefinition(definition)));
-    const hackerNewsCount = await this.fetchHackerNews();
-    await this.backfillCovers();
+  async syncAll(signal?: AbortSignal) {
+    const results = await Promise.all(feedDefinitions.map((definition) => this.fetchDefinition(definition, signal)));
+    const hackerNewsCount = await this.fetchHackerNews(signal);
+    await this.backfillCovers(signal);
     return results.reduce((total, result) => total + result, 0) + hackerNewsCount;
   }
 }

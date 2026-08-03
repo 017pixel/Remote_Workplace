@@ -21,7 +21,7 @@ describe("ProjectActivityService", () => {
     await writeFile(join(project, "file.ts"), "export {};\n");
     const touchedAt = "2099-01-02T03:04:05.000Z";
     database.touch("project", touchedAt);
-    const service = new ProjectActivityService({ database, cacheMilliseconds: 10_000, maximumDepth: 3 });
+    const service = new ProjectActivityService({ database, cacheMilliseconds: 10_000, maximumDepth: 3, maximumFiles: 1_000 });
     expect(await service.get("project", project)).toMatchObject({
       lastWorkbenchUseAt: touchedAt,
       effectiveAt: touchedAt,

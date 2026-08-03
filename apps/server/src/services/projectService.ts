@@ -14,6 +14,7 @@ import {
 import type { ProjectsConfig, ServiceConfig } from "../config/schemas.js";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";
+import { createAsyncCache } from "../utils/cache.js";
 import type { ProjectActivityService } from "../projects/activity-service.js";
 import type { ProjectRegistryDatabase, RegisteredProject } from "../projects/registry-database.js";
 
@@ -44,6 +45,7 @@ function uniqueProjectId(name: string, usedIds: Set<string>): string {
 async function discoverProjects(
   rootDirectory: string,
   configuredProjects: ProjectConfig[],
+  registry?: ProjectRegistryDatabase,
 ): Promise<ProjectConfig[]> {
   let entries: Dirent[];
   try {
@@ -53,16 +55,20 @@ async function discoverProjects(
   }
 
   const configuredPaths = new Set(configuredProjects.map((project) => normalize(project.path)));
-  const usedIds = new Set(configuredProjects.map((project) => project.id));
+  const usedIds = new Set([...configuredProjects.map((project) => project.id), ...(registry?.list().map((project) => project.id) ?? [])]);
   return entries
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
     .sort((left, right) => left.name.localeCompare(right.name, "de", { sensitivity: "base" }))
     .flatMap((entry, index) => {
       const path = normalize(join(rootDirectory, entry.name));
       if (configuredPaths.has(path)) return [];
+      const known = registry?.findByPath(path);
+      const id = known?.id ?? uniqueProjectId(entry.name, usedIds);
+      if (known) usedIds.add(known.id);
+      const persisted = registry?.register(path, entry.name, new Date().toISOString(), id).project;
       return [{
-        id: uniqueProjectId(entry.name, usedIds),
-        name: entry.name,
+        id: persisted?.id ?? id,
+        name: persisted?.name ?? entry.name,
         description: "Automatisch erkannter lokaler Arbeitsbereich.",
         path,
         enabled: true,
@@ -131,7 +137,7 @@ export function createProjectService(
 
   async function configuredAndDiscoveredProjects(): Promise<ProjectConfig[]> {
     const discovered = discovery.enabled
-      ? await discoverProjects(discovery.rootDirectory, projectConfig.projects)
+      ? await discoverProjects(discovery.rootDirectory, projectConfig.projects, registry)
       : [];
     const base = [...projectConfig.projects, ...discovered];
     const knownPaths = new Set(base.map((project) => normalize(project.path)));
@@ -154,32 +160,48 @@ export function createProjectService(
     };
   }
 
+  type ProjectReference = Pick<Project, "id" | "name" | "path">;
+  const listCache = createAsyncCache<ProjectsResponse>(settings.projectListCacheMilliseconds, async () => {
+    const availableProjects = await configuredAndDiscoveredProjects();
+    const projects = await mapWithConcurrency(
+      availableProjects
+        .filter((project) => project.enabled)
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name)),
+      settings.projectActivityConcurrency,
+      mapProject,
+    );
+    return projectsResponseSchema.parse({ projects, recentLimit: settings.orbitRecentProjectLimit });
+  });
+  const referenceCache = createAsyncCache<readonly ProjectReference[]>(settings.projectListCacheMilliseconds, async () => {
+    const availableProjects = await configuredAndDiscoveredProjects();
+    return availableProjects
+      .filter((project) => project.enabled)
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+      .map((project) => ({ id: project.id, name: project.name, path: project.path }));
+  });
+
   return {
     async list(): Promise<ProjectsResponse> {
-      const availableProjects = await configuredAndDiscoveredProjects();
-      const projects = await Promise.all(
-        availableProjects
-          .filter((project) => project.enabled)
-          .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
-          .map(mapProject),
-      );
-      return projectsResponseSchema.parse({ projects, recentLimit: settings.orbitRecentProjectLimit });
+      return listCache.get();
+    },
+    async listReferences(): Promise<readonly ProjectReference[]> {
+      return referenceCache.get();
     },
     async get(projectId: string): Promise<ProjectResponse> {
       const availableProjects = await configuredAndDiscoveredProjects();
-      const configuredProject = availableProjects.find(
-        (project) => project.id === projectId && project.enabled,
-      );
+      const configuredProject = availableProjects.find((project) => project.id === projectId && project.enabled);
       if (configuredProject === undefined) {
         throw new AppError(404, "PROJECT_NOT_FOUND", "Das lokale Projekt wurde nicht gefunden.");
       }
       return projectResponseSchema.parse({ project: await mapProject(configuredProject) });
     },
     async touch(projectId: string) {
-      const availableProjects = await configuredAndDiscoveredProjects();
-      const project = availableProjects.find((candidate) => candidate.id === projectId && candidate.enabled);
+      const project = (await referenceCache.get()).find((candidate) => candidate.id === projectId);
       if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "Das lokale Projekt wurde nicht gefunden.");
-      return { projectId, lastUsedAt: activity?.touch(projectId) ?? new Date().toISOString() };
+      const lastUsedAt = activity?.touch(projectId) ?? new Date().toISOString();
+      listCache.clear();
+      referenceCache.clear();
+      return { projectId, lastUsedAt };
     },
     async register(path: string): Promise<RegisterProjectResponse> {
       const availableProjects = await configuredAndDiscoveredProjects();
@@ -189,10 +211,25 @@ export function createProjectService(
       }
       if (!registry) throw new AppError(503, "PROJECT_REGISTRY_UNAVAILABLE", "Die Orbit-Projektregistry ist momentan nicht verfügbar.");
       const registered = registry.register(path, basename(path));
+      listCache.clear();
+      referenceCache.clear();
       return registerProjectResponseSchema.parse({
         project: await mapProject(registeredProjectConfig(registered.project)),
         created: registered.created,
       });
     },
   };
+}
+
+async function mapWithConcurrency<T, R>(values: readonly T[], concurrency: number, map: (value: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (next < values.length) {
+      const index = next;
+      next += 1;
+      results[index] = await map(values[index]!);
+    }
+  }));
+  return results;
 }

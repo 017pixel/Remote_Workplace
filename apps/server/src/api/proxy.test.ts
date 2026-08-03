@@ -1,6 +1,8 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify from "fastify";
+import { apiErrorSchema } from "@workbench/contracts";
+import { AppError } from "../utils/errors.js";
 import { createProxyHandler } from "./proxy.js";
 
 let upstream: Server;
@@ -19,6 +21,7 @@ beforeEach(async () => {
         `<img src="http://example.invalid:9/ignored.png">` +
         `<img src="${upstreamOrigin}/asset.png">` +
         `<a href="${upstreamOrigin}/link">x</a>` +
+        `<img srcset="${upstreamOrigin}/a.png 1x, ${upstreamOrigin}/b.png 2x">` +
         `</body></html>`,
     );
   });
@@ -35,6 +38,20 @@ afterEach(async () => {
 
 function makeApp(allowed: string[]) {
   const app = Fastify();
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof AppError) {
+      return reply.status(error.statusCode).send(apiErrorSchema.parse({
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          requestId: request.id,
+          retryable: error.retryable,
+        },
+      }));
+    }
+    throw error;
+  });
   app.get("/proxy/*", { helmet: { contentSecurityPolicy: false } }, createProxyHandler(allowed));
   return app;
 }
@@ -50,6 +67,9 @@ describe("proxy handler", () => {
     expect(response.body).toContain(linkProxy);
     expect(response.body).toContain("http://example.invalid:9");
     expect(response.body).not.toContain("/api/v1/proxy/http%3A%2F%2Fexample.invalid");
+    const srcsetProxies = [`/api/v1/proxy/${encodeURIComponent(upstreamOrigin + "/a.png")} 1x`, `/api/v1/proxy/${encodeURIComponent(upstreamOrigin + "/b.png")} 2x`];
+    expect(response.body).toContain(srcsetProxies[0]);
+    expect(response.body).toContain(srcsetProxies[1]);
     await app.close();
   });
 

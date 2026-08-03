@@ -5,6 +5,7 @@ import { BrowserFailure } from "./Manager.js";
 import type { BrowserManager } from "./Manager.js";
 import { clientBrowserMessageSchema, type BrowserErrorCode, type ServerBrowserMessage } from "./protocol.js";
 import { isSameOriginRequest } from "../security/same-origin.js";
+import { createWebSocketSendQueue } from "../utils/websocketSendQueue.js";
 
 function browserIdentity(request: FastifyRequest, allowedUsers: readonly string[]): string {
   const rawIdentity = request.headers["tailscale-user-login"];
@@ -34,9 +35,12 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
       socket.close(1008, failure.code);
       return;
     }
-    const send = (message: ServerBrowserMessage) => {
-      if (socket.readyState === 1) socket.send(JSON.stringify(message));
-    };
+    const sendQueue = createWebSocketSendQueue<ServerBrowserMessage>({
+      socket,
+      maxQueueBytes: 8 * 1024 * 1024,
+      coalesceKey: (message) => message.type === "browser.frame" ? "browser.frame" : null,
+    });
+    const send = (message: ServerBrowserMessage) => { sendQueue.send(message); };
     let detach: (() => void) | undefined;
     socket.on("message", (raw: unknown) => {
       void (async () => {
@@ -64,8 +68,8 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
         }
       })();
     });
-    socket.on("close", () => detach?.());
-    socket.on("error", () => detach?.());
+    socket.on("close", () => { sendQueue.dispose(); detach?.(); });
+    socket.on("error", () => { sendQueue.dispose(); detach?.(); });
   });
 
   app.get<{ Params: { sessionId: string } }>("/browser/devtools/:sessionId", { websocket: true }, (socket, request) => {
@@ -82,12 +86,23 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
 
     const upstream = new WebSocket(endpoint.browserUrl);
     const pending: Array<Record<string, unknown>> = [];
+    let pendingBytes = 0;
+    const maximumPendingBytes = 512 * 1024;
     let cdpSessionId = "";
     socket.on("message", (raw: unknown) => {
       try {
         const command = JSON.parse((typeof raw === "string" || Buffer.isBuffer(raw) ? raw : Buffer.from(raw as ArrayBuffer)).toString()) as Record<string, unknown>;
-        if (cdpSessionId && upstream.readyState === 1) upstream.send(JSON.stringify({ ...command, sessionId: cdpSessionId }));
-        else pending.push(command);
+        const payload = JSON.stringify({ ...command, ...(cdpSessionId ? { sessionId: cdpSessionId } : {}) });
+        if (cdpSessionId && upstream.readyState === 1) upstream.send(payload);
+        else {
+          pendingBytes += Buffer.byteLength(payload, "utf8");
+          if (pendingBytes > maximumPendingBytes) {
+            socket.close(1009, "DevTools-Puffer überschritten");
+            upstream.terminate();
+            return;
+          }
+          pending.push(command);
+        }
       } catch {
         socket.close(1003, "Ungültige DevTools-Nachricht");
       }
@@ -103,6 +118,7 @@ export async function registerBrowserRoutes(app: FastifyInstance, options: { man
         cdpSessionId = typeof result?.sessionId === "string" ? result.sessionId : "";
         if (!cdpSessionId) { socket.close(1011, "DevTools-Ziel konnte nicht verbunden werden"); return; }
         for (const command of pending.splice(0)) upstream.send(JSON.stringify({ ...command, sessionId: cdpSessionId }));
+        pendingBytes = 0;
         return;
       }
       if (message.sessionId !== cdpSessionId || socket.readyState !== 1) return;

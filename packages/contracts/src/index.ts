@@ -14,6 +14,9 @@ export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
     message: z.string().min(1),
+    details: z.record(z.string(), z.unknown()).nullable().default(null),
+    requestId: z.string().min(1),
+    retryable: z.boolean(),
   }),
 });
 
@@ -28,10 +31,105 @@ export const healthResponseSchema = z.object({
   webBuildId: z.number().int().nullable(),
 });
 
+export const dashboardSectionSchema = z.enum([
+  "quickActions",
+  "server",
+  "metrics",
+  "services",
+  "runtime",
+  "diagnostics",
+  "usage",
+  "news",
+  "commands",
+]);
+
+export const dashboardConfigSchema = z.object({
+  sections: z.object({
+    quickActions: z.boolean().default(true),
+    server: z.boolean().default(true),
+    metrics: z.boolean().default(true),
+    services: z.boolean().default(true),
+    runtime: z.boolean().default(true),
+    diagnostics: z.boolean().default(true),
+    usage: z.boolean().default(true),
+    news: z.boolean().default(true),
+    commands: z.boolean().default(true),
+  }).prefault({}),
+  refresh: z.object({
+    healthMilliseconds: z.number().int().min(1_000).max(300_000).default(5_000),
+    summaryMilliseconds: z.number().int().min(1_000).max(300_000).default(30_000),
+    metricsMilliseconds: z.number().int().min(1_000).max(120_000).default(5_000),
+    servicesMilliseconds: z.number().int().min(1_000).max(120_000).default(5_000),
+    localPortsMilliseconds: z.number().int().min(1_000).max(120_000).default(5_000),
+    terminalSessionsMilliseconds: z.number().int().min(1_000).max(30_000).default(3_000),
+    operationalMetricsMilliseconds: z.number().int().min(1_000).max(120_000).default(5_000),
+    usageMilliseconds: z.number().int().min(10_000).max(600_000).default(60_000),
+    newsMilliseconds: z.number().int().min(10_000).max(600_000).default(60_000),
+  }).prefault({}),
+}).prefault({});
+
+export const readinessResponseSchema = z.object({
+  status: z.enum(["ready", "degraded"]),
+  timestamp: isoDateSchema,
+  checks: z.array(z.object({
+    name: z.string().min(1),
+    status: z.enum(["ok", "failed"]),
+  })),
+});
+
+export const operationalMetricsSchema = z.object({
+  capturedAt: isoDateSchema,
+  uptimeSeconds: z.number().nonnegative(),
+  http: z.object({
+    activeRequests: z.number().int().nonnegative(),
+    totalRequests: z.number().int().nonnegative(),
+    clientErrors: z.number().int().nonnegative(),
+    serverErrors: z.number().int().nonnegative(),
+    routes: z.array(z.object({
+      method: z.string().min(1),
+      route: z.string().min(1),
+      count: z.number().int().nonnegative(),
+      errorCount: z.number().int().nonnegative(),
+      p95Milliseconds: z.number().nonnegative(),
+      p99Milliseconds: z.number().nonnegative(),
+    })),
+  }),
+  eventLoop: z.object({
+    meanMilliseconds: z.number().nonnegative(),
+    p99Milliseconds: z.number().nonnegative(),
+    maxMilliseconds: z.number().nonnegative(),
+  }),
+  processMemory: z.object({
+    rssBytes: z.number().int().nonnegative(),
+    heapUsedBytes: z.number().int().nonnegative(),
+    heapTotalBytes: z.number().int().nonnegative(),
+    externalBytes: z.number().int().nonnegative(),
+  }),
+  degradedReasons: z.array(z.string().min(1)),
+  audit: z.object({
+    valid: z.boolean(),
+    entries: z.number().int().nonnegative(),
+    latestAt: isoDateSchema.nullable(),
+  }),
+  orbit: z.object({
+    pendingBackups: z.number().int().nonnegative(),
+    oldestPendingAt: isoDateSchema.nullable(),
+    lastError: z.string().nullable(),
+    failedAt: isoDateSchema.nullable(),
+  }),
+  preview: z.object({
+    totalSlots: z.number().int().nonnegative(),
+    freeSlots: z.number().int().nonnegative(),
+    resettingSlots: z.number().int().nonnegative(),
+    quarantinedSlots: z.number().int().nonnegative(),
+  }),
+});
+
 export const restartTargetSchema = z.enum(["frontend", "backend", "both"]);
 export const restartRequestSchema = z.object({ target: restartTargetSchema });
 export const restartResponseSchema = z.object({
   status: z.literal("accepted"),
+  jobId: z.string().uuid(),
   target: restartTargetSchema,
   // Basiswerte zum Zeitpunkt des Auslösens, damit der Client den Abschluss erkennen kann.
   bootId: z.string().min(1),
@@ -44,6 +142,7 @@ export const restartPhaseSchema = z.enum(["idle", "running", "succeeded", "faile
 // data/restart-logs/last-status.json; das UI pollt ihn und zeigt bei Fehlern
 // direkt den Build-Ausschnitt statt nur „Zeitüberschreitung".
 export const restartStatusResponseSchema = z.object({
+  jobId: z.string().uuid().nullable(),
   phase: restartPhaseSchema,
   target: restartTargetSchema.nullable(),
   exitCode: z.number().int().nullable(),
@@ -150,6 +249,12 @@ export const localPortsResponseSchema = z.object({
   scannedAt: isoDateSchema,
 });
 
+// Lebenszyklus einer Slot-Origin. `resetting` und `quarantined` verhindern, dass ein
+// fremdes Storage-Profil eine Origin übernimmt, deren Speicher noch nicht nachweislich
+// geleert wurde.
+export const previewSlotStateSchema = z.enum(["free", "active", "resetting", "quarantined"]);
+export const previewAffinityStatusSchema = z.enum(["none", "own", "foreign", "quarantined"]);
+
 export const previewSlotSchema = z.object({
   id: z.number().int().min(1).max(32),
   internalPort: z.number().int().min(1).max(65_535),
@@ -157,11 +262,21 @@ export const previewSlotSchema = z.object({
   targetPort: z.number().int().min(1).max(65_535).nullable(),
   publicUrl: z.url(),
   updatedAt: isoDateSchema.nullable(),
+  state: previewSlotStateSchema.default("free"),
+  // Storage-Profil des aktuellen Eigentümers. Fremde Profile sehen hier `null`;
+  // der interne `storageOwnerKey` verlässt den Server nie.
+  storageProfileId: z.string().uuid().nullable().default(null),
+  slotGeneration: z.number().int().nonnegative().default(0),
+  routingRevision: z.number().int().nonnegative().default(0),
+  affinityStatus: previewAffinityStatusSchema.default("none"),
+  // Aggregierter Fremdzustand: andere Benutzer erscheinen nur als „belegt“.
+  busy: z.boolean().default(false),
 });
 
 export const previewSlotsResponseSchema = z.object({
   slots: z.array(previewSlotSchema).max(32),
   assignedSlotId: z.number().int().min(1).max(32).nullable().default(null),
+  routingRevision: z.number().int().nonnegative().default(0),
 });
 
 export const previewDependencySchema = z.object({
@@ -184,6 +299,11 @@ export const previewSessionRequestSchema = z.object({
   primaryProtocol: z.enum(["http", "https"]).default("http"),
   requestedSlotId: z.number().int().min(1).max(32).nullable().optional(),
   isolate: z.boolean().default(true),
+  // Stabile Identität des Preview-Slots im Orbit-Dokument. Sie entscheidet, ob eine
+  // Slot-Origin ohne Storage-Reset wiederverwendet werden darf.
+  storageProfileId: z.string().uuid().nullable().default(null),
+  expectedRoutingRevision: z.number().int().nonnegative().optional(),
+  idempotencyKey: z.string().trim().min(1).max(160).optional(),
 });
 
 export const previewSessionBindingSchema = z.object({
@@ -195,6 +315,26 @@ export const previewSessionBindingSchema = z.object({
   publicUrl: z.url(),
 });
 
+// Was die Laufzeit in dieser Session wirklich kann, und was sie ausdrücklich nicht
+// kann. Beides wird in der Oberfläche angezeigt, statt Vollständigkeit zu behaupten.
+export const previewCapabilitySchema = z.enum([
+  "bridge",
+  "diagnostics",
+  "storage-snapshot",
+  "slot-reset",
+  "websocket",
+  "event-source",
+]);
+export const previewLimitationSchema = z.enum([
+  "cookies-share-host",
+  "no-indexeddb-sync",
+  "no-service-worker-sync",
+  "no-session-storage-sync",
+  "approximate-device-metrics",
+  "bridge-unavailable",
+  "partial-network-visibility",
+]);
+
 export const previewSessionResponseSchema = z.object({
   id: z.string().uuid(),
   sessionKey: z.string().min(1),
@@ -202,6 +342,12 @@ export const previewSessionResponseSchema = z.object({
   primaryPort: z.number().int().min(1).max(65_535),
   bindings: z.array(previewSessionBindingSchema).min(1).max(12),
   leaseExpiresAt: isoDateSchema,
+  routingRevision: z.number().int().nonnegative().default(0),
+  bridgeVersion: z.string().min(1).default("v1"),
+  capabilities: z.array(previewCapabilitySchema).max(16).default([]),
+  limitations: z.array(previewLimitationSchema).max(16).default([]),
+  storageProfileId: z.string().uuid().nullable().default(null),
+  slotGeneration: z.number().int().nonnegative().default(0),
 });
 
 export const previewSlotAssignmentRequestSchema = z.object({
@@ -216,6 +362,258 @@ export const previewSlotAssignmentRequestSchema = z.object({
   if (input.targetPort !== null && input.expectedTargetPort !== undefined) {
     context.addIssue({ code: "custom", message: "Der erwartete Zielport ist nur beim Freigeben erlaubt." });
   }
+});
+
+// ── Gerätepräferenz ────────────────────────────────────────────────────────────
+// Die Benutzeridentität kommt aus dem vertrauenswürdigen Tailscale-Header und wird
+// bewusst nicht vom Client übertragen.
+export const previewDevicePreferenceSchema = z.object({
+  deviceId: z.string().trim().min(1).max(80),
+  orientation: z.enum(["portrait", "landscape"]).default("portrait"),
+  updatedAt: isoDateSchema.nullable().default(null),
+});
+export const previewDevicePreferenceRequestSchema = previewDevicePreferenceSchema.pick({
+  deviceId: true,
+  orientation: true,
+});
+
+// ── Slot-Reset ─────────────────────────────────────────────────────────────────
+export const previewSlotResetRequestSchema = z.object({
+  expectedGeneration: z.number().int().nonnegative(),
+  storageProfileId: z.string().uuid(),
+});
+export const previewSlotResetResponseSchema = z.object({
+  slotId: z.number().int().min(1).max(32),
+  nonce: z.string().min(16).max(120),
+  state: previewSlotStateSchema,
+  slotGeneration: z.number().int().nonnegative(),
+  resetUrl: z.url(),
+  expiresAt: isoDateSchema,
+});
+export const previewSlotResetReportSchema = z.object({
+  nonce: z.string().min(16).max(120),
+  // Die Workbench meldet, was die Bridge nach dem Löschen noch gefunden hat.
+  serviceWorkers: z.number().int().nonnegative().max(1_000),
+  cacheStorages: z.number().int().nonnegative().max(1_000),
+  localStorageKeys: z.number().int().nonnegative().max(100_000),
+  sessionStorageKeys: z.number().int().nonnegative().max(100_000),
+  indexedDatabases: z.number().int().nonnegative().max(1_000),
+  // `false`, wenn der Browser keine Inventur erlaubt (z. B. indexedDB.databases fehlt).
+  verifiable: z.boolean(),
+});
+export const previewSlotResetVerificationResponseSchema = z.object({
+  slotId: z.number().int().min(1).max(32),
+  state: previewSlotStateSchema,
+  slotGeneration: z.number().int().nonnegative(),
+  verifiedAt: isoDateSchema.nullable(),
+  message: z.string().min(1).max(400),
+});
+
+// ── Service-Graph ──────────────────────────────────────────────────────────────
+export const previewServiceRoleSchema = z.enum(["primary", "api", "socket", "asset", "other"]);
+export const previewServiceProtocolSchema = z.enum(["http", "https", "ws", "wss"]);
+export const previewProbeStatusSchema = z.enum(["reachable", "unreachable", "unknown"]);
+
+export const previewServiceCandidateSchema = z.object({
+  serviceId: z.string().min(1).max(120),
+  projectId: z.string().min(1).max(160).nullable(),
+  port: z.number().int().min(1).max(65_535),
+  process: z.string().max(160).nullable(),
+  pid: z.number().int().positive().nullable(),
+  // Kanonischer Arbeitsordner des Prozesses; nur zur Projektzuordnung.
+  cwd: z.string().max(4_096).nullable(),
+  protocol: previewServiceProtocolSchema,
+  probeStatus: previewProbeStatusSchema,
+  // Rein statisch gelesene Hinweise; es wird niemals fremde Konfiguration ausgeführt.
+  scripts: z.array(z.string().max(120)).max(24).default([]),
+  frameworkHints: z.array(z.string().max(60)).max(12).default([]),
+  supportsWebSocket: z.boolean().default(false),
+  suggestedRole: previewServiceRoleSchema.default("other"),
+  detectedAt: isoDateSchema,
+});
+export const previewServiceCandidatesResponseSchema = z.object({
+  projectId: z.string().min(1).max(160).nullable(),
+  candidates: z.array(previewServiceCandidateSchema).max(64),
+  scannedAt: isoDateSchema,
+});
+
+export const previewServiceEdgeSchema = z.object({
+  serviceId: z.string().min(1).max(120),
+  projectId: z.string().min(1).max(160).nullable(),
+  port: z.number().int().min(1).max(65_535),
+  protocol: previewServiceProtocolSchema,
+  role: previewServiceRoleSchema,
+  label: z.string().trim().min(1).max(80),
+  probeStatus: previewProbeStatusSchema.default("unknown"),
+  source: z.enum(["manual", "detected"]).default("detected"),
+  confirmedAt: isoDateSchema,
+});
+export const previewServiceGraphSchema = z.object({
+  projectId: z.string().min(1).max(160),
+  primaryServiceId: z.string().min(1).max(120),
+  edges: z.array(previewServiceEdgeSchema).max(11),
+  updatedAt: isoDateSchema.nullable().default(null),
+});
+export const previewServiceGraphRequestSchema = previewServiceGraphSchema.pick({ edges: true });
+
+// Kapazität wird vor dem Speichern angezeigt; ein zu großer Graph wird nie teilweise aktiviert.
+export const previewCapacityPreviewSchema = z.object({
+  requiredSlots: z.number().int().nonnegative(),
+  reusableSlots: z.number().int().nonnegative(),
+  freeSlots: z.number().int().nonnegative(),
+  totalSlots: z.number().int().nonnegative(),
+  fits: z.boolean(),
+  limitations: z.array(previewLimitationSchema).max(16).default([]),
+});
+export const previewServiceGraphResponseSchema = z.object({
+  graph: previewServiceGraphSchema,
+  capacity: previewCapacityPreviewSchema,
+});
+
+// ── Diagnose ───────────────────────────────────────────────────────────────────
+export const previewDiagnosticSourceSchema = z.enum(["client", "gateway", "socket", "system", "inferred"]);
+export const previewDiagnosticCategorySchema = z.enum([
+  "console",
+  "error",
+  "network",
+  "routing",
+  "navigation",
+  "storage",
+  "lifecycle",
+  "performance",
+]);
+export const previewDiagnosticSeveritySchema = z.enum(["debug", "info", "warn", "error"]);
+export const previewDiagnosticCompletenessSchema = z.enum(["complete", "partial", "inferred"]);
+
+export const PREVIEW_DIAGNOSTIC_LIMITS = {
+  maxEventsPerBatch: 100,
+  maxBatchBytes: 262_144,
+  maxEventBytes: 65_536,
+  clientRingBuffer: 2_000,
+  maxRetentionDays: 7,
+} as const;
+
+export const previewDiagnosticEventSchema = z.object({
+  id: z.string().uuid(),
+  at: isoDateSchema,
+  source: previewDiagnosticSourceSchema,
+  category: previewDiagnosticCategorySchema,
+  severity: previewDiagnosticSeveritySchema,
+  completeness: previewDiagnosticCompletenessSchema.default("complete"),
+  previewNodeId: z.string().max(120).nullable().default(null),
+  sessionId: z.string().uuid().nullable().default(null),
+  slotId: z.number().int().min(1).max(32).nullable().default(null),
+  routingRevision: z.number().int().nonnegative().nullable().default(null),
+  bridgeSessionId: z.string().max(120).nullable().default(null),
+  epoch: z.number().int().nonnegative().default(0),
+  sequence: z.number().int().nonnegative().default(0),
+  route: z.string().max(2_048).nullable().default(null),
+  message: z.string().max(8_192),
+  // Bereits redigierte, größenbegrenzte Zusatzdaten. Bodies gehören hier nie hinein.
+  metadata: z.record(z.string().max(80), z.unknown()).default({}),
+});
+export const previewDiagnosticBatchSchema = z.object({
+  previewNodeId: z.string().max(120).nullable().default(null),
+  sessionId: z.string().uuid().nullable().default(null),
+  bridgeSessionId: z.string().max(120).nullable().default(null),
+  droppedSinceLastBatch: z.number().int().nonnegative().max(1_000_000).default(0),
+  events: z.array(previewDiagnosticEventSchema).min(1).max(PREVIEW_DIAGNOSTIC_LIMITS.maxEventsPerBatch),
+});
+export const previewDiagnosticsResponseSchema = z.object({
+  events: z.array(previewDiagnosticEventSchema).max(500),
+  dropped: z.number().int().nonnegative().default(0),
+  logFile: z.string().max(255).nullable().default(null),
+  retentionDays: z.number().int().min(1).max(7).default(7),
+  truncated: z.boolean().default(false),
+});
+
+// Zeitlich begrenzte Rohdiagnose. Cookies und Authorization bleiben auch dann ausgeschlossen.
+export const previewCaptureSessionRequestSchema = z.object({
+  previewNodeId: z.string().min(1).max(120),
+  durationMinutes: z.number().int().min(1).max(15).default(15),
+});
+export const previewCaptureSessionSchema = z.object({
+  id: z.string().uuid(),
+  previewNodeId: z.string().min(1).max(120),
+  startedAt: isoDateSchema,
+  expiresAt: isoDateSchema,
+  active: z.boolean(),
+});
+
+// ── localStorage-Snapshots ─────────────────────────────────────────────────────
+export const PREVIEW_STORAGE_LIMITS = {
+  maxKeys: 1_000,
+  maxBytes: 262_144,
+  maxHistory: 3,
+} as const;
+
+export const previewLocalStorageEntrySchema = z.object({
+  key: z.string().max(1_024),
+  value: z.string().max(PREVIEW_STORAGE_LIMITS.maxBytes),
+});
+export const previewLocalStorageSnapshotSchema = z.object({
+  storageProfileId: z.string().uuid(),
+  revision: z.number().int().nonnegative(),
+  createdAt: isoDateSchema,
+  keyCount: z.number().int().nonnegative().max(PREVIEW_STORAGE_LIMITS.maxKeys),
+  byteCount: z.number().int().nonnegative().max(PREVIEW_STORAGE_LIMITS.maxBytes),
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+  bridgeVersion: z.string().min(1).max(40),
+  // `unavailable`, wenn der Snapshot-Schlüssel fehlt oder wechselte.
+  status: z.enum(["ready", "unavailable"]).default("ready"),
+});
+export const previewLocalStorageStateSchema = z.object({
+  storageProfileId: z.string().uuid(),
+  enabled: z.boolean().default(false),
+  current: previewLocalStorageSnapshotSchema.nullable().default(null),
+  history: z.array(previewLocalStorageSnapshotSchema).max(PREVIEW_STORAGE_LIMITS.maxHistory).default([]),
+});
+export const previewLocalStorageSnapshotRequestSchema = z.object({
+  expectedRevision: z.number().int().nonnegative().nullable(),
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+  bridgeVersion: z.string().min(1).max(40),
+  entries: z.array(previewLocalStorageEntrySchema).max(PREVIEW_STORAGE_LIMITS.maxKeys),
+});
+export const previewLocalStorageRestoreRequestSchema = z.object({
+  expectedRevision: z.number().int().nonnegative(),
+});
+export const previewLocalStorageRestoreResponseSchema = z.object({
+  snapshot: previewLocalStorageSnapshotSchema,
+  entries: z.array(previewLocalStorageEntrySchema).max(PREVIEW_STORAGE_LIMITS.maxKeys),
+});
+export const previewLocalStorageConflictSchema = z.object({
+  serverRevision: z.number().int().nonnegative(),
+  serverHash: z.string().regex(/^[0-9a-f]{64}$/),
+  serverKeyCount: z.number().int().nonnegative(),
+  serverByteCount: z.number().int().nonnegative(),
+});
+
+// ── Reparatur ──────────────────────────────────────────────────────────────────
+// Bewusst nur feste, validierte Aktionen. Shell, Dateisystem und Projektcode bleiben tabu.
+export const previewRepairActionSchema = z.enum([
+  "probe-services",
+  "rebuild-suggestions",
+  "renew-own-session",
+  "release-own-session",
+  "reset-slot-storage",
+  "clear-quarantine",
+]);
+export const previewRepairRequestSchema = z.object({
+  action: previewRepairActionSchema,
+  projectId: z.string().min(1).max(160).nullable().default(null),
+  sessionId: z.string().uuid().nullable().default(null),
+  slotId: z.number().int().min(1).max(32).nullable().default(null),
+  // Reset und Quarantäneaufhebung verlangen eine sichtbare Bestätigung im UI.
+  confirmed: z.boolean().default(false),
+});
+export const previewRepairJobSchema = z.object({
+  id: z.string().uuid(),
+  action: previewRepairActionSchema,
+  status: z.enum(["queued", "running", "succeeded", "failed"]),
+  startedAt: isoDateSchema,
+  finishedAt: isoDateSchema.nullable().default(null),
+  message: z.string().max(600),
+  details: z.record(z.string().max(80), z.unknown()).default({}),
 });
 
 export const previewPathSchema = z.string().startsWith("/").max(4_096).refine(
@@ -288,6 +686,152 @@ export const filesystemTreeResponseSchema = z.object({
   entries: z.array(filesystemEntrySchema),
   nextCursor: z.string().min(1).nullable(),
 });
+
+// --- Dateimanager -----------------------------------------------------------
+export const fileManagerViewModeSchema = z.enum(["list", "grid"]);
+export const fileManagerSortKeySchema = z.enum(["name", "size", "modified"]);
+export const fileManagerSortDirectionSchema = z.enum(["asc", "desc"]);
+
+export const fileManagerStateSchema = z.object({
+  currentPath: z.string().startsWith("/").max(4_096),
+  history: z.array(z.string().startsWith("/").max(4_096)).max(30),
+  favorites: z.array(z.string().startsWith("/").max(4_096)).max(50),
+  viewMode: fileManagerViewModeSchema,
+  sortKey: fileManagerSortKeySchema,
+  sortDirection: fileManagerSortDirectionSchema,
+});
+export const fileManagerStateResponseSchema = z.object({
+  document: fileManagerStateSchema,
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoDateSchema,
+});
+export const saveFileManagerStateRequestSchema = z.object({
+  document: fileManagerStateSchema,
+  expectedRevision: z.number().int().nonnegative().nullable(),
+});
+
+export const fileManagerTextPreviewResponseSchema = z.object({
+  path: z.string().startsWith("/"),
+  name: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+  modifiedAt: isoDateSchema,
+  mimeType: z.string().min(1),
+  text: z.string().max(400_000),
+  truncated: z.boolean(),
+  lineCount: z.number().int().nonnegative(),
+});
+
+export const fileManagerRenameRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+  name: z.string().trim().min(1).max(255).refine((value) => !value.includes("/") && !value.includes("\\") && value !== "." && value !== "..", "Ungültiger Dateiname."),
+});
+export const fileManagerMoveRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+  targetDirectory: z.string().trim().min(1).max(4_096),
+});
+export const fileManagerDeleteRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+  confirmed: z.boolean().refine((value) => value, "Löschen muss bestätigt werden."),
+});
+export const fileManagerMkdirRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+  name: z.string().trim().min(1).max(255).refine((value) => !value.includes("/") && !value.includes("\\") && value !== "." && value !== "..", "Ungültiger Ordnername."),
+});
+export const fileManagerOperationResponseSchema = z.object({
+  path: z.string().startsWith("/"),
+  ok: z.literal(true),
+});
+
+export const fileManagerSearchResponseSchema = z.object({
+  query: z.string().min(1).max(200),
+  root: z.string().startsWith("/"),
+  entries: z.array(filesystemEntrySchema).max(250),
+  truncated: z.boolean(),
+});
+// --- KI-Skills (Skill-Editor) -----------------------------------------------
+// Der Editor arbeitet direkt auf dem globalen Harness-Ordner. Skills liegen dort
+// als Symlinks auf das Skills-Repository, deshalb tragen Baumeinträge eigene
+// Kennzeichen für Verweis und kaputten Verweis.
+export const skillNameSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Nur Kleinbuchstaben, Ziffern und Bindestriche.");
+
+export const skillEditorFileSchema = z.object({
+  name: z.string().min(1),
+  path: z.string().startsWith("/"),
+  kind: z.enum(["file", "directory"]),
+  sizeBytes: z.number().int().nonnegative().nullable(),
+  modifiedAt: isoDateSchema.nullable(),
+  symlink: z.boolean(),
+  broken: z.boolean(),
+  editable: z.boolean(),
+});
+export const skillEditorNodeSchema = z.object({
+  name: z.string().min(1),
+  path: z.string().startsWith("/"),
+  description: z.string().nullable(),
+  modifiedAt: isoDateSchema.nullable(),
+  symlink: z.boolean(),
+  broken: z.boolean(),
+  files: z.array(skillEditorFileSchema),
+});
+export const skillEditorTreeResponseSchema = z.object({
+  rootDirectory: z.string().startsWith("/"),
+  agentsFile: skillEditorFileSchema.nullable(),
+  skills: z.array(skillEditorNodeSchema),
+});
+export const skillEditorRepositoryStatusSchema = z.object({
+  branch: z.string(),
+  dirtyCount: z.number().int().nonnegative(),
+});
+export const skillEditorStatusResponseSchema = z.object({
+  rootDirectory: z.string().startsWith("/"),
+  repositoryConfigured: z.boolean(),
+  repository: skillEditorRepositoryStatusSchema.nullable(),
+  propagationTargets: z.array(z.string().startsWith("/")),
+  autosaveDebounceMs: z.number().int().min(500).max(15_000),
+  maxFileBytes: z.number().int().positive(),
+});
+export const skillEditorReadResponseSchema = z.object({
+  path: z.string().startsWith("/"),
+  name: z.string().min(1),
+  content: z.string(),
+  modifiedAt: isoDateSchema,
+  sizeBytes: z.number().int().nonnegative(),
+});
+export const skillEditorWriteRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096),
+  content: z.string().max(2_097_152),
+  expectedModifiedAt: isoDateSchema.nullable(),
+});
+export const skillEditorCreateRequestSchema = z.object({
+  name: skillNameSchema,
+  description: z.string().trim().min(1).max(1_024),
+  license: z.string().trim().min(1).max(120).optional(),
+});
+export const skillEditorCreateResponseSchema = z.object({
+  path: z.string().startsWith("/"),
+  name: skillNameSchema,
+  propagated: z.array(z.string().startsWith("/")),
+  readmeUpdated: z.boolean(),
+  notice: z.string().nullable(),
+});
+export const skillEditorRenameRequestSchema = z.object({
+  name: skillNameSchema,
+  newName: skillNameSchema,
+});
+export const skillEditorDeleteRequestSchema = z.object({ name: skillNameSchema });
+export const skillEditorGitChangeSchema = z.object({
+  name: z.string().min(1),
+  action: z.enum(["hinzugefuegt", "geaendert", "entfernt"]),
+});
+export const skillEditorGitResponseSchema = z.object({
+  committed: z.boolean(),
+  pushed: z.boolean(),
+  message: z.string().nullable(),
+  changedSkills: z.array(skillEditorGitChangeSchema),
+  errorTail: z.string().nullable(),
+  notice: z.string().nullable(),
+});
+
 export const registerProjectRequestSchema = z.object({
   path: z.string().trim().min(1).max(4_096),
 });
@@ -381,6 +925,7 @@ export const usageDashboardResponseSchema = z.object({
   range: usageRangeSchema,
   daily: z.array(usageDailyPointSchema),
   projects: z.array(usageBreakdownSchema),
+  projectRange: z.literal("365d"),
   models: z.array(usageBreakdownSchema),
   forecasts: z.array(usageForecastSchema),
   resetCredits: z.record(z.string(), z.array(resetCreditSchema)),
@@ -497,6 +1042,33 @@ export const terminalAreaSchema = z.object({
 export const terminalWorkspaceSchema = z.object({
   version: z.literal(1),
   areas: z.record(z.string(), terminalAreaSchema),
+}).superRefine((workspace, context) => {
+  const tabIds = new Set<string>();
+  for (const [areaKey, area] of Object.entries(workspace.areas)) {
+    if (area.id !== areaKey) {
+      context.addIssue({ code: "custom", path: ["areas", areaKey, "id"], message: "Bereichsschlüssel und Bereichs-ID müssen übereinstimmen." });
+    }
+    const ownIds = new Set<string>();
+    for (const tab of area.tabs) {
+      if (ownIds.has(tab.id) || tabIds.has(tab.id)) {
+        context.addIssue({ code: "custom", path: ["areas", areaKey, "tabs"], message: "Terminal-Tab-IDs müssen global eindeutig sein." });
+      }
+      ownIds.add(tab.id);
+      tabIds.add(tab.id);
+    }
+    if (area.activeTabId !== null && !ownIds.has(area.activeTabId)) {
+      context.addIssue({ code: "custom", path: ["areas", areaKey, "activeTabId"], message: "Der aktive Tab gehört nicht zu diesem Bereich." });
+    }
+    if (area.splitTabId !== null && !ownIds.has(area.splitTabId)) {
+      context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabId"], message: "Der geteilte Tab gehört nicht zu diesem Bereich." });
+    }
+    if (area.splitTabId !== null && area.splitTabId === area.activeTabId) {
+      context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabId"], message: "Aktiver und geteilter Tab müssen verschieden sein." });
+    }
+    if (Math.abs(area.splitSizes[0] + area.splitSizes[1] - 100) > 0.5) {
+      context.addIssue({ code: "custom", path: ["areas", areaKey, "splitSizes"], message: "Die Splitgrößen müssen zusammen 100 ergeben." });
+    }
+  }
 });
 export const terminalWorkspaceResponseSchema = z.object({
   document: terminalWorkspaceSchema,
@@ -507,13 +1079,258 @@ export const saveTerminalWorkspaceRequestSchema = z.object({
   document: terminalWorkspaceSchema,
   expectedRevision: z.number().int().nonnegative().nullable(),
 });
-export const panelTypeSchema = z.enum(["t3-code", "code-server", "preview", "browser", "terminal", "codex", "opencode"]);
+// `notion` bleibt als lesbarer Legacy-Typ erhalten. Neue Knoten werden dafür
+// nicht mehr angeboten, bestehende Arbeitsflächen dürfen ihn aber nie verlieren.
+export const panelTypeSchema = z.enum(["t3-code", "code-server", "preview", "browser", "terminal", "codex", "opencode", "files", "hermes", "notion"]);
 export const panelSchema = z.object({
   id: z.string().min(1),
   type: panelTypeSchema,
   projectId: z.string().nullable(),
   previewId: z.string().nullable(),
   reloadKey: z.number().int().nonnegative(),
+  // Wird nur für Browser-Aufrufe aus eingebetteten Werkzeugen gesetzt.
+  // Optional, damit bestehende gespeicherte Arbeitsflächen kompatibel bleiben.
+  browserUrl: z.string().trim().min(1).max(2_048).optional(),
+  // Hermes-Paneldaten bleiben flach und optional, damit alte localStorage-
+  // Dokumente ohne Migration weiter gültig sind.
+  hermesSurface: z.enum(["chat", "admin"]).optional(),
+  hermesSessionId: z.string().min(1).max(200).nullable().optional(),
+  hermesAdminPath: z.string().startsWith("/").max(512).optional(),
+  hermesSidebarCollapsed: z.boolean().optional(),
+});
+
+export const hermesServiceStateSchema = z.enum(["active", "inactive", "failed", "activating", "unknown"]);
+export const hermesUpdateResultSchema = z.enum(["success", "failed", "deferred", "none"]);
+export const hermesSessionSourceSchema = z.enum(["web", "cli", "telegram", "cron", "acp", "other"]);
+export const hermesSessionStatusSchema = z.enum(["idle", "running", "failed", "unknown"]);
+export const hermesStatusSchema = z.object({
+  enabled: z.boolean(),
+  installed: z.boolean(),
+  reachable: z.boolean(),
+  version: z.string().nullable(),
+  commit: z.string().max(40).nullable(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  dashboard: z.object({
+    state: hermesServiceStateSchema,
+    reachable: z.boolean(),
+    url: z.string().nullable(),
+  }),
+  gateway: z.object({
+    state: hermesServiceStateSchema,
+    telegramConnected: z.boolean().nullable(),
+    lastError: z.string().max(500).nullable(),
+  }),
+  chat: z.object({
+    transport: z.enum(["acp", "unavailable"]),
+    ready: z.boolean(),
+    activeSessions: z.number().int().nonnegative(),
+  }),
+  update: z.object({
+    available: z.boolean(),
+    pending: z.boolean(),
+    running: z.boolean(),
+    currentVersion: z.string().nullable(),
+    latestVersion: z.string().nullable(),
+    lastCheckedAt: isoDateSchema.nullable(),
+    lastUpdatedAt: isoDateSchema.nullable(),
+    lastResult: hermesUpdateResultSchema,
+  }),
+  checkedAt: isoDateSchema,
+});
+
+export const hermesSessionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().max(200),
+  source: hermesSessionSourceSchema,
+  model: z.string().nullable(),
+  provider: z.string().nullable(),
+  cwd: z.string().nullable(),
+  projectId: z.string().nullable(),
+  messageCount: z.number().int().nonnegative(),
+  createdAt: isoDateSchema.nullable(),
+  updatedAt: isoDateSchema.nullable(),
+  status: hermesSessionStatusSchema,
+});
+export const hermesSessionsResponseSchema = z.object({
+  sessions: z.array(hermesSessionSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().nonnegative().optional(),
+});
+export const hermesTaskSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  title: z.string().max(200),
+  source: hermesSessionSourceSchema,
+  model: z.string().nullable(),
+  startedAt: isoDateSchema,
+  runtimeSeconds: z.number().int().nonnegative(),
+  cancellable: z.boolean(),
+});
+export const hermesTasksResponseSchema = z.object({ tasks: z.array(hermesTaskSchema) });
+export const hermesResultSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  source: hermesSessionSourceSchema,
+  status: z.enum(["success", "failed"]),
+  title: z.string().max(200),
+  preview: z.string().max(400),
+  finishedAt: isoDateSchema,
+  cronJobId: z.string().nullable(),
+});
+export const hermesResultsResponseSchema = z.object({
+  results: z.array(hermesResultSchema),
+  nextCursor: z.string().nullable(),
+});
+export const hermesCronJobSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(200),
+  schedule: z.string().max(120),
+  enabled: z.boolean(),
+  nextRunAt: isoDateSchema.nullable(),
+  lastRunAt: isoDateSchema.nullable(),
+  lastStatus: z.enum(["success", "failed", "running", "unknown"]),
+  adminPath: z.string().startsWith("/"),
+});
+export const hermesCronResponseSchema = z.object({ jobs: z.array(hermesCronJobSchema) });
+export const hermesModelSchema = z.object({ id: z.string().min(1).max(200), name: z.string().min(1).max(200), provider: z.string().max(120).nullable(), active: z.boolean() });
+export const hermesModelsResponseSchema = z.object({ models: z.array(hermesModelSchema), current: hermesModelSchema.nullable() });
+
+export const hermesToolKindSchema = z.enum(["terminal", "edit", "read", "search", "browser", "other"]);
+export const hermesToolStatusSchema = z.enum(["pending", "running", "completed", "failed"]);
+export const hermesToolCallSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(160),
+  kind: hermesToolKindSchema,
+  status: hermesToolStatusSchema,
+  title: z.string().max(240),
+  arguments: z.record(z.string(), z.unknown()).nullable(),
+  result: z.string().max(8_192).nullable(),
+  command: z.string().max(8_192).nullable(),
+  cwd: z.string().max(2_048).nullable(),
+  exitCode: z.number().int().nullable(),
+  startedAt: isoDateSchema.nullable(),
+  durationMs: z.number().int().nonnegative().nullable(),
+  truncated: z.boolean(),
+});
+export const hermesMessageSchema = z.object({
+  id: z.string().min(1),
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().max(200_000),
+  toolCalls: z.array(hermesToolCallSchema).default([]),
+  createdAt: isoDateSchema,
+  truncated: z.boolean().default(false),
+});
+export const hermesApprovalSchema = z.object({
+  requestId: z.string().min(1),
+  sessionId: z.string().min(1),
+  toolCallId: z.string().min(1).nullable(),
+  title: z.string().max(240),
+  description: z.string().max(2_000),
+  command: z.string().max(8_192).nullable(),
+  risk: z.enum(["low", "medium", "high"]),
+  options: z.array(z.enum(["allow_once", "allow_session", "deny"])).min(1),
+  expiresAt: isoDateSchema,
+});
+export const hermesSlashCommandSchema = z.object({ name: z.string().min(1).max(80), description: z.string().max(240), inputHint: z.string().max(160).nullable() });
+export const hermesUsageSchema = z.object({ inputTokens: z.number().int().nonnegative(), outputTokens: z.number().int().nonnegative(), totalTokens: z.number().int().nonnegative(), contextSize: z.number().int().nonnegative().nullable() });
+export const hermesErrorCodeSchema = z.enum([
+  "HERMES_DISABLED", "HERMES_NOT_INSTALLED", "DASHBOARD_UNREACHABLE", "ACP_UNAVAILABLE", "ACP_CRASHED",
+  "SESSION_NOT_FOUND", "SESSION_BUSY", "PROJECT_NOT_FOUND", "PROJECT_FORBIDDEN", "APPROVAL_EXPIRED",
+  "RATE_LIMITED", "UPDATE_RUNNING", "INVALID_MESSAGE", "INTERNAL_ERROR",
+]);
+export const HERMES_CHAT_PROTOCOL_VERSION = 1 as const;
+export const hermesClientMessageSchema = z.discriminatedUnion("type", [
+  z.object({ v: z.literal(1), type: z.literal("session.create"), projectId: z.string().nullable(), title: z.string().max(200).optional() }),
+  z.object({ v: z.literal(1), type: z.literal("session.attach"), sessionId: z.string().min(1) }),
+  z.object({ v: z.literal(1), type: z.literal("session.detach") }),
+  z.object({ v: z.literal(1), type: z.literal("message.send"), sessionId: z.string().min(1), clientMessageId: z.uuid(), content: z.string().min(1).max(200_000) }),
+  z.object({ v: z.literal(1), type: z.literal("task.cancel"), sessionId: z.string().min(1) }),
+  z.object({ v: z.literal(1), type: z.literal("approval.respond"), requestId: z.string().min(1), option: z.enum(["allow_once", "allow_session", "deny"]) }),
+  z.object({ v: z.literal(1), type: z.literal("model.set"), sessionId: z.string().min(1), model: z.string().min(1).max(200) }),
+  z.object({ v: z.literal(1), type: z.literal("ping") }),
+]);
+export const hermesServerMessageSchema = z.discriminatedUnion("type", [
+  z.object({ v: z.literal(1), type: z.literal("session.ready"), session: hermesSessionSchema, replayComplete: z.boolean() }),
+  z.object({ v: z.literal(1), type: z.literal("message.appended"), sessionId: z.string(), message: hermesMessageSchema }),
+  z.object({ v: z.literal(1), type: z.literal("message.delta"), sessionId: z.string(), messageId: z.string(), delta: z.string() }),
+  z.object({ v: z.literal(1), type: z.literal("message.complete"), sessionId: z.string(), message: hermesMessageSchema }),
+  z.object({ v: z.literal(1), type: z.literal("thought.delta"), sessionId: z.string(), delta: z.string() }),
+  z.object({ v: z.literal(1), type: z.literal("tool.update"), sessionId: z.string(), toolCall: hermesToolCallSchema }),
+  z.object({ v: z.literal(1), type: z.literal("approval.requested"), request: hermesApprovalSchema }),
+  z.object({ v: z.literal(1), type: z.literal("approval.resolved"), requestId: z.string(), option: z.string(), reason: z.enum(["answered", "expired", "cancelled"]) }),
+  z.object({ v: z.literal(1), type: z.literal("commands.available"), sessionId: z.string(), commands: z.array(hermesSlashCommandSchema) }),
+  z.object({ v: z.literal(1), type: z.literal("task.state"), sessionId: z.string(), state: z.enum(["idle", "running", "cancelling"]) }),
+  z.object({ v: z.literal(1), type: z.literal("usage"), sessionId: z.string(), usage: hermesUsageSchema }),
+  z.object({ v: z.literal(1), type: z.literal("error"), code: hermesErrorCodeSchema, message: z.string().max(500), sessionId: z.string().nullable() }),
+  z.object({ v: z.literal(1), type: z.literal("pong") }),
+]);
+export const hermesServiceActionRequestSchema = z.object({ target: z.enum(["dashboard", "gateway"]), action: z.enum(["start", "stop", "restart"]) });
+export const hermesDiagnosticSchema = z.object({ id: z.string().min(1), label: z.string().min(1), status: z.enum(["ok", "warn", "fail", "skipped"]), detail: z.string().max(500), hint: z.string().max(500) });
+export const hermesDiagnosticsResponseSchema = z.object({ checkedAt: isoDateSchema, items: z.array(hermesDiagnosticSchema) });
+export const hermesUpdateStateSchema = z.object({
+  phase: z.enum(["idle", "checking", "pending", "running", "succeeded", "failed"]),
+  pending: z.boolean(), lastCheckedAt: isoDateSchema.nullable(), lastStartedAt: isoDateSchema.nullable(), lastFinishedAt: isoDateSchema.nullable(),
+  lastResult: hermesUpdateResultSchema, previousVersion: z.string().nullable(), previousCommit: z.string().max(40).nullable(),
+  newVersion: z.string().nullable(), newCommit: z.string().max(40).nullable(), deferredSince: isoDateSchema.nullable(),
+  lastFullBackupAt: isoDateSchema.nullable(), logTail: z.array(z.string().max(500)).max(40),
+});
+export const notificationCategorySchema = z.enum(["hermes", "coding-agent", "terminal"]);
+export const notificationSourceIconSchema = z.enum(["t3", "hermes", "opencode", "codex", "claude", "terminal", "workbench"]);
+export const notificationSourceSchema = z.enum(["hermes", "t3", "opencode", "codex", "claude", "terminal", "workbench", "update"]);
+export const notificationSeveritySchema = z.enum(["info", "success", "warning", "error"]);
+export const notificationStateSchema = z.enum(["active", "resolved", "dismissed"]);
+export const notificationReportSchema = z.object({
+  message: z.string().min(1).max(4_000),
+  stack: z.string().max(20_000).nullable().default(null),
+  context: z.record(z.string(), z.string().max(2_000)).default({}),
+  logs: z.array(z.string().max(2_000)).max(100).default([]),
+  environment: z.record(z.string(), z.string().max(2_000)).default({}),
+});
+export const notificationSchema = z.object({
+  id: z.uuid(), source: notificationSourceSchema, kind: z.string().min(1).max(64), severity: notificationSeveritySchema,
+  category: notificationCategorySchema, sourceIcon: notificationSourceIconSchema, state: notificationStateSchema,
+  title: z.string().min(1).max(200), body: z.string().max(1_000), link: z.string().startsWith("/").max(512).nullable(),
+  remoteId: z.string().max(200).nullable(), createdAt: isoDateSchema, readAt: isoDateSchema.nullable(), acknowledgedAt: isoDateSchema.nullable(),
+  deletedAt: isoDateSchema.nullable(), resolvedAt: isoDateSchema.nullable(),
+  meta: z.record(z.string(), z.unknown()), report: notificationReportSchema.nullable(),
+});
+export const notificationListResponseSchema = z.object({
+  notifications: z.array(notificationSchema), unreadCount: z.number().int().nonnegative(),
+  unacknowledgedErrorCount: z.number().int().nonnegative(), nextCursor: z.string().nullable(),
+});
+export const notificationPatchSchema = z.object({ read: z.boolean().optional(), acknowledged: z.boolean().optional() }).refine((value) => Object.keys(value).length > 0);
+export const notificationEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("notification.created"), notification: notificationSchema }),
+  z.object({ type: z.literal("notification.updated"), notification: notificationSchema }),
+  z.object({ type: z.literal("notification.removed"), id: z.uuid() }),
+  z.object({ type: z.literal("notification.sync") }),
+]);
+export const notificationSourcePreferencesSchema = z.object({ toast: z.boolean().default(true), push: z.boolean().default(false) });
+export const notificationPreferencesSchema = z.object({
+  toastsEnabled: z.boolean().default(true),
+  pushEnabled: z.boolean().default(false),
+  sources: z.object({
+    hermes: notificationSourcePreferencesSchema.prefault({ toast: false, push: false }),
+    t3: notificationSourcePreferencesSchema.prefault({ toast: true, push: true }),
+    opencode: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
+    codex: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
+    claude: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
+    terminal: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
+    workbench: notificationSourcePreferencesSchema.prefault({ toast: true, push: true }),
+    update: notificationSourcePreferencesSchema.prefault({ toast: false, push: false }),
+  }).prefault({}),
+});
+export const notificationSettingsResponseSchema = z.object({
+  preferences: notificationPreferencesSchema,
+  pushSupported: z.boolean(),
+  vapidPublicKey: z.string().nullable(),
+  subscribed: z.boolean(),
+});
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.url().max(2_048),
+  expirationTime: z.number().nullable().optional(),
+  keys: z.object({ p256dh: z.string().min(1).max(512), auth: z.string().min(1).max(512) }),
 });
 
 export const workbenchGroupSchema = z.object({
@@ -604,6 +1421,16 @@ export const ORBIT_LIMITS = {
   maxDocumentBytes: 4 * 1024 * 1024,
 } as const;
 
+// Gemeinsame Grenzen für die sichtbare Orbit-Geometrie. UI und API müssen dieselbe
+// Obergrenze verwenden, damit große Arbeitsflächen nicht erst lokal funktionieren
+// und anschließend beim Autosave abgelehnt werden.
+export const ORBIT_SIZE_LIMITS = {
+  minWidth: 160,
+  minHeight: 96,
+  maxWidth: 20_000,
+  maxHeight: 20_000,
+} as const;
+
 export const ORBIT_ASSET_LIMITS = {
   maxFileBytes: 100 * 1024 * 1024,
   maxTotalBytes: 50 * 1024 * 1024 * 1024,
@@ -623,6 +1450,10 @@ export const orbitNodeTypeSchema = z.enum([
   "fileGallery",
   "frame",
   "usage",
+  "hermesStatus",
+  "hermesTasks",
+  "hermesCron",
+  "hermesResults",
 ]);
 export const orbitEdgeKindSchema = z.enum(["project", "manual", "runtime"]);
 export const orbitPointSchema = z.object({
@@ -630,8 +1461,8 @@ export const orbitPointSchema = z.object({
   y: z.number().finite().min(-100_000).max(100_000),
 });
 export const orbitSizeSchema = z.object({
-  width: z.number().finite().min(160).max(2_400),
-  height: z.number().finite().min(96).max(1_600),
+  width: z.number().finite().min(ORBIT_SIZE_LIMITS.minWidth).max(ORBIT_SIZE_LIMITS.maxWidth),
+  height: z.number().finite().min(ORBIT_SIZE_LIMITS.minHeight).max(ORBIT_SIZE_LIMITS.maxHeight),
 });
 export const orbitBoundsSchema = z.object({
   minX: z.number().finite().min(-100_000).max(100_000),
@@ -656,9 +1487,14 @@ export const orbitNodeSchema = z.object({
   previewLayout: z.enum(["1", "2", "3", "6"]).nullable().default(null),
   previewTarget: z.string().max(4_096).nullable().default(null),
   previewPath: previewPathSchema.default("/"),
+  // `null` bedeutet ab Orbit v7 „Benutzerpräferenz verwenden“; ein expliziter Wert
+  // bleibt slotgebunden. Dokumente bis v6 werden beim Laden auf "responsive" gehoben.
   previewDeviceId: z.string().max(80).nullable().default(null),
   previewOrientation: z.enum(["portrait", "landscape"]).default("portrait"),
   previewSlotId: z.number().int().min(1).max(32).nullable().default(null),
+  // Stabile Storage-Identität eines Preview-Slots. Sie entscheidet serverseitig, ob eine
+  // Slot-Origin ohne Reset wiederverwendet werden darf.
+  previewStorageProfileId: z.string().uuid().nullable().default(null),
   previewIsolation: z.boolean().default(true),
   previewRuntime: z.enum(["iframe", "shared-browser"]).default("iframe"),
   previewReferenceId: z.string().max(100).nullable().default(null),
@@ -672,6 +1508,8 @@ export const orbitNodeSchema = z.object({
   // Selbst gewählte Farbe (Hex). null = automatische Farbe aus der Projekt-ID.
   // Färbt den Knoten und die von ihm ausgehenden Verbindungen.
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().default(null),
+  hermesSourceFilter: z.enum(["all", "web", "telegram", "cron"]).default("all"),
+  hermesStatusFilter: z.enum(["all", "success", "failed"]).default("all"),
   locked: z.boolean(),
   zIndex: z.number().int().min(0).max(10_000),
 }).superRefine((node, context) => {
@@ -689,6 +1527,12 @@ export const orbitNodeSchema = z.object({
   }
   if (node.type !== "asset" && (node.assetId !== null || node.assetMimeType !== null || node.assetBytes !== null)) {
     context.addIssue({ code: "custom", message: "Nur Medienknoten dürfen Asset-Metadaten besitzen." });
+  }
+  if (node.hermesSourceFilter !== "all" && node.type !== "hermesTasks" && node.type !== "hermesResults") {
+    context.addIssue({ code: "custom", path: ["hermesSourceFilter"], message: "Die Hermes-Quellenfilter gehören nur zu Hermes-Aufgaben oder -Ergebnissen." });
+  }
+  if (node.hermesStatusFilter !== "all" && node.type !== "hermesResults") {
+    context.addIssue({ code: "custom", path: ["hermesStatusFilter"], message: "Der Hermes-Statusfilter gehört nur zu Hermes-Ergebnissen." });
   }
 });
 
@@ -731,8 +1575,12 @@ export const orbitBoardSchema = z.object({
   }
 });
 
+export const ORBIT_DOCUMENT_VERSION = 8;
+
 export const orbitWorkspaceSchema = z.object({
-  version: z.literal(6),
+  // Version 6 und 7 bleiben lesbar; geschrieben wird v8. Die neuen Node-Felder
+  // besitzen Defaults und benötigen keinen destruktiven Migrationsschritt.
+  version: z.union([z.literal(6), z.literal(7), z.literal(8)]),
   activeBoardId: z.string().min(1).max(100),
   focusedNodeId: z.string().max(100).nullable(),
   boards: z.array(orbitBoardSchema).min(1).max(ORBIT_LIMITS.maxBoards),
@@ -809,12 +1657,14 @@ export const createProjectFileRequestSchema = z.object({
   path: z.string().trim().min(1).max(512),
   content: z.string().max(1_000_000),
   overwrite: z.boolean().default(false),
+  expectedVersion: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 });
 export const projectFileResponseSchema = z.object({
   projectId: z.string().min(1),
   path: z.string().min(1),
   bytes: z.number().int().nonnegative(),
   created: z.boolean(),
+  version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
 export const newsCategorySchema = z.enum([
@@ -862,6 +1712,10 @@ export const newsChatResponseSchema = z.object({ answer: z.string().min(1), cita
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+export type DashboardSection = z.infer<typeof dashboardSectionSchema>;
+export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
+export type ReadinessResponse = z.infer<typeof readinessResponseSchema>;
+export type OperationalMetricsResponse = z.infer<typeof operationalMetricsSchema>;
 export type RestartTarget = z.infer<typeof restartTargetSchema>;
 export type RestartRequest = z.infer<typeof restartRequestSchema>;
 export type RestartResponse = z.infer<typeof restartResponseSchema>;
@@ -885,6 +1739,45 @@ export type PreviewDependenciesResponse = z.infer<typeof previewDependenciesResp
 export type PreviewSessionRequest = z.infer<typeof previewSessionRequestSchema>;
 export type PreviewSessionBinding = z.infer<typeof previewSessionBindingSchema>;
 export type PreviewSessionResponse = z.infer<typeof previewSessionResponseSchema>;
+export type PreviewSlotState = z.infer<typeof previewSlotStateSchema>;
+export type PreviewAffinityStatus = z.infer<typeof previewAffinityStatusSchema>;
+export type PreviewCapability = z.infer<typeof previewCapabilitySchema>;
+export type PreviewLimitation = z.infer<typeof previewLimitationSchema>;
+export type PreviewDevicePreference = z.infer<typeof previewDevicePreferenceSchema>;
+export type PreviewDevicePreferenceRequest = z.infer<typeof previewDevicePreferenceRequestSchema>;
+export type PreviewSlotResetRequest = z.infer<typeof previewSlotResetRequestSchema>;
+export type PreviewSlotResetResponse = z.infer<typeof previewSlotResetResponseSchema>;
+export type PreviewSlotResetReport = z.infer<typeof previewSlotResetReportSchema>;
+export type PreviewSlotResetVerificationResponse = z.infer<typeof previewSlotResetVerificationResponseSchema>;
+export type PreviewServiceRole = z.infer<typeof previewServiceRoleSchema>;
+export type PreviewServiceProtocol = z.infer<typeof previewServiceProtocolSchema>;
+export type PreviewProbeStatus = z.infer<typeof previewProbeStatusSchema>;
+export type PreviewServiceCandidate = z.infer<typeof previewServiceCandidateSchema>;
+export type PreviewServiceCandidatesResponse = z.infer<typeof previewServiceCandidatesResponseSchema>;
+export type PreviewServiceEdge = z.infer<typeof previewServiceEdgeSchema>;
+export type PreviewServiceGraph = z.infer<typeof previewServiceGraphSchema>;
+export type PreviewServiceGraphRequest = z.infer<typeof previewServiceGraphRequestSchema>;
+export type PreviewServiceGraphResponse = z.infer<typeof previewServiceGraphResponseSchema>;
+export type PreviewCapacityPreview = z.infer<typeof previewCapacityPreviewSchema>;
+export type PreviewDiagnosticSource = z.infer<typeof previewDiagnosticSourceSchema>;
+export type PreviewDiagnosticCategory = z.infer<typeof previewDiagnosticCategorySchema>;
+export type PreviewDiagnosticSeverity = z.infer<typeof previewDiagnosticSeveritySchema>;
+export type PreviewDiagnosticCompleteness = z.infer<typeof previewDiagnosticCompletenessSchema>;
+export type PreviewDiagnosticEvent = z.infer<typeof previewDiagnosticEventSchema>;
+export type PreviewDiagnosticBatch = z.infer<typeof previewDiagnosticBatchSchema>;
+export type PreviewDiagnosticsResponse = z.infer<typeof previewDiagnosticsResponseSchema>;
+export type PreviewCaptureSession = z.infer<typeof previewCaptureSessionSchema>;
+export type PreviewCaptureSessionRequest = z.infer<typeof previewCaptureSessionRequestSchema>;
+export type PreviewLocalStorageEntry = z.infer<typeof previewLocalStorageEntrySchema>;
+export type PreviewLocalStorageSnapshot = z.infer<typeof previewLocalStorageSnapshotSchema>;
+export type PreviewLocalStorageState = z.infer<typeof previewLocalStorageStateSchema>;
+export type PreviewLocalStorageSnapshotRequest = z.infer<typeof previewLocalStorageSnapshotRequestSchema>;
+export type PreviewLocalStorageRestoreRequest = z.infer<typeof previewLocalStorageRestoreRequestSchema>;
+export type PreviewLocalStorageRestoreResponse = z.infer<typeof previewLocalStorageRestoreResponseSchema>;
+export type PreviewLocalStorageConflict = z.infer<typeof previewLocalStorageConflictSchema>;
+export type PreviewRepairAction = z.infer<typeof previewRepairActionSchema>;
+export type PreviewRepairRequest = z.infer<typeof previewRepairRequestSchema>;
+export type PreviewRepairJob = z.infer<typeof previewRepairJobSchema>;
 export type Preview = z.infer<typeof previewSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectActivity = z.infer<typeof projectActivitySchema>;
@@ -893,6 +1786,23 @@ export type ProjectResponse = z.infer<typeof projectResponseSchema>;
 export type ProjectActivityTouchResponse = z.infer<typeof projectActivityTouchResponseSchema>;
 export type FilesystemEntry = z.infer<typeof filesystemEntrySchema>;
 export type FilesystemTreeResponse = z.infer<typeof filesystemTreeResponseSchema>;
+export type FileManagerState = z.infer<typeof fileManagerStateSchema>;
+export type FileManagerStateResponse = z.infer<typeof fileManagerStateResponseSchema>;
+export type FileManagerTextPreviewResponse = z.infer<typeof fileManagerTextPreviewResponseSchema>;
+export type FileManagerSearchResponse = z.infer<typeof fileManagerSearchResponseSchema>;
+export type SkillEditorFile = z.infer<typeof skillEditorFileSchema>;
+export type SkillEditorNode = z.infer<typeof skillEditorNodeSchema>;
+export type SkillEditorTreeResponse = z.infer<typeof skillEditorTreeResponseSchema>;
+export type SkillEditorRepositoryStatus = z.infer<typeof skillEditorRepositoryStatusSchema>;
+export type SkillEditorStatusResponse = z.infer<typeof skillEditorStatusResponseSchema>;
+export type SkillEditorReadResponse = z.infer<typeof skillEditorReadResponseSchema>;
+export type SkillEditorWriteRequest = z.infer<typeof skillEditorWriteRequestSchema>;
+export type SkillEditorCreateRequest = z.infer<typeof skillEditorCreateRequestSchema>;
+export type SkillEditorCreateResponse = z.infer<typeof skillEditorCreateResponseSchema>;
+export type SkillEditorRenameRequest = z.infer<typeof skillEditorRenameRequestSchema>;
+export type SkillEditorDeleteRequest = z.infer<typeof skillEditorDeleteRequestSchema>;
+export type SkillEditorGitChange = z.infer<typeof skillEditorGitChangeSchema>;
+export type SkillEditorGitResponse = z.infer<typeof skillEditorGitResponseSchema>;
 export type RegisterProjectRequest = z.infer<typeof registerProjectRequestSchema>;
 export type RegisterProjectResponse = z.infer<typeof registerProjectResponseSchema>;
 export type CommandReference = z.infer<typeof commandSchema>;
@@ -928,6 +1838,45 @@ export type TerminalWorkspaceResponse = z.infer<typeof terminalWorkspaceResponse
 export type SaveTerminalWorkspaceRequest = z.infer<typeof saveTerminalWorkspaceRequestSchema>;
 export type Panel = z.infer<typeof panelSchema>;
 export type PanelType = z.infer<typeof panelTypeSchema>;
+export type HermesServiceState = z.infer<typeof hermesServiceStateSchema>;
+export type HermesUpdateResult = z.infer<typeof hermesUpdateResultSchema>;
+export type HermesStatus = z.infer<typeof hermesStatusSchema>;
+export type HermesSessionSource = z.infer<typeof hermesSessionSourceSchema>;
+export type HermesSession = z.infer<typeof hermesSessionSchema>;
+export type HermesSessionsResponse = z.infer<typeof hermesSessionsResponseSchema>;
+export type HermesTask = z.infer<typeof hermesTaskSchema>;
+export type HermesTasksResponse = z.infer<typeof hermesTasksResponseSchema>;
+export type HermesResult = z.infer<typeof hermesResultSchema>;
+export type HermesResultsResponse = z.infer<typeof hermesResultsResponseSchema>;
+export type HermesCronJob = z.infer<typeof hermesCronJobSchema>;
+export type HermesCronResponse = z.infer<typeof hermesCronResponseSchema>;
+export type HermesModel = z.infer<typeof hermesModelSchema>;
+export type HermesModelsResponse = z.infer<typeof hermesModelsResponseSchema>;
+export type HermesToolCall = z.infer<typeof hermesToolCallSchema>;
+export type HermesMessage = z.infer<typeof hermesMessageSchema>;
+export type HermesApproval = z.infer<typeof hermesApprovalSchema>;
+export type HermesSlashCommand = z.infer<typeof hermesSlashCommandSchema>;
+export type HermesUsage = z.infer<typeof hermesUsageSchema>;
+export type HermesErrorCode = z.infer<typeof hermesErrorCodeSchema>;
+export type HermesClientMessage = z.infer<typeof hermesClientMessageSchema>;
+export type HermesServerMessage = z.infer<typeof hermesServerMessageSchema>;
+export type HermesServiceActionRequest = z.infer<typeof hermesServiceActionRequestSchema>;
+export type HermesDiagnostic = z.infer<typeof hermesDiagnosticSchema>;
+export type HermesDiagnosticsResponse = z.infer<typeof hermesDiagnosticsResponseSchema>;
+export type HermesUpdateState = z.infer<typeof hermesUpdateStateSchema>;
+export type NotificationSource = z.infer<typeof notificationSourceSchema>;
+export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
+export type NotificationSourceIcon = z.infer<typeof notificationSourceIconSchema>;
+export type NotificationSeverity = z.infer<typeof notificationSeveritySchema>;
+export type NotificationState = z.infer<typeof notificationStateSchema>;
+export type NotificationReport = z.infer<typeof notificationReportSchema>;
+export type Notification = z.infer<typeof notificationSchema>;
+export type NotificationPatch = z.infer<typeof notificationPatchSchema>;
+export type NotificationListResponse = z.infer<typeof notificationListResponseSchema>;
+export type NotificationEvent = z.infer<typeof notificationEventSchema>;
+export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
+export type NotificationSettingsResponse = z.infer<typeof notificationSettingsResponseSchema>;
+export type PushSubscription = z.infer<typeof pushSubscriptionSchema>;
 export type WorkbenchGroup = z.infer<typeof workbenchGroupSchema>;
 export type WorkbenchLayout = z.infer<typeof workbenchLayoutSchema>;
 export type WorkbenchPage = z.infer<typeof workbenchPageSchema>;

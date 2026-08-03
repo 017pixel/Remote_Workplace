@@ -90,6 +90,4 @@ async function setChannel(channel: T3Channel): Promise<T3ChannelStatusResponse> 
 export const t3ChannelService = {
   status,
   setChannel,
-  // Nach einem Kanalwechsel per Neustart ist die gecachte Version veraltet.
-  clearVersionCache: () => versionCache.clear(),
 };

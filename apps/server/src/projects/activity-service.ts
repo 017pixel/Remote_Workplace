@@ -19,11 +19,13 @@ function newest(values: Array<string | null>): string | null {
 
 export class ProjectActivityService {
   private readonly cache = new Map<string, CachedActivity>();
+  private readonly inFlight = new Map<string, Promise<Omit<ProjectActivity, "lastWorkbenchUseAt" | "effectiveAt">>>();
 
   constructor(private readonly options: {
     database: ProjectActivityDatabase;
     cacheMilliseconds: number;
     maximumDepth: number;
+    maximumFiles: number;
   }) {}
 
   touch(projectId: string) {
@@ -43,21 +45,29 @@ export class ProjectActivityService {
   private async scanned(path: string) {
     const cached = this.cache.get(path);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
-    const [lastFilesystemChangeAt, lastGitCommitAt] = await Promise.all([
+    const existing = this.inFlight.get(path);
+    if (existing) return existing;
+    const pending = Promise.all([
       this.latestFilesystemChange(path),
       this.latestGitCommit(path),
-    ]);
-    const value = { lastFilesystemChangeAt, lastGitCommitAt };
-    this.cache.set(path, { expiresAt: Date.now() + this.options.cacheMilliseconds, value });
-    return value;
+    ]).then(([lastFilesystemChangeAt, lastGitCommitAt]) => {
+      const value = { lastFilesystemChangeAt, lastGitCommitAt };
+      this.cache.set(path, { expiresAt: Date.now() + this.options.cacheMilliseconds, value });
+      return value;
+    }).finally(() => this.inFlight.delete(path));
+    this.inFlight.set(path, pending);
+    return pending;
   }
 
   private async latestFilesystemChange(root: string): Promise<string | null> {
     let latest = 0;
+    let inspectedFiles = 0;
     const visit = async (directory: string, depth: number): Promise<void> => {
+      if (inspectedFiles >= this.options.maximumFiles) return;
       let entries;
       try { entries = await opendir(directory); } catch { return; }
       for await (const entry of entries) {
+        if (inspectedFiles >= this.options.maximumFiles) break;
         if (entry.isSymbolicLink() || (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name))) continue;
         const path = join(directory, entry.name);
         if (entry.isDirectory()) {
@@ -65,6 +75,7 @@ export class ProjectActivityService {
           continue;
         }
         if (!entry.isFile()) continue;
+        inspectedFiles += 1;
         try { latest = Math.max(latest, (await stat(path)).mtimeMs); } catch { /* File changed during the scan. */ }
       }
     };

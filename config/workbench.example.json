@@ -45,9 +45,93 @@
     "configPath": "/home/your-user/.config/codexbar/config.json",
     "oauthProfileHomes": []
   },
+  "dashboard": {
+    "sections": {
+      "quickActions": true,
+      "server": true,
+      "metrics": true,
+      "services": true,
+      "runtime": true,
+      "diagnostics": true,
+      "usage": true,
+      "news": true,
+      "commands": true
+    },
+    "refresh": {
+      "healthMilliseconds": 5000,
+      "summaryMilliseconds": 30000,
+      "metricsMilliseconds": 5000,
+      "servicesMilliseconds": 5000,
+      "localPortsMilliseconds": 5000,
+      "terminalSessionsMilliseconds": 3000,
+      "operationalMetricsMilliseconds": 5000,
+      "usageMilliseconds": 60000,
+      "newsMilliseconds": 60000
+    }
+  },
+  "notifications": {
+    "preferences": {
+      "toastsEnabled": true,
+      "pushEnabled": false,
+      "sources": {
+        "hermes": { "toast": false, "push": false },
+        "t3": { "toast": true, "push": true },
+        "opencode": { "toast": true, "push": false },
+        "codex": { "toast": true, "push": false },
+        "claude": { "toast": true, "push": false },
+        "terminal": { "toast": true, "push": false },
+        "workbench": { "toast": true, "push": true },
+        "update": { "toast": false, "push": false }
+      }
+    },
+    "pollSeconds": 5,
+    "pruneAfterHours": 48,
+    "terminalMinimumSeconds": 180,
+    "agentMinimumSeconds": 180,
+    "t3CompletionMinimumSeconds": 120,
+    "t3MiniTaskSeconds": 30,
+    "hermesCompletionMinimumSeconds": 120,
+    "pushSubject": "mailto:admin@localhost"
+  },
+  "hermes": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 9119,
+    "proxyPrefix": "/hermes",
+    "cliPath": "/home/your-user/.local/bin/hermes",
+    "homeDirectory": "/home/your-user/.hermes",
+    "checkoutDirectory": "/home/your-user/.hermes/hermes-agent",
+    "pythonPath": "/home/your-user/.hermes/hermes-agent/venv/bin/python",
+    "dashboardServiceUnit": "hermes-dashboard.service",
+    "gatewayServiceUnit": "hermes-gateway.service",
+    "updateServiceUnit": "hermes-update.service",
+    "defaultSurface": "admin",
+    "updateTime": "04:15",
+    "updateTimezone": "Europe/Berlin",
+    "requestTimeoutSeconds": 20,
+    "startTimeoutSeconds": 120,
+    "acpMaxSessions": 8,
+    "acpIdleTimeoutSeconds": 3600,
+    "statusPollSeconds": 30,
+    "taskPollSeconds": 6,
+    "resultPollSeconds": 20
+  },
   "previews": {
     "slotPorts": [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],
-    "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462]
+    "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462],
+    "gatewayV2Enabled": false,
+    "bridgeEnabled": false,
+    "diagnosticsEnabled": false,
+    "storageSyncMode": "off",
+    "slotResetEnabled": false,
+    "maxInjectableHtmlBytes": 2097152,
+    "diagnosticRetentionDays": 7,
+    "diagnosticMaxEventBytes": 65536,
+    "diagnosticMaxBatchBytes": 262144,
+    "diagnosticMaxDailyBytes": 33554432,
+    "diagnosticMaxTotalBytes": 134217728,
+    "localStorageMaxBytes": 262144,
+    "localStorageMaxKeys": 1000
   },
   "t3": {
     "channel": "stable",

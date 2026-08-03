@@ -6,6 +6,7 @@ const editorPrefix = "/editor";
 const editorUpstream = "http://127.0.0.1:8080";
 const editorWebSocketUpstream = "ws://127.0.0.1:8080";
 const bufferedMessageLimit = 512 * 1024;
+const maximumBufferedBytes = 2 * 1024 * 1024;
 
 function upstreamPath(rawUrl: string): string {
   const url = new URL(rawUrl, "http://workbench.local");
@@ -68,8 +69,20 @@ function proxyWebSocket(source: WebSocket, request: FastifyRequest) {
   const pending: Array<{ data: WebSocket.RawData; binary: boolean }> = [];
   let pendingBytes = 0;
 
+  const closeForBackpressure = () => {
+    if (source.readyState === WebSocket.OPEN) source.close(1013, "Editor-WebSocket ist überlastet");
+    if (target.readyState === WebSocket.OPEN) target.close(1013, "Editor-WebSocket ist überlastet");
+    else if (target.readyState === WebSocket.CONNECTING) target.terminate();
+  };
+
   source.on("message", (data, binary) => {
     if (target.readyState === WebSocket.OPEN) {
+      // Backpressure wie im Preview-Gateway: Ein langsamer Upstream darf den
+      // Speicher nicht unbegrenzt wachsen lassen (F01-05).
+      if (target.bufferedAmount > maximumBufferedBytes) {
+        closeForBackpressure();
+        return;
+      }
       target.send(data, { binary });
       return;
     }
@@ -87,7 +100,12 @@ function proxyWebSocket(source: WebSocket, request: FastifyRequest) {
     pendingBytes = 0;
   });
   target.on("message", (data, binary) => {
-    if (source.readyState === WebSocket.OPEN) source.send(data, { binary });
+    if (source.readyState !== WebSocket.OPEN) return;
+    if (source.bufferedAmount > maximumBufferedBytes) {
+      closeForBackpressure();
+      return;
+    }
+    source.send(data, { binary });
   });
   source.on("close", (code, reason) => {
     if (target.readyState === WebSocket.OPEN) target.close(closeCode(code), reason);

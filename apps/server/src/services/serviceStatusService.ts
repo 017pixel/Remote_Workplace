@@ -43,14 +43,25 @@ async function checkService(service: ServiceConfig): Promise<Service> {
         return { ...base, state: "unknown", message: `systemd: ${state || "unbekannt"}` };
       }
       case "http": {
-        const response = await fetch(service.check.url, {
-          method: "GET",
-          redirect: "manual",
-          signal: AbortSignal.timeout(settings.requestTimeoutMilliseconds),
-        });
-        return response.ok || (response.status >= 300 && response.status < 400)
-          ? { ...base, state: "active" }
-          : { ...base, state: "error", message: `Healthcheck HTTP ${response.status}` };
+        // Der Service-Check bekommt bewusst einen eigenen, großzügigeren
+        // Timeout als die API-Anfragen: Eine unter Last langsam antwortende
+        // Instanz (z. B. T3 Code) ist kein Fehlerzustand (F03-3).
+        const timeout = Math.max(settings.requestTimeoutMilliseconds, 10_000);
+        try {
+          const response = await fetch(service.check.url, {
+            method: "GET",
+            redirect: "manual",
+            signal: AbortSignal.timeout(timeout),
+          });
+          return response.ok || (response.status >= 300 && response.status < 400)
+            ? { ...base, state: "active" }
+            : { ...base, state: "error", message: `Healthcheck HTTP ${response.status}` };
+        } catch (caught) {
+          if ((caught as Error).name === "TimeoutError" || (caught as Error).name === "AbortError") {
+            return { ...base, state: "unknown", message: `Antwort nach ${timeout / 1_000} s nicht erhalten (unter Last).` };
+          }
+          return { ...base, state: "error", message: "Dienststatus konnte nicht gelesen werden." };
+        }
       }
     }
   } catch {

@@ -1,4 +1,5 @@
 import {
+  dashboardConfigSchema,
   commandsResponseSchema,
   healthResponseSchema,
   projectResponseSchema,
@@ -7,11 +8,6 @@ import {
   serverSummarySchema,
   servicesResponseSchema,
   localPortsResponseSchema,
-  previewSlotAssignmentRequestSchema,
-  previewSlotsResponseSchema,
-  previewDependenciesResponseSchema,
-  previewSessionRequestSchema,
-  previewSessionResponseSchema,
   usageResponseSchema,
   usageDashboardResponseSchema,
   usageRangeSchema,
@@ -36,6 +32,21 @@ import {
   updateGalleryFolderRequestSchema,
   updateGalleryFileRequestSchema,
   filesystemTreeResponseSchema,
+  filesystemEntrySchema,
+  saveFileManagerStateRequestSchema,
+  fileManagerTextPreviewResponseSchema,
+  fileManagerRenameRequestSchema,
+  fileManagerMoveRequestSchema,
+  fileManagerDeleteRequestSchema,
+  fileManagerMkdirRequestSchema,
+  fileManagerSearchResponseSchema,
+  skillEditorCreateRequestSchema,
+  skillEditorDeleteRequestSchema,
+  skillEditorReadResponseSchema,
+  skillEditorRenameRequestSchema,
+  skillEditorStatusResponseSchema,
+  skillEditorTreeResponseSchema,
+  skillEditorWriteRequestSchema,
   registerProjectRequestSchema,
   registerProjectResponseSchema,
   projectActivityTouchResponseSchema,
@@ -63,6 +74,8 @@ import type { createProjectFileService } from "../services/projectFileService.js
 import type { createLocalPortService } from "../services/localPortService.js";
 import type { OrbitAssetRepository } from "../orbit/assets.js";
 import type { ProjectBrowserService } from "../filesystem/projectBrowserService.js";
+import type { FileManagerService } from "../filesystem/fileManagerService.js";
+import type { SkillEditorService } from "../skills/skillEditorService.js";
 import type { PreviewSlotService } from "../previews/slots.js";
 import { AppError } from "../utils/errors.js";
 
@@ -80,6 +93,8 @@ interface RouteServices {
   orbitAssets: OrbitAssetRepository;
   fileGallery: OrbitAssetRepository;
   projectBrowser: ProjectBrowserService;
+  fileManager: FileManagerService;
+  skillEditor: SkillEditorService;
   proxyOrigins: string[];
 }
 
@@ -89,15 +104,16 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.get("/health", async () =>
     healthResponseSchema.parse({ status: "ok", version: settings.appVersion, appName: settings.appName, timestamp: new Date().toISOString(), bootId, webBuildId: webBuildId() }),
   );
-  app.post("/system/restart", async (request, reply) => {
+  app.get("/system/dashboard-config", async () => dashboardConfigSchema.parse(settings.dashboard));
+  app.post("/system/restart", { config: { rateLimit: { max: 3, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { target } = restartRequestSchema.parse(request.body);
     try {
-      const { logFile } = triggerRestart(target);
-      return reply.status(202).send(restartResponseSchema.parse({ status: "accepted", target, bootId, webBuildId: webBuildId(), logFile }));
+      const { jobId, logFile } = triggerRestart(target);
+      return reply.status(202).send(restartResponseSchema.parse({ status: "accepted", jobId, target, bootId, webBuildId: webBuildId(), logFile }));
     } catch (error) {
       if (error instanceof RestartError) {
         request.log.warn({ err: error, target }, "Neustart abgelehnt");
-        return reply.status(409).send({ error: "RESTART_REJECTED", message: `${error.message} ${error.hint}` });
+        throw new AppError(409, "RESTART_REJECTED", `${error.message} ${error.hint}`, null, true);
       }
       throw error;
     }
@@ -116,31 +132,8 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.get("/server/metrics", async () => serverMetricsSchema.parse(await systemService.getMetrics()));
   app.get("/services", async () => servicesResponseSchema.parse(await services.statuses.list()));
   app.get("/local-ports", async () => localPortsResponseSchema.parse(await services.localPorts.list()));
-  app.get("/previews/slots", async () => previewSlotsResponseSchema.parse(services.previewSlots.list()));
-  app.put("/previews/slots", async (request) => {
-    const input = previewSlotAssignmentRequestSchema.parse(request.body);
-    return previewSlotsResponseSchema.parse(services.previewSlots.assign(input));
-  });
-  const previewDependencyQuerySchema = z.object({
-    projectId: z.string().min(1).max(160),
-    primaryPort: z.coerce.number().int().min(1).max(65_535),
-  });
-  app.get("/previews/dependencies", async (request) => {
-    const query = previewDependencyQuerySchema.parse(request.query);
-    return previewDependenciesResponseSchema.parse(services.previewSlots.dependencies(query.projectId, query.primaryPort));
-  });
-  app.put("/previews/dependencies", async (request) => {
-    const input = previewDependenciesResponseSchema.parse(request.body);
-    return previewDependenciesResponseSchema.parse(services.previewSlots.saveDependencies(input.projectId, input.primaryPort, input.dependencies));
-  });
-  app.post("/previews/sessions", async (request) =>
-    previewSessionResponseSchema.parse(services.previewSlots.openSession(previewSessionRequestSchema.parse(request.body))),
-  );
-  app.delete("/previews/sessions/:sessionKey", async (request, reply) => {
-    const { sessionKey } = z.object({ sessionKey: z.string().min(1).max(160) }).parse(request.params);
-    services.previewSlots.closeSession(sessionKey);
-    return reply.status(204).send();
-  });
+  // Preview-Endpunkte liegen in `previews/routes.ts`; sie erzwingen Identität,
+  // Ownership und Same-Origin und gehören deshalb nicht in die allgemeine API.
   app.get("/filesystem/tree", async (request) => {
     const query = z.object({
       path: z.string().max(4_096).optional(),
@@ -153,6 +146,91 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
       ...(query.limit === undefined ? {} : { limit: query.limit }),
     }));
   });
+  app.get("/filesystem/state", async () => services.fileManager.state());
+  app.put("/filesystem/state", async (request) => {
+    const input = saveFileManagerStateRequestSchema.parse(request.body);
+    return services.fileManager.saveState(input);
+  });
+  app.get("/filesystem/file", async (request) => {
+    const query = z.object({ path: z.string().trim().min(1).max(4_096) }).parse(request.query);
+    return fileManagerTextPreviewResponseSchema.parse(await services.fileManager.textPreview({ path: query.path }));
+  });
+  app.get("/filesystem/media", async (request, reply) => {
+    const query = z.object({ path: z.string().trim().min(1).max(4_096) }).parse(request.query);
+    const result = await services.fileManager.openMedia({ path: query.path }, request.headers.range);
+    // Härtung wie bei den Galerie-Endpunkten: HTML/JS darf nie direkt im
+    // Workbench-Origin ausgeführt werden (F01-04).
+    return reply
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Content-Security-Policy", "sandbox")
+      .status(result.statusCode).headers(result.headers).send(result.stream);
+  });
+  app.get("/filesystem/download", async (request, reply) => {
+    const query = z.object({ path: z.string().trim().min(1).max(4_096) }).parse(request.query);
+    const file = await services.fileManager.download({ path: query.path });
+    return reply
+      .header("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`)
+      .header("Content-Type", file.mime)
+      .header("Content-Length", String(file.size))
+      .send(file.stream);
+  });
+  app.post("/filesystem/upload", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const query = z.object({ path: z.string().trim().min(1).max(4_096) }).parse(request.query);
+    // Das eigene, größere Upload-Limit des Dateimanagers muss auch den
+    // Multipart-Parser erreichen, sonst lehnt das globale Orbit-Limit die Datei
+    // vorher mit einer generischen Meldung ab (F01-02).
+    const upload = await request.file({ limits: { fileSize: settings.fileManagerMaxUploadBytes } });
+    if (!upload) throw new AppError(400, "UPLOAD_REQUIRED", "Es wurde keine Datei mitgesendet.");
+    const entry = await services.fileManager.upload({ directory: query.path, filename: upload.filename, stream: upload.file });
+    return reply.status(201).send(filesystemEntrySchema.parse(entry));
+  });
+  app.post("/filesystem/rename", async (request) => {
+    const input = fileManagerRenameRequestSchema.parse(request.body);
+    return services.fileManager.response(await services.fileManager.rename(input));
+  });
+  app.post("/filesystem/move", async (request) => {
+    const input = fileManagerMoveRequestSchema.parse(request.body);
+    return services.fileManager.response(await services.fileManager.move(input));
+  });
+  app.post("/filesystem/delete", async (request) => {
+    const input = fileManagerDeleteRequestSchema.parse(request.body);
+    return services.fileManager.response(await services.fileManager.remove({ path: input.path }));
+  });
+  app.post("/filesystem/mkdir", async (request) => {
+    const input = fileManagerMkdirRequestSchema.parse(request.body);
+    return services.fileManager.response(await services.fileManager.mkdir(input));
+  });
+  app.get("/filesystem/search", async (request) => {
+    const query = z.object({ q: z.string().trim().min(1).max(200) }).parse(request.query);
+    return fileManagerSearchResponseSchema.parse(await services.fileManager.search(query.q));
+  });
+  // Werkzeug „KI-Skills": bearbeitet die globalen Agenten-Regeln und Skills direkt
+  // auf der Platte. Mutationen sind zusätzlich rate-limitiert, weil sie in echte
+  // Dateien und ins Skill-Repository schreiben.
+  app.get("/skills/status", async () => skillEditorStatusResponseSchema.parse(await services.skillEditor.status()));
+  app.get("/skills/tree", async () => skillEditorTreeResponseSchema.parse(await services.skillEditor.list()));
+  app.get("/skills/file", async (request) => {
+    const query = z.object({ path: z.string().trim().min(1).max(4_096) }).parse(request.query);
+    return skillEditorReadResponseSchema.parse(await services.skillEditor.readFile({ path: query.path }));
+  });
+  app.put("/skills/file", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request) => {
+    const input = skillEditorWriteRequestSchema.parse(request.body);
+    return skillEditorReadResponseSchema.parse(await services.skillEditor.writeFile(input));
+  });
+  app.post("/skills", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const input = skillEditorCreateRequestSchema.parse(request.body);
+    return reply.status(201).send(await services.skillEditor.createSkill(input));
+  });
+  app.post("/skills/rename", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const input = skillEditorRenameRequestSchema.parse(request.body);
+    return services.skillEditor.renameSkill(input);
+  });
+  app.delete("/skills/:name", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const { name } = skillEditorDeleteRequestSchema.parse(request.params);
+    await services.skillEditor.deleteSkill({ name });
+    return reply.status(204).send();
+  });
+  app.post("/skills/git", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => services.skillEditor.gitCommitPush());
   app.get("/projects", async () => projectsResponseSchema.parse(await services.projects.list()));
   app.post("/projects/register", async (request, reply) => {
     const input = registerProjectRequestSchema.parse(request.body);
@@ -171,7 +249,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.post("/projects/:projectId/files", async (request, reply) => {
     const { projectId } = projectParamsSchema.parse(request.params);
     const result = await services.projectFiles.create(projectId, createProjectFileRequestSchema.parse(request.body));
-    return reply.status(201).send(projectFileResponseSchema.parse(result));
+    return reply.status(result.created ? 201 : 200).send(projectFileResponseSchema.parse(result));
   });
   app.get("/orbit", async () => orbitDocumentResponseSchema.parse(services.orbit.get()));
   app.put("/orbit", async (request) => {
@@ -186,7 +264,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
     const upload = await request.file();
     if (!upload) throw new AppError(400, "ORBIT_ASSET_REQUIRED", "Bitte wähle eine Datei zum Archivieren aus.");
     const { folderId } = z.object({ folderId: z.string().uuid().optional() }).parse(request.query);
-    const asset = await services.orbitAssets.create({ filename: upload.filename, mimeType: upload.mimetype, buffer: await upload.toBuffer(), folderId: folderId ?? null });
+    const asset = await services.orbitAssets.createStream({ filename: upload.filename, mimeType: upload.mimetype, stream: upload.file, folderId: folderId ?? null });
     return reply.status(201).send(orbitAssetResponseSchema.parse({ asset }));
   });
   app.get("/orbit/assets", async (request) => {
@@ -249,7 +327,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
     const upload = await request.file();
     if (!upload) throw new AppError(400, "FILE_GALLERY_REQUIRED", "Bitte wähle eine Datei zum Hochladen aus.");
     const { folderId } = z.object({ folderId: z.string().uuid().optional() }).parse(request.query);
-    const file = await services.fileGallery.create({ filename: upload.filename, mimeType: upload.mimetype, buffer: await upload.toBuffer(), folderId: folderId ?? null });
+    const file = await services.fileGallery.createStream({ filename: upload.filename, mimeType: upload.mimetype, stream: upload.file, folderId: folderId ?? null });
     return reply.status(201).send(galleryFileResponseSchema.parse({ file }));
   });
   app.get("/files", async (request) => {
@@ -311,10 +389,10 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   app.get("/commands", async () => commandsResponseSchema.parse(await services.commands.list()));
   app.get("/usage", async () => usageResponseSchema.parse(await services.usage.getUsage()));
   app.get("/usage/dashboard", async (request) => {
-    const range = usageRangeSchema.catch("30d").parse((request.query as {range?:unknown}).range);
+    const range = usageRangeSchema.parse((request.query as {range?:unknown}).range ?? "30d");
     return usageDashboardResponseSchema.parse(await services.analytics.dashboard(range));
   });
-  app.post("/usage/sync", async () => { services.usage.invalidate(); await services.analytics.sync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
+  app.post("/usage/sync", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => { services.usage.invalidate(); await services.analytics.sync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
   app.get("/accounts", async () => accountsResponseSchema.parse({ accounts: await services.accounts.listWithState() }));
   app.get("/accounts/discover", async () => discoveredAccountsResponseSchema.parse({ accounts: await services.accounts.discover() }));
   app.post("/accounts", async (request, reply) => {
@@ -334,7 +412,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   });
   // Schaltet den serverweit aktiven Codex-Account um. Alle danach gestarteten Codex-Prozesse
   // verwenden diesen Account, ohne dass eine erneute Anmeldung nötig ist.
-  app.post("/accounts/:accountId/activate", async (request) => {
+  app.post("/accounts/:accountId/activate", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
     const { accountId } = z.object({ accountId: z.string().uuid() }).parse(request.params);
     const result = await services.accounts.activate(accountId);
     services.usage.invalidate();
@@ -349,7 +427,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
 
   app.get(
     "/proxy/*",
-    { helmet: { contentSecurityPolicy: false } },
+    { helmet: { contentSecurityPolicy: false }, config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
     createProxyHandler(services.proxyOrigins),
   );
 }

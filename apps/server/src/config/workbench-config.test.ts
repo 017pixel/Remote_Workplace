@@ -8,6 +8,27 @@ function exampleConfig(): WorkbenchConfig {
 }
 
 describe("Workbench-Preview-Konfiguration", () => {
+  it("lädt fehlende Hermes-Konfiguration mit sicheren Defaults", () => {
+    const config = exampleConfig() as unknown as Record<string, unknown>;
+    delete config.hermes;
+    const parsed = workbenchConfigSchema.parse(config);
+    expect(parsed.hermes).toMatchObject({ enabled: true, host: "127.0.0.1", port: 9119, proxyPrefix: "/hermes", defaultSurface: "admin" });
+  });
+
+  it("erzwingt Loopback und einen freien Hermes-Port", () => {
+    const nonLoopback = exampleConfig();
+    nonLoopback.hermes.host = "0.0.0.0";
+    expect(() => workbenchConfigSchema.parse(nonLoopback)).toThrowError(/Loopback/);
+
+    const collision = exampleConfig();
+    collision.hermes.port = collision.t3.port;
+    expect(() => workbenchConfigSchema.parse(collision)).toThrowError(/Hermes-Port/);
+
+    const invalidPrefix = exampleConfig();
+    invalidPrefix.hermes.proxyPrefix = "hermes";
+    expect(() => workbenchConfigSchema.parse(invalidPrefix)).toThrowError();
+  });
+
   it("akzeptiert getrennte interne und öffentliche Slot-Ports", () => {
     expect(workbenchConfigSchema.parse(exampleConfig()).previews).toMatchObject({
       slotPorts: [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],

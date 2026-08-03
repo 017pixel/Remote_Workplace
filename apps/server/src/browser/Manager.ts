@@ -30,6 +30,12 @@ export class BrowserFailure extends Error {
 
 export function resolveChromiumPath(configuredPath: string): string {
   if (configuredPath !== "auto") return configuredPath;
+  // Systempakete verwenden die Sandbox-Konfiguration des Servers. Gecachte
+  // Playwright-Binaries können trotz vorhandenem Binary an AppArmor oder
+  // deaktivierten User-Namespaces des Hosts scheitern.
+  for (const executable of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/snap/bin/chromium", "/usr/bin/chromium-browser"]) {
+    if (existsSync(executable)) return executable;
+  }
   const cacheCandidates = [
     { root: join(homedir(), ".cache", "ms-playwright"), suffixes: ["chrome-linux64/chrome", "chrome-linux/chrome"] },
     { root: join(homedir(), ".cache", "puppeteer", "chrome"), suffixes: ["chrome-linux64/chrome", "chrome-linux/chrome"] },
@@ -44,18 +50,22 @@ export function resolveChromiumPath(configuredPath: string): string {
       }
     }
   }
-  for (const executable of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium"]) {
-    if (existsSync(executable)) return executable;
-  }
   throw new BrowserFailure("BROWSER_START_FAILED", "Auf dem Server wurde kein Chromium-Binary gefunden.");
 }
 
 class CdpConnection {
   private sequence = 0;
-  private readonly pending = new Map<number, { resolve: (value: Record<string, unknown>) => void; reject: (error: Error) => void }>();
+  private readonly pending = new Map<number, {
+    resolve: (value: Record<string, unknown>) => void;
+    reject: (error: Error) => void;
+    timer: NodeJS.Timeout;
+  }>();
   private readonly eventListeners = new Set<(message: CdpResponse) => void>();
 
-  private constructor(private readonly socket: WebSocket) {
+  private constructor(
+    private readonly socket: WebSocket,
+    private readonly commandTimeoutMilliseconds: number,
+  ) {
     socket.on("message", (raw) => {
       let message: CdpResponse;
       try { message = JSON.parse(raw.toString()) as CdpResponse; } catch { return; }
@@ -63,6 +73,7 @@ class CdpConnection {
         const pending = this.pending.get(message.id);
         if (!pending) return;
         this.pending.delete(message.id);
+        clearTimeout(pending.timer);
         if (message.error) pending.reject(new Error(message.error.message ?? "Chromium-Befehl fehlgeschlagen."));
         else pending.resolve(message.result ?? {});
         return;
@@ -77,7 +88,7 @@ class CdpConnection {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(url);
       const timeout = setTimeout(() => { socket.terminate(); reject(new Error("Chromium-Verbindung hat nicht rechtzeitig geantwortet.")); }, timeoutMilliseconds);
-      socket.once("open", () => { clearTimeout(timeout); resolve(new CdpConnection(socket)); });
+      socket.once("open", () => { clearTimeout(timeout); resolve(new CdpConnection(socket, timeoutMilliseconds)); });
       socket.once("error", (error) => { clearTimeout(timeout); reject(error); });
     });
   }
@@ -91,15 +102,29 @@ class CdpConnection {
     if (this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chromium ist nicht verbunden."));
     const id = ++this.sequence;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Chromium-Befehl ${method} hat das Zeitlimit überschritten.`));
+      }, this.commandTimeoutMilliseconds);
+      this.pending.set(id, { resolve, reject, timer });
+      this.socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }), (error) => {
+        if (!error) return;
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        this.pending.delete(id);
+        reject(error);
+      });
     });
   }
 
   close() { this.socket.close(); }
 
   private rejectPending(error: Error) {
-    for (const pending of this.pending.values()) pending.reject(error);
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
     this.pending.clear();
   }
 }
@@ -163,6 +188,7 @@ class BrowserSession {
   private captureQueue = Promise.resolve();
   private resizeQueue = Promise.resolve();
   private disposed = false;
+  private unexpectedExitHandler: (() => void) | undefined;
 
   private constructor(
     readonly userId: string,
@@ -175,13 +201,13 @@ class BrowserSession {
     private readonly onStateChange: (state: BrowserState) => void,
   ) {}
 
-  static async create(options: { userId: string; instanceId: string; profileKey: string; profileDirectory: string; initialUrl: string; chromiumPath: string; startupTimeoutMilliseconds: number; width: number; height: number; onStateChange: (state: BrowserState) => void } & BrowserCaptureOptions) {
+  static async create(options: { userId: string; instanceId: string; profileKey: string; profileDirectory: string; initialUrl: string; chromiumPath: string; startupTimeoutMilliseconds: number; width: number; height: number; allowNoSandbox?: boolean; onStateChange: (state: BrowserState) => void } & BrowserCaptureOptions) {
     const profileDirectory = options.profileDirectory;
     await mkdir(profileDirectory, { recursive: true, mode: 0o700 });
     await chmod(profileDirectory, 0o700);
     const process = spawn(options.chromiumPath, [
       "--headless=new",
-      "--no-sandbox",
+      ...(options.allowNoSandbox ? ["--no-sandbox"] : []),
       "--disable-gpu",
       "--high-dpi-support=1",
       `--force-device-scale-factor=${options.captureMaxScale}`,
@@ -199,6 +225,12 @@ class BrowserSession {
     ], { stdio: "pipe" });
     try {
       const websocketUrl = await readDevtoolsUrl(process, options.startupTimeoutMilliseconds);
+      // Erst nach dem DevTools-Handshake dauerhaft lesen. Vorher muss
+      // `readDevtoolsUrl` jedes Startsignal zuverlässig sehen können.
+      // Danach werden die Pipes weiter abgeholt, damit Chromium bei großen
+      // Logbursts nicht an stdout/stderr blockiert.
+      process.stdout.resume();
+      process.stderr.resume();
       const cdp = await CdpConnection.connect(websocketUrl, options.startupTimeoutMilliseconds);
       const session = new BrowserSession(options.userId, options.instanceId, options.profileKey, process, cdp, websocketUrl, options, options.onStateChange);
       await session.initialize(options.width, options.height);
@@ -222,6 +254,10 @@ class BrowserSession {
       this.lastUsedAt = Date.now();
       if (this.listeners.size === 0) void this.deactivateCapture();
     };
+  }
+
+  onUnexpectedExit(handler: () => void) {
+    this.unexpectedExitHandler = handler;
   }
 
   openDevtoolsSocket() {
@@ -316,7 +352,6 @@ class BrowserSession {
       this.cdp.send("Page.enable", {}, this.targetSessionId),
       this.cdp.send("Runtime.enable", {}, this.targetSessionId),
       this.cdp.send("Security.enable", {}, this.targetSessionId),
-      this.cdp.send("Security.setIgnoreCertificateErrors", { ignore: true }),
     ]);
     await this.resize(width, height);
     await this.refreshState();
@@ -325,6 +360,9 @@ class BrowserSession {
       this.disposed = true;
       for (const listener of this.listeners) listener({ type: "browser.closed", sessionId: this.id });
       this.listeners.clear();
+      const handler = this.unexpectedExitHandler;
+      this.unexpectedExitHandler = undefined;
+      handler?.();
     });
   }
 
@@ -474,7 +512,11 @@ function readDevtoolsUrl(process: ChildProcessWithoutNullStreams, timeoutMillise
       if (match?.[1]) { cleanup(); resolve(match[1]); }
       if (buffer.length > 16_384) buffer = buffer.slice(-8_192);
     };
-    const onExit = () => { cleanup(); reject(new Error("Chromium wurde während des Starts beendet.")); };
+    const onExit = () => {
+      cleanup();
+      const detail = buffer.trim().replace(/\s+/g, " ").slice(-1_000);
+      reject(new Error(detail ? `Chromium wurde während des Starts beendet: ${detail}` : "Chromium wurde während des Starts beendet."));
+    };
     const cleanup = () => {
       clearTimeout(timeout);
       process.stderr.off("data", onData);
@@ -491,44 +533,77 @@ export class BrowserManager {
   private readonly sessions = new Map<string, BrowserSession>();
   private readonly instances = new Map<string, string>();
   private readonly profiles = new Map<string, string>();
+  private readonly creatingProfiles = new Map<string, Promise<BrowserSession>>();
+  private readonly creatingInstances = new Map<string, Promise<void>>();
   private readonly cleanupTimer: NodeJS.Timeout;
   private readonly chromiumPath: string;
 
-  constructor(private readonly options: { chromiumPath: string; profilesRoot: string; maxSessions: number; startupTimeoutMilliseconds: number; idleTimeoutMilliseconds: number; database?: BrowserDatabase } & BrowserCaptureOptions) {
+  constructor(private readonly options: { chromiumPath: string; profilesRoot: string; maxSessions: number; startupTimeoutMilliseconds: number; idleTimeoutMilliseconds: number; allowNoSandbox?: boolean; database?: BrowserDatabase } & BrowserCaptureOptions) {
     this.chromiumPath = resolveChromiumPath(options.chromiumPath);
     this.cleanupTimer = setInterval(() => void this.closeIdleSessions(), 60_000);
     this.cleanupTimer.unref();
   }
 
+  private async withInstanceCreationLock<T>(instanceKey: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.creatingInstances.get(instanceKey) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    const queued = previous.then(() => current);
+    this.creatingInstances.set(instanceKey, queued);
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+      if (this.creatingInstances.get(instanceKey) === queued) this.creatingInstances.delete(instanceKey);
+    }
+  }
+
   async createOrAttach(userId: string, instanceId: string, width: number, height: number, listener: BrowserListener, requestId?: string, requestedProfileKey?: string, requestedInitialUrl?: string) {
+    const instanceKey = `${userId}:${instanceId}`;
+    return this.withInstanceCreationLock(instanceKey, () => this.createOrAttachUnlocked(userId, instanceId, width, height, listener, requestId, requestedProfileKey, requestedInitialUrl));
+  }
+
+  private async createOrAttachUnlocked(userId: string, instanceId: string, width: number, height: number, listener: BrowserListener, requestId?: string, requestedProfileKey?: string, requestedInitialUrl?: string) {
     const existingId = this.instances.get(`${userId}:${instanceId}`);
     const stored = this.options.database?.get(userId, instanceId);
     const profileKey = requestedProfileKey ?? stored?.profileKey ?? instanceId;
     const profileMapKey = `${userId}:${profileKey}`;
     let session = existingId ? this.sessions.get(existingId) : this.sessions.get(this.profiles.get(profileMapKey) ?? "");
     if (!session) {
-      if (this.sessions.size >= this.options.maxSessions) throw new BrowserFailure("TOO_MANY_SESSIONS", "Die maximale Anzahl paralleler Browser ist erreicht.");
-      const profileDirectory = join(this.options.profilesRoot, createHash("sha256").update(`${userId}\u0000${profileKey}`).digest("hex"));
-      const initialUrl = stored?.lastUrl && stored.lastUrl !== "about:blank" ? stored.lastUrl : requestedInitialUrl ?? "about:blank";
-      session = await BrowserSession.create({
-        userId,
-        instanceId,
-        profileKey,
-        profileDirectory,
-        initialUrl,
-        chromiumPath: this.chromiumPath,
-        startupTimeoutMilliseconds: this.options.startupTimeoutMilliseconds,
-        width,
-        height,
-        captureMaxWidth: this.options.captureMaxWidth,
-        captureMaxHeight: this.options.captureMaxHeight,
-        captureMaxScale: this.options.captureMaxScale,
-        captureJpegQuality: this.options.captureJpegQuality,
-        captureEveryNthFrame: this.options.captureEveryNthFrame,
-        onStateChange: (state) => this.options.database?.save({ userId, instanceId, profileKey, lastUrl: state.url, updatedAt: Date.now() }),
-      });
-      this.sessions.set(session.id, session);
-      this.profiles.set(profileMapKey, session.id);
+      let creation = this.creatingProfiles.get(profileMapKey);
+      if (!creation) {
+        if (this.sessions.size + this.creatingProfiles.size >= this.options.maxSessions) {
+          throw new BrowserFailure("TOO_MANY_SESSIONS", "Die maximale Anzahl paralleler Browser ist erreicht.");
+        }
+        const profileDirectory = join(this.options.profilesRoot, createHash("sha256").update(`${userId}\u0000${profileKey}`).digest("hex"));
+        const initialUrl = requestedInitialUrl ?? (stored?.lastUrl && stored.lastUrl !== "about:blank" ? stored.lastUrl : "about:blank");
+        creation = BrowserSession.create({
+          userId,
+          instanceId,
+          profileKey,
+          profileDirectory,
+          initialUrl,
+          chromiumPath: this.chromiumPath,
+          startupTimeoutMilliseconds: this.options.startupTimeoutMilliseconds,
+          ...(this.options.allowNoSandbox === undefined ? {} : { allowNoSandbox: this.options.allowNoSandbox }),
+          width,
+          height,
+          captureMaxWidth: this.options.captureMaxWidth,
+          captureMaxHeight: this.options.captureMaxHeight,
+          captureMaxScale: this.options.captureMaxScale,
+          captureJpegQuality: this.options.captureJpegQuality,
+          captureEveryNthFrame: this.options.captureEveryNthFrame,
+          onStateChange: (state) => this.options.database?.save({ userId, instanceId, profileKey, lastUrl: state.url, updatedAt: Date.now() }),
+        }).then((created) => {
+          this.sessions.set(created.id, created);
+          this.profiles.set(profileMapKey, created.id);
+          created.onUnexpectedExit(() => this.removeSession(created));
+          return created;
+        }).finally(() => this.creatingProfiles.delete(profileMapKey));
+        this.creatingProfiles.set(profileMapKey, creation);
+      }
+      session = await creation;
     }
     this.instances.set(`${userId}:${instanceId}`, session.id);
     this.options.database?.save({ userId, instanceId, profileKey, lastUrl: stored?.lastUrl ?? requestedInitialUrl ?? "about:blank", updatedAt: Date.now() });
@@ -551,18 +626,18 @@ export class BrowserManager {
 
   async closeSession(userId: string, sessionId: string) {
     const session = this.ownedSession(userId, sessionId);
-    this.sessions.delete(session.id);
-    for (const [key, value] of this.instances) if (value === session.id) this.instances.delete(key);
-    this.profiles.delete(`${session.userId}:${session.profileKey}`);
+    this.removeSession(session);
     await session.close();
   }
 
   async shutdown() {
     clearInterval(this.cleanupTimer);
+    await Promise.allSettled(this.creatingProfiles.values());
     await Promise.all([...this.sessions.values()].map((session) => session.close()));
     this.sessions.clear();
     this.instances.clear();
     this.profiles.clear();
+    this.creatingProfiles.clear();
   }
 
   private ownedSession(userId: string, sessionId: string) {
@@ -574,6 +649,18 @@ export class BrowserManager {
 
   private async closeIdleSessions() {
     const expired = [...this.sessions.values()].filter((session) => Date.now() - session.lastUsedAt > this.options.idleTimeoutMilliseconds);
-    await Promise.all(expired.map((session) => this.closeSession(session.userId, session.id)));
+    await Promise.all(expired.map(async (session) => {
+      this.removeSession(session);
+      await session.close();
+    }));
+  }
+
+  private removeSession(session: BrowserSession) {
+    if (this.sessions.get(session.id) !== session) return;
+    this.sessions.delete(session.id);
+    for (const [key, value] of this.instances) if (value === session.id) this.instances.delete(key);
+    if (this.profiles.get(`${session.userId}:${session.profileKey}`) === session.id) {
+      this.profiles.delete(`${session.userId}:${session.profileKey}`);
+    }
   }
 }

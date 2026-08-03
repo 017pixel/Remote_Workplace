@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { NewsCategory, NewsCollection, NewsItem, NewsSource } from "@workbench/contracts";
 import { AppError } from "../utils/errors.js";
+import { rankEmbeddingCandidates } from "./vector-search.js";
 
 export interface IncomingNewsItem {
   source: NewsSource;
@@ -27,8 +28,17 @@ interface NewsRow {
 }
 
 export interface NewsListQuery { search?:string; category?:NewsCategory; importance?:"top"|"important"|"relevant"|"more"; mediaType?:"article"|"video"; saved?:boolean; unread?:boolean; collectionId?:string; cursor?:string; limit:number }
+interface NewsCursor { rank:number; date:string; id:string; asOfDate:string }
 
 const band = (score: number) => score >= 85 ? "top" as const : score >= 65 ? "important" as const : score >= 40 ? "relevant" as const : "more" as const;
+
+/** Baut aus Such-Tokens eine FTS5-MATCH-Query. Jedes Token wird gequotet,
+ *  damit Bindestriche und andere Sonderzeichen nicht als Query-Syntax
+ *  interpretiert werden (z. B. `Open-Source*` -> `"Open-Source"*`). */
+function ftsMatchQuery(tokens: string[]): string {
+  const quote = (token: string) => `"${token.replace(/"/g, "\"\"")}"`;
+  return tokens.slice(0, 12).map((token) => `${quote(token)}*`).join(" OR ");
+}
 const baseCategory = (title: string): NewsCategory => {
   const value = title.toLowerCase();
   if (/model|gpt|claude|gemini|mistral|llama|llm|ki-modell/.test(value)) return "ai-models";
@@ -102,6 +112,7 @@ export class NewsDatabase {
     const id = existing?.id ?? randomUUID();
     if (existing) {
       this.db.prepare(`UPDATE news_items SET title=?,excerpt=?,content=?,author=?,cover_url=COALESCE(?,cover_url),video_id=COALESCE(?,video_id),media_type=CASE WHEN COALESCE(?,video_id) IS NOT NULL THEN 'video' ELSE media_type END,fetched_at=? WHERE id=?`).run(input.title,input.excerpt,input.content,input.author,input.coverUrl,input.videoId,input.videoId,now,id);
+      this.refreshFts(id);
       return {id,created:false};
     }
     this.db.prepare(`INSERT INTO news_items(id,source_id,external_id,url,title,excerpt,content,tldr,long_summary,author,category,importance_score,importance_reason,media_type,cover_url,video_id,language,ai_processed,published_at,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,input.source.id,input.externalId,input.url,input.title,input.excerpt,input.content,input.excerpt||input.title,input.excerpt||input.content||input.title,input.author,category,Math.min(100,score),"Kategoriebasierte Ersteinstufung",input.videoId?"video":"article",input.coverUrl,input.videoId,"de",0,input.publishedAt,now);
@@ -118,31 +129,42 @@ export class NewsDatabase {
   pending(limit=20) { return this.db.prepare("SELECT id,title,excerpt,content,source_id sourceId FROM news_items WHERE ai_processed=0 ORDER BY importance_score DESC,published_at DESC LIMIT ?").all(limit) as Array<{id:string;title:string;excerpt:string;content:string;sourceId:string}>; }
   coverBackfillCandidates(limit=48) { return this.db.prepare("SELECT id,url FROM news_items WHERE cover_url IS NULL AND video_id IS NULL ORDER BY importance_score DESC,published_at DESC LIMIT ?").all(limit) as Array<{id:string;url:string}>; }
   updateCover(id:string,coverUrl:string) { this.db.prepare("UPDATE news_items SET cover_url=? WHERE id=? AND cover_url IS NULL").run(coverUrl,id); }
-  private map(row:NewsRow):NewsItem {
-    const collectionIds=(this.db.prepare("SELECT collection_id id FROM news_collection_items WHERE item_id=?").all(row.id) as Array<{id:string}>).map(x=>x.id);
+  private map(row:NewsRow, prefetchedCollections?: Map<string, string[]>):NewsItem {
+    const collectionIds=prefetchedCollections
+      ? (prefetchedCollections.get(row.id) ?? [])
+      : (this.db.prepare("SELECT collection_id id FROM news_collection_items WHERE item_id=?").all(row.id) as Array<{id:string}>).map(x=>x.id);
     return {id:row.id,source:{id:row.sourceId,name:row.sourceName,homepageUrl:row.sourceUrl,kind:row.sourceKind,priority:row.sourcePriority},url:row.url,title:row.title,tldr:row.tldr||row.title,longSummary:row.longSummary||row.tldr||row.content,content:row.content,author:row.author,category:row.category,importanceScore:row.importanceScore,importanceBand:band(row.importanceScore),importanceReason:row.importanceReason,mediaType:row.mediaType,coverUrl:row.coverUrl,videoId:row.videoId,publishedAt:row.publishedAt,fetchedAt:row.fetchedAt,processedAt:row.processedAt,language:row.language,read:Boolean(row.read),saved:collectionIds.length>0,collectionIds,aiProcessed:Boolean(row.aiProcessed)};
   }
   /* Wichtigkeit allein sortiert alte Top-Meldungen ewig nach vorn. Deshalb zieht ein
      Altersabschlag pro Tag vom Score ab (gedeckelt), damit frische Nachrichten aufsteigen.
      Referenz ist der Tagesbeginn, damit die Reihenfolge während einer Blätter-Sitzung stabil bleibt. */
-  private static readonly rankSql = "(i.importance_score - MIN(55.0, MAX(0.0, (julianday(date('now')) - julianday(date(i.published_at))) * 3.5)))";
-  private selectSql() { return `SELECT ${NewsDatabase.rankSql} rankScore,i.id,i.source_id sourceId,s.name sourceName,s.homepage_url sourceUrl,s.kind sourceKind,s.priority sourcePriority,i.url,i.title,i.tldr,i.long_summary longSummary,i.content,i.author,i.category,i.importance_score importanceScore,i.importance_reason importanceReason,i.media_type mediaType,i.cover_url coverUrl,i.video_id videoId,i.published_at publishedAt,i.fetched_at fetchedAt,i.processed_at processedAt,i.language,COALESCE(r.is_read,0) read,i.ai_processed aiProcessed FROM news_items i JOIN news_sources s ON s.id=i.source_id LEFT JOIN news_read_state r ON r.item_id=i.id`; }
+  private static rankSql(asOfDate: string) {
+    return `(i.importance_score - MIN(55.0, MAX(0.0, (julianday('${asOfDate}') - julianday(date(i.published_at))) * 3.5)))`;
+  }
+  private selectSql(rankSql = NewsDatabase.rankSql(new Date().toISOString().slice(0,10))) { return `SELECT ${rankSql} rankScore,i.id,i.source_id sourceId,s.name sourceName,s.homepage_url sourceUrl,s.kind sourceKind,s.priority sourcePriority,i.url,i.title,i.tldr,i.long_summary longSummary,i.content,i.author,i.category,i.importance_score importanceScore,i.importance_reason importanceReason,i.media_type mediaType,i.cover_url coverUrl,i.video_id videoId,i.published_at publishedAt,i.fetched_at fetchedAt,i.processed_at processedAt,i.language,COALESCE(r.is_read,0) read,i.ai_processed aiProcessed FROM news_items i JOIN news_sources s ON s.id=i.source_id LEFT JOIN news_read_state r ON r.item_id=i.id`; }
   get(id:string) { const row=this.db.prepare(`${this.selectSql()} WHERE i.id=?`).get(id) as NewsRow|undefined;if(!row)throw new AppError(404,"NEWS_NOT_FOUND","Die Nachricht wurde nicht gefunden.");return this.map(row); }
   list(query:NewsListQuery) {
     const where:string[]=[];const params:Array<string|number>=[];
-    if(query.search){where.push(`i.id IN (SELECT item_id FROM news_fts WHERE news_fts MATCH ?)`);params.push(query.search.replace(/["']/g," ").trim().split(/\s+/).map(x=>`${x}*`).join(" OR "));}
+    if(query.search){const tokens=query.search.normalize("NFKC").match(/[\p{L}\p{N}_-]+/gu)??[];if(tokens.length===0)where.push("0");else{where.push(`i.id IN (SELECT item_id FROM news_fts WHERE news_fts MATCH ?)`);params.push(ftsMatchQuery(tokens));}}
     if(query.category){where.push("i.category=?");params.push(query.category);} if(query.mediaType){where.push("i.media_type=?");params.push(query.mediaType);}
     if(query.importance){const ranges={top:[85,100],important:[65,84],relevant:[40,64],more:[0,39]}[query.importance];where.push("i.importance_score BETWEEN ? AND ?");params.push(...ranges);}
     if(query.saved) where.push("EXISTS(SELECT 1 FROM news_collection_items ci WHERE ci.item_id=i.id)");
     if(query.unread) where.push("NOT EXISTS(SELECT 1 FROM news_read_state unread_state WHERE unread_state.item_id=i.id AND unread_state.is_read=1)");
     if(query.collectionId){where.push("EXISTS(SELECT 1 FROM news_collection_items ci WHERE ci.item_id=i.id AND ci.collection_id=?)");params.push(query.collectionId);}
     const totalWhere=[...where];const totalParams=[...params];
-    if(query.cursor){try{const cursor=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8")) as {rank:number;date:string};if(typeof cursor.rank==="number"&&typeof cursor.date==="string"){where.push(`(${NewsDatabase.rankSql} < ? OR (${NewsDatabase.rankSql} = ? AND i.published_at < ?))`);params.push(cursor.rank,cursor.rank,cursor.date);}}catch{/* An invalid cursor simply starts from the first page. */}}
+    let asOfDate=new Date().toISOString().slice(0,10);
+    let cursor:NewsCursor|null=null;
+    if(query.cursor){try{const parsed=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8")) as Partial<NewsCursor>;if(typeof parsed.rank!=="number"||!Number.isFinite(parsed.rank)||typeof parsed.date!=="string"||!Number.isFinite(Date.parse(parsed.date))||typeof parsed.id!=="string"||typeof parsed.asOfDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(parsed.asOfDate))throw new Error("invalid");cursor=parsed as NewsCursor;asOfDate=cursor.asOfDate;}catch{throw new AppError(400,"INVALID_NEWS_CURSOR","Der News-Cursor ist ungültig.");}}
+    const rankSql=NewsDatabase.rankSql(asOfDate);
+    if(cursor){where.push(`(${rankSql} < ? OR (${rankSql} = ? AND (i.published_at < ? OR (i.published_at = ? AND i.id < ?))))`);params.push(cursor.rank,cursor.rank,cursor.date,cursor.date,cursor.id);}
     const clause=where.length?` WHERE ${where.join(" AND ")}`:"";
-    const rows=this.db.prepare(`${this.selectSql()}${clause} ORDER BY rankScore DESC,i.published_at DESC LIMIT ?`).all(...params,query.limit+1) as unknown as NewsRow[];
-    const hasMore=rows.length>query.limit;const page=rows.slice(0,query.limit);const items=page.map(row=>this.map(row));
+    const rows=this.db.prepare(`${this.selectSql(rankSql)}${clause} ORDER BY rankScore DESC,i.published_at DESC,i.id DESC LIMIT ?`).all(...params,query.limit+1) as unknown as NewsRow[];
+    const hasMore=rows.length>query.limit;const page=rows.slice(0,query.limit);
+    const collections=new Map<string,string[]>();
+    if(page.length){const placeholders=page.map(()=>"?").join(",");for(const entry of this.db.prepare(`SELECT item_id itemId,collection_id collectionId FROM news_collection_items WHERE item_id IN (${placeholders})`).all(...page.map(row=>row.id)) as Array<{itemId:string;collectionId:string}>){const ids=collections.get(entry.itemId)??[];ids.push(entry.collectionId);collections.set(entry.itemId,ids);}}
+    const items=page.map(row=>this.map(row,collections));
     const totalClause=totalWhere.length?` WHERE ${totalWhere.join(" AND ")}`:"";const total=(this.db.prepare(`SELECT COUNT(*) count FROM news_items i${totalClause}`).get(...totalParams) as {count:number}).count;
-    const last=page.at(-1);const nextCursor=hasMore&&last?Buffer.from(JSON.stringify({rank:last.rankScore,date:last.publishedAt})).toString("base64url"):null;
+    const last=page.at(-1);const nextCursor=hasMore&&last?Buffer.from(JSON.stringify({rank:last.rankScore,date:last.publishedAt,id:last.id,asOfDate})).toString("base64url"):null;
     return {items,nextCursor,total};
   }
   setRead(id:string,read:boolean){this.get(id);this.db.prepare(`INSERT INTO news_read_state(item_id,is_read,updated_at) VALUES(?,?,?) ON CONFLICT(item_id) DO UPDATE SET is_read=excluded.is_read,updated_at=excluded.updated_at`).run(id,Number(read),new Date().toISOString());return this.get(id);}
@@ -150,6 +172,23 @@ export class NewsDatabase {
   createCollection(name:string){const now=new Date().toISOString();const id=randomUUID();try{this.db.prepare("INSERT INTO news_collections VALUES(?,?,?,?)").run(id,name,now,now);}catch{throw new AppError(409,"COLLECTION_EXISTS","Eine Sammlung mit diesem Namen existiert bereits.");}return this.collections().find(c=>c.id===id)!;}
   deleteCollection(id:string){const result=this.db.prepare("DELETE FROM news_collections WHERE id=?").run(id);if(result.changes===0)throw new AppError(404,"COLLECTION_NOT_FOUND","Die Sammlung wurde nicht gefunden.");}
   saveToCollections(itemId:string,ids:string[]){this.get(itemId);this.db.exec("BEGIN IMMEDIATE");try{this.db.prepare("DELETE FROM news_collection_items WHERE item_id=?").run(itemId);const insert=this.db.prepare("INSERT INTO news_collection_items VALUES(?,?,?)");for(const id of ids){if(!this.db.prepare("SELECT 1 FROM news_collections WHERE id=?").get(id))throw new AppError(404,"COLLECTION_NOT_FOUND","Eine Sammlung wurde nicht gefunden.");insert.run(id,itemId,new Date().toISOString());this.db.prepare("UPDATE news_collections SET updated_at=? WHERE id=?").run(new Date().toISOString(),id);}this.db.exec("COMMIT");}catch(error){this.db.exec("ROLLBACK");throw error;}return this.get(itemId);}
-  relevant(question:string,itemId:string|null,limit=8,queryEmbedding?:number[]){if(itemId)return [this.get(itemId)];const tokens=question.replace(/["']/g," ").trim().split(/\s+/).filter(x=>x.length>2);const ranks=new Map<string,number>();try{if(tokens.length){const ids=this.db.prepare("SELECT item_id id FROM news_fts WHERE news_fts MATCH ? ORDER BY rank LIMIT ?").all(tokens.map(x=>`${x}*`).join(" OR "),limit*3) as Array<{id:string}>;ids.forEach((row,index)=>ranks.set(row.id,(ranks.get(row.id)??0)+1/(60+index)));}}catch{/* Fall back to vector or feed ranking. */}if(queryEmbedding){const norm=Math.sqrt(queryEmbedding.reduce((sum,value)=>sum+value*value,0))||1;const vectors=(this.db.prepare("SELECT item_id id,vector_json vectorJson FROM news_embeddings").all() as Array<{id:string;vectorJson:string}>).map(row=>{const vector=JSON.parse(row.vectorJson) as number[];const denominator=norm*(Math.sqrt(vector.reduce((sum,value)=>sum+value*value,0))||1);const similarity=vector.reduce((sum,value,index)=>sum+value*(queryEmbedding[index]??0),0)/denominator;return{id:row.id,similarity};}).sort((a,b)=>b.similarity-a.similarity).slice(0,limit*3);vectors.forEach((row,index)=>ranks.set(row.id,(ranks.get(row.id)??0)+1/(60+index)));}const ids=[...ranks.entries()].sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id])=>id);return ids.length?ids.map(id=>this.get(id)):this.list({limit}).items;}
+  async relevant(question:string,itemId:string|null,limit=8,queryEmbedding?:number[]){
+    if(itemId)return [this.get(itemId)];
+    const tokens=question.normalize("NFKC").match(/[\p{L}\p{N}_-]{3,}/gu)??[];
+    const ranks=new Map<string,number>();
+    try{
+      if(tokens.length){
+        const ids=this.db.prepare("SELECT item_id id FROM news_fts WHERE news_fts MATCH ? ORDER BY rank LIMIT ?").all(ftsMatchQuery(tokens),limit*3) as Array<{id:string}>;
+        ids.forEach((row,index)=>ranks.set(row.id,(ranks.get(row.id)??0)+1/(60+index)));
+      }
+    }catch{/* Fall back to vector or feed ranking. */}
+    if(queryEmbedding){
+      const candidates=this.db.prepare(`SELECT e.item_id id,e.vector_json vectorJson FROM news_embeddings e JOIN news_items i ON i.id=e.item_id ORDER BY i.published_at DESC LIMIT 2000`).all() as Array<{id:string;vectorJson:string}>;
+      const vectors=await rankEmbeddingCandidates(queryEmbedding,candidates,limit*3);
+      vectors.forEach((id,index)=>ranks.set(id,(ranks.get(id)??0)+1/(60+index)));
+    }
+    const ids=[...ranks.entries()].sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id])=>id);
+    return ids.length?ids.map(id=>this.get(id)):this.list({limit}).items;
+  }
   syncState(){const row=this.db.prepare("SELECT MAX(last_synced_at) lastSyncedAt,MAX(last_error) lastError FROM news_sources").get() as {lastSyncedAt:string|null;lastError:string|null};return row;}
 }

@@ -65,10 +65,10 @@ export class ProjectRegistryDatabase {
     return row ? { ...row } : null;
   }
 
-  register(path: string, name = basename(path), at = new Date().toISOString()): { project: RegisteredProject; created: boolean } {
+  register(path: string, name = basename(path), at = new Date().toISOString(), preferredId?: string): { project: RegisteredProject; created: boolean } {
     const existing = this.findByPath(path);
     if (existing) return { project: existing, created: false };
-    const project: RegisteredProject = { id: registeredProjectId(path), path, name, createdAt: at };
+    const project: RegisteredProject = { id: preferredId ?? registeredProjectId(path), path, name, createdAt: at };
     this.database.prepare(`
       INSERT INTO orbit_project_registry (id, canonical_path, name, created_at)
       VALUES (?, ?, ?, ?)
