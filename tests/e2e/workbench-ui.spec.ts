@@ -135,8 +135,7 @@ test("creates project-bound terminal tabs and splits them without replacing sess
   await area.getByRole("button", { name: "Split schließen", exact: true }).click();
   await expect(area).toHaveAttribute("data-split", "false");
 
-  await area.getByRole("button", { name: "Terminalinformationen", exact: true }).click();
-  await expect(area.locator(".terminal-info-popover code")).toContainText("/home/user/projects/Remote_Workplace");
+  await expect(area.locator(".terminal-statusline-path")).toContainText("/home/user/projects/Remote_Workplace");
 
   for (let remaining = 3; remaining > 0; remaining -= 1) {
     await area.getByRole("button", { name: "Terminal schließen", exact: true }).click();
@@ -157,8 +156,7 @@ test("opens OpenCode in the newly selected project", async ({ page }) => {
     "title",
     /OpenCode 2 · Sample · \/home\/user\/projects\/Sample/,
   );
-  await page.getByRole("button", { name: "Terminalinformationen" }).click();
-  await expect(page.locator(".terminal-info-popover code")).toContainText("/home/user/projects/Sample");
+  await expect(page.locator(".terminal-statusline-path")).toContainText("/home/user/projects/Sample");
 });
 
 test("keeps T3 Code visibly connected to the selected project", async ({ page }) => {

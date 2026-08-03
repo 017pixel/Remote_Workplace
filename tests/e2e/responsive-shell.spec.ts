@@ -4,7 +4,7 @@ test.use({ extraHTTPHeaders: { "tailscale-user-login": "user@example.com" } });
 
 const routes = [
   "", "projects", "settings", "usage", "workbench", "tech-tldrs",
-  "browser", "terminal", "previews", "code-editor", "t3-code", "codex", "opencode", "notion",
+  "browser", "terminal", "previews", "code-editor", "t3-code", "codex", "opencode", "claude", "notion",
 ];
 
 async function mockPreviewSlots(page: Page) {
@@ -68,7 +68,6 @@ test("keeps route floating controls behind the navigation page", async ({ page }
   const floatingSelector = [
     ".news-dynamic-island",
     ".orbit-main-island",
-    ".terminal-actions-trigger",
     ".terminal-island",
     ".panel-island",
     ".browser-context-menu",

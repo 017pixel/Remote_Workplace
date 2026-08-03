@@ -22,11 +22,28 @@ test("moves standalone T3 Code actions into the topbar", async ({ page }) => {
   const actions = page.locator("#topbar-tool-actions");
   await expect(actions).toBeVisible();
   await expect(page.getByRole("button", { name: "Projekt auswählen" })).toHaveCount(0);
-  await expect(actions.getByRole("button", { name: "Neu laden" })).toBeVisible();
-  await expect(actions.getByRole("link", { name: "In neuem Tab öffnen" })).toBeVisible();
-  await expect(actions.getByRole("button", { name: "Vollbild" })).toBeVisible();
+  await actions.getByRole("button", { name: "Werkzeugaktionen" }).click();
+  const menu = actions.getByRole("menu", { name: "Werkzeugaktionen" });
+  await expect(menu.getByRole("menuitem", { name: "Neu laden" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "In neuem Tab öffnen" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Vollbild" })).toBeVisible();
   await expect(page.locator(".standalone-tool-content .panel-island")).toHaveCount(0);
-  await actions.getByRole("button", { name: "Vollbild" }).click();
+  await menu.getByRole("menuitem", { name: "Vollbild" }).click();
   await expect(page.locator(".tool-surface-maximized")).toBeVisible();
   await expect(page.locator(".tool-surface-maximized").getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
+test("keeps one standalone tool menu after switching between tool routes", async ({ page }) => {
+  await page.goto("/workbench/t3-code");
+  const actions = page.locator("#topbar-tool-actions");
+  await expect(actions.getByRole("button", { name: "Werkzeugaktionen" })).toHaveCount(1);
+
+  await page.getByRole("link", { name: "Code-Server" }).click();
+  await expect(page).toHaveURL(/\/workbench\/code-editor$/);
+  await expect(page.locator('iframe[title="Editor"]')).toBeVisible();
+  await expect(page.locator("#topbar-tool-actions").getByRole("button", { name: "Werkzeugaktionen" })).toHaveCount(1);
+
+  await page.getByRole("link", { name: "T3 Code" }).click();
+  await expect(page).toHaveURL(/\/workbench\/t3-code$/);
+  await expect(page.locator("#topbar-tool-actions").getByRole("button", { name: "Werkzeugaktionen" })).toHaveCount(1);
 });

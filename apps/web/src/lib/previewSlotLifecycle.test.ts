@@ -20,6 +20,7 @@ function slot(id: string, parentId: string | null, previewSlotId: number, target
     previewDeviceId: null,
     previewOrientation: "portrait",
     previewSlotId,
+    previewStorageProfileId: null,
     previewIsolation: true,
     previewRuntime: "iframe",
     previewReferenceId: null,
@@ -31,6 +32,8 @@ function slot(id: string, parentId: string | null, previewSlotId: number, target
     content: "",
     language: null,
     color: null,
+    hermesSourceFilter: "all",
+    hermesStatusFilter: "all",
     locked: false,
     zIndex: 1,
   };

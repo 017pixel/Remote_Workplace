@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiIdentityHeaders } from "./helpers/environment";
 
 const workbench = process.env.WORKBENCH_E2E_URL;
 
@@ -10,14 +11,14 @@ test.use({
 test("shows real recent projects, collapsed separators and shared Notion", async ({ page }) => {
   test.setTimeout(60_000);
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  const projects = await (await page.request.get(new URL("/api/v1/projects", workbench).toString())).json() as {
+  const projects = await (await page.request.get(new URL("/api/v1/projects", workbench).toString(), { headers: apiIdentityHeaders("ui-check@example.com") })).json() as {
     projects: Array<{ id: string; name: string; path: string; availability: string; activity: { effectiveAt: string | null } }>;
     recentLimit: number;
   };
   const selectedProject = projects.projects.find((project) => project.availability === "available");
   expect(selectedProject).toBeDefined();
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByRole("button", { name: /neue-datei\.ts/ })).toHaveCount(0);
   const projectSectionButtons = page.locator(".sidebar-section").nth(1).locator("button.orbit-palette-item");
@@ -41,7 +42,5 @@ test("shows real recent projects, collapsed separators and shared Notion", async
   await page.locator(".orbit-palette-item").filter({ hasText: /^Notionziehen$/ }).click();
   const notion = page.locator('.orbit-live-node [data-panel-type="notion"]').last();
   await expect(notion).toBeVisible();
-  await expect(notion.locator(".chromium-browser")).toBeVisible();
-  await expect(notion.locator(".browser-connection.is-ready")).toBeVisible({ timeout: 30_000 });
-  await expect(notion.locator(".browser-error")).toHaveCount(0);
+  await expect(notion).toContainText("Notion-Integration wird nicht mehr ausgeführt");
 });

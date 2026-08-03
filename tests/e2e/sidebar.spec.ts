@@ -24,7 +24,7 @@ test("zeigt eingeklappt alle Navigationsebenen, nicht nur die ersten vier", asyn
   // Werkzeuge und Fußbereich müssen erreichbar bleiben — genau die fehlten vorher.
   await expect(sidebar.getByRole("link", { name: "Dashboard" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Terminal" })).toBeVisible();
-  await expect(sidebar.getByRole("link", { name: "Galerie" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Dateien" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Einstellungen" })).toBeVisible();
 });
 

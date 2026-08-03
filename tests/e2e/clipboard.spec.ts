@@ -18,7 +18,7 @@ test("copies the current terminal selection and pastes plain text instead of sta
   await page.goto(`${workbench}/terminal`);
   await expect(page.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
   const input = page.locator(".xterm-helper-textarea");
-  const marker = `__CLIPBOARD_COPY_${Date.now()}__`;
+  const marker = `https://github.com/login/device?code=CLIP-${Date.now()}`;
   await input.press("Control+L");
   await input.type(`printf '${marker}\\n'`);
   await input.press("Enter");
@@ -76,7 +76,7 @@ test("does not grant embedded T3 Code or previews extra clipboard permissions", 
 
 test("routes Orbit paste to the focused editor, canvas or terminal only", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await page.getByRole("button", { name: /Neue Notiz/ }).click();
   const note = page.getByLabel("Neue Notiz bearbeiten").last();

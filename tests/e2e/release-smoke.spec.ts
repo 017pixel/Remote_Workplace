@@ -52,7 +52,7 @@ test("resizes selected Orbit nodes and keeps properties collapsed", async ({ pag
   test.setTimeout(90_000);
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   const syncStatus = page.getByRole("button", { name: /Server gespeichert/ });
   await expect(syncStatus).toBeVisible({ timeout: 20_000 });
@@ -67,7 +67,7 @@ test("resizes selected Orbit nodes and keeps properties collapsed", async ({ pag
   await expect(note).toBeVisible();
   await expect(page.getByRole("button", { name: "Eigenschaften öffnen" })).toBeVisible();
   await expect(page.locator(".orbit-inspector")).toHaveCount(0);
-  await expect(note.locator(".orbit-resize-corner")).toHaveCount(4);
+  await expect(note.locator(".orbit-resize-corner")).toHaveCount(8);
 
   const beforeDrag = await note.boundingBox();
   const header = await note.locator(".orbit-node-header").boundingBox();
@@ -103,7 +103,7 @@ test("resizes selected Orbit nodes and keeps properties collapsed", async ({ pag
   const frame = page.locator(".react-flow__node-orbit").filter({ has: page.locator(".orbit-frame-node") }).last();
   await expect(frame).toBeVisible();
   await expect(note.locator(".orbit-resize-corner")).toHaveCount(0);
-  await expect(frame.locator(".orbit-resize-corner")).toHaveCount(4);
+  await expect(frame.locator(".orbit-resize-corner")).toHaveCount(8);
   await page.getByRole("button", { name: "Alles zeigen" }).click();
   await page.waitForTimeout(350);
   const edgeCount = await page.locator(".react-flow__edge").count();
@@ -159,7 +159,7 @@ test("keeps Browser and Orbit controls usable on mobile", async ({ page }) => {
   await expect(page.getByLabel("Browser-Adresse")).toBeVisible();
   await page.screenshot({ path: "/tmp/workbench-011-mobile-browser.png", fullPage: true });
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.locator(".orbit-minimap")).toBeHidden();
   const command = page.getByRole("button", { name: "Befehl" });

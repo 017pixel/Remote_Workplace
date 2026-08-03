@@ -19,3 +19,13 @@ export const workbenchUrl = (process.env.WORKBENCH_E2E_URL ?? "http://127.0.0.1:
 /** Begründung für übersprungene Tests, die eine eingerichtete Instanz voraussetzen. */
 export const privateWorkbenchReason =
   "Setze WORKBENCH_E2E_URL auf eine eingerichtete Workbench (Projekte, Tailscale-Identität, Dienste).";
+
+/**
+ * Identitäts-Header für API-Zugriffe über `page.request`/`context.request`.
+ * Playwright sendet `extraHTTPHeaders` nur für Browser-Requests, nicht für die
+ * API-Request-Kontexte — die Server-Authentifizierung verlangt die Identität
+ * aber überall, also muss sie hier explizit mitgegeben werden.
+ */
+export function apiIdentityHeaders(login: string): Record<string, string> {
+  return { "tailscale-user-login": login };
+}
