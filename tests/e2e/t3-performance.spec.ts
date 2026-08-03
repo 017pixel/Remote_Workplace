@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import type { Frame } from "@playwright/test";
 
 const workbench = (process.env.WORKBENCH_E2E_URL ?? "http://127.0.0.1:3010/workbench").replace(/\/$/, "");
 const origin = new URL(workbench).origin;
@@ -21,7 +22,7 @@ test.describe("T3-Performance", () => {
     const failingT3Requests: string[] = [];
     const authErrors: string[] = [];
     const t3DocumentRequests: string[] = [];
-    let standaloneT3FrameObject: import("@playwright/test").Frame | null = null;
+    let standaloneT3FrameObject: Frame | null = null;
     let currentRoute = "initial";
     page.on("request", (request) => {
       if (request.resourceType() !== "document") return;

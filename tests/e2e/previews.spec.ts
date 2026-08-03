@@ -99,26 +99,38 @@ test.describe("Lokale Previews", () => {
   });
 
   test("nimmt Diagnose-Batches an und redigiert Secrets", async ({ request }) => {
-    const response = await request.post("/api/v1/previews/diagnostics/batches", {
+    // Diagnose ist im isolierten E2E-Server aktiviert; ein Batch braucht deshalb
+    // eine echte, dem Benutzer gehörende Preview-Session.
+    const opened = await request.post("/api/v1/previews/sessions", {
       headers: previewIdentity,
-      data: {
-        previewNodeId: "e2e-node",
-        droppedSinceLastBatch: 0,
-        events: [{
-          id: "44444444-4444-4444-8444-444444444444",
-          at: new Date().toISOString(),
-          source: "client",
-          category: "console",
-          severity: "error",
-          message: "Antwort mit Authorization: Bearer geheim",
-          metadata: { Cookie: "sid=1" },
-        }],
-      },
+      data: { sessionKey: "e2e-diagnose", projectId: null, primaryPort: fixturePorts.spa, primaryProtocol: "http", isolate: true, storageProfileId: null },
     });
-    // Ohne aktivierte Diagnose antwortet der Endpunkt leer, aber nie mit einem Fehler.
-    expect(response.ok()).toBeTruthy();
-    const listed = await (await request.get("/api/v1/previews/diagnostics?previewNodeId=e2e-node", { headers: previewIdentity })).json() as { events: Array<{ message: string }> };
-    for (const event of listed.events) expect(event.message).not.toContain("geheim");
+    expect(opened.ok()).toBeTruthy();
+    const session = await opened.json() as { id: string };
+    try {
+      const response = await request.post("/api/v1/previews/diagnostics/batches", {
+        headers: previewIdentity,
+        data: {
+          previewNodeId: "e2e-node",
+          sessionId: session.id,
+          droppedSinceLastBatch: 0,
+          events: [{
+            id: "44444444-4444-4444-8444-444444444444",
+            at: new Date().toISOString(),
+            source: "client",
+            category: "console",
+            severity: "error",
+            message: "Antwort mit Authorization: Bearer geheim",
+            metadata: { Cookie: "sid=1" },
+          }],
+        },
+      });
+      expect(response.ok()).toBeTruthy();
+      const listed = await (await request.get("/api/v1/previews/diagnostics?previewNodeId=e2e-node", { headers: previewIdentity })).json() as { events: Array<{ message: string }> };
+      for (const event of listed.events) expect(event.message).not.toContain("geheim");
+    } finally {
+      await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+    }
   });
 
   test("verweigert Preview-Zugriff ohne Identität", async ({ request }) => {
