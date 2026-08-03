@@ -6,7 +6,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { CrashReportDialog } from "./components/CrashReportDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { addBreadcrumb, installGlobalErrorHandlers } from "./lib/crashReport";
+import { addBreadcrumb, installGlobalErrorHandlers, subscribeToCrash } from "./lib/crashReport";
+import { apiClient } from "./lib/apiClient";
 import "./index.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
@@ -19,6 +20,19 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, refetchOnWindowFocus: false },
   },
+});
+
+subscribeToCrash((report) => {
+  if (!report) return;
+  void apiClient.createCrashNotification({
+    title: "Frontend-Absturz", body: report.message.slice(0, 1_000), link: report.route.startsWith("/workbench/") ? report.route : "/workbench/inbox",
+    remoteId: `crash:${report.id}`,
+    report: {
+      message: report.message, stack: [report.stack, report.componentStack].filter(Boolean).join("\n\n") || null,
+      context: { Route: report.route, Art: report.kind, Zeitpunkt: report.occurredAt }, logs: report.breadcrumbs,
+      environment: { UserAgent: navigator.userAgent, Viewport: `${window.innerWidth}x${window.innerHeight}` },
+    },
+  }).catch(() => undefined);
 });
 
 // Fehlgeschlagene Abfragen als Breadcrumb — im Crash-Report sieht man dann,

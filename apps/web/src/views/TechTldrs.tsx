@@ -16,32 +16,13 @@ import type {
   NewsListResponse,
 } from "@workbench/contracts";
 import { newsChatModelOptions } from "@workbench/contracts";
-import {
-  ArrowLeft,
-  Bookmark,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-  Filter,
-  Library,
-  Newspaper,
-  Play,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Send,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ArrowLeftIcon, BookmarkIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CloseIcon, CopyIcon, ExternalLinkIcon, FilterIcon, LibraryIcon, PlayIcon, PlusIcon, RefreshIcon, RetryIcon, SearchIcon, SendIcon, SparklesIcon, TechTldrsIcon, TrashIcon, WarningIcon } from "../components/icons";
 import { apiClient } from "../lib/apiClient";
 import { workbenchQueries } from "../lib/queryOptions";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { writeClipboardText } from "../lib/clipboard";
 import { ConfirmDialog, ModalFrame } from "../components/ModalDialog";
+import { useRouteActivity } from "../lib/routeActivity";
 
 const COMPACT_QUERY = "(max-width: 1180px)";
 const MODEL_STORAGE_KEY = "workbench.news.chatModel";
@@ -180,7 +161,7 @@ function Cover({ item, large = false }: { item: NewsItem; large?: boolean }) {
       ) : null}
       {item.mediaType === "video" ? (
         <span className="news-video-mark">
-          <Play className="h-4 w-4" /> Video
+          <PlayIcon className="h-4 w-4" /> Video
         </span>
       ) : null}
     </div>
@@ -188,6 +169,15 @@ function Cover({ item, large = false }: { item: NewsItem; large?: boolean }) {
 }
 
 type MarkdownNode = React.ReactNode;
+
+function safeMarkdownHref(value: string): string | null {
+  try {
+    const parsed = new URL(value, window.location.origin);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 function renderInline(text: string, citations: NewsCitation[], onOpen: (citation: NewsCitation) => void): MarkdownNode[] {
   const nodes: MarkdownNode[] = [];
@@ -198,34 +188,33 @@ function renderInline(text: string, citations: NewsCitation[], onOpen: (citation
   const pushText = (value: string) => {
     if (!value) return;
     const parts: MarkdownNode[] = [];
-    const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+    const regex = /(\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|(?<!\*)\*([^*]+)\*(?!\*)|(?<!_)_([^_]+)_(?!_)|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
     let last = 0;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(value)) !== null) {
       if (match.index > last) parts.push(value.slice(last, match.index));
       const bold = match[2];
-      const italic = match[3];
-      const code = match[4];
-      const linkText = match[5];
-      const linkHref = match[6];
+      const boldUnderscore = match[3];
+      const strike = match[4];
+      const italic = match[5] ?? match[6];
+      const code = match[7];
+      const linkText = match[8];
+      const linkHref = match[9];
       if (bold !== undefined) {
         parts.push(<strong key={`b${key++}`}>{bold}</strong>);
+      } else if (boldUnderscore !== undefined) {
+        parts.push(<strong key={`b${key++}`}>{boldUnderscore}</strong>);
+      } else if (strike !== undefined) {
+        parts.push(<del key={`s${key++}`}>{strike}</del>);
       } else if (italic !== undefined) {
         parts.push(<em key={`i${key++}`}>{italic}</em>);
       } else if (code !== undefined) {
         parts.push(<code key={`c${key++}`} className="news-md-code">{code}</code>);
       } else if (linkText !== undefined && linkHref !== undefined) {
-        parts.push(
-          <a
-            key={`a${key++}`}
-            href={linkHref}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="news-md-link"
-          >
-            {linkText}
-          </a>,
-        );
+        const safeHref = safeMarkdownHref(linkHref);
+        parts.push(safeHref
+          ? <a key={`a${key++}`} href={safeHref} target="_blank" rel="noreferrer noopener" className="news-md-link">{linkText}</a>
+          : <span key={`a${key++}`}>{linkText}</span>);
       }
       last = regex.lastIndex;
     }
@@ -261,6 +250,26 @@ function renderInline(text: string, citations: NewsCitation[], onOpen: (citation
   return nodes;
 }
 
+function splitTableCells(line: string): string[] {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const cells = splitTableCells(line);
+  return cells.length >= 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function isTableRow(line: string): boolean {
+  return /^\|?\s*[^|]+(?:\s*\|\s*[^|]+)+\s*\|?$/.test(line.trim());
+}
+
+/* Manche Modelle liefern die komplette Tabelle in einer Zeile. Diese Variante
+   trennt nur eindeutige Tabellen-Grenzen und lässt normale Inline-Pipes in Ruhe. */
+function normalizeCompactTableLine(line: string): string[] {
+  if (!line.includes("|") || !/\|\s*\|(?=\s*(?::?-{3,}:?|[^|]+\|))/.test(line)) return [line];
+  return line.replace(/\|\s*\|(?=\s*(?::?-{3,}:?|[^|]+\|))/g, "|\n|").split("\n");
+}
+
 /* Zeilenweiser Block-Parser: Überschriften, Listen und Trenner tauchen im Modelltext auch
    mitten in einem Absatz auf. Ein reiner Absatz-Split hätte "### Titel" wörtlich ausgegeben. */
 function NewsMarkdown({
@@ -275,7 +284,7 @@ function NewsMarkdown({
   const blocks: MarkdownNode[] = [];
   const lines = text.split(/\r?\n/);
   let paragraph: string[] = [];
-  let list: string[] = [];
+  let list: { ordered: boolean; task: boolean; text: string }[] = [];
   let code: { language: string; lines: string[] } | null = null;
   let key = 0;
 
@@ -288,12 +297,17 @@ function NewsMarkdown({
   };
   const flushList = () => {
     if (!list.length) return;
+    const ordered = list[0]?.ordered ?? false;
+    const List = ordered ? "ol" : "ul";
     blocks.push(
-      <ul key={`l${key++}`} className="news-answer-list">
+      <List key={`l${key++}`} className={`news-answer-list ${ordered ? "is-ordered" : ""}`}>
         {list.map((entry, index) => (
-          <li key={index}>{renderInline(entry, citations, onOpen)}</li>
+          <li key={index} className={entry.task ? "news-task-item" : undefined}>
+            {entry.task ? <span className="news-task-box" aria-hidden /> : null}
+            {renderInline(entry.text, citations, onOpen)}
+          </li>
         ))}
-      </ul>,
+      </List>,
     );
     list = [];
   };
@@ -302,7 +316,9 @@ function NewsMarkdown({
     flushList();
   };
 
-  for (const rawLine of lines) {
+  const normalizedLines = lines.flatMap(normalizeCompactTableLine);
+  for (let lineIndex = 0; lineIndex < normalizedLines.length; lineIndex += 1) {
+    const rawLine = normalizedLines[lineIndex] ?? "";
     const line = rawLine.trim();
     const fence = /^```(\w*)$/.exec(line);
     if (code) {
@@ -355,10 +371,39 @@ function NewsMarkdown({
       );
       continue;
     }
+    if (isTableRow(line) && isTableSeparator(normalizedLines[lineIndex + 1]?.trim() ?? "")) {
+      flushAll();
+      const header = splitTableCells(line);
+      const alignments = splitTableCells(normalizedLines[lineIndex + 1] ?? "").map((cell) =>
+        cell.startsWith(":") && cell.endsWith(":") ? "center" : cell.endsWith(":") ? "right" : cell.startsWith(":") ? "left" : undefined,
+      );
+      const rows: string[][] = [];
+      lineIndex += 2;
+      while (lineIndex < normalizedLines.length && isTableRow(normalizedLines[lineIndex]?.trim() ?? "")) {
+        rows.push(splitTableCells(normalizedLines[lineIndex] ?? ""));
+        lineIndex += 1;
+      }
+      lineIndex -= 1;
+      blocks.push(
+        <div key={`t${key++}`} className="news-md-table-wrap">
+          <table className="news-md-table">
+            <thead><tr>{header.map((cell, index) => <th key={index} style={{ textAlign: alignments[index] }}>{renderInline(cell, citations, onOpen)}</th>)}</tr></thead>
+            <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{header.map((_, cellIndex) => <td key={cellIndex} style={{ textAlign: alignments[cellIndex] }}>{renderInline(row[cellIndex] ?? "", citations, onOpen)}</td>)}</tr>)}</tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
     const bullet = /^([-*+]|\d+\.)\s+(.+)$/.exec(line);
     if (bullet) {
       flushParagraph();
-      list.push(bullet[2] ?? "");
+      const marker = bullet[1] ?? "-";
+      const entryText = bullet[2] ?? "";
+      const task = /^\[[ xX]\]\s+/.test(entryText);
+      const text = task ? entryText.replace(/^\[[ xX]\]\s+/, "") : entryText;
+      const ordered = /\d+\.$/.test(marker);
+      if (list.length && list[0]?.ordered !== ordered) flushList();
+      list.push({ ordered, task, text });
       continue;
     }
     flushList();
@@ -391,7 +436,7 @@ function CopyButton({ text, label = "Antwort kopieren" }: { text: string; label?
       }}
       aria-label={label}
     >
-      {copied ? <Check /> : <Copy />}
+      {copied ? <CheckIcon /> : <CopyIcon />}
       <span>{copied ? "Kopiert" : "Kopieren"}</span>
     </button>
   );
@@ -448,7 +493,7 @@ function SavePanel({
           onClick={onClose}
           aria-label="Schließen"
         >
-          <X />
+          <CloseIcon />
         </button>
       </header>
       <div className="news-collection-list">
@@ -475,7 +520,7 @@ function SavePanel({
                 <strong>{collection.name}</strong>
                 <small>{collection.itemCount} Beiträge</small>
               </span>
-              <Check />
+              <CheckIcon />
             </label>
             <CollectionDeleteButton
               collection={collection}
@@ -498,7 +543,7 @@ function SavePanel({
           disabled={!name.trim() || create.isPending}
           onClick={() => create.mutate()}
         >
-          <Plus /> <span>Anlegen</span>
+          <PlusIcon /> <span>Anlegen</span>
         </button>
       </div>
       <button
@@ -506,7 +551,7 @@ function SavePanel({
         disabled={save.isPending}
         onClick={() => save.mutate()}
       >
-        <Bookmark />
+        <BookmarkIcon />
         <span>{save.isPending ? "Speichert …" : "Auswahl speichern"}</span>
       </button>
     </div>
@@ -535,7 +580,7 @@ function CollectionDeleteButton({
         aria-label={`Sammlung „${collection.name}“ löschen`}
         title="Sammlung löschen"
       >
-        <Trash2 />
+        <TrashIcon />
       </button>
       <ConfirmDialog
         open={confirmOpen}
@@ -659,7 +704,7 @@ function ArticleReader({
             aria-expanded={chatOpen}
             aria-controls={`news-chat-${item.id}`}
           >
-            <Sparkles />
+            <SparklesIcon />
             <span>KI-Chat</span>
           </button>
           <button
@@ -667,7 +712,7 @@ function ArticleReader({
             onClick={onClose}
             aria-label="Leser schließen"
           >
-            <X />
+            <CloseIcon />
           </button>
         </div>
         <div
@@ -693,11 +738,11 @@ function ArticleReader({
             <h1>{item.title}</h1>
             <div className="news-reader-actions">
               <button onClick={() => setSaveOpen(true)}>
-                <Bookmark className={item.saved ? "is-filled" : ""} />
+                <BookmarkIcon className={item.saved ? "is-filled" : ""} />
                 {item.saved ? "Gespeichert" : "Speichern"}
               </button>
               <a href={item.url} target="_blank" rel="noreferrer">
-                Original <ExternalLink />
+                Original <ExternalLinkIcon />
               </a>
             </div>
             <section className="news-tldr">
@@ -721,7 +766,7 @@ function ArticleReader({
                   allowFullScreen
                 />
                 <a href={item.url} target="_blank" rel="noreferrer">
-                  Video direkt auf YouTube öffnen <ExternalLink />
+                  Video direkt auf YouTube öffnen <ExternalLinkIcon />
                 </a>
               </div>
             ) : null}
@@ -744,7 +789,7 @@ function ArticleReader({
           inert={!chatOpen}
         >
           <header>
-            <Sparkles />
+            <SparklesIcon />
             <div>
               <strong>Artikel-Assistent</strong>
               <small>Kontext: Artikel, Verlauf und verwandte News</small>
@@ -754,7 +799,7 @@ function ArticleReader({
               onClick={() => setChatOpen(false)}
               aria-label="KI-Chat schließen"
             >
-              <X />
+              <CloseIcon />
             </button>
           </header>
           <div className="news-chat-messages" ref={chatScroll}>
@@ -839,7 +884,7 @@ function ArticleReader({
               disabled={!question.trim() || ask.isPending}
               aria-label="Frage senden"
             >
-              <Send />
+              <SendIcon />
             </button>
           </div>
         </aside>
@@ -902,7 +947,7 @@ function NewsCard({
         onClick={onSave}
         aria-label="In Sammlung speichern"
       >
-        <Bookmark />
+        <BookmarkIcon />
       </button>
     </article>
   );
@@ -1090,7 +1135,7 @@ function MobileStoryFeed({
                 <footer>
                   <button onClick={() => onOpen(item)}>Lesen</button>
                   <button onClick={() => onSave(item)} aria-label="Speichern">
-                    <Bookmark className={item.saved ? "is-filled" : ""} />
+                    <BookmarkIcon className={item.saved ? "is-filled" : ""} />
                   </button>
                   <a
                     href={item.url}
@@ -1098,7 +1143,7 @@ function MobileStoryFeed({
                     rel="noreferrer"
                     aria-label="Original öffnen"
                   >
-                    <ExternalLink />
+                    <ExternalLinkIcon />
                   </a>
                 </footer>
               </div>
@@ -1198,7 +1243,7 @@ function SourceDialog({
               rel="noreferrer noopener"
               onClick={requestClose}
             >
-              <ExternalLink /> Original
+              <ExternalLinkIcon /> Original
             </a>
             <button
               type="button"
@@ -1311,10 +1356,10 @@ function AiWorkspace({
     >
       <header className="news-ai-header">
         <button className="news-icon-button news-ai-back" onClick={onBack} aria-label="Zurück zum Feed">
-          <ArrowLeft />
+          <ArrowLeftIcon />
         </button>
         <div className="news-ai-title">
-          <Sparkles />
+          <SparklesIcon />
           <div>
             <strong>KI-Recherche</strong>
             <small>Antworten aus deinem eigenen Nachrichtenbestand</small>
@@ -1341,7 +1386,7 @@ function AiWorkspace({
             aria-label="Neuen Chat starten"
             title="Neuen Chat starten"
           >
-            <RotateCcw />
+            <RetryIcon />
           </button>
         </div>
       </header>
@@ -1350,7 +1395,7 @@ function AiWorkspace({
           {exchanges.length === 0 ? (
             <div className="news-ai-welcome">
               <span className="news-ai-orb" aria-hidden>
-                <Sparkles />
+                <SparklesIcon />
               </span>
               <h2>Was möchtest du wissen?</h2>
               <p>
@@ -1362,7 +1407,7 @@ function AiWorkspace({
                 {globalSuggestions.map((suggestion) => (
                   <button key={suggestion} onClick={() => submit(suggestion)}>
                     <span>{suggestion}</span>
-                    <ChevronRight />
+                    <ChevronRightIcon />
                   </button>
                 ))}
               </div>
@@ -1388,7 +1433,7 @@ function AiWorkspace({
                         onClick={() => submit(exchange.question)}
                         disabled={pending}
                       >
-                        <RotateCcw /> <span>Neu erzeugen</span>
+                        <RetryIcon /> <span>Neu erzeugen</span>
                       </button>
                       {exchange.model ? <span className="news-model-badge">{exchange.model}</span> : null}
                     </div>
@@ -1411,7 +1456,7 @@ function AiWorkspace({
         </div>
         <aside className="news-ai-sources" aria-label="Quellen">
           <header>
-            <Library />
+            <LibraryIcon />
             <strong>Quellen</strong>
             {sources.length ? <small>{sources.length}</small> : null}
           </header>
@@ -1426,7 +1471,7 @@ function AiWorkspace({
       </div>
       <div className="news-ai-composer">
         <div className="news-ai-composer-field">
-          <Sparkles />
+          <SparklesIcon />
           <textarea
             ref={inputRef}
             value={draft}
@@ -1445,7 +1490,7 @@ function AiWorkspace({
             disabled={!draft.trim() || pending}
             aria-label="Frage senden"
           >
-            <Send />
+            <SendIcon />
           </button>
         </div>
       </div>
@@ -1461,6 +1506,7 @@ function AiWorkspace({
 }
 
 export function TechTldrs() {
+  const routeActive = useRouteActivity();
   const client = useQueryClient();
   const compact = useMediaQuery(COMPACT_QUERY);
   const [tab, setTab] = useState<"feed" | "saved" | "ai">("feed");
@@ -1512,14 +1558,26 @@ export function TechTldrs() {
       return apiClient.news(pageParams, signal);
     },
     getNextPageParam: (last) => last.nextCursor,
+    // Die offene Seite zeigt neue Meldungen von selbst an (F02-11).
+    refetchInterval: 90_000,
+    enabled: routeActive,
   });
-  const collections = useQuery(workbenchQueries.newsCollections());
+  const collections = useQuery({ ...workbenchQueries.newsCollections(), enabled: routeActive });
+  const [syncError, setSyncError] = useState<string | null>(null);
   const sync = useMutation({
     mutationFn: () => apiClient.syncNews(),
     onSuccess: () => {
+      setSyncError(null);
       window.setTimeout(
         () => void client.invalidateQueries({ queryKey: ["news"] }),
         2500,
+      );
+    },
+    onError: (error) => {
+      setSyncError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Die Synchronisierung ist fehlgeschlagen. Bitte versuche es gleich noch einmal.",
       );
     },
   });
@@ -1699,7 +1757,7 @@ export function TechTldrs() {
         <header className="news-page-header">
           <div className="news-title-lockup">
             <div className="news-title-mark">
-              <Newspaper />
+              <TechTldrsIcon />
             </div>
             <div>
               <small>Persönlicher Tech-Radar</small>
@@ -1707,7 +1765,7 @@ export function TechTldrs() {
             </div>
           </div>
           <div className="news-desktop-search">
-            <Search />
+            <SearchIcon />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -1715,7 +1773,7 @@ export function TechTldrs() {
             />
             {search ? (
               <button onClick={() => setSearch("")} aria-label="Suche löschen">
-                <X />
+                <CloseIcon />
               </button>
             ) : null}
           </div>
@@ -1726,13 +1784,19 @@ export function TechTldrs() {
             aria-label="Nachrichten aktualisieren"
             title="Nachrichten aktualisieren"
           >
-            <RefreshCw
+            <RefreshIcon
               className={
                 sync.isPending || syncState?.running ? "is-spinning" : ""
               }
             />
           </button>
         </header>
+        {syncError ? (
+          <p className="news-sync-error" role="alert">
+            <WarningIcon className="h-4 w-4" />
+            <span>{syncError}</span>
+          </p>
+        ) : null}
         <section className="news-command-row">
           <div
             className={`news-category-rail ${listTab === "saved" ? "news-collection-rail" : ""}`}
@@ -1749,7 +1813,7 @@ export function TechTldrs() {
                   onClick={() => setCollectionId("all")}
                   aria-pressed={collectionId === "all"}
                 >
-                  <Library /> Alle gespeicherten
+                  <LibraryIcon /> Alle gespeicherten
                 </button>
                 {collections.data?.collections.map((item) => (
                   <button
@@ -1758,7 +1822,7 @@ export function TechTldrs() {
                     onClick={() => setCollectionId(item.id)}
                     aria-pressed={collectionId === item.id}
                   >
-                    <Bookmark /> {item.name}
+                    <BookmarkIcon /> {item.name}
                     <small>{item.itemCount}</small>
                   </button>
                 ))}
@@ -1782,9 +1846,9 @@ export function TechTldrs() {
             aria-expanded={filtersOpen}
             aria-label="Filter"
           >
-            <Filter />
+            <FilterIcon />
             <span>Filter</span>
-            <ChevronDown />
+            <ChevronDownIcon />
           </button>
         </section>
         {filtersOpen ? (
@@ -1833,7 +1897,7 @@ export function TechTldrs() {
           </section>
         ) : null}
         <section className="news-ask-bar">
-          <Sparkles />
+          <SparklesIcon />
           <input
             value={globalQuestion}
             onChange={(event) => setGlobalQuestion(event.target.value)}
@@ -1847,7 +1911,7 @@ export function TechTldrs() {
             disabled={!globalQuestion.trim() || ask.isPending}
           >
             <span>{ask.isPending ? "Analysiert …" : "Fragen"}</span>
-            <Send />
+            <SendIcon />
           </button>
         </section>
         <main className="news-content">
@@ -1866,7 +1930,7 @@ export function TechTldrs() {
                 ))}
               </div>
               <div className="news-mobile-loading" role="status">
-                <RefreshCw className="is-spinning" />
+                <RefreshIcon className="is-spinning" />
                 <span>
                   {listTab === "saved"
                     ? "Gespeicherte werden geladen"
@@ -1874,10 +1938,30 @@ export function TechTldrs() {
                 </span>
               </div>
             </>
+          ) : query.isError ? (
+            <div className="news-empty" role="alert">
+              <div>
+                <LibraryIcon />
+              </div>
+              <h2>Die Nachrichten konnten nicht geladen werden</h2>
+              <p>
+                {query.error instanceof Error
+                  ? query.error.message
+                  : "Bitte versuche es gleich noch einmal."}
+              </p>
+              <button
+                className="news-primary-button"
+                onClick={() => void query.refetch()}
+                disabled={query.isRefetching}
+              >
+                <RefreshIcon />
+                <span>{query.isRefetching ? "Lädt …" : "Erneut versuchen"}</span>
+              </button>
+            </div>
           ) : items.length === 0 ? (
             <div className="news-empty">
               <div>
-                <Library />
+                <LibraryIcon />
               </div>
               <h2>
                 {listTab === "saved"
@@ -1909,7 +1993,7 @@ export function TechTldrs() {
                   onClick={() => caughtUp ? void query.refetch() : sync.mutate()}
                   disabled={sync.isPending || query.isRefetching}
                 >
-                  <RefreshCw />
+                  <RefreshIcon />
                   <span>{caughtUp ? "Neu laden" : "Jetzt synchronisieren"}</span>
                 </button>
               ) : (
@@ -1929,11 +2013,11 @@ export function TechTldrs() {
                 >
                   {selectedCollection || search.trim() || hasAdvancedFilters ? (
                     <>
-                      <X /> <span>Alle gespeicherten zeigen</span>
+                      <CloseIcon /> <span>Alle gespeicherten zeigen</span>
                     </>
                   ) : (
                     <>
-                      <Newspaper /> <span>Zum Feed</span>
+                      <TechTldrsIcon /> <span>Zum Feed</span>
                     </>
                   )}
                 </button>
@@ -1982,12 +2066,12 @@ export function TechTldrs() {
                           {previews.length > 0 ? (
                             <div className="news-collection-shade" aria-hidden />
                           ) : null}
-                          <Bookmark />
+                          <BookmarkIcon />
                           <span>
                             <strong>{collection.name}</strong>
                             <small>{collection.itemCount} Beiträge</small>
                           </span>
-                          <ChevronRight />
+                          <ChevronRightIcon />
                         </button>
                         <CollectionDeleteButton
                           collection={collection}
@@ -2070,14 +2154,14 @@ export function TechTldrs() {
             }}
             aria-current={tab === "feed" ? "page" : undefined}
           >
-            <Newspaper /> Feed
+            <TechTldrsIcon /> Feed
           </button>
           <button
             className={tab === "saved" ? "is-active" : ""}
             onClick={() => setTab("saved")}
             aria-current={tab === "saved" ? "page" : undefined}
           >
-            <Bookmark /> Gespeichert
+            <BookmarkIcon /> Gespeichert
           </button>
         </div>
         <button
@@ -2086,7 +2170,7 @@ export function TechTldrs() {
           aria-label="KI-Recherche öffnen"
           aria-current={tab === "ai" ? "page" : undefined}
         >
-          <Sparkles />
+          <SparklesIcon />
         </button>
       </nav>
       {reader ? (

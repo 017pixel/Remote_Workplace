@@ -1,6 +1,7 @@
 import { Fragment, useRef, type ReactNode } from "react";
-import { useLocation, useOutlet } from "react-router-dom";
+import { useLocation, useOutlet } from "react-router";
 import { WORKBENCH_LIMITS } from "@workbench/contracts";
+import { RouteActivityProvider } from "../lib/routeActivity";
 
 /**
  * Hält besuchte Routen im Baum, damit iframes, xterm-Instanzen und WebSockets
@@ -66,7 +67,7 @@ export function PersistentOutlet() {
             inert={!active}
             data-route-cache-key={key}
           >
-            {element}
+            <RouteActivityProvider active={active}>{element}</RouteActivityProvider>
           </div>
         );
       })}

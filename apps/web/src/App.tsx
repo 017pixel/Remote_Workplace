@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense, useRef, type ReactNode } from "react";
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { AppShell } from "./components/AppShell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Dashboard } from "./views/Dashboard";
@@ -11,33 +11,51 @@ import {
   loadTerminal,
   loadCliTerminal,
   loadToolRoute,
+  loadHermes,
   loadUsage,
   loadWorkbench,
+  loadInbox,
   loadTechTldrs,
-  loadGallery,
-  prefetchAllRoutes,
+  loadFileManager,
   loadPreviewGroup,
+  loadSkillEditor,
+  loadRouteWithRecovery,
 } from "./lib/routeModules";
 
-const Workbench = lazy(() => loadWorkbench().then((module) => ({ default: module.Workbench })));
-const Projects = lazy(() => loadProjects().then((module) => ({ default: module.Projects })));
-const ProjectDetail = lazy(() => loadProjectDetail().then((module) => ({ default: module.ProjectDetail })));
-const Settings = lazy(() => loadSettings().then((module) => ({ default: module.Settings })));
-const Usage = lazy(() => loadUsage().then((module) => ({ default: module.Usage })));
-const TerminalView = lazy(() => loadTerminal().then((module) => ({ default: module.TerminalView })));
-const CodexTerminal = lazy(() => loadCliTerminal().then((module) => ({ default: module.CodexTerminal })));
-const OpenCodeTerminal = lazy(() => loadCliTerminal().then((module) => ({ default: module.OpenCodeTerminal })));
-const T3Code = lazy(() => loadToolRoute().then((module) => ({ default: module.T3Code })));
-const CodeEditor = lazy(() => loadToolRoute().then((module) => ({ default: module.CodeEditor })));
-const Previews = lazy(() => loadToolRoute().then((module) => ({ default: module.Previews })));
-const Browser = lazy(() => loadToolRoute().then((module) => ({ default: module.Browser })));
-const TechTldrs = lazy(() => loadTechTldrs().then((module) => ({ default: module.TechTldrs })));
-const GalleryView = lazy(() => loadGallery().then((module) => ({ default: module.GalleryView })));
-const PreviewGroupRoute = lazy(() => loadPreviewGroup().then((module) => ({ default: module.PreviewGroupRoute })));
-const PreviewGroupWindowRoute = lazy(() => loadPreviewGroup().then((module) => ({ default: module.PreviewGroupWindowRoute })));
+const Workbench = lazy(() => loadRouteWithRecovery(loadWorkbench).then((module) => ({ default: module.Workbench })));
+const Inbox = lazy(() => loadRouteWithRecovery(loadInbox).then((module) => ({ default: module.Inbox })));
+const Projects = lazy(() => loadRouteWithRecovery(loadProjects).then((module) => ({ default: module.Projects })));
+const ProjectDetail = lazy(() => loadRouteWithRecovery(loadProjectDetail).then((module) => ({ default: module.ProjectDetail })));
+const Settings = lazy(() => loadRouteWithRecovery(loadSettings).then((module) => ({ default: module.Settings })));
+const Usage = lazy(() => loadRouteWithRecovery(loadUsage).then((module) => ({ default: module.Usage })));
+const TerminalView = lazy(() => loadRouteWithRecovery(loadTerminal).then((module) => ({ default: module.TerminalView })));
+const CodexTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.CodexTerminal })));
+const OpenCodeTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.OpenCodeTerminal })));
+const ClaudeCodeTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.ClaudeCodeTerminal })));
+const T3Code = lazy(() => loadRouteWithRecovery(loadToolRoute).then((module) => ({ default: module.T3Code })));
+const HermesAgent = lazy(() => loadRouteWithRecovery(loadHermes).then((module) => ({ default: module.HermesRoute })));
+const CodeEditor = lazy(() => loadRouteWithRecovery(loadToolRoute).then((module) => ({ default: module.CodeEditor })));
+const Previews = lazy(() => loadRouteWithRecovery(loadToolRoute).then((module) => ({ default: module.Previews })));
+const Browser = lazy(() => loadRouteWithRecovery(loadToolRoute).then((module) => ({ default: module.Browser })));
+const TechTldrs = lazy(() => loadRouteWithRecovery(loadTechTldrs).then((module) => ({ default: module.TechTldrs })));
+const FileManagerView = lazy(() => loadRouteWithRecovery(loadFileManager).then((module) => ({ default: module.FileManagerView })));
+const PreviewGroupRoute = lazy(() => loadRouteWithRecovery(loadPreviewGroup).then((module) => ({ default: module.PreviewGroupRoute })));
+const PreviewGroupWindowRoute = lazy(() => loadRouteWithRecovery(loadPreviewGroup).then((module) => ({ default: module.PreviewGroupWindowRoute })));
+const SkillEditor = lazy(() => loadRouteWithRecovery(loadSkillEditor).then((module) => ({ default: module.SkillEditor })));
 
 function RouteFallback() {
   return <div className="route-skeleton" aria-label="Ansicht wird geladen"><span /><span /><span /></div>;
+}
+
+function NotFound() {
+  return (
+    <main className="route-not-found">
+      <span>404</span>
+      <h1>Diese Seite gibt es nicht</h1>
+      <p>Der Link ist ungültig oder die Ansicht wurde verschoben.</p>
+      <Link to="/">Zum Dashboard</Link>
+    </main>
+  );
 }
 
 // Eigene Boundary je Route: stürzt eine Ansicht ab, bleiben Sidebar und Navigation bedienbar.
@@ -60,18 +78,6 @@ function DeferredRoute({ children }: { children: ReactNode }) {
 
 export function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
-  useEffect(() => {
-    const windowWithIdle = window as typeof window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    if (windowWithIdle.requestIdleCallback) {
-      const handle = windowWithIdle.requestIdleCallback(prefetchAllRoutes, { timeout: 2_000 });
-      return () => windowWithIdle.cancelIdleCallback?.(handle);
-    }
-    const handle = window.setTimeout(prefetchAllRoutes, 600);
-    return () => window.clearTimeout(handle);
-  }, []);
   return (
     <PwaInstallProvider>
       <BrowserRouter basename={basename}>
@@ -81,13 +87,17 @@ export function App() {
           <Route element={<AppShell />}>
             <Route index element={<DeferredRoute><Dashboard /></DeferredRoute>} />
             <Route path="workbench" element={<DeferredRoute><Workbench /></DeferredRoute>} />
+            <Route path="inbox" element={<DeferredRoute><Inbox /></DeferredRoute>} />
             <Route path="tech-tldrs" element={<DeferredRoute><TechTldrs /></DeferredRoute>} />
             <Route path="projects" element={<DeferredRoute><Projects /></DeferredRoute>} />
             <Route path="projects/:projectId" element={<DeferredRoute><ProjectDetail /></DeferredRoute>} />
-            <Route path="gallery" element={<DeferredRoute><GalleryView /></DeferredRoute>} />
+            <Route path="files" element={<DeferredRoute><FileManagerView /></DeferredRoute>} />
+            <Route path="ki-skills" element={<DeferredRoute><SkillEditor /></DeferredRoute>} />
+            <Route path="gallery" element={<Navigate to="/files" replace />} />
             <Route path="settings" element={<DeferredRoute><Settings /></DeferredRoute>} />
             <Route path="usage" element={<DeferredRoute><Usage /></DeferredRoute>} />
             <Route path="t3-code" element={<DeferredRoute><T3Code /></DeferredRoute>} />
+            <Route path="hermes-agent" element={<DeferredRoute><HermesAgent /></DeferredRoute>} />
             <Route path="code-editor" element={<DeferredRoute><CodeEditor /></DeferredRoute>} />
             <Route path="previews" element={<DeferredRoute><Previews /></DeferredRoute>} />
             <Route path="previews/gruppe/:groupId" element={<DeferredRoute><PreviewGroupRoute /></DeferredRoute>} />
@@ -95,7 +105,8 @@ export function App() {
             <Route path="terminal" element={<DeferredRoute><TerminalView /></DeferredRoute>} />
             <Route path="codex" element={<DeferredRoute><CodexTerminal /></DeferredRoute>} />
             <Route path="opencode" element={<DeferredRoute><OpenCodeTerminal /></DeferredRoute>} />
-            <Route path="*" element={<DeferredRoute><Dashboard /></DeferredRoute>} />
+            <Route path="claude" element={<DeferredRoute><ClaudeCodeTerminal /></DeferredRoute>} />
+            <Route path="*" element={<DeferredRoute><NotFound /></DeferredRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>

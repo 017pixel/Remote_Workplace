@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, Copy, Download, Eye, Info, GitBranch, Layers, Loader2, MonitorSmartphone, RefreshCw, Rocket, Server, ShieldCheck, Trash2 } from "lucide-react";
+import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient, ApiClientError } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
@@ -7,13 +7,17 @@ import { usePwaInstall } from "../lib/usePwaInstall";
 import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
-import { WORKBENCH_LIMITS, type RestartTarget, type T3Channel } from "@workbench/contracts";
+import { WORKBENCH_LIMITS, type DashboardConfig, type DashboardSection, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel } from "@workbench/contracts";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
 import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem, type PageRouteId } from "../stores/sidebarPreferences";
+import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } from "../stores/dashboardPreferences";
+import { useRouteActivity } from "../lib/routeActivity";
 
 export function Settings() {
-  const health = useQuery(workbenchQueries.health());
+  const routeActive = useRouteActivity();
+  const health = useQuery({ ...workbenchQueries.health(), enabled: routeActive });
+  const dashboardConfig = useQuery({ ...workbenchQueries.dashboardConfig(), enabled: routeActive });
   const resetWorkspace = useWorkspaceStore((s) => s.resetWorkspace);
   const panelCount = useWorkspaceStore((s) => s.panels.length);
   const workspaceCount = useWorkspaceStore((s) => s.workspaces.length);
@@ -37,7 +41,7 @@ export function Settings() {
           <h1>Einstellungen</h1>
           <p>Lokaler Workspace-Zustand und Informationen zur Workbench.</p>
         </div>
-        <Card title="Version" subtitle="Wird aus der Health-Antwort gelesen" action={<GitBranch className="h-4 w-4 text-faint" />}>
+        <Card title="Version" subtitle="Wird aus der Health-Antwort gelesen" action={<GitBranchIcon className="h-4 w-4 text-faint" />}>
           <div className="flex items-center gap-3">
             <span className="text-xl font-medium tracking-tight text-text">
               {health.data?.version ?? "—"}
@@ -50,12 +54,12 @@ export function Settings() {
         </Card>
 
         <div ref={restartCardRef} id="restart-controls" className={restartHighlighted ? "settings-jump-target is-active" : "settings-jump-target"}>
-          <Card title="Dienst neu starten" subtitle="Nach Code-Änderungen neu bauen und laden – ohne Datenverlust" action={<RefreshCw className="h-4 w-4 text-faint" />}>
+          <Card title="Dienst neu starten" subtitle="Nach Code-Änderungen neu bauen und laden – ohne Datenverlust" action={<RefreshIcon className="h-4 w-4 text-faint" />}>
             <RestartControls />
           </Card>
         </div>
 
-        <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<Rocket className="h-4 w-4 text-faint" />}>
+        <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
           <T3ChannelControls onJumpToRestart={jumpToRestart} />
         </Card>
 
@@ -78,19 +82,28 @@ export function Settings() {
               onClick={() => setResetOpen(true)}
               className="quiet-button border-bad/30 bg-bad-soft/40 text-bad hover:bg-bad-soft"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Workspace zurücksetzen
+              <TrashIcon className="h-3.5 w-3.5" /> Workspace zurücksetzen
             </button>
           </div>
         </Card>
 
+        <Card title="Dashboard" subtitle="Bereiche lokal ein- und ausblenden" action={<EyeIcon className="h-4 w-4 text-faint" />}>
+          <p className="mb-4 text-[12px] text-muted">Die zentrale Config legt Defaults und verfügbare Bereiche fest. Deine Auswahl wird nur in diesem Browser gespeichert. Bereiche, die in der Config deaktiviert sind, bleiben hier gesperrt.</p>
+          <DashboardSectionToggles config={dashboardConfig.data} />
+        </Card>
+
+        <Card title="Benachrichtigungen" subtitle="Toasts und System-Benachrichtigungen pro Quelle" action={<InboxIcon className="h-4 w-4 text-faint" />}>
+          <NotificationSettings />
+        </Card>
+
         <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
-          {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><Download className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
+          {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
           {pwa.isInstalled ? (
             <p className="text-[13px] text-muted">Die Workbench ist bereits als App installiert.</p>
           ) : pwa.canInstall ? (
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={() => void pwa.install()} className="quiet-button-primary">
-                <Download className="h-3.5 w-3.5" /> App installieren
+                <DownloadIcon className="h-3.5 w-3.5" /> App installieren
               </button>
               <span className="text-[12px] text-faint">Öffnet den Installationsdialog des Browsers.</span>
             </div>
@@ -105,26 +118,26 @@ export function Settings() {
           )}
         </Card>
 
-        <Card title="Orbit-Sidebar" subtitle="Elemente im Infinite Canvas ein- oder ausblenden" action={<Layers className="h-4 w-4 text-faint" />}>
+        <Card title="Orbit-Sidebar" subtitle="Elemente im Infinite Canvas ein- oder ausblenden" action={<LayersIcon className="h-4 w-4 text-faint" />}>
           <OrbitItemToggles />
         </Card>
 
-        <Card title="Seiten-Sichtbarkeit" subtitle="Navigationselemente global steuern (Sidebar, Dashboard, Mobile)" action={<Eye className="h-4 w-4 text-faint" />}>
+        <Card title="Seiten-Sichtbarkeit" subtitle="Navigationselemente global steuern (Sidebar, Dashboard, Mobile)" action={<EyeIcon className="h-4 w-4 text-faint" />}>
           <PageVisibilityToggles />
         </Card>
 
-        <Card title="Sicherheit" subtitle="Keine eigene Anmeldung" action={<ShieldCheck className="h-4 w-4 text-faint" />}>
+        <Card title="Sicherheit" subtitle="Keine eigene Anmeldung" action={<ShieldIcon className="h-4 w-4 text-faint" />}>
           <ul className="space-y-2 text-[13px] text-muted">
             <li className="flex items-start gap-2">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint" />
+              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
               Der Zugriff wird über Tailscale/ACLs begrenzt. T3 Code und code-server behalten ihre eigene Authentifizierung.
             </li>
             <li className="flex items-start gap-2">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint" />
+              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
               Es werden keine Tokens, Cookies oder Credentials im Zustand gespeichert.
             </li>
             <li className="flex items-start gap-2">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint" />
+              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
               Terminals starten ausschließlich serverseitig freigegebene Shell-, Agent- und Anmeldeprozesse.
             </li>
           </ul>
@@ -136,10 +149,96 @@ export function Settings() {
   );
 }
 
-const restartButtons: { target: RestartTarget; label: string; hint: string; icon: typeof Server }[] = [
-  { target: "frontend", label: "Frontend", hint: "Nur die Oberfläche neu bauen", icon: MonitorSmartphone },
-  { target: "backend", label: "Backend", hint: "Server neu bauen & neu starten", icon: Server },
-  { target: "both", label: "Beides", hint: "Frontend & Backend zusammen", icon: RefreshCw },
+const notificationSourceLabels: Record<NotificationSource, string> = {
+  hermes: "Hermes", t3: "T3 Code", opencode: "OpenCode", codex: "Codex", claude: "Claude Code",
+  terminal: "Terminal", workbench: "Workbench", update: "Updates",
+};
+
+function base64UrlBytes(value: string): Uint8Array<ArrayBuffer> {
+  const padded = `${value}${"=".repeat((4 - value.length % 4) % 4)}`.replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(padded);
+  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+}
+
+function NotificationSettings() {
+  const queryClient = useQueryClient();
+  const settings = useQuery(workbenchQueries.notificationSettings());
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const preferences = settings.data?.preferences;
+  const save = async (next: NotificationPreferences) => {
+    setSaving(true); setMessage("");
+    try { const response = await apiClient.saveNotificationSettings(next); if (response) queryClient.setQueryData(["notifications", "settings"], response); }
+    catch { setMessage("Die Benachrichtigungseinstellungen konnten nicht gespeichert werden."); }
+    finally { setSaving(false); }
+  };
+  const togglePush = async () => {
+    if (!preferences || !settings.data) return;
+    setSaving(true); setMessage("");
+    try {
+      if (!preferences.pushEnabled) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !settings.data.vapidPublicKey) throw new Error("Push wird von diesem Browser nicht unterstützt.");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("System-Benachrichtigungen wurden nicht erlaubt.");
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlBytes(settings.data.vapidPublicKey) });
+        const json = subscription.toJSON();
+        if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("Das Push-Abo ist unvollständig.");
+        await apiClient.subscribePush({ endpoint: json.endpoint, expirationTime: json.expirationTime ?? null, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } });
+        await save({ ...preferences, pushEnabled: true });
+        setMessage("System-Benachrichtigungen sind aktiv.");
+      } else {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) { await apiClient.unsubscribePush(subscription.endpoint); await subscription.unsubscribe(); }
+        await save({ ...preferences, pushEnabled: false });
+        setMessage("System-Benachrichtigungen sind deaktiviert.");
+      }
+      void settings.refetch();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Push konnte nicht geändert werden."); setSaving(false); }
+  };
+  if (!preferences) return <div className="settings-notification-skeleton"><span /><span /><span /></div>;
+  return <div className="notification-settings">
+    <button type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...preferences, toastsEnabled: !preferences.toastsEnabled })}>
+      <span><strong>Toasts</strong><small>Wichtige Ereignisse kurz oben rechts anzeigen</small></span><span className={`settings-toggle-switch ${preferences.toastsEnabled ? "is-on" : ""}`} role="switch" aria-checked={preferences.toastsEnabled}><span className="settings-toggle-thumb" /></span>
+    </button>
+    <button type="button" className="settings-toggle-row" disabled={saving || !settings.data?.pushSupported} onClick={() => void togglePush()}>
+      <span><strong>Web-Push</strong><small>Warnungen auch bei geschlossener Workbench erhalten</small></span><span className={`settings-toggle-switch ${preferences.pushEnabled ? "is-on" : ""}`} role="switch" aria-checked={preferences.pushEnabled}><span className="settings-toggle-thumb" /></span>
+    </button>
+    <div className="notification-source-settings"><header><span>Quelle</span><span>Toast</span><span>Push</span></header>
+      {(Object.keys(preferences.sources) as NotificationSource[]).map((source) => <div key={source}><strong>{notificationSourceLabels[source]}</strong>{(["toast", "push"] as const).map((channel) => <button key={channel} type="button" disabled={saving || (channel === "push" && !preferences.pushEnabled)} onClick={() => void save({ ...preferences, sources: { ...preferences.sources, [source]: { ...preferences.sources[source], [channel]: !preferences.sources[source][channel] } } })} aria-label={`${notificationSourceLabels[source]} ${channel}`}><span className={`settings-toggle-switch is-compact ${preferences.sources[source][channel] ? "is-on" : ""}`} role="switch" aria-checked={preferences.sources[source][channel]}><span className="settings-toggle-thumb" /></span></button>)}</div>)}
+    </div>
+    {message ? <p className="text-[12px] text-muted" role="status">{message}</p> : null}
+  </div>;
+}
+
+function DashboardSectionToggles({ config }: { config: DashboardConfig | undefined }) {
+  const toggleSection = useDashboardPreferences((state) => state.toggleSection);
+  const hiddenSections = useDashboardPreferences((state) => state.hiddenSections);
+  return (
+    <div className="dashboard-settings-toggle-list">
+      {allDashboardSections.map((section: DashboardSection) => {
+        const meta = dashboardSectionMeta[section];
+        const allowed = config?.sections[section] ?? true;
+        const hidden = hiddenSections.has(section);
+        const enabled = allowed && !hidden;
+        return (
+          <button key={section} type="button" className="settings-toggle-row dashboard-settings-toggle-row" disabled={!allowed} onClick={() => toggleSection(section)} title={!allowed ? "Dieser Bereich ist in der zentralen Config deaktiviert" : undefined}>
+            <span className="dashboard-settings-toggle-copy"><strong>{meta.label}</strong><small>{meta.description}{!allowed ? " · in Config deaktiviert" : ""}</small></span>
+            <span className={`settings-toggle-switch ${enabled ? "is-on" : ""} ${!allowed ? "is-locked" : ""}`} role="switch" aria-checked={enabled} aria-disabled={!allowed} aria-label={meta.label}>
+              <span className="settings-toggle-thumb" />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const restartButtons: { target: RestartTarget; label: string; hint: string; icon: typeof ServerIcon }[] = [
+  { target: "frontend", label: "Frontend", hint: "Nur die Oberfläche neu bauen", icon: DeviceRotateIcon },
+  { target: "backend", label: "Backend", hint: "Server neu bauen & neu starten", icon: ServerIcon },
+  { target: "both", label: "Beides", hint: "Frontend & Backend zusammen", icon: RefreshIcon },
 ];
 
 const restartWorkingLabel: Record<RestartTarget, string> = {
@@ -247,7 +346,7 @@ function RestartControls() {
               title={hint}
             >
               <span className="flex items-center gap-2 font-medium text-text">
-                {isActive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+                {isActive ? <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
                 {label}
               </span>
               <span className="text-[11px] text-faint">{hint}</span>
@@ -258,14 +357,14 @@ function RestartControls() {
       {phase.status === "working" ? (
         <div className="space-y-1" role="status">
           <p className="flex items-center gap-2 text-[12px] text-muted">
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> {restartWorkingLabel[phase.target]} Die Seite lädt automatisch neu, sobald es fertig ist.
+            <LoaderIcon className="h-3.5 w-3.5 shrink-0 animate-spin" /> {restartWorkingLabel[phase.target]} Die Seite lädt automatisch neu, sobald es fertig ist.
           </p>
           <p className="pl-[22px] text-[11px] text-faint">{phase.step}</p>
         </div>
       ) : phase.status === "error" ? (
         <div className="space-y-2" role="alert">
           <p className="flex items-start gap-2 text-[12px] text-bad">
-            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> <span>{phase.message}</span>
+            <WarningIcon className="h-3.5 w-3.5 shrink-0" /> <span>{phase.message}</span>
           </p>
           {phase.logTail ? (
             <div className="space-y-2">
@@ -282,7 +381,7 @@ function RestartControls() {
                       .catch(() => setCopied(false));
                   }}
                 >
-                  <Copy className="h-3.5 w-3.5" /> {copied ? "Kopiert" : "Log kopieren"}
+                  <CopyIcon className="h-3.5 w-3.5" /> {copied ? "Kopiert" : "Log kopieren"}
                 </button>
               </div>
               {logOpen ? <pre className="restart-log">{phase.logTail}</pre> : null}
@@ -313,10 +412,22 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
   const channel = useQuery(workbenchQueries.t3Channel());
   const [saving, setSaving] = useState<T3Channel | null>(null);
   const [error, setError] = useState("");
+  const [pendingDowngrade, setPendingDowngrade] = useState(false);
   const status = channel.data;
 
   async function selectChannel(next: T3Channel) {
     if (saving !== null || status?.configuredChannel === next) return;
+    // Ein Wechsel auf Stable bei installiertem Nightly kann die gemeinsame
+    // state.sqlite unlesbar machen (Schema-Downgrade) — das wird vorab bestätigt.
+    if (next === "stable" && (status?.activeChannel === "nightly" || status?.configuredChannel === "nightly")) {
+      setPendingDowngrade(true);
+      return;
+    }
+    await saveChannel(next);
+  }
+
+  async function saveChannel(next: T3Channel) {
+    if (saving !== null) return;
     setSaving(next);
     setError("");
     try {
@@ -345,7 +456,7 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
               className={`settings-segment-option ${selected ? "is-selected" : ""}`}
             >
               <span className="flex items-center gap-2 font-medium text-text">
-                {saving === option ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {saving === option ? <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> : null}
                 {t3ChannelLabels[option]}
               </span>
               <span className="text-[11px] text-faint">{t3ChannelHints[option]}</span>
@@ -377,7 +488,7 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
 
       {error ? (
         <p className="flex items-start gap-2 text-[12px] text-bad" role="alert">
-          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> <span>{error}</span>
+          <WarningIcon className="h-3.5 w-3.5 shrink-0" /> <span>{error}</span>
         </p>
       ) : null}
 
@@ -391,7 +502,7 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
             </span>
           </div>
           <button type="button" className="quiet-button-primary" onClick={onJumpToRestart}>
-            <ArrowUp className="h-3.5 w-3.5" /> Zu den Neustart-Buttons
+            <UploadIcon className="h-3.5 w-3.5" /> Zu den Neustart-Buttons
           </button>
         </div>
       ) : (
@@ -400,6 +511,19 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
           Daten liegen in einem gemeinsamen Verzeichnis und bleiben beim Kanalwechsel erhalten.
         </p>
       )}
+
+      <ConfirmDialog
+        open={pendingDowngrade}
+        title="Auf Stable wechseln?"
+        description="Nightly kann die gemeinsame T3-Datenbank (state.sqlite) auf ein neueres Schema heben, das die ältere Stable-Version nicht mehr lesen kann. Nach dem Wechsel können ältere Threads unter Umständen nicht mehr geöffnet werden."
+        confirmLabel="Trotzdem wechseln"
+        danger
+        onConfirm={() => {
+          setPendingDowngrade(false);
+          void saveChannel("stable");
+        }}
+        onClose={() => setPendingDowngrade(false)}
+      />
     </div>
   );
 }
@@ -407,17 +531,17 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
 const orbitItemLabels: Record<OrbitPaletteItem, string> = {
   "tool:terminal": "Terminal",
   "tool:t3-code": "T3 Code",
+  "tool:hermes": "Hermes Agent",
   "tool:preview": "Preview",
   "tool:browser": "Browser",
   "tool:code-server": "Code-Server",
   "tool:codex": "Codex",
   "tool:opencode": "OpenCode",
+  "tool:files": "Dateien",
   "preview:layout-1": "Einzel-Preview",
   "preview:layout-2": "2er-Preview-Gruppe",
   "preview:layout-3": "3er-Preview-Gruppe",
   "preview:layout-6": "6er-Preview-Gruppe",
-  "gallery:gallery-media": "Mediengalerie",
-  "gallery:gallery-files": "Dateigalerie",
   "block:note": "Notiz",
   "block:todo": "To-do-Liste",
   "block:snippet": "Code-Snippet",
@@ -428,9 +552,8 @@ const orbitItemLabels: Record<OrbitPaletteItem, string> = {
 };
 
 const orbitSections: { label: string; items: OrbitPaletteItem[] }[] = [
-  { label: "Werkzeuge", items: ["tool:terminal", "tool:t3-code", "tool:preview", "tool:browser", "tool:code-server", "tool:codex", "tool:opencode"] },
+  { label: "Werkzeuge", items: ["tool:terminal", "tool:t3-code", "tool:hermes", "tool:preview", "tool:browser", "tool:code-server", "tool:codex", "tool:opencode", "tool:files"] },
   { label: "Previews", items: ["preview:layout-1", "preview:layout-2", "preview:layout-3", "preview:layout-6"] },
-  { label: "Galerie", items: ["gallery:gallery-media", "gallery:gallery-files"] },
   { label: "Blöcke", items: ["block:note", "block:todo", "block:snippet", "block:frame", "block:usage-codex", "block:usage-opencode", "block:usage-claude"] },
 ];
 
@@ -463,17 +586,21 @@ function OrbitItemToggles() {
 
 const pageRouteLabels: Record<PageRouteId, string> = {
   "dashboard": "Dashboard",
+  "inbox": "Inbox",
   "workbench": "Workbench",
   "tech-tldrs": "Tech TLDRs",
   "projects": "Projekte",
   "t3-code": "T3 Code",
+  "hermes-agent": "Hermes Agent",
   "codex": "Codex",
   "opencode": "OpenCode",
+  "claude": "Claude Code",
   "code-editor": "Code-Server",
   "previews": "Previews",
   "browser": "Browser",
   "terminal": "Terminal",
-  "gallery": "Galerie",
+  "files": "Dateien",
+  "ki-skills": "KI-Skills",
   "usage": "Nutzung",
   "settings": "Einstellungen",
 };
@@ -490,7 +617,7 @@ function PageVisibilityToggles() {
         const isHidden = !isLocked && hiddenPages.has(page);
         return (
           <button key={page} type="button" className="settings-toggle-row" disabled={isLocked} onClick={() => togglePage(page)} title={isLocked ? "Diese Seite bleibt immer sichtbar" : undefined}>
-            <span className="text-[13px] text-text">{pageRouteLabels[page]}{isLocked ? <span className="ml-2 text-[11px] text-faint">immer sichtbar</span> : null}</span>
+            <span className="text-[13px] text-text">{pageRouteLabels[page]}{isLocked ? <span className="ml-2 text-[11px] text-faint">, immer sichtbar</span> : null}</span>
             <span className={`settings-toggle-switch ${isHidden ? "" : "is-on"} ${isLocked ? "is-locked" : ""}`} role="switch" aria-checked={!isHidden} aria-disabled={isLocked} aria-label={pageRouteLabels[page]}>
               <span className="settings-toggle-thumb" />
             </span>

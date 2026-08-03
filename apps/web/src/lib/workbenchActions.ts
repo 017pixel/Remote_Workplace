@@ -1,5 +1,8 @@
 import type { Project } from "@workbench/contracts";
+import { WORKBENCH_LIMITS } from "@workbench/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
+import { useWorkbenchNotice } from "../stores/workbenchNotice";
+import type { ProjectToolType } from "./projectTools";
 
 const ORBIT_INTENTS_KEY = "workbench-orbit-open-intents";
 
@@ -59,4 +62,17 @@ export function openToolForProject(
 export function openPreviewForProject(project: Project, previewId: string): void {
   void previewId;
   useWorkspaceStore.getState().selectProject(project.id);
+}
+
+export function openProjectToolInWorkbench(project: Project, type: ProjectToolType, previewId?: string): void {
+  const panelId = useWorkspaceStore.getState().openPanel({
+    type,
+    projectId: project.id,
+    ...(type === "preview" ? { previewId: previewId ?? null } : {}),
+  });
+  if (panelId === null) {
+    useWorkbenchNotice.getState().show(
+      `Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`,
+    );
+  }
 }

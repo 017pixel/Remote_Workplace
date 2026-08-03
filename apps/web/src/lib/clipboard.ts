@@ -77,11 +77,6 @@ export async function writeClipboardText(text: string): Promise<void> {
   }
 }
 
-export function copyDocumentSelectionFallback(): boolean {
-  if (typeof document === "undefined" || typeof document.execCommand !== "function") return false;
-  try { return document.execCommand("copy"); } catch { return false; }
-}
-
 export function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }

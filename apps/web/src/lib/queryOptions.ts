@@ -1,35 +1,51 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { apiClient } from "./apiClient";
 
 export const workbenchQueries = {
-  health: () =>
-    queryOptions({ queryKey: ["health"], queryFn: ({ signal }) => apiClient.health(signal), refetchInterval: 10_000 }),
+  dashboardConfig: () =>
+    queryOptions({ queryKey: ["system", "dashboard-config"], queryFn: ({ signal }) => apiClient.dashboardConfig(signal), staleTime: Infinity }),
+  health: (refetchInterval = 5_000) =>
+    queryOptions({ queryKey: ["health"], queryFn: ({ signal }) => apiClient.health(signal), refetchInterval }),
+  readiness: (refetchInterval = 30_000) =>
+    queryOptions({ queryKey: ["health", "readiness"], queryFn: ({ signal }) => apiClient.readiness(signal), refetchInterval }),
+  operationalMetrics: (refetchInterval = 5_000) =>
+    queryOptions({ queryKey: ["system", "operational-metrics"], queryFn: ({ signal }) => apiClient.operationalMetrics(signal), refetchInterval, staleTime: Math.min(refetchInterval, 5_000) }),
   t3Channel: () =>
     queryOptions({ queryKey: ["system", "t3-channel"], queryFn: ({ signal }) => apiClient.t3Channel(signal), staleTime: 5_000 }),
-  serverSummary: () =>
+  hermesStatus: () => queryOptions({ queryKey: ["hermes", "status"], queryFn: ({ signal }) => apiClient.hermesStatus(signal), refetchInterval: 30_000, staleTime: 10_000 }),
+  hermesSessions: (query = "") => queryOptions({ queryKey: ["hermes", "sessions", query], queryFn: ({ signal }) => apiClient.hermesSessions({ limit: 100, ...(query ? { q: query } : {}) }, signal), refetchInterval: 10_000, staleTime: 3_000 }),
+  hermesTasks: () => queryOptions({ queryKey: ["hermes", "tasks"], queryFn: ({ signal }) => apiClient.hermesTasks(signal), refetchInterval: 6_000, staleTime: 2_000, refetchIntervalInBackground: false }),
+  hermesCron: () => queryOptions({ queryKey: ["hermes", "cron"], queryFn: ({ signal }) => apiClient.hermesCron(signal), refetchInterval: 60_000, staleTime: 15_000, refetchIntervalInBackground: false }),
+  hermesResults: (source?: string, status?: string) => queryOptions({ queryKey: ["hermes", "results", source ?? "all", status ?? "all"], queryFn: ({ signal }) => apiClient.hermesResults({ ...(source ? { source } : {}), ...(status ? { status } : {}) }, signal), refetchInterval: 20_000, staleTime: 5_000, refetchIntervalInBackground: false }),
+  hermesModels: () => queryOptions({ queryKey: ["hermes", "models"], queryFn: ({ signal }) => apiClient.hermesModels(signal), staleTime: 60_000 }),
+  hermesDiagnostics: () => queryOptions({ queryKey: ["hermes", "diagnostics"], queryFn: ({ signal }) => apiClient.hermesDiagnostics(signal), staleTime: 10_000 }),
+  hermesUpdateStatus: () => queryOptions({ queryKey: ["hermes", "update"], queryFn: ({ signal }) => apiClient.hermesUpdateStatus(signal), refetchInterval: 10_000, staleTime: 5_000 }),
+  notifications: (unreadOnly = false) => queryOptions({ queryKey: ["notifications", unreadOnly], queryFn: ({ signal }) => apiClient.notifications({ unreadOnly }, signal), refetchInterval: 15_000, staleTime: 2_000 }),
+  notificationSettings: () => queryOptions({ queryKey: ["notifications", "settings"], queryFn: ({ signal }) => apiClient.notificationSettings(signal), staleTime: 30_000 }),
+  serverSummary: (refetchInterval = 30_000) =>
     queryOptions({
       queryKey: ["server", "summary"],
       queryFn: ({ signal }) => apiClient.serverSummary(signal),
-      refetchInterval: 30_000,
+      refetchInterval,
     }),
-  serverMetrics: () =>
+  serverMetrics: (refetchInterval = 5_000) =>
     queryOptions({
       queryKey: ["server", "metrics"],
       queryFn: ({ signal }) => apiClient.serverMetrics(signal),
-      refetchInterval: 10_000,
+      refetchInterval,
       staleTime: 5_000,
     }),
-  services: () =>
+  services: (refetchInterval = 5_000) =>
     queryOptions({
       queryKey: ["services"],
       queryFn: ({ signal }) => apiClient.services(signal),
-      refetchInterval: 10_000,
+      refetchInterval,
     }),
-  localPorts: () =>
+  localPorts: (refetchInterval = 5_000) =>
     queryOptions({
       queryKey: ["local-ports"],
       queryFn: ({ signal }) => apiClient.localPorts(signal),
-      refetchInterval: 10_000,
+      refetchInterval,
       staleTime: 5_000,
     }),
   previewSlots: () =>
@@ -37,6 +53,24 @@ export const workbenchQueries = {
       queryKey: ["preview-slots"],
       queryFn: ({ signal }) => apiClient.previewSlots(signal),
       staleTime: 2_000,
+    }),
+  previewDevicePreference: () =>
+    queryOptions({
+      queryKey: ["preview-device-preference"],
+      queryFn: ({ signal }) => apiClient.previewDevicePreference(signal),
+      staleTime: 60_000,
+    }),
+  previewServiceCandidates: (projectId: string | null) =>
+    queryOptions({
+      queryKey: ["preview-service-candidates", projectId],
+      queryFn: ({ signal }) => apiClient.previewServiceCandidates(projectId, signal),
+      staleTime: 15_000,
+    }),
+  previewServiceGraph: (projectId: string, primaryServiceId: string) =>
+    queryOptions({
+      queryKey: ["preview-service-graph", projectId, primaryServiceId],
+      queryFn: ({ signal }) => apiClient.previewServiceGraph(projectId, primaryServiceId, signal),
+      staleTime: 15_000,
     }),
   projects: () =>
     queryOptions({ queryKey: ["projects"], queryFn: ({ signal }) => apiClient.projects(signal), staleTime: 30_000 }),
@@ -53,15 +87,21 @@ export const workbenchQueries = {
       queryKey: ["usage"],
       queryFn: ({ signal }) => apiClient.usage(signal),
       refetchInterval: 60_000,
+      // Der 1-Minuten-Takt der Statusleiste soll auch laufen, wenn der Tab
+      // nicht im Fokus ist, und beim Zurückkehren sofort aktualisieren.
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
       staleTime: 30_000,
     }),
-  usageDashboard: (range: string) => queryOptions({ queryKey: ["usage", "dashboard", range], queryFn: ({signal}) => apiClient.usageDashboard(range, signal), refetchInterval: 60_000, staleTime: 30_000 }),
+  // `keepPreviousData`: Beim Wechsel des Zeitraums bleibt die alte Auswertung
+  // stehen, statt die Seite für die Dauer der Anfrage zu leeren.
+  usageDashboard: (range: string, refetchInterval = 60_000) => queryOptions({ queryKey: ["usage", "dashboard", range], queryFn: ({signal}) => apiClient.usageDashboard(range, signal), refetchInterval, staleTime: 30_000, placeholderData: keepPreviousData }),
   accounts: () => queryOptions({ queryKey: ["accounts"], queryFn: ({signal}) => apiClient.accounts(signal), staleTime: 15_000 }),
   discoveredAccounts: () => queryOptions({ queryKey: ["accounts", "discovered"], queryFn: ({signal}) => apiClient.discoverAccounts(signal), staleTime: 15_000 }),
   orbit: () => queryOptions({ queryKey: ["orbit"], queryFn: ({signal}) => apiClient.orbit(signal), staleTime: 1_000 }),
-  terminalSessions: () => queryOptions({ queryKey: ["terminal", "sessions"], queryFn: ({ signal }) => apiClient.terminalSessions(signal), refetchInterval: 3_000, staleTime: 1_000 }),
+  terminalSessions: (refetchInterval = 3_000) => queryOptions({ queryKey: ["terminal", "sessions"], queryFn: ({ signal }) => apiClient.terminalSessions(signal), refetchInterval, staleTime: 1_000 }),
   terminalWorkspace: () => queryOptions({ queryKey: ["terminal", "workspace"], queryFn: ({ signal }) => apiClient.terminalWorkspace(signal), staleTime: 1_000 }),
-  news: (params:URLSearchParams) => queryOptions({queryKey:["news",params.toString()],queryFn:({signal})=>apiClient.news(params,signal),staleTime:60_000}),
+  news: (params:URLSearchParams, refetchInterval = 60_000) => queryOptions({queryKey:["news",params.toString()],queryFn:({signal})=>apiClient.news(params,signal),refetchInterval,staleTime:60_000}),
   newsItem:(id:string)=>queryOptions({queryKey:["news","item",id],queryFn:({signal})=>apiClient.newsItem(id,signal),staleTime:60_000}),
   newsCollections:()=>queryOptions({queryKey:["news","collections"],queryFn:({signal})=>apiClient.newsCollections(signal),staleTime:15_000}),
 };

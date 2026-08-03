@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AlertOctagon } from "lucide-react";
+import { ErrorIcon } from "./icons";
 import { reportCrash } from "../lib/crashReport";
 
 interface ErrorBoundaryProps {
@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.props.silent) return null;
     return (
       <div className="boundary-fallback" role="alert">
-        <AlertOctagon className="h-6 w-6 shrink-0 text-bad" />
+        <ErrorIcon className="h-6 w-6 shrink-0 text-bad" />
         <div>
           <strong>{this.props.label ?? "Dieser Bereich"} konnte nicht angezeigt werden.</strong>
           <span>Der Crash-Report steht im Fenster darüber — kopieren und einem KI-Agenten geben.</span>

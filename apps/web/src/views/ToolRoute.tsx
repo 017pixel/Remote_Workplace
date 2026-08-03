@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";
 import { ToolPanel } from "../components/ToolPanel";
@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import type { Panel, Project } from "@workbench/contracts";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
 import { PreviewSlotCarousel } from "./PreviewGroupRoute";
+import { useRouteActivity } from "../lib/routeActivity";
 
 type ProjectPanelType = "t3-code" | "code-server" | "preview";
 
@@ -17,10 +18,11 @@ function supportsTool(project: Project, type: ProjectPanelType) {
 }
 
 function SingleTool({ type }: { type: ProjectPanelType }) {
+  const routeActive = useRouteActivity();
   const [searchParams] = useSearchParams();
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const { data, isLoading } = useQuery(workbenchQueries.projects());
-  const services = useQuery(workbenchQueries.services());
+  const { data, isLoading } = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const services = useQuery({ ...workbenchQueries.services(), enabled: routeActive });
   const projects = data?.projects ?? [];
   const selected = projects.find((project) => project.id === selectedProjectId);
   const availableProjects = projects.filter((candidate) => type === "preview" ? candidate.availability === "available" : supportsTool(candidate, type));
@@ -48,7 +50,7 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   return (
     <div className="standalone-tool-page">
       <div className="standalone-tool-content">
-        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone actionPlacement={type === "t3-code" ? "topbar" : "overlay"} />
+        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone actionPlacement={type === "t3-code" || type === "code-server" ? "topbar" : "overlay"} />
       </div>
     </div>
   );
@@ -58,7 +60,8 @@ export function T3Code() { return <SingleTool type="t3-code" />; }
 export function CodeEditor() { return <SingleTool type="code-server" />; }
 export function Previews() {
   const responsive = useResponsiveShell();
-  const orbit = useQuery(workbenchQueries.orbit());
+  const routeActive = useRouteActivity();
+  const orbit = useQuery({ ...workbenchQueries.orbit(), enabled: routeActive });
   if (!responsive.isTouchShell) return <SingleTool type="preview" />;
 
   const groups = (orbit.data?.document.boards ?? []).flatMap((board) =>

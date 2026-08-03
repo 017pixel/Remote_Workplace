@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { NavLink, useLocation } from "react-router";
+import { CloseIcon } from "./icons";
 import { navSections, type NavItem } from "../routes/navigation";
-import { prefetchRoute } from "../lib/routeModules";
+import { prefetchRouteTarget } from "../lib/routePrefetch";
+import { workbenchQueries } from "../lib/queryOptions";
 import { isPageVisibleIn, useSidebarPreferences, type PageRouteId } from "../stores/sidebarPreferences";
 
 const pathToRouteId = (path: string): PageRouteId | null => {
   const map: Record<string, PageRouteId> = {
-    "/": "dashboard", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
-    "/t3-code": "t3-code", "/codex": "codex", "/opencode": "opencode", "/code-editor": "code-editor",
-    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/gallery": "gallery",
+    "/": "dashboard", "/inbox": "inbox", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
+    "/t3-code": "t3-code", "/hermes-agent": "hermes-agent", "/codex": "codex", "/opencode": "opencode", "/claude": "claude", "/code-editor": "code-editor",
+    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/files": "files", "/ki-skills": "ki-skills",
     "/usage": "usage", "/settings": "settings",
   };
   return map[path] ?? null;
@@ -31,13 +33,17 @@ const prefersReducedMotion = () =>
 export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   const location = useLocation();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const focusTrigger = useRef<() => void>(() => undefined);
+  focusTrigger.current = () => triggerRef?.current?.focus();
   const openedPath = useRef(location.pathname);
+  const previousPath = useRef(location.pathname);
   // Beim Schließen bleibt die Seite noch kurz im Baum, damit sie nicht
   // verschwindet, sondern nach links hinausgleitet, während die gewählte
   // Ansicht von rechts nachrückt.
   const [phase, setPhase] = useState<"closed" | "open" | "closing">(open ? "open" : "closed");
   // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
   const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
+  const notifications = useQuery(workbenchQueries.notifications());
   const filteredSections = useMemo(() => navSections.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
@@ -47,8 +53,10 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   })).filter((section) => section.items.length > 0), [hiddenPages]);
 
   useEffect(() => {
-    if (open) onClose();
-  }, [location.pathname, onClose]);
+    const changed = previousPath.current !== location.pathname;
+    previousPath.current = location.pathname;
+    if (open && changed) onClose();
+  }, [location.pathname, onClose, open]);
 
   useEffect(() => {
     if (open) {
@@ -109,7 +117,12 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior = previousOverscroll;
-      if (window.location.pathname === openedPath.current) window.setTimeout(() => triggerRef?.current?.focus(), 0);
+      if (window.location.pathname === openedPath.current) {
+        // Erst nach dem kurzen Exit-Übergang fokussieren: Bis dahin kann der
+        // Trigger durch den Render des schließenden Layers noch nicht wieder
+        // interaktiv sein.
+        window.setTimeout(() => focusTrigger.current(), NAVIGATION_EXIT_MS + 20);
+      }
     };
   }, [open, onClose, triggerRef]);
 
@@ -137,7 +150,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
           <h2 id="mobile-navigation-title">Navigation</h2>
         </div>
         <button type="button" onClick={requestClose} className="icon-button mobile-navigation-close" aria-label="Navigation schließen">
-          <X className="h-[18px] w-[18px]" />
+          <CloseIcon className="h-[18px] w-[18px]" />
         </button>
       </header>
 
@@ -152,7 +165,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
           <div key={section.kicker} className="mobile-navigation-section">
             <p className="mobile-navigation-section-kicker">{section.kicker}</p>
             <div className="mobile-navigation-grid">
-              {section.items.map((item) => <NavigationLink key={item.to} item={item} />)}
+              {section.items.map((item) => <NavigationLink key={item.to} item={item} badge={item.to === "/inbox" ? notifications.data?.unreadCount ?? 0 : 0} />)}
             </div>
           </div>
         ))}
@@ -161,17 +174,26 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   );
 }
 
-function NavigationLink({ item }: { item: NavItem }) {
+function NavigationLink({ item, badge = 0 }: { item: NavItem; badge?: number }) {
+  const client = useQueryClient();
+  const prefetch = () => prefetchRouteTarget(client, item.to);
   return (
     <NavLink
       to={item.to}
       end={item.to === "/"}
       className={({ isActive }) => `mobile-navigation-item ${isActive ? "is-active" : ""}`}
-      onPointerEnter={() => prefetchRoute(item.to)}
-      onFocus={() => prefetchRoute(item.to)}
+      onPointerEnter={prefetch}
+      // Auf dem Handy ist `pointerdown` der früheste sichere Zeitpunkt.
+      onPointerDown={prefetch}
+      onFocus={prefetch}
     >
-      <item.icon className="mobile-navigation-icon" aria-hidden />
-      <span className="mobile-navigation-label">{item.label}</span>
+      <span className="mobile-navigation-icon-slot">
+        <item.icon className="mobile-navigation-icon" aria-hidden />
+      </span>
+      <span className="mobile-navigation-highlight">
+        <span className="mobile-navigation-label">{item.label}</span>
+        {badge > 0 ? <span className="mobile-navigation-badge" aria-label={`${badge} ungelesen`}>{badge > 99 ? "99+" : badge}</span> : null}
+      </span>
     </NavLink>
   );
 }

@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorSmartphone, RotateCw, Server, ShieldCheck, X } from "lucide-react";
+import { CloseIcon, DeviceRotateIcon, ExternalLinkIcon, FullscreenIcon, RefreshIcon, RestoreIcon, WarningIcon } from "./icons";
 import type { Panel, Project, ServiceMode } from "@workbench/contracts";
+import { WORKBENCH_LIMITS } from "@workbench/contracts";
+import { useWorkbenchNotice } from "../stores/workbenchNotice";
 import { useWorkspaceStore } from "../stores/workspace";
 import { StateDot } from "./primitives";
 import { DevicePickerButton } from "./DevicePickerButton";
 import { DevicePreviewFrame } from "./DevicePreviewFrame";
 import type { DeviceOrientation, DevicePresetId } from "../config/devicePresets";
 import { TerminalArea } from "./terminal/TerminalArea";
+import { FileManagerPanel } from "./files/FileManagerPanel";
 import { LocalPorts } from "./browser/LocalPorts";
 import { BrowserPanel } from "./browser/BrowserPanel";
-import { ChromiumBrowser } from "./browser/ChromiumBrowser";
 import { PreviewSlotFrame, relayCanvasPinch } from "./PreviewSlotFrame";
 import { apiClient } from "../lib/apiClient";
+import { ToolActionMenu } from "./ToolActionMenu";
+import { normalizePreviewTarget } from "../lib/previewTargets";
+import { useRouteActivity } from "../lib/routeActivity";
+
+const HermesShell = lazy(() => import("./hermes/HermesShell").then((module) => ({ default: module.HermesShell })));
 
 const panelTitles: Record<Panel["type"], string> = {
   "t3-code": "T3 Code",
@@ -22,6 +29,9 @@ const panelTitles: Record<Panel["type"], string> = {
   terminal: "Terminal",
   codex: "Codex",
   opencode: "OpenCode",
+  files: "Files",
+  notion: "Notion (Legacy)",
+  hermes: "Hermes Agent",
 };
 
 interface ResolvedPanel {
@@ -32,7 +42,6 @@ interface ResolvedPanel {
   reason: string | null;
   targetPort: number | null;
   path: string;
-  runtime: "iframe" | "shared-browser";
 }
 
 export function projectBoundCodeServerUrl(baseUrl: string, projectPath: string): string {
@@ -47,11 +56,14 @@ export function projectBoundCodeServerProxyUrl(projectPath: string): string {
 
 function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode: ServiceMode): ResolvedPanel | null {
   if (panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode") {
-    return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/", runtime: "iframe" };
+    return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
   }
-  if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/", runtime: "iframe" };
+  if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
+  if (panel.type === "files") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
+  if (panel.type === "hermes") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
+  if (panel.type === "notion") return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Diese frühere Notion-Integration wird nicht mehr ausgeführt. Der Knoten bleibt erhalten, damit seine Position, Verbindungen und gespeicherten Inhalte nicht verloren gehen.", targetPort: null, path: "/" };
   if (panel.type === "preview" && !project) {
-    return { url: null, mode: "embedded", embed: false, proxyUrl: null, reason: "Keine Preview ausgewählt.", targetPort: null, path: "/", runtime: "iframe" };
+    return { url: null, mode: "embedded", embed: false, proxyUrl: null, reason: "Keine Preview ausgewählt.", targetPort: null, path: "/" };
   }
   if (!project) return null;
   if (panel.type === "t3-code") {
@@ -64,7 +76,6 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
       reason: url === null ? "T3 Code ist für dieses Projekt nicht verfügbar." : null,
       targetPort: null,
       path: "/",
-      runtime: "iframe",
     };
   }
   if (panel.type === "code-server") {
@@ -79,12 +90,11 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
       reason: configuredUrl === null ? "code-server ist auf dem Server nicht installiert." : null,
       targetPort: null,
       path: "/",
-      runtime: "iframe",
     };
   }
   const preview = project.previews.find((p) => p.id === panel.previewId);
   if (!preview) {
-    return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Preview wurde nicht gefunden.", targetPort: null, path: "/", runtime: "iframe" };
+    return { url: null, mode: "external", embed: false, proxyUrl: null, reason: "Preview wurde nicht gefunden.", targetPort: null, path: "/" };
   }
   return {
     url: preview.url ?? (preview.targetPort ? `http://127.0.0.1:${preview.targetPort}${preview.path}` : null),
@@ -94,7 +104,6 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
     reason: preview.url === null && preview.targetPort === null ? "Für diese Preview ist kein Ziel konfiguriert." : null,
     targetPort: preview.targetPort,
     path: preview.path,
-    runtime: preview.runtime,
   };
 }
 
@@ -110,15 +119,18 @@ interface ToolPanelProps {
   onReload?: () => void;
   onClose?: () => void;
   minimal?: boolean;
+  terminalRenderScale?: number;
   actionPlacement?: "overlay" | "topbar" | "hidden";
 }
 
-export function ToolPanel({ panel, project, isFocused, codeServerMode = "external", onFocus, standalone = false, externalMaximized, onMaximizedChange, onReload, onClose, minimal = false, actionPlacement = "overlay" }: ToolPanelProps) {
+export function ToolPanel({ panel, project, isFocused, codeServerMode = "external", onFocus, standalone = false, externalMaximized, onMaximizedChange, onReload, onClose, minimal = false, terminalRenderScale = 1, actionPlacement = "overlay" }: ToolPanelProps) {
+  const openPanel = useWorkspaceStore((s) => s.openPanel);
   const reloadPanel = useWorkspaceStore((s) => s.reloadPanel);
   const closePanel = useWorkspaceStore((s) => s.closePanel);
   const maximizePanel = useWorkspaceStore((s) => s.maximizePanel);
   const restorePanels = useWorkspaceStore((s) => s.restorePanels);
   const maximizedPanelId = useWorkspaceStore((s) => s.maximizedPanelId);
+  const routeActive = useRouteActivity();
   const [standaloneMaximized, setStandaloneMaximized] = useState(false);
   const [standaloneReloadKey, setStandaloneReloadKey] = useState(0);
   const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
@@ -126,7 +138,6 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   const [deviceId, setDeviceId] = useState<DevicePresetId>("responsive");
   const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
   const [localPreview, setLocalPreview] = useState<ResolvedPanel | null>(null);
-  const [previewRuntimeOverride, setPreviewRuntimeOverride] = useState<"iframe" | "shared-browser" | null>(null);
   const [previewPublicUrl, setPreviewPublicUrl] = useState<string | null>(null);
   const [previewSlotId, setPreviewSlotId] = useState<number | null>(() => {
     try {
@@ -136,21 +147,40 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   });
 
   useEffect(() => {
+    if (panel.type !== "t3-code") return;
+    const handleT3BrowserRequest = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown; url?: unknown } | null;
+      if (data?.type !== "remote-workplace:open-browser") return;
+      const target = typeof data.url === "string" ? normalizePreviewTarget(data.url) : null;
+      const browserUrl = target?.kind === "local"
+        ? `http://127.0.0.1:${target.port}${target.path}`
+        : target?.kind === "external" ? target.url : null;
+      if (openPanel({
+        type: "browser",
+        projectId: panel.projectId,
+        ...(browserUrl ? { browserUrl } : {}),
+      }) === null) {
+        useWorkbenchNotice.getState().show(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+      }
+    };
+    window.addEventListener("message", handleT3BrowserRequest);
+    return () => window.removeEventListener("message", handleT3BrowserRequest);
+  }, [openPanel, panel.id, panel.projectId, panel.type]);
+
+  useEffect(() => {
     if (panel.type !== "preview" || localPreview) return;
     const queryPort = standalone ? Number(new URLSearchParams(window.location.search).get("port")) : NaN;
     let storedPort = NaN;
     try { storedPort = Number(window.sessionStorage.getItem(`workbench:preview-target:${panel.id}`)); } catch { /* session storage may be unavailable */ }
     const port = Number.isInteger(queryPort) && queryPort > 0 ? queryPort : storedPort;
     if (Number.isInteger(port) && port > 0 && port <= 65_535) {
-      setLocalPreview({ url: `http://127.0.0.1:${port}/`, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: port, path: "/", runtime: "iframe" });
+      setLocalPreview({ url: `http://127.0.0.1:${port}/`, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: port, path: "/" });
     }
   }, [localPreview, panel.id, panel.type, standalone]);
 
   const configuredPanel = resolvePanel(panel, project, codeServerMode);
   const resolved = panel.type === "preview" && localPreview ? localPreview : configuredPanel;
-  const configuredPreview = panel.type === "preview" ? project?.previews.find((preview) => preview.id === panel.previewId) : undefined;
-  const previewRuntime = previewRuntimeOverride ?? resolved?.runtime ?? configuredPreview?.runtime ?? "iframe";
-  const sharedPreview = panel.type === "preview" && Boolean(resolved?.url) && previewRuntime === "shared-browser";
 
   const [loaded, setLoaded] = useState(false);
   const effectiveReloadKey = panel.reloadKey + standaloneReloadKey;
@@ -159,9 +189,9 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   }, [effectiveReloadKey, resolved?.url]);
 
   useEffect(() => {
-    if (actionPlacement !== "topbar") { setTopbarTarget(null); return; }
+    if (actionPlacement !== "topbar" || !routeActive) { setTopbarTarget(null); return; }
     setTopbarTarget(document.getElementById("topbar-tool-actions"));
-  }, [actionPlacement]);
+  }, [actionPlacement, routeActive]);
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -206,16 +236,23 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     if (onClose) onClose();
     else closePanel(panel.id);
   };
-  const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" ? (
-    <div className={`panel-island ${actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""} ${isMaximized ? "is-maximized-actions" : ""}`}>
+  const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" && standalone ? (
+    <ToolActionMenu
+      className={actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""}
+      externalHref={resolved.proxyUrl ?? resolved.url ?? window.location.href}
+      isFullscreen={isMaximized}
+      onFullscreen={() => onMaximizedChange ? onMaximizedChange(!isMaximized) : standalone ? setStandaloneMaximized(!isMaximized) : restorePanels()}
+      onReload={reload}
+    />
+  ) : resolved !== null && !minimal && actionPlacement !== "hidden" ? (
+    <div className={`panel-island ${actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""} ${actionPlacement === "topbar" && panel.type === "code-server" ? "is-flat-toolbar" : ""} ${isMaximized ? "is-maximized-actions" : ""}`}>
       {panel.type === "preview" ? <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} /> : null}
-      {panel.type === "preview" && deviceId !== "responsive" ? <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")} className="icon-button"><MonitorSmartphone className="h-4 w-4" /></button> : null}
+      {panel.type === "preview" && deviceId !== "responsive" ? <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")} className="icon-button"><DeviceRotateIcon className="h-4 w-4" /></button> : null}
       {panel.type === "preview" && resolved?.targetPort ? <span className="preview-slot-badge">{previewSlotId ? `SLOT ${previewSlotId}` : "SLOT"}</span> : null}
-      {panel.type === "preview" && resolved?.url ? <button type="button" title={previewRuntime === "iframe" ? "Server-Chromium verwenden: geteilte Geräte- oder Cookie-Session" : "Direkte iframe-Preview verwenden"} aria-label="Preview-Laufzeit wechseln" onClick={() => setPreviewRuntimeOverride(previewRuntime === "iframe" ? "shared-browser" : "iframe")} className={`icon-button ${previewRuntime === "shared-browser" ? "is-active" : ""}`}>{previewRuntime === "iframe" ? <ShieldCheck className="h-4 w-4" /> : <Server className="h-4 w-4" />}</button> : null}
-      {resolved.url ? <button type="button" title="Neu laden" aria-label="Neu laden" onClick={reload} className="icon-button"><RotateCw className="h-4 w-4" /></button> : null}
-      {resolved.url ? <a href={previewPublicUrl ?? resolved.proxyUrl ?? resolved.url} target="_blank" rel="noopener noreferrer" title="In neuem Tab öffnen" aria-label="In neuem Tab öffnen" className="icon-button"><ExternalLink className="h-4 w-4" /></a> : null}
-      {isMaximized ? <button type="button" title="Wiederherstellen" aria-label="Wiederherstellen" onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()} className="icon-button"><Minimize2 className="h-4 w-4" /></button> : <button type="button" title="Vollbild" aria-label="Vollbild" onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)} className="icon-button"><Maximize2 className="h-4 w-4" /></button>}
-      {!standalone ? <button type="button" title="Schließen" aria-label="Schließen" onClick={close} className="icon-button danger"><X className="h-4 w-4" /></button> : null}
+      {resolved.url ? <button type="button" title="Neu laden" aria-label="Neu laden" onClick={reload} className="icon-button"><RefreshIcon className="h-4 w-4" /></button> : null}
+      {resolved.url ? <a href={previewPublicUrl ?? resolved.proxyUrl ?? resolved.url} target="_blank" rel="noopener noreferrer" title="In neuem Tab öffnen" aria-label="In neuem Tab öffnen" className="icon-button"><ExternalLinkIcon className="h-4 w-4" /></a> : null}
+      {isMaximized ? <button type="button" title="Wiederherstellen" aria-label="Wiederherstellen" onClick={() => onMaximizedChange ? onMaximizedChange(false) : standalone ? setStandaloneMaximized(false) : restorePanels()} className="icon-button"><RestoreIcon className="h-4 w-4" /></button> : <button type="button" title="Vollbild" aria-label="Vollbild" onClick={() => onMaximizedChange ? onMaximizedChange(true) : standalone ? setStandaloneMaximized(true) : maximizePanel(panel.id)} className="icon-button"><FullscreenIcon className="h-4 w-4" /></button>}
+      {!standalone ? <button type="button" title="Schließen" aria-label="Schließen" onClick={close} className="icon-button danger"><CloseIcon className="h-4 w-4" /></button> : null}
     </div>
   ) : null;
 
@@ -225,7 +262,13 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       className={`tool-surface group flex h-full min-h-0 flex-col ${standalone ? "tool-surface-standalone" : ""} ${isMaximized ? "tool-surface-maximized" : ""} ${
         isFocused ? "border-ink-600" : "border-line"
       }`}
-      onPointerDown={onFocus}
+      onPointerDown={(event) => {
+        // Eingebettete Werkzeuge, insbesondere T3 Code, gehören zur Knoten-
+        // Oberfläche. Ihre Pointer-Gesten dürfen nicht als Canvas-Pan starten.
+        event.stopPropagation();
+        onFocus?.();
+      }}
+      onWheel={(event) => event.stopPropagation()}
     >
       {!minimal && !standalone ? <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-ink-900 px-3">
         <span
@@ -234,7 +277,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
           }`}
           aria-hidden
         >
-          <StateDot state={["terminal", "codex", "opencode", "browser"].includes(panel.type) || resolved?.url ? "active" : "inactive"} />
+          <StateDot state={["terminal", "codex", "opencode", "browser", "files", "hermes"].includes(panel.type) || resolved?.url ? "active" : "inactive"} />
         </span>
         <div className="min-w-0 leading-tight">
           <div className="truncate text-[13px] font-medium text-text">
@@ -244,34 +287,36 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         </div>
       </header> : null}
 
-      {panelActions ? actionPlacement === "topbar" && !isMaximized ? (topbarTarget ? createPortal(panelActions, topbarTarget) : null) : panelActions : null}
+      {panelActions ? actionPlacement === "topbar" && !isMaximized
+        ? routeActive && topbarTarget ? createPortal(panelActions, topbarTarget) : null
+        : panelActions : null}
 
       {showAvailabilityWarning ? (
         <div className="flex items-center gap-2 border-b border-warn/20 bg-warn-soft/50 px-3 py-1.5 text-[12px] text-warn">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <WarningIcon className="h-3.5 w-3.5 shrink-0" />
           Projekt-Verfügbarkeit: {project!.availability}. Aktionen könnten fehlschlagen.
         </div>
       ) : null}
 
       <div className="relative min-h-0 flex-1 bg-ink-950">
-        {panel.type === "browser" ? (
-          <BrowserPanel instanceId={panel.id} />
-        ) : sharedPreview && resolved?.url ? (
-          <DevicePreviewFrame deviceId={deviceId} orientation={orientation}>
-            <ChromiumBrowser
-              instanceId={`preview:${project?.id ?? "local"}:${panel.previewId ?? panel.id}`}
-              profileKey={`preview:${project?.id ?? "shared"}`}
-              initialUrl={resolved.url}
-            />
-          </DevicePreviewFrame>
-        ) : panel.type === "preview" && resolved?.targetPort && previewRuntime === "iframe" ? (
+        {panel.type === "files" ? (
+          <FileManagerPanel minimal={minimal} />
+        ) : panel.type === "browser" ? (
+          <BrowserPanel
+            instanceId={panel.id}
+            requestKey={panel.reloadKey}
+            {...(panel.browserUrl ? { initialUrl: panel.browserUrl } : {})}
+          />
+        ) : panel.type === "preview" && resolved?.targetPort ? (
           <PreviewSlotFrame
             targetPort={resolved.targetPort}
             path={resolved.path}
             requestedSlotId={previewSlotId}
+            previewNodeId={`panel:${panel.id}`}
             deviceId={deviceId}
             orientation={orientation}
             reloadKey={effectiveReloadKey}
+            showControls
             title={`${project?.name ?? "Lokale"} Preview`}
             onSlotAssigned={(slotId, url) => {
               setPreviewSlotId(slotId);
@@ -286,14 +331,19 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
               areaId={panel.id}
               initialProjectId={panel.projectId}
               kind={panel.type === "terminal" ? "shell" : panel.type}
+              renderScale={terminalRenderScale}
               maxTabs={1}
               minimal={minimal}
             />
           </div>
+        ) : panel.type === "hermes" ? (
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted">Hermes wird geladen…</div>}>
+            <HermesShell instanceId={panel.id} variant="panel" minimal={minimal} panel={panel} />
+          </Suspense>
         ) : showPreviewStart ? (
-          <LocalPorts onOpen={(port) => {
+          <LocalPorts projectId={project?.id ?? null} projectName={project?.name ?? "dieses Projekt"} allowAllPorts onOpen={(port) => {
             if (!port.localUrl) return;
-            setLocalPreview({ url: port.localUrl, mode: "embedded", embed: true, proxyUrl: port.proxyUrl, reason: null, targetPort: port.port, path: "/", runtime: "iframe" });
+            setLocalPreview({ url: port.localUrl, mode: "embedded", embed: true, proxyUrl: port.proxyUrl, reason: null, targetPort: port.port, path: "/" });
           }} />
         ) : resolved === null ? (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-faint">
@@ -301,7 +351,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
           </div>
         ) : resolved.reason ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-            <AlertTriangle className="h-6 w-6 text-warn" />
+            <WarningIcon className="h-6 w-6 text-warn" />
             <p className="text-sm text-muted">{resolved.reason}</p>
           </div>
         ) : resolved.embed && resolved.url ? (
@@ -333,7 +383,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
           </>
         ) : resolved.url ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-            <ExternalLink className="h-6 w-6 text-muted" />
+            <ExternalLinkIcon className="h-6 w-6 text-muted" />
             <p className="max-w-xs text-sm text-muted">
               Dieses Werkzeug kann nicht eingebettet werden.
             </p>

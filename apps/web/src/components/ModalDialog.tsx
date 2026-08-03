@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { CloseIcon } from "./icons";
+import { useModalFocus } from "../lib/useModalFocus";
 
 export interface ModalFrameProps {
   open: boolean;
@@ -14,9 +15,10 @@ export interface ModalFrameProps {
 
 export function ModalFrame({ open, title, description, className, backdropClassName, onClose, children }: ModalFrameProps) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const historyId = useRef(`modal-${Math.random().toString(36).slice(2)}`);
+  const titleId = useId();
+  const descriptionId = useId();
   closeRef.current = onClose;
 
   const requestClose = () => {
@@ -24,32 +26,18 @@ export function ModalFrame({ open, title, description, className, backdropClassN
     if (state?.workbenchModal === historyId.current) window.history.back();
     else closeRef.current();
   };
+  useModalFocus(frameRef, open, requestClose);
 
   useEffect(() => {
     if (!open) return;
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     window.history.pushState({ ...(window.history.state ?? {}), workbenchModal: historyId.current }, "", window.location.href);
     document.body.style.overflow = "hidden";
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); requestClose(); return; }
-      if (event.key !== "Tab") return;
-      const focusable = frameRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
     const handlePopState = () => closeRef.current();
     window.addEventListener("popstate", handlePopState);
-    document.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
-      window.setTimeout(() => previousFocus.current?.focus(), 0);
     };
   }, [open]);
 
@@ -58,10 +46,10 @@ export function ModalFrame({ open, title, description, className, backdropClassN
      kein neues Bezugssystem für position:fixed aufspannen und der Dialog immer mittig sitzt. */
   return createPortal(
     <div className={`modal-backdrop ${backdropClassName ?? ""}`} role="presentation" onPointerDown={requestClose}>
-      <div ref={frameRef} className={`modal-sheet ${className ?? ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? "modal-description" : undefined} onPointerDown={(event) => event.stopPropagation()}>
+      <div ref={frameRef} className={`modal-sheet ${className ?? ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} onPointerDown={(event) => event.stopPropagation()}>
         <header>
-          <div><h2 id="modal-title">{title}</h2>{description ? <p id="modal-description">{description}</p> : null}</div>
-          <button type="button" className="icon-button" onClick={requestClose} aria-label="Dialog schließen"><X className="h-5 w-5" /></button>
+          <div><h2 id={titleId}>{title}</h2>{description ? <p id={descriptionId}>{description}</p> : null}</div>
+          <button type="button" className="icon-button" onClick={requestClose} aria-label="Dialog schließen"><CloseIcon className="h-5 w-5" /></button>
         </header>
         {children(requestClose)}
       </div>

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { AlertOctagon, Copy, RotateCw, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CloseIcon, CopyIcon, ErrorIcon, RefreshIcon } from "./icons";
 import {
   dismissCrash,
   formatCrashReport,
@@ -9,6 +9,7 @@ import {
   type CrashReport,
 } from "../lib/crashReport";
 import { writeClipboardText } from "../lib/clipboard";
+import { useModalFocus } from "../lib/useModalFocus";
 
 const unknownEnvironment: CrashEnvironment = { appVersion: null, bootId: null, webBuildId: null, backendReachable: false };
 
@@ -37,6 +38,7 @@ export function CrashReportDialog() {
   const [report, setReport] = useState<CrashReport | null>(getCurrentCrash);
   const [environment, setEnvironment] = useState<CrashEnvironment>(unknownEnvironment);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribeToCrash(setReport), []);
 
@@ -52,13 +54,7 @@ export function CrashReportDialog() {
     dismissCrash();
     setEnvironment(unknownEnvironment);
   }, []);
-
-  useEffect(() => {
-    if (!report) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, report]);
+  useModalFocus(sheetRef, report !== null, close);
 
   if (!report) return null;
 
@@ -66,9 +62,9 @@ export function CrashReportDialog() {
 
   return (
     <div className="crash-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="crash-title">
-      <div className="crash-sheet">
+      <div ref={sheetRef} className="crash-sheet" tabIndex={-1}>
         <header className="crash-header">
-          <div className="crash-header-icon"><AlertOctagon className="h-5 w-5" /></div>
+          <div className="crash-header-icon"><ErrorIcon className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
             <h2 id="crash-title">Etwas ist abgestürzt</h2>
             <p>
@@ -77,7 +73,7 @@ export function CrashReportDialog() {
             </p>
           </div>
           <button type="button" className="crash-close" onClick={close} aria-label="Schließen">
-            <X className="h-4 w-4" />
+            <CloseIcon className="h-4 w-4" />
           </button>
         </header>
 
@@ -103,11 +99,11 @@ export function CrashReportDialog() {
                 .catch(() => setCopyState("failed"));
             }}
           >
-            <Copy className="h-4 w-4" />
+            <CopyIcon className="h-4 w-4" />
             {copyState === "copied" ? "Kopiert" : copyState === "failed" ? "Kopieren fehlgeschlagen" : "Bericht kopieren"}
           </button>
           <button type="button" className="quiet-button" onClick={() => window.location.reload()}>
-            <RotateCw className="h-4 w-4" /> Seite neu laden
+            <RefreshIcon className="h-4 w-4" /> Seite neu laden
           </button>
           <button type="button" className="quiet-button" onClick={close}>Weiterarbeiten</button>
         </footer>

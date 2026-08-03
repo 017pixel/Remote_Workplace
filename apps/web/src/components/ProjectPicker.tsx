@@ -1,6 +1,9 @@
-import { Check, ChevronDown, FolderKanban, Search, X } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CloseIcon, FolderCodeIcon, SearchIcon } from "./icons";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Project } from "@workbench/contracts";
+import { useAnchoredOverlay } from "../lib/useAnchoredOverlay";
+import { elementContainsEventTarget } from "../lib/domEvents";
 
 interface ProjectPickerProps {
   projects: Project[];
@@ -15,8 +18,11 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const menuId = useId();
+  const menuStyle = useAnchoredOverlay(open, triggerRef, { width: 390, stretchBelowBreakpoint: 1180 });
   const selected = projects.find((project) => project.id === value) ?? projects[0];
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("de");
@@ -28,11 +34,20 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!elementContainsEventTarget(rootRef.current, event.target) && !elementContainsEventTarget(menuRef.current, event.target)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
     };
     document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
     window.setTimeout(() => searchRef.current?.focus(), 0);
-    return () => document.removeEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open]);
 
   useEffect(() => setHighlighted(0), [query]);
@@ -55,6 +70,7 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
   return (
     <div ref={rootRef} className={`project-picker ${compact ? "is-compact" : ""}`} onKeyDown={onKeyDown}>
       <button
+        ref={triggerRef}
         type="button"
         className="project-picker-trigger"
         aria-haspopup="listbox"
@@ -63,22 +79,22 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
         onClick={() => setOpen((current) => !current)}
       >
         <span className="project-picker-label">{label}</span>
-        <FolderKanban className="project-picker-icon" aria-hidden />
+        <FolderCodeIcon className="project-picker-icon" aria-hidden />
         <span className="project-picker-value">{selected?.name ?? "Auswählen"}</span>
-        <ChevronDown className={`project-picker-chevron ${open ? "is-open" : ""}`} aria-hidden />
+        <ChevronDownIcon className={`project-picker-chevron ${open ? "is-open" : ""}`} aria-hidden />
       </button>
-      {open ? (
-        <div className="project-picker-popover">
+      {open ? createPortal(
+        <div ref={menuRef} className="project-picker-popover is-portal" style={menuStyle} onKeyDown={onKeyDown}>
           <div className="project-picker-popover-head">
             <div>
               <strong>Projekt auswählen</strong>
               <span>{projects.length} lokale Arbeitsbereiche</span>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Projektwahl schließen"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Projektwahl schließen"><CloseIcon className="h-4 w-4" /></button>
           </div>
           {projects.length > 7 ? (
             <label className="project-picker-search">
-              <Search className="h-4 w-4" aria-hidden />
+              <SearchIcon className="h-4 w-4" aria-hidden />
               <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Projekt suchen…" aria-label="Projekt suchen" />
             </label>
           ) : null}
@@ -98,12 +114,13 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
                   <strong>{project.name}</strong>
                   <small>{project.path}</small>
                 </span>
-                {project.id === selected?.id ? <Check className="h-4 w-4" aria-hidden /> : null}
+                {project.id === selected?.id ? <CheckIcon className="h-4 w-4" aria-hidden /> : null}
               </button>
             ))}
             {filtered.length === 0 ? <p className="project-picker-empty">Kein passendes Projekt gefunden.</p> : null}
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

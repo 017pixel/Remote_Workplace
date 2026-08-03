@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { FolderGit2 } from "lucide-react";
+import { FolderCodeIcon } from "../components/icons";
 import type { Project } from "@workbench/contracts";
 import { workbenchQueries } from "../lib/queryOptions";
 import { QueryBoundary } from "../components/QueryBoundary";
 import { ProjectCard } from "../components/ProjectCard";
 import { EmptyState } from "../components/EmptyState";
+import { useRouteActivity } from "../lib/routeActivity";
 
 function ProjectGroup({ title, description, projects }: { title: string; description: string; projects: Project[] }) {
   if (projects.length === 0) return null;
@@ -25,7 +26,8 @@ function ProjectGroup({ title, description, projects }: { title: string; descrip
 }
 
 export function Projects() {
-  const projects = useQuery(workbenchQueries.projects());
+  const routeActive = useRouteActivity();
+  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
 
   return (
     <div className="page-scroll">
@@ -37,7 +39,7 @@ export function Projects() {
         <QueryBoundary {...projects} loadingLabel="Projekte laden…">
           {(data) =>
             data.projects.length === 0 ? (
-              <EmptyState icon={<FolderGit2 className="h-6 w-6" />} title="Keine Projekte" description="Im Projektordner wurden keine Arbeitsbereiche gefunden." />
+              <EmptyState icon={<FolderCodeIcon className="h-6 w-6" />} title="Keine Projekte" description="Im Projektordner wurden keine Arbeitsbereiche gefunden." />
             ) : (
               <>
                 <ProjectGroup

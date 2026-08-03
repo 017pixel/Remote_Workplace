@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import type { ProviderUsage } from "@workbench/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";

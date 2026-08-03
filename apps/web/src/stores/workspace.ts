@@ -16,6 +16,12 @@ import { generateId } from "../lib/id";
 
 export const WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v2";
 export const LEGACY_WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v1";
+// Schlüssel aus der Zeit vor der Open-Source-Vorbereitung. Werden beim Start
+// migriert, sofern der aktuelle Schlüssel noch nicht existiert (F04-01).
+export const RENAMED_WORKSPACE_STORAGE_KEYS = [
+  "benjamin-dev-workbench.workspace.v2",
+  "benjamin-dev-workbench.workspace.v1",
+];
 
 const DEFAULT_WORKSPACE_ID = "workspace-default";
 const DEFAULT_GROUP_ID = "group-default";
@@ -47,6 +53,11 @@ export interface OpenPanelInput {
   type: PanelType;
   projectId?: string | null;
   previewId?: string | null;
+  browserUrl?: string | null;
+  hermesSurface?: "chat" | "admin";
+  hermesSessionId?: string | null;
+  hermesAdminPath?: string;
+  hermesSidebarCollapsed?: boolean;
   groupId?: string;
   workspaceId?: string;
 }
@@ -68,6 +79,8 @@ interface WorkspaceActions {
   removeWorkspace(workspaceId: string): void;
   renameWorkspace(workspaceId: string, name: string): void;
   activateWorkspace(workspaceId: string): void;
+  updateHermesPanel(panelId: string, patch: Partial<Pick<Panel, "hermesSurface" | "hermesSessionId" | "hermesAdminPath" | "hermesSidebarCollapsed">>): void;
+  setPanelProject(panelId: string, projectId: string | null): void;
   resetWorkspace(): void;
 }
 
@@ -80,12 +93,21 @@ function makePanel(input: OpenPanelInput): Panel {
     projectId: input.projectId ?? null,
     previewId: input.previewId ?? null,
     reloadKey: 0,
+    ...(input.browserUrl ? { browserUrl: input.browserUrl } : {}),
+    ...(input.type === "hermes" ? {
+      // Der Wert bleibt für alte Workspaces im Vertrag, zeigt aber nur noch
+      // die offizielle Hermes-SPA an.
+      hermesSurface: "admin",
+      hermesSessionId: input.hermesSessionId ?? null,
+      hermesAdminPath: input.hermesAdminPath && input.hermesAdminPath !== "/" ? input.hermesAdminPath : "/chat",
+      hermesSidebarCollapsed: input.hermesSidebarCollapsed ?? false,
+    } : {}),
   };
 }
 
 function isSamePanel(panel: Panel, input: OpenPanelInput): boolean {
   return (
-    !["terminal", "codex", "opencode"].includes(input.type) &&
+    !["terminal", "codex", "opencode", "hermes"].includes(input.type) &&
     panel.type === input.type &&
     panel.projectId === (input.projectId ?? null) &&
     panel.previewId === (input.previewId ?? null)
@@ -154,9 +176,99 @@ export function migrateLegacyWorkspace(value: unknown): Workspace | null {
   return workspaceSchema.safeParse(migrated).success ? migrated : null;
 }
 
-export function parseStoredWorkspace(value: unknown): Workspace {
-  const parsed = workspaceSchema.safeParse(value);
-  if (parsed.success) return parsed.data;
+function recordOf(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
+}
+
+/**
+ * Arbeitsflächen müssen auch nach einem Rückbau lesbar bleiben. Ein unbekannter
+ * Paneltyp darf deshalb nicht die gesamte localStorage-Arbeitsfläche verwerfen.
+ * Die Reparatur ist bewusst auf bekannte Panels und ihre Zuordnung begrenzt;
+ * strukturell kaputte Dokumente laufen weiterhin durch den normalen Fallback.
+ */
+function stripUnknownPanels(value: unknown): unknown {
+  const root = recordOf(value);
+  if (!root || !Array.isArray(root.panels) || !Array.isArray(root.workspaces)) return value;
+
+  const panels = root.panels.flatMap((panel) => {
+    const parsed = panelSchema.safeParse(panel);
+    return parsed.success ? [parsed.data] : [];
+  });
+  // Sind alle Panels unbekannt, bleiben die Arbeitsflächen-Struktur (Gruppen,
+  // Layout, Namen) trotzdem erhalten — nur die Panels entfallen (F04-11).
+
+  const panelIds = new Set(panels.map((panel) => panel.id));
+  const assigned = new Set<string>();
+  const workspaces = root.workspaces.map((workspaceValue) => {
+    const workspace = recordOf(workspaceValue);
+    if (!workspace || !Array.isArray(workspace.groups)) return workspaceValue;
+    const groups = workspace.groups.map((groupValue) => {
+      const group = recordOf(groupValue);
+      if (!group || !Array.isArray(group.panelIds)) return groupValue;
+      const nextPanelIds = group.panelIds.filter((panelId): panelId is string => (
+        typeof panelId === "string" && panelIds.has(panelId) && !assigned.has(panelId)
+      ));
+      nextPanelIds.forEach((panelId) => assigned.add(panelId));
+      const activePanelId = typeof group.activePanelId === "string" && nextPanelIds.includes(group.activePanelId)
+        ? group.activePanelId
+        : (nextPanelIds[0] ?? null);
+      return { ...group, panelIds: nextPanelIds, activePanelId };
+    });
+    const focusedGroupId = typeof workspace.focusedGroupId === "string"
+      && groups.some((group) => recordOf(group)?.id === workspace.focusedGroupId)
+      ? workspace.focusedGroupId
+      : (recordOf(groups[0])?.id ?? workspace.focusedGroupId);
+    return { ...workspace, groups, focusedGroupId };
+  });
+
+  const unassigned = panels.map((panel) => panel.id).filter((panelId) => !assigned.has(panelId));
+  if (unassigned.length > 0) {
+    const workspaceIndex = workspaces.findIndex((workspaceValue) => {
+      const workspace = recordOf(workspaceValue);
+      return Boolean(workspace && Array.isArray(workspace.groups) && workspace.groups.length > 0);
+    });
+    if (workspaceIndex >= 0) {
+      const workspace = recordOf(workspaces[workspaceIndex]);
+      const groups = workspace && Array.isArray(workspace.groups) ? [...workspace.groups] : [];
+      const firstGroup = recordOf(groups[0]);
+      if (firstGroup && Array.isArray(firstGroup.panelIds)) {
+        groups[0] = {
+          ...firstGroup,
+          panelIds: [...firstGroup.panelIds, ...unassigned].slice(0, WORKBENCH_LIMITS.maxResidentTools),
+          activePanelId: firstGroup.activePanelId ?? unassigned[0] ?? null,
+        };
+        workspaces[workspaceIndex] = { ...workspace, groups };
+      }
+    }
+  }
+
+  const workspaceIds = new Set(workspaces.flatMap((workspaceValue) => {
+    const workspace = recordOf(workspaceValue);
+    return typeof workspace?.id === "string" ? [workspace.id] : [];
+  }));
+  const activeWorkspaceId = typeof root.activeWorkspaceId === "string" && workspaceIds.has(root.activeWorkspaceId)
+    ? root.activeWorkspaceId
+    : (workspaces.map(recordOf).find((workspace) => typeof workspace?.id === "string")?.id ?? root.activeWorkspaceId);
+
+  return {
+    ...root,
+    version: 3,
+    panels,
+    workspaces,
+    activeWorkspaceId,
+    maximizedPanelId: typeof root.maximizedPanelId === "string" && panelIds.has(root.maximizedPanelId)
+      ? root.maximizedPanelId
+      : null,
+    focusedPanelId: typeof root.focusedPanelId === "string" && panelIds.has(root.focusedPanelId)
+      ? root.focusedPanelId
+      : null,
+  };
+}
+
+export function parseStoredWorkspaceOrNull(value: unknown): Workspace | null {
+  const sanitized = stripUnknownPanels(value);
+  const parsed = workspaceSchema.safeParse(sanitized);
+  if (parsed.success) return withHermesPanelDefaults(parsed.data);
   const versionTwo = z.object({
     version: z.literal(2),
     selectedProjectId: z.string().nullable(),
@@ -176,12 +288,30 @@ export function parseStoredWorkspace(value: unknown): Workspace {
     activeWorkspaceId: z.string().min(1),
     maximizedPanelId: z.string().nullable(),
     focusedPanelId: z.string().nullable(),
-  }).safeParse(value);
+  }).safeParse(sanitized);
   if (versionTwo.success) {
     const migrated = workspaceSchema.safeParse({ ...versionTwo.data, version: 3 });
-    if (migrated.success) return migrated.data;
+    if (migrated.success) return withHermesPanelDefaults(migrated.data);
   }
-  return migrateLegacyWorkspace(value) ?? freshWorkspace();
+  return migrateLegacyWorkspace(value);
+}
+
+export function parseStoredWorkspace(value: unknown): Workspace {
+  return parseStoredWorkspaceOrNull(value) ?? withHermesPanelDefaults(freshWorkspace());
+}
+
+function withHermesPanelDefaults(workspace: Workspace): Workspace {
+  return {
+    ...workspace,
+    panels: workspace.panels.map((panel) => panel.type !== "hermes" ? panel : {
+      ...panel,
+      // Migriert alte Custom-Chat-Panels ohne Datenverlust auf die offizielle UI.
+      hermesSurface: "admin",
+      hermesSessionId: panel.hermesSessionId ?? null,
+      hermesAdminPath: panel.hermesAdminPath && panel.hermesAdminPath !== "/" ? panel.hermesAdminPath : "/chat",
+      hermesSidebarCollapsed: panel.hermesSidebarCollapsed ?? false,
+    }),
+  };
 }
 
 export function visiblePanels(workspace: Workspace, isMobile: boolean): Panel[] {
@@ -208,7 +338,20 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         const existing = current.panels.find((panel) => isSamePanel(panel, input));
         if (existing) {
           get().focusPanel(existing.id);
-          set({ selectedProjectId: input.projectId ?? current.selectedProjectId, maximizedPanelId: null });
+          const hasBrowserUrl = input.type === "browser" && input.browserUrl !== undefined;
+          set({
+            selectedProjectId: input.projectId ?? current.selectedProjectId,
+            maximizedPanelId: null,
+            ...(hasBrowserUrl ? {
+              panels: current.panels.map((panel) => panel.id !== existing.id
+                ? panel
+                : {
+                    ...panel,
+                    ...(input.browserUrl ? { browserUrl: input.browserUrl } : { browserUrl: undefined }),
+                    reloadKey: panel.reloadKey + 1,
+                  }),
+            } : {}),
+          });
           return existing.id;
         }
         if (current.panels.length >= WORKBENCH_LIMITS.maxResidentTools) return null;
@@ -395,6 +538,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       activateWorkspace: (workspaceId) => set((current) => current.workspaces.some((workspace) => workspace.id === workspaceId)
         ? { activeWorkspaceId: workspaceId, focusedPanelId: null, maximizedPanelId: null }
         : current),
+      updateHermesPanel: (panelId, patch) => set((current) => ({
+        panels: current.panels.map((panel) => panel.id === panelId && panel.type === "hermes" ? { ...panel, ...patch } : panel),
+      })),
+      setPanelProject: (panelId, projectId) => set((current) => ({
+        panels: current.panels.map((panel) => panel.id === panelId && panel.type === "hermes" ? { ...panel, projectId } : panel),
+      })),
       resetWorkspace: () => set(freshWorkspace()),
     }),
     {
@@ -410,6 +559,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         focusedPanelId,
       }) => ({ version, selectedProjectId, panels, workspaces, activeWorkspaceId, maximizedPanelId, focusedPanelId }),
       merge: (persisted, current) => ({ ...current, ...parseStoredWorkspace(persisted) }),
+      // Ohne migrate wirft zustand bei einem Versions-Mismatch den alten Stand
+      // weg und merge erzeugt eine leere Arbeitsfläche (F04-02). Der Aufruf
+      // wandelt v1/v2-Stände in die aktuelle Version um.
+      migrate: (persisted) => parseStoredWorkspace(persisted),
       onRehydrateStorage: () => () => {
         try {
           const legacyRaw = window.localStorage.getItem(LEGACY_WORKSPACE_STORAGE_KEY);
@@ -421,6 +574,22 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           }
         } catch {
           // A blocked or malformed legacy store must not prevent startup.
+        }
+        for (const oldKey of RENAMED_WORKSPACE_STORAGE_KEYS) {
+          try {
+            const raw = window.localStorage.getItem(oldKey);
+            const hasCurrent = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+            if (!hasCurrent && raw) {
+              const envelope = JSON.parse(raw) as { state?: unknown };
+              const migrated = parseStoredWorkspaceOrNull(envelope.state ?? envelope);
+              if (migrated) {
+                useWorkspaceStore.setState(migrated);
+                window.localStorage.removeItem(oldKey);
+              }
+            }
+          } catch {
+            // Ein blockierter oder defekter alter Speicher darf den Start nicht verhindern.
+          }
         }
       },
     },

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Menu } from "lucide-react";
+import { ChevronRightIcon, MenuIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { StatusBar } from "./StatusBar";
@@ -12,11 +12,15 @@ import { workbenchQueries } from "../lib/queryOptions";
 import { ProjectPicker } from "./ProjectPicker";
 import { useTerminalStore } from "../stores/terminals";
 import { TerminalWorkspaceSync } from "./terminal/TerminalWorkspaceSync";
+import { TerminalSessionsSync } from "./terminal/TerminalSessionsSync";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell, useVisualViewportVariables } from "../lib/useResponsiveShell";
 import { navItems } from "../routes/navigation";
 import { addBreadcrumb } from "../lib/crashReport";
 import type { ProjectsResponse } from "@workbench/contracts";
+import { ToolActionMenu } from "./ToolActionMenu";
+import { NotificationCenter } from "./NotificationCenter";
+import { WorkbenchNotice } from "./WorkbenchNotice";
 
 const routeTitles = Object.fromEntries(navItems.map((item) => [item.to, item.label]));
 
@@ -31,6 +35,7 @@ function ContextProjectPicker() {
     : location.pathname === "/terminal" ? "terminal"
     : location.pathname === "/codex" ? "codex"
     : location.pathname === "/opencode" ? "opencode"
+    : location.pathname === "/claude" ? "claude"
     : null;
   const projects = (data?.projects ?? []).filter((project) =>
     context === "editor" ? project.links.codeServer !== null
@@ -49,7 +54,7 @@ function ContextProjectPicker() {
     selectProject(projectId);
     const terminalKind = context === "terminal"
       ? "shell"
-      : context === "codex" || context === "opencode"
+      : context === "codex" || context === "opencode" || context === "claude"
         ? context
         : null;
     if (terminalKind) {
@@ -63,6 +68,33 @@ function ContextProjectPicker() {
   );
 }
 
+const standaloneToolPaths = new Set(["/terminal", "/opencode", "/codex", "/claude", "/files"]);
+
+function StandaloneRouteActions() {
+  const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
+
+  useEffect(() => {
+    const update = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen?.();
+  };
+
+  return (
+    <ToolActionMenu
+      className="is-topbar"
+      externalHref={window.location.href}
+      isFullscreen={isFullscreen}
+      onFullscreen={toggleFullscreen}
+      onReload={() => window.location.reload()}
+    />
+  );
+}
+
 export function AppShell() {
   const location = useLocation();
   const title = routeTitles[location.pathname] ?? "Remote Workplace";
@@ -70,6 +102,7 @@ export function AppShell() {
   const isOrbit = location.pathname === "/workbench";
   const isNews = location.pathname === "/tech-tldrs";
   const isStandaloneT3 = location.pathname === "/t3-code";
+  const hasStandaloneToolMenu = standaloneToolPaths.has(location.pathname);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const closeMobileNavigation = useCallback(() => setMobileNavigationOpen(false), []);
@@ -139,6 +172,9 @@ export function AppShell() {
       <a className="skip-link" href="#main-content">Zum Hauptinhalt springen</a>
       <span className="sr-only" aria-live="polite" aria-atomic="true">{title} geöffnet</span>
       <TerminalWorkspaceSync />
+      <TerminalSessionsSync />
+      <NotificationCenter />
+      <WorkbenchNotice />
       {responsive.mode === "desktop" ? <Sidebar
         collapsed={sidebar.collapsed}
         width={sidebar.width}
@@ -157,23 +193,24 @@ export function AppShell() {
             onClick={() => setMobileNavigationOpen(true)}
             aria-label="Navigation öffnen"
           >
-            <Menu className="h-[18px] w-[18px]" />
+            <MenuIcon className="h-[18px] w-[18px]" />
           </button> : null}
           <div className="page-crumb min-w-0">
             <Link to="/" className="page-crumb-root shell-desktop-only">Remote Workplace</Link>
-            <ChevronRight className="page-crumb-separator shell-desktop-only" aria-hidden />
+            <ChevronRightIcon className="page-crumb-separator shell-desktop-only" aria-hidden />
             {isProjectDetail ? (
               <>
                 <Link to="/projects" className="page-crumb-root shell-desktop-only">Projekte</Link>
-                <ChevronRight className="page-crumb-separator shell-desktop-only" aria-hidden />
+                <ChevronRightIcon className="page-crumb-separator shell-desktop-only" aria-hidden />
               </>
             ) : null}
             <span className="breadcrumb truncate" aria-current="page">
               {isProjectDetail ? decodeURIComponent(location.pathname.split("/").at(-1) ?? "Projekt") : title}
             </span>
           </div>
-          {isStandaloneT3 ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label="T3 Code Aktionen" /> : <ContextProjectPicker />}
-        </header> : isOrbit ? (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="orbit-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><Menu className="h-[18px] w-[18px]" /></button> : null) : (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="news-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><Menu className="h-[18px] w-[18px]" /></button> : null)}
+          {(isStandaloneT3 || location.pathname === "/code-editor") ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label={`${title} Aktionen`} /> : hasStandaloneToolMenu ? <StandaloneRouteActions /> : null}
+          {!isStandaloneT3 ? <ContextProjectPicker /> : null}
+        </header> : isOrbit ? (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="orbit-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null) : (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="news-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null)}
         {!online ? <div className="connection-banner" role="status"><span>Offline</span><strong>Live-Daten und Remote-Werkzeuge sind vorübergehend nicht verfügbar.</strong></div> : null}
         <main ref={mainRef} id="main-content" tabIndex={-1} className="relative min-h-0 flex-1 overflow-hidden">
           <PersistentOutlet />

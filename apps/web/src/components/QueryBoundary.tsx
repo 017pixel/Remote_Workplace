@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { RotateCw } from "lucide-react";
+import { RefreshIcon } from "./icons";
 
 interface QueryBoundaryProps<T> {
   isLoading: boolean;
@@ -36,7 +36,7 @@ export function QueryBoundary<T>({
     return (
       <div className="query-error" role="alert">
         <div><strong>Daten konnten nicht geladen werden</strong><span>{message}</span></div>
-        {refetch ? <button type="button" className="quiet-button" onClick={() => void refetch()}><RotateCw className="h-4 w-4" /> Erneut versuchen</button> : null}
+        {refetch ? <button type="button" className="quiet-button" onClick={() => void refetch()}><RefreshIcon className="h-4 w-4" /> Erneut versuchen</button> : null}
       </div>
     );
   }

@@ -33,11 +33,21 @@ describe("clipboard helpers", () => {
     expect(browserClipboardAction(event({ metaKey: true, shiftKey: true }), true)).toBe("copy");
   });
 
-  it("uses the asynchronous Clipboard API when available", async () => {
+  it("copies the explicit terminal selection instead of a stale document URL", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
+    const execCommand = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    await writeClipboardText("https://example.test/ä");
-    expect(writeText).toHaveBeenCalledWith("https://example.test/ä");
+    Object.defineProperty(document, "execCommand", { configurable: true, value: execCommand });
+    const staleUrl = document.createElement("textarea");
+    staleUrl.value = "https://remote-workplace.example/workbench";
+    document.body.append(staleUrl);
+    staleUrl.select();
+
+    await writeClipboardText("https://github.com/login/device?code=ABCD-EFGH");
+
+    expect(writeText).toHaveBeenCalledWith("https://github.com/login/device?code=ABCD-EFGH");
+    expect(execCommand).not.toHaveBeenCalled();
+    staleUrl.remove();
   });
 
   it("falls back to a temporary text selection", async () => {

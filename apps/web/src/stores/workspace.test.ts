@@ -32,6 +32,26 @@ describe("workspace persistence", () => {
     expect(parseStoredWorkspace({ version: 2, panels: [{ id: "broken" }] })).toEqual(emptyWorkspace);
   });
 
+  it("behält bekannte Panels, wenn ein zurückgebauter Typ in localStorage liegt", () => {
+    const parsed = parseStoredWorkspace({
+      ...twoPanelWorkspace,
+      panels: [
+        ...twoPanelWorkspace.panels,
+        { id: "retired-hermes", type: "hermes-agent", projectId: null, previewId: null, reloadKey: 0 },
+      ],
+      workspaces: [{
+        ...twoPanelWorkspace.workspaces[0]!,
+        groups: [
+          { ...twoPanelWorkspace.workspaces[0]!.groups[0]!, panelIds: ["left", "retired-hermes"] },
+          twoPanelWorkspace.workspaces[0]!.groups[1]!,
+        ],
+      }],
+    });
+
+    expect(parsed.panels.map((panel) => panel.id)).toEqual(["left", "right"]);
+    expect(parsed.workspaces[0]?.groups[0]?.panelIds).toEqual(["left"]);
+  });
+
   it("migrates the former two-panel workspace without discarding tools", () => {
     const migrated = migrateLegacyWorkspace({
       version: 1,
@@ -47,6 +67,44 @@ describe("workspace persistence", () => {
     expect(migrated?.panels).toHaveLength(2);
     expect(migrated?.workspaces[0]?.groups).toHaveLength(2);
     expect(migrated?.workspaces[0]?.layoutSizes.root).toEqual([60, 40]);
+  });
+
+  it("wandelt einen gespeicherten v2-Stand ohne Datenverlust in v3 um", () => {
+    const parsed = parseStoredWorkspace({
+      ...twoPanelWorkspace,
+      version: 2,
+    });
+
+    expect(parsed.version).toBe(3);
+    expect(parsed.panels).toHaveLength(2);
+    expect(parsed.workspaces[0]?.groups[0]?.panelIds).toEqual(["left"]);
+    expect(parsed.selectedProjectId).toBe("chappie");
+  });
+
+  it("behält die Arbeitsflächen-Struktur, wenn alle Panels unbekannt sind", () => {
+    const parsed = parseStoredWorkspace({
+      version: 3,
+      selectedProjectId: null,
+      panels: [
+        { id: "unbekannt-1", type: "future-tool", projectId: null, previewId: null, reloadKey: 0 },
+      ],
+      workspaces: [{
+        id: "workspace",
+        name: "Entwicklung",
+        groups: [{ id: "group", panelIds: ["unbekannt-1"], activePanelId: "unbekannt-1" }],
+        focusedGroupId: "group",
+        layout: "single",
+        layoutSizes: {},
+      }],
+      activeWorkspaceId: "workspace",
+      maximizedPanelId: null,
+      focusedPanelId: null,
+    });
+
+    expect(parsed.panels).toEqual([]);
+    expect(parsed.workspaces[0]?.name).toBe("Entwicklung");
+    expect(parsed.workspaces[0]?.groups[0]?.panelIds).toEqual([]);
+    expect(parsed.activeWorkspaceId).toBe("workspace");
   });
 
   it("shows only the focused group on mobile", () => {
@@ -70,10 +128,34 @@ describe("workspace persistence", () => {
     expect(useWorkspaceStore.getState().focusedPanelId).toBe(firstId);
   });
 
+  it("übergibt eine angeforderte Browser-Adresse an das bestehende Werkzeug", () => {
+    const firstId = useWorkspaceStore.getState().openPanel({ type: "browser", projectId: "chappie" });
+    const repeatedId = useWorkspaceStore.getState().openPanel({
+      type: "browser",
+      projectId: "chappie",
+      browserUrl: "http://127.0.0.1:4173/demo",
+    });
+
+    expect(repeatedId).toBe(firstId);
+    expect(useWorkspaceStore.getState().panels[0]).toMatchObject({
+      browserUrl: "http://127.0.0.1:4173/demo",
+      reloadKey: 1,
+    });
+  });
+
   it("allows independent terminal sessions in the same tab group", () => {
     useWorkspaceStore.getState().openPanel({ type: "terminal" });
     useWorkspaceStore.getState().openPanel({ type: "terminal" });
     expect(useWorkspaceStore.getState().panels.map((panel) => panel.type)).toEqual(["terminal", "terminal"]);
+  });
+
+  it("erlaubt mehrere Hermes-Panels und persistiert deren Sessiondaten", () => {
+    const firstId = useWorkspaceStore.getState().openPanel({ type: "hermes" });
+    const secondId = useWorkspaceStore.getState().openPanel({ type: "hermes" });
+    expect(firstId).not.toBe(secondId);
+    expect(useWorkspaceStore.getState().panels).toHaveLength(2);
+    useWorkspaceStore.getState().updateHermesPanel(firstId!, { hermesSessionId: "session-1", hermesSurface: "admin", hermesAdminPath: "/cron/jobs" });
+    expect(useWorkspaceStore.getState().panels.find((panel) => panel.id === firstId)).toMatchObject({ hermesSessionId: "session-1", hermesSurface: "admin", hermesAdminPath: "/cron/jobs" });
   });
 
   it("allows multiple independent Codex and OpenCode panels", () => {

@@ -1,9 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, Eye } from "lucide-react";
-import { CodeServerIcon, T3CodeIcon } from "./ToolIcons";
+import { Link, useNavigate } from "react-router";
+import { ChevronDownIcon, T3CodeIcon } from "./icons";
 import type { Project } from "@workbench/contracts";
 import { Badge } from "./primitives";
-import { openPreviewForProject, openProjectDefault, openToolForProject } from "../lib/workbenchActions";
+import { openProjectDefault, openProjectToolInWorkbench, openToolForProject } from "../lib/workbenchActions";
+import { projectToolOptions } from "../lib/projectTools";
 
 const availabilityTone: Record<Project["availability"], "ok" | "bad" | "warn"> = {
   available: "ok",
@@ -21,6 +21,7 @@ const availabilityLabel: Record<Project["availability"], string> = {
 
 export function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
+  const tools = projectToolOptions(project);
   const openPrimary = () => {
     if (project.availability !== "available") return;
     if (project.links.t3Code) {
@@ -65,40 +66,27 @@ export function ProjectCard({ project }: { project: Project }) {
         >
           <T3CodeIcon className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
         </button>
-        <div className="project-desktop-actions contents"><button
-          type="button"
-          disabled={project.links.codeServer === null}
-          onClick={() => {
-            openToolForProject(project, "code-server");
-            navigate("/code-editor");
-          }}
-          className="quiet-button"
-          title={project.links.codeServer === null ? "code-server nicht installiert" : undefined}
-        >
-          <CodeServerIcon className="h-3.5 w-3.5" /> Editor
-        </button>
-        {project.previews.length > 0 ? (
-          project.previews.map((preview) => (
-            <button
-              key={preview.id}
-              type="button"
-              onClick={() => {
-                openPreviewForProject(project, preview.id);
-                navigate(`/previews?preview=${encodeURIComponent(preview.id)}`);
-              }}
-              className="quiet-button"
-            >
-              <Eye className="h-3.5 w-3.5" /> {preview.name}
-            </button>
-          ))
-        ) : null}</div>
-        {project.links.codeServer || project.previews.length > 0 ? <details className="project-touch-actions">
-          <summary><span>Weitere Werkzeuge</span><ChevronDown className="h-4 w-4" /></summary>
+        <details className="project-tools-menu">
+          <summary><span>Weitere Werkzeuge</span><span className="project-tools-count">{tools.length}</span><ChevronDownIcon className="h-4 w-4" /></summary>
           <div>
-            {project.links.codeServer ? <button type="button" onClick={() => { openToolForProject(project, "code-server"); navigate("/code-editor"); }}><CodeServerIcon className="h-4 w-4" /> Editor öffnen</button> : null}
-            {project.previews.map((preview) => <button key={preview.id} type="button" onClick={() => { openPreviewForProject(project, preview.id); navigate(`/previews?preview=${encodeURIComponent(preview.id)}`); }}><Eye className="h-4 w-4" /> {preview.name}</button>)}
+            {tools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <button
+                  key={tool.id}
+                  type="button"
+                  disabled={project.availability !== "available"}
+                  onClick={() => {
+                    openProjectToolInWorkbench(project, tool.type, tool.previewId);
+                    navigate("/workbench");
+                  }}
+                >
+                  <Icon className="h-4 w-4" /> {tool.label} öffnen
+                </button>
+              );
+            })}
           </div>
-        </details> : null}
+        </details>
       </div>
       {project.availability !== "available" ? <p className="project-attention-hint">Projektpfad prüfen, bevor Werkzeuge geöffnet werden können.</p> : null}
     </article>
