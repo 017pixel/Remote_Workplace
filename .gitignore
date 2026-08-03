@@ -19,6 +19,15 @@ memory/
 handoffs/
 HTML visualisierte Pläne/
 .proxy/
+.playwright-mcp/
+Gesamtpruefung/
+plans/
+diag.mjs
+scroll-check.mjs
+tp.mjs
+identity-proxy.mjs
+file-manager-desktop.png
+inbox-read-states-mobile.png
 .DS_Store
 .idea/
 .vscode/
