@@ -7,6 +7,7 @@ import {
   type Notification,
   type NotificationCategory,
   type NotificationEvent,
+  type NotificationPresence,
   type NotificationReport,
   type NotificationSeverity,
   type NotificationSource,
@@ -54,6 +55,7 @@ export class NotificationDatabase {
   private readonly db: DatabaseSync;
   private readonly listeners = new Set<(event: NotificationEvent) => void>();
   private readonly retentionMilliseconds: number;
+  private presence: NotificationPresence | null = null;
 
   constructor(path: string, retentionHours = 48) {
     mkdirSync(dirname(path), { recursive: true });
@@ -116,25 +118,29 @@ export class NotificationDatabase {
       // liefern. Sonst würde ein Dienstneustart dieselbe Meldung erneut pushen.
       if (existing?.state === "active" || existing?.state === "dismissed") return existing;
       if (existing) {
+        const readAt = this.presenceMatches(parsed) ? new Date().toISOString() : null;
         this.db.prepare(`UPDATE notifications SET category=?,source_icon=?,severity=?,state='active',title=?,body=?,link=?,created_at=?,
-          read_at=NULL,acknowledged_at=NULL,deleted_at=NULL,resolved_at=NULL,metadata_json=?,report_json=? WHERE id=?`).run(
+          read_at=?,acknowledged_at=NULL,deleted_at=NULL,resolved_at=NULL,metadata_json=?,report_json=? WHERE id=?`).run(
           parsed.category, parsed.sourceIcon, parsed.severity, parsed.title, parsed.body, parsed.link, parsed.createdAt,
-          JSON.stringify(parsed.meta), parsed.report ? JSON.stringify(parsed.report) : null, existing.id,
+          readAt, JSON.stringify(parsed.meta), parsed.report ? JSON.stringify(parsed.report) : null, existing.id,
         );
         const reactivated = this.get(existing.id)!;
         this.emit({ type: "notification.created", notification: reactivated });
         return reactivated;
       }
     }
+    const readAt = this.presenceMatches(parsed) ? new Date().toISOString() : null;
     this.db.prepare(`INSERT OR IGNORE INTO notifications(
       id, source, category, source_icon, kind, severity, state, title, body, link, remote_id,
       created_at, read_at, acknowledged_at, deleted_at, resolved_at, metadata_json, report_json
     ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       parsed.id, parsed.source, parsed.category, parsed.sourceIcon, parsed.kind, parsed.severity, parsed.state,
-      parsed.title, parsed.body, parsed.link, parsed.remoteId, parsed.createdAt, null, null, null, null,
+      parsed.title, parsed.body, parsed.link, parsed.remoteId, parsed.createdAt, readAt, null, null, null,
       JSON.stringify(parsed.meta), parsed.report ? JSON.stringify(parsed.report) : null,
     );
-    const notification = parsed.remoteId ? this.findByRemoteId(parsed.source, parsed.kind, parsed.remoteId) ?? parsed : parsed;
+    const notification = parsed.remoteId
+      ? this.findByRemoteId(parsed.source, parsed.kind, parsed.remoteId) ?? parsed
+      : readAt ? this.get(parsed.id) ?? parsed : parsed;
     if (notification.id === parsed.id) this.emit({ type: "notification.created", notification });
     this.prune();
     return notification;
@@ -170,6 +176,26 @@ export class NotificationDatabase {
     if (category) this.db.prepare("UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE state = 'active' AND category = ?").run(at, category);
     else this.db.prepare("UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE state = 'active'").run(at);
     this.emit({ type: "notification.sync" });
+  }
+
+  /**
+   * Der Browser meldet hier, welche Quelle und welcher Chat gerade sichtbar
+   * sind (z. B. T3-Thread oder Codex-Sitzung). Passt eine aktive, ungelesene
+   * Benachrichtigung zu dieser Ansicht, gilt sie als gesehen und wird gelesen.
+   * Eine Ansicht ohne konkrete Referenz (threadId/sessionId) passt zu nichts.
+   */
+  setPresence(presence: NotificationPresence | null): number {
+    this.presence = presence;
+    if (!presence) return 0;
+    const at = new Date().toISOString();
+    const rows = this.db.prepare(`SELECT ${selection} FROM notifications WHERE state = 'active' AND read_at IS NULL AND source = ?`)
+      .all(presence.source) as unknown as NotificationRow[];
+    const ids = rows.filter((row) => this.presenceMatches(rowToNotification(row))).map((row) => row.id);
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => "?").join(",");
+    this.db.prepare(`UPDATE notifications SET read_at = ? WHERE id IN (${placeholders})`).run(at, ...ids);
+    this.emit({ type: "notification.sync" });
+    return ids.length;
   }
 
   dismiss(id: string): void {
@@ -231,5 +257,14 @@ export class NotificationDatabase {
   private findByRemoteId(source: NotificationSource, kind: string, remoteId: string): Notification | null {
     const row = this.db.prepare(`SELECT ${selection} FROM notifications WHERE source = ? AND kind = ? AND remote_id = ?`).get(source, kind, remoteId) as NotificationRow | undefined;
     return row ? rowToNotification(row) : null;
+  }
+
+  /** Passt eine Benachrichtigung zur gemeldeten Sicht (Quelle + Chat-Referenz)? */
+  private presenceMatches(notification: Notification): boolean {
+    const presence = this.presence;
+    if (!presence || presence.source !== notification.source) return false;
+    if (presence.threadId && notification.meta.threadId === presence.threadId) return true;
+    if (presence.sessionId && (notification.meta.sessionId === presence.sessionId || notification.meta.runtimeId === presence.sessionId)) return true;
+    return false;
   }
 }

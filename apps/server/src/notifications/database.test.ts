@@ -80,4 +80,52 @@ describe("Benachrichtigungsdatenbank", () => {
     expect(database.get(read.id)).toBeNull();
     database.close();
   });
+
+  it("markiert neue Benachrichtigungen für die sichtbare Chat-Ansicht sofort gelesen", () => {
+    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    temporaryDirectories.push(directory);
+    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    database.setPresence({ source: "t3", threadId: "thread-1" });
+    const visible = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-1" } });
+    const otherThread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-2" } });
+    const otherSource = database.create({ source: "codex", category: "coding-agent", sourceIcon: "codex", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { sessionId: "sitzung-1" } });
+    expect(visible.readAt).not.toBeNull();
+    expect(otherThread.readAt).toBeNull();
+    expect(otherSource.readAt).toBeNull();
+    expect(database.list().unreadCount).toBe(2);
+    database.close();
+  });
+
+  it("liest beim Ansichtswechsel passende aktive Benachrichtigungen automatisch", () => {
+    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    temporaryDirectories.push(directory);
+    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const thread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "thread:1:complete:1", meta: { threadId: "thread-1" } });
+    const session = database.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "opencode:1", meta: { sessionId: "sitzung-1", runtimeId: "laufzeit-1" } });
+    const fremd = database.create({ source: "hermes", category: "hermes", sourceIcon: "hermes", kind: "hermes.result", severity: "success", title: "Ergebnis", body: "fertig", remoteId: "result:1", meta: { sessionId: "sitzung-9" } });
+    expect(database.list().unreadCount).toBe(3);
+
+    expect(database.setPresence({ source: "t3", threadId: "thread-1" })).toBe(1);
+    expect(database.get(thread.id)?.readAt).not.toBeNull();
+    expect(database.list().unreadCount).toBe(2);
+
+    expect(database.setPresence({ source: "opencode", sessionId: "laufzeit-1" })).toBe(1);
+    expect(database.get(session.id)?.readAt).not.toBeNull();
+    expect(database.get(fremd.id)?.readAt).toBeNull();
+    expect(database.list().unreadCount).toBe(1);
+
+    expect(database.setPresence(null)).toBe(0);
+    expect(database.get(fremd.id)?.readAt).toBeNull();
+    database.close();
+  });
+
+  it("passt zu keiner Benachrichtigung, wenn die Ansicht keine Referenz hat", () => {
+    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    temporaryDirectories.push(directory);
+    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const thread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "thread:3:complete:1", meta: { threadId: "thread-3" } });
+    expect(database.setPresence({ source: "t3", threadId: null })).toBe(0);
+    expect(database.get(thread.id)?.readAt).toBeNull();
+    database.close();
+  });
 });

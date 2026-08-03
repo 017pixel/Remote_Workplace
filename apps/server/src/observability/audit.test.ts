@@ -33,4 +33,9 @@ describe("OperationalAuditDatabase", () => {
     expect(isAuditedMutation("DELETE", "/api/v1/previews/storage/profile")).toBe(true);
     expect(isAuditedMutation("GET", "/api/v1/orbit")).toBe(false);
   });
+
+  it("auditiert hochfrequente Presence-Meldungen nicht", () => {
+    expect(isAuditedMutation("PUT", "/api/v1/notifications/presence")).toBe(false);
+    expect(isAuditedMutation("PATCH", "/api/v1/notifications/1234-5678")).toBe(true);
+  });
 });

@@ -51,6 +51,7 @@ import {
   restartResponseSchema,
   restartStatusResponseSchema,
   t3ChannelStatusResponseSchema,
+  usageMonitoringResponseSchema,
   hermesStatusSchema,
   hermesSessionsResponseSchema,
   hermesTasksResponseSchema,
@@ -65,8 +66,10 @@ import {
   notificationReportSchema,
   notificationSettingsResponseSchema,
   pushSubscriptionSchema,
+  type NotificationPresence,
   type RestartTarget,
   type T3Channel,
+  type UsageMonitoring,
   type CreateAccountRequest,
   type UpdateAccountRequest,
   type SaveOrbitDocumentRequest,
@@ -297,6 +300,8 @@ export const apiClient = {
   restartStatus: (signal?: AbortSignal) => request("/system/restart/status", restartStatusResponseSchema, signal),
   t3Channel: (signal?: AbortSignal) => request("/system/t3-channel", t3ChannelStatusResponseSchema, signal),
   setT3Channel: (channel: T3Channel) => mutate("/system/t3-channel", "POST", t3ChannelStatusResponseSchema, { channel }),
+  usageMonitoring: (signal?: AbortSignal) => request("/system/usage-monitoring", usageMonitoringResponseSchema, signal),
+  saveUsageMonitoring: (monitoring: UsageMonitoring) => mutate("/system/usage-monitoring", "PUT", usageMonitoringResponseSchema, { monitoring }),
   hermesStatus: (signal?: AbortSignal) => request("/hermes/status", hermesStatusSchema, signal),
   hermesSessions: (params: { limit?: number; offset?: number; q?: string; source?: string } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
@@ -336,6 +341,7 @@ export const apiClient = {
     return request(`/notifications${query.size ? `?${query}` : ""}`, notificationListResponseSchema, signal);
   },
   patchNotification: (id: string, body: { read?: boolean; acknowledged?: boolean }) => mutate(`/notifications/${encodeURIComponent(id)}`, "PATCH", notificationSchema.nullable(), body),
+  updatePresence: (presence: NotificationPresence | null) => mutate("/notifications/presence", "PUT", z.object({ updated: z.number().int().nonnegative() }), presence),
   markAllNotificationsRead: (category?: string) => mutate("/notifications/mark-all-read", "POST", notificationListResponseSchema, category ? { category } : {}),
   deleteAllNotifications: () => mutate("/notifications", "DELETE", null),
   deleteNotification: (id: string) => mutate(`/notifications/${encodeURIComponent(id)}`, "DELETE", null),
