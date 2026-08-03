@@ -4,7 +4,14 @@ import type { TerminalKind, TerminalWorkspace } from "@workbench/contracts";
 import { generateId } from "../lib/id";
 
 export const MAX_TERMINAL_TABS = 5;
-export const MAX_CLI_INSTANCES = 4;
+// Grenzen je CLI-Werkzeug, abgestimmt auf die Server-Defaults
+// (CODEX_MAX_SESSIONS=12, OPENCODE_MAX_SESSIONS=12, CLAUDE_MAX_SESSIONS=4).
+// Das Server-Limit bleibt die harte Schranke; diese Werte passen die UI-Kapazität an.
+export const CLI_INSTANCE_LIMITS: Record<"codex" | "opencode" | "claude", number> = {
+  codex: 12,
+  opencode: 12,
+  claude: 4,
+};
 export const TERMINAL_STORAGE_KEY = "remote-workplace.terminals.v1";
 
 export interface TerminalTabState {
@@ -29,8 +36,10 @@ interface TerminalStore {
   saving: boolean;
   syncError: string | null;
   initializeRemote(document: TerminalWorkspace, revision: number): void;
+  restoreDraft(document: TerminalWorkspace, revision: number): void;
   applyRemote(document: TerminalWorkspace, revision: number): void;
   replaceRemote(document: TerminalWorkspace, revision: number): void;
+  resolveConflict(revision: number): void;
   markSaved(revision: number, unchanged: boolean): void;
   markSaving(saving: boolean): void;
   markSyncError(message: string | null): void;
@@ -73,10 +82,25 @@ export const useTerminalStore = create<TerminalStore>()(
           syncError: null,
         };
       }),
+      restoreDraft: (document, revision) => set({
+        areas: document.areas as Record<string, TerminalAreaState>,
+        hydrated: true,
+        revision,
+        dirty: true,
+        saving: false,
+        syncError: "Ein nicht gespeicherter Terminal-Entwurf wurde nach dem Reload wiederhergestellt.",
+      }),
       applyRemote: (document, revision) => set((state) => state.dirty
         ? state
         : { areas: document.areas as Record<string, TerminalAreaState>, revision, hydrated: true, syncError: null }),
       replaceRemote: (document, revision) => set({ areas: document.areas as Record<string, TerminalAreaState>, revision, hydrated: true, dirty: false, saving: false, syncError: null }),
+      resolveConflict: (revision) => set({
+        revision,
+        hydrated: true,
+        dirty: true,
+        saving: false,
+        syncError: "Das Terminal-Layout wurde parallel geändert. Dein lokaler Entwurf bleibt erhalten und wird nach der nächsten Änderung erneut gespeichert.",
+      }),
       markSaved: (revision, unchanged) => set((state) => ({ revision, dirty: unchanged ? false : state.dirty, saving: false, syncError: null })),
       markSaving: (saving) => set({ saving }),
       markSyncError: (syncError) => set({ syncError, saving: false }),
@@ -94,7 +118,7 @@ export const useTerminalStore = create<TerminalStore>()(
           return area.activeTabId;
         }
         const current = existing;
-        const areaLimit = kind === "shell" ? MAX_TERMINAL_TABS : MAX_CLI_INSTANCES;
+        const areaLimit = kind === "shell" ? MAX_TERMINAL_TABS : CLI_INSTANCE_LIMITS[kind as "codex" | "opencode" | "claude"];
         if (current.tabs.length >= areaLimit) return null;
         const tab = newTab(projectId, kind);
         set((state) => ({
@@ -114,7 +138,7 @@ export const useTerminalStore = create<TerminalStore>()(
           set((state) => ({ areas: { ...state.areas, [areaId]: area }, dirty: true }));
           return tab.id;
         }
-        const limit = tab.kind === "shell" ? MAX_TERMINAL_TABS : MAX_CLI_INSTANCES;
+        const limit = tab.kind === "shell" ? MAX_TERMINAL_TABS : CLI_INSTANCE_LIMITS[tab.kind as "codex" | "opencode" | "claude"];
         if (existing.tabs.length >= limit || existing.tabs.some((candidate) => candidate.id === tab.id)) return null;
         set((state) => ({ areas: { ...state.areas, [areaId]: { ...existing, tabs: [...existing.tabs, tab], activeTabId: tab.id } }, dirty: true }));
         return tab.id;

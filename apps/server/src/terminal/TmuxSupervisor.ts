@@ -43,6 +43,10 @@ export class TmuxSupervisor {
     if (created.status !== 0) throw new Error(created.stderr.trim() || "tmux-Session konnte nicht gestartet werden.");
     this.run(["set-option", "-t", name, "history-limit", "100000"]);
     this.run(["set-option", "-t", name, "remain-on-exit", "on"]);
+    // Maus-Scrollen: Apps mit Maus-Reporting (z. B. OpenCode) bekommen Wheel-
+    // Events nur mit aktivierter Maus durchgereicht. Ohne dieses Flag schluckt
+    // tmux die SGR-Sequenzen und die App kann nicht per Mausrad scrollen.
+    this.run(["set-option", "-t", name, "mouse", "on"]);
     this.run(["set-option", "-t", name, "@workbench_runtime_id", input.runtimeId]);
     this.run(["set-option", "-t", name, "@workbench_kind", input.kind]);
     this.run(["set-option", "-t", name, "@workbench_project_id", input.projectId ?? ""]);

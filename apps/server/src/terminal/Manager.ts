@@ -39,6 +39,8 @@ export interface TerminalSession {
 export class TerminalFailure extends Error { constructor(readonly code: TerminalErrorCode, message: string) { super(message); } }
 
 const HISTORY_LIMIT = 3 * 1024 * 1024;
+/** Beendete Sessions räumen sich nach dieser Zeit von selbst auf (F01-10). */
+const EXITED_SESSION_TTL_MS = 30 * 60 * 1_000;
 
 export class TerminalManager {
   private readonly sessions = new Map<string, TerminalSession>();
@@ -54,6 +56,8 @@ export class TerminalManager {
     supervisor?: TmuxSupervisor;
     externalSessionOwnerId?: string;
     reconnectGraceMs?: number;
+    onOutput?: (session: Readonly<TerminalSession>, data: string) => void;
+    onInput?: (session: Readonly<TerminalSession>, data: string) => void;
     resolveAccountProfile?: (accountId: string, kind: Exclude<TerminalKind, "shell">) => string;
   }) {
     if (this.options.supervisor) {
@@ -112,6 +116,15 @@ export class TerminalManager {
     }
 
     const kind = input.kind ?? "shell";
+    // Beendete Sessions, deren TTL abgelaufen ist, räumen sich selbst auf —
+    // sonst blockieren sie dauerhaft einen Slot und erzeugen TOO_MANY_SESSIONS,
+    // obwohl nichts mehr läuft (F01-10).
+    const now = Date.now();
+    for (const session of [...this.sessions.values()]) {
+      if (session.status === "exited" && now - session.updatedAt > EXITED_SESSION_TTL_MS) {
+        this.close(session);
+      }
+    }
     const activeSessions = [...this.sessions.values()].filter((session) => session.userId === userId && session.status !== "closed");
     const kindLimit = this.options.maxSessionsByKind?.[kind] ?? this.options.maxSessions;
     if (activeSessions.filter((session) => session.kind === kind).length >= kindLimit) {
@@ -119,7 +132,6 @@ export class TerminalManager {
     }
     if (activeSessions.length >= this.options.maxSessions) throw new TerminalFailure("TOO_MANY_SESSIONS", "Die maximale Anzahl gleichzeitig geöffneter Terminals ist erreicht.");
     const cwd = await this.validateCwd(input.cwd ?? this.options.defaultCwd);
-    const now = Date.now();
     if (input.mode === "login" && (kind === "shell" || !input.accountId)) throw new TerminalFailure("INVALID_MESSAGE", "Für die Anmeldung fehlt ein gültiger Account.");
     let profilePath: string | null = null;
     if (input.accountId && kind !== "shell") {
@@ -147,6 +159,7 @@ export class TerminalManager {
 
   writeToSession(userId: string, sessionId: string, data: string) {
     const session = this.running(userId, sessionId);
+    this.options.onInput?.(session, data);
     try { session.pty?.write(data); session.updatedAt = Date.now(); this.persist(session); }
     catch { throw new TerminalFailure("PTY_WRITE_FAILED", "Die Eingabe konnte nicht an das Terminal gesendet werden."); }
   }
@@ -259,46 +272,106 @@ export class TerminalManager {
         session.history = this.limitHistory(this.options.supervisor.capture(session.supervisorName));
         return this.options.supervisor.attachCommand(session.supervisorName);
       })() : launch;
-      const pty = this.adapter.spawn(command.file, command.args, { name: "xterm-256color", cwd: session.cwd, cols: session.cols, rows: session.rows, env: environment });
-      session.pty = pty; session.pid = pty.pid; session.status = "running"; session.updatedAt = Date.now(); session.lastPersistedAt = undefined; this.persist(session);
-      session.dataListener = pty.onData((data) => { session.history = this.limitHistory(session.history + data); session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence }); });
-      session.exitListener = pty.onExit((event) => {
-        if (session.status === "closed" || session.status === "interrupted") return;
-        session.pty = null;
-        if (this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName)) {
-          try {
-            const launch = this.launchCommand(session.kind, session.mode);
-            const environment = this.environment(session);
-            this.options.supervisor.respawn(session.supervisorName, session.cwd, { ...launch, environment });
-            session.history = this.limitHistory(this.options.supervisor.capture(session.supervisorName));
-            session.sequence += 1;
-            this.emit(session, { type: "terminal.restarting", sessionId: session.id, reason: "Der Terminalprozess wurde beendet und automatisch neu gestartet.", sequence: session.sequence });
-            const newPty = this.adapter.spawn(this.options.supervisor.attachCommand(session.supervisorName).file, this.options.supervisor.attachCommand(session.supervisorName).args, { name: "xterm-256color", cwd: session.cwd, cols: session.cols, rows: session.rows, env: environment });
-            session.pty = newPty; session.pid = newPty.pid; session.updatedAt = Date.now(); this.persist(session);
-            const supervisorRef = this.options.supervisor;
-            const supervisorName = session.supervisorName;
-            if (supervisorRef && supervisorName) {
-              const timer = setTimeout(() => { try { supervisorRef.sendLastCommandHint(supervisorName); } catch { /* shell may not be ready */ } }, 800);
-              timer.unref();
-            }
-            session.dataListener = newPty.onData((data) => { session.history = this.limitHistory(session.history + data); session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence }); });
-            session.exitListener = newPty.onExit((nestedEvent) => {
-              if (session.status === "closed" || session.status === "interrupted") return;
-              session.pty = null;
-              if (this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName)) {
-                session.status = "running"; session.updatedAt = Date.now(); this.persist(session); return;
-              }
-              session.status = "exited"; session.exitCode = nestedEvent.exitCode; session.exitSignal = nestedEvent.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
-            });
-            this.emit(session, { type: "terminal.snapshot", sessionId: session.id, runtimeId: session.runtimeId, kind: session.kind, status: "running", projectId: session.projectId, cwd: session.cwd, history: session.history, sequence: session.sequence });
-          } catch {
-            session.status = "exited"; session.exitCode = event.exitCode; session.exitSignal = event.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
-          }
-          return;
-        }
-        session.status = "exited"; session.exitCode = event.exitCode; session.exitSignal = event.signal ?? null; session.sequence += 1; session.updatedAt = Date.now(); this.persist(session); this.emit(session, { type: "terminal.exited", sessionId: session.id, exitCode: session.exitCode, signal: session.exitSignal, sequence: session.sequence });
-      });
-    } catch { throw new TerminalFailure("PTY_SPAWN_FAILED", "Die Shell konnte nicht gestartet werden."); }
+      this.attachPty(session, command, environment);
+    } catch (error) {
+      // Fehlendes CLI-Binary (ENOENT) ist ein klarer Installationszustand und
+      // keine generische Shell-Panne (F01-12).
+      if (session.kind !== "shell" && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new TerminalFailure(
+          "CLI_NOT_FOUND",
+          `${this.kindLabel(session.kind)} ist nicht installiert oder nicht im PATH auffindbar.`,
+        );
+      }
+      throw new TerminalFailure("PTY_SPAWN_FAILED", "Die Shell konnte nicht gestartet werden.");
+    }
+  }
+
+  private attachPty(
+    session: TerminalSession,
+    command: { file: string; args: string[] },
+    environment: Record<string, string>,
+  ) {
+    session.dataListener?.dispose();
+    session.exitListener?.dispose();
+    const pty = this.adapter.spawn(command.file, command.args, {
+      name: "xterm-256color",
+      cwd: session.cwd,
+      cols: session.cols,
+      rows: session.rows,
+      env: environment,
+    });
+    session.pty = pty;
+    session.pid = pty.pid;
+    session.status = "running";
+    session.updatedAt = Date.now();
+    session.lastPersistedAt = undefined;
+    this.persist(session);
+    session.dataListener = pty.onData((data) => {
+      if (session.pty !== pty) return;
+      session.history = this.limitHistory(session.history + data);
+      session.sequence += 1;
+      session.updatedAt = Date.now();
+      this.persist(session);
+      this.emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence });
+      this.options.onOutput?.(session, data);
+    });
+    session.exitListener = pty.onExit((event) => {
+      if (session.pty !== pty || session.status === "closed" || session.status === "interrupted") return;
+      session.pty = null;
+      this.handlePtyExit(session, event);
+    });
+  }
+
+  private handlePtyExit(session: TerminalSession, event: { exitCode: number; signal?: number }) {
+    const supervisor = this.options.supervisor;
+    const supervisorName = session.supervisorName;
+    if (supervisor && supervisorName && supervisor.has(supervisorName)) {
+      try {
+        const launch = this.launchCommand(session.kind, session.mode);
+        const environment = this.environment(session);
+        supervisor.respawn(supervisorName, session.cwd, { ...launch, environment });
+        session.history = this.limitHistory(supervisor.capture(supervisorName));
+        session.sequence += 1;
+        this.emit(session, {
+          type: "terminal.restarting",
+          sessionId: session.id,
+          reason: "Der Terminalprozess wurde beendet und automatisch neu gestartet.",
+          sequence: session.sequence,
+        });
+        this.attachPty(session, supervisor.attachCommand(supervisorName), environment);
+        const timer = setTimeout(() => {
+          try { supervisor.sendLastCommandHint(supervisorName); } catch { /* shell may not be ready */ }
+        }, 800);
+        timer.unref();
+        this.emit(session, {
+          type: "terminal.snapshot",
+          sessionId: session.id,
+          runtimeId: session.runtimeId,
+          kind: session.kind,
+          status: "running",
+          projectId: session.projectId,
+          cwd: session.cwd,
+          history: session.history,
+          sequence: session.sequence,
+        });
+        return;
+      } catch {
+        // Der gemeinsame Exitpfad setzt einen ehrlichen, nicht beschreibbaren Zustand.
+      }
+    }
+    session.status = "exited";
+    session.exitCode = event.exitCode;
+    session.exitSignal = event.signal ?? null;
+    session.sequence += 1;
+    session.updatedAt = Date.now();
+    this.persist(session);
+    this.emit(session, {
+      type: "terminal.exited",
+      sessionId: session.id,
+      exitCode: session.exitCode,
+      signal: session.exitSignal,
+      sequence: session.sequence,
+    });
   }
 
   private launchCommand(kind: TerminalKind, mode: "agent" | "login"): { file: string; args: string[] } {

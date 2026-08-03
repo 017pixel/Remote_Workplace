@@ -7,6 +7,7 @@ import type { TerminalManager } from "./Manager.js";
 import type { TerminalDatabase } from "./database.js";
 import { clientTerminalMessageSchema, type ServerTerminalMessage, type TerminalErrorCode } from "./protocol.js";
 import { isSameOriginRequest } from "../security/same-origin.js";
+import { createWebSocketSendQueue } from "../utils/websocketSendQueue.js";
 
 function terminalIdentity(request: FastifyRequest, allowedUsers: readonly string[]): string {
   const rawIdentity = request.headers["tailscale-user-login"];
@@ -101,7 +102,8 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
       socket.close(1008, failure.code);
       return;
     }
-    const send = (message: ServerTerminalMessage) => { if (socket.readyState === 1) socket.send(JSON.stringify(message)); };
+    const sendQueue = createWebSocketSendQueue<ServerTerminalMessage>({ socket, maxQueueBytes: 8 * 1024 * 1024 });
+    const send = (message: ServerTerminalMessage) => { sendQueue.send(message); };
     let detach: (() => void) | undefined;
     socket.on("message", (raw: unknown) => {
       try {
@@ -135,7 +137,7 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
         }
       } catch (error) { send({ type: "terminal.error", ...errorMessage(error) }); }
     });
-    socket.on("close", () => { detach?.(); });
-    socket.on("error", () => { detach?.(); });
+    socket.on("close", () => { sendQueue.dispose(); detach?.(); });
+    socket.on("error", () => { sendQueue.dispose(); detach?.(); });
   });
 }

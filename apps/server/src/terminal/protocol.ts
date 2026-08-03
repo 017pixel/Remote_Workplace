@@ -32,7 +32,8 @@ export type TerminalErrorCode =
   | "UNAUTHORIZED" | "FORBIDDEN" | "SESSION_NOT_FOUND" | "SESSION_NOT_OWNED" | "INVALID_CWD"
   | "CWD_NOT_FOUND" | "CWD_NOT_DIRECTORY" | "PTY_SPAWN_FAILED" | "PTY_WRITE_FAILED"
   | "PTY_RESIZE_FAILED" | "TERMINAL_NOT_RUNNING" | "SESSION_INTERRUPTED" | "SESSION_ALREADY_CLOSED"
-  | "SESSION_RUNTIME_CONFLICT" | "TOO_MANY_SESSIONS" | "INVALID_MESSAGE" | "INTERNAL_ERROR";
+  | "SESSION_RUNTIME_CONFLICT" | "TOO_MANY_SESSIONS" | "INVALID_MESSAGE" | "INTERNAL_ERROR"
+  | "CLI_NOT_FOUND";
 
 export type ServerTerminalMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }

@@ -23,6 +23,8 @@ class FakeSupervisor {
   ensure(input: { runtimeId: string }) { const name = this.sessionName(input.runtimeId); this.sessions.add(name); return name; }
   capture() { return ""; }
   attachCommand(name: string) { return { file: "/usr/bin/tmux", args: ["attach-session", "-t", name] }; }
+  respawn(name: string) { this.sessions.add(name); }
+  sendLastCommandHint() {}
   terminate(name: string) { this.terminated.push(name); this.sessions.delete(name); }
 }
 
@@ -36,6 +38,21 @@ describe("TerminalManager", () => {
     expect(pty.writes).toEqual(["echo hello\r"]); expect(pty.resizes).toEqual([[120, 40]]); expect(messages).toContainEqual(expect.objectContaining({ type: "terminal.output", sequence: 1 })); expect(messages).toContainEqual(expect.objectContaining({ type: "terminal.exited", sequence: 2, exitCode: 0 })); });
   it("rejects foreign sessions, invalid dimensions and invalid working directories", async () => { const { root, manager: terminal } = await setup(); const session = await terminal.createSession("owner", { cols: 80, rows: 24 }); expect(() => terminal.attachSession("other", session.id, vi.fn())).toThrow(TerminalFailure); expect(() => terminal.resizeSession("owner", session.id, 1, 24)).toThrow(TerminalFailure); await expect(terminal.createSession("other", { cols: 80, rows: 24, cwd: "/tmp" })).rejects.toMatchObject({ code: "INVALID_CWD" }); await expect(terminal.createSession("other", { cols: 80, rows: 24, cwd: join(root, "missing") })).rejects.toMatchObject({ code: "CWD_NOT_FOUND" }); });
   it("limits sessions, retains history and keeps disconnected sessions alive", async () => { const { pty, manager: terminal } = await setup(); const session = await terminal.createSession("owner", { cols: 80, rows: 24 }); await expect(terminal.createSession("owner", { cols: 80, rows: 24 })).rejects.toMatchObject({ code: "TOO_MANY_SESSIONS" }); const detach = terminal.attachSession("owner", session.id, vi.fn()); pty.output("x".repeat(3_200_000)); expect(terminal.getSessionMetadata("owner", session.id).sequence).toBe(1); detach(); await new Promise((resolve) => setTimeout(resolve, 10)); expect(pty.killed).not.toContain("SIGTERM"); expect(terminal.getSessionMetadata("owner", session.id)).toMatchObject({ status: "running" }); });
+
+  it("räumt beendete Sessions nach Ablauf der TTL auf, statt den Slot zu blockieren", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-ttl-"));
+    const pty = new FakePty();
+    const terminal = new TerminalManager({ allowedRoots: [root], defaultCwd: root, maxSessions: 1, adapter: { spawn: () => pty } });
+    const session = await terminal.createSession("owner", { cols: 80, rows: 24 });
+    pty.end(0);
+    expect(terminal.getSessionMetadata("owner", session.id).status).toBe("exited");
+    expect(() => terminal.getSessionMetadata("owner", session.id)).not.toThrow();
+    (session as unknown as { updatedAt: number }).updatedAt = Date.now() - 31 * 60 * 1_000;
+    const replacement = await terminal.createSession("owner", { cols: 80, rows: 24 });
+    expect(replacement.id).not.toBe(session.id);
+    expect(() => terminal.getSessionMetadata("owner", session.id)).toThrow(TerminalFailure);
+    terminal.shutdown();
+  });
 
   it("reuses a runtime identity and broadcasts output to multiple devices", async () => {
     const { pty, manager: terminal } = await setup();
@@ -84,6 +101,27 @@ describe("TerminalManager", () => {
     manager.shutdown();
     manager = undefined;
     database.close();
+  });
+
+  it("reattaches a fresh PTY after every supervised process exit", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-respawn-"));
+    const supervisor = new FakeSupervisor();
+    const ptys = [new FakePty(), new FakePty(), new FakePty()];
+    let spawnIndex = 0;
+    manager = new TerminalManager({
+      allowedRoots: [root],
+      defaultCwd: root,
+      maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => ptys[spawnIndex++]! },
+    });
+    const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    ptys[0]!.end(1);
+    expect(manager.getSessionMetadata("owner", session.id)).toMatchObject({ status: "running", pid: 4242 });
+    ptys[1]!.end(2);
+    expect(manager.getSessionMetadata("owner", session.id)).toMatchObject({ status: "running", pid: 4242 });
+    manager.writeToSession("owner", session.id, "weiter");
+    expect(ptys[2]!.writes).toEqual(["weiter"]);
   });
 
   it("launches only the configured shell, Codex and OpenCode commands", async () => {

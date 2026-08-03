@@ -181,15 +181,29 @@ export class TerminalDatabase {
 
   saveWorkspace(userId: string, document: TerminalWorkspace, expectedRevision: number | null) {
     const parsed = terminalWorkspaceSchema.parse(document);
-    const current = this.getWorkspace(userId);
-    if (expectedRevision !== null && expectedRevision !== current.revision) {
-      throw new AppError(409, "TERMINAL_WORKSPACE_CONFLICT", "Das Terminal-Layout wurde auf einem anderen Gerät geändert.");
+    let revision: number;
+    let updatedAt: string;
+    let committed = false;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      // Revision und Dokument müssen unter derselben Schreibsperre gelesen
+      // und geschrieben werden. Sonst können zwei Tabs denselben Stand lesen
+      // und der spätere Save überschreibt die Änderung des ersten Tabs.
+      const current = this.getWorkspace(userId);
+      if (expectedRevision !== null && expectedRevision !== current.revision) {
+        throw new AppError(409, "TERMINAL_WORKSPACE_CONFLICT", "Das Terminal-Layout wurde auf einem anderen Gerät geändert.");
+      }
+      revision = current.revision + 1;
+      updatedAt = new Date().toISOString();
+      this.db.prepare(`INSERT INTO terminal_workspaces(owner_id, document_json, revision, updated_at)
+        VALUES (?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET document_json=excluded.document_json,
+        revision=excluded.revision, updated_at=excluded.updated_at`).run(userId, JSON.stringify(parsed), revision, updatedAt);
+      this.db.exec("COMMIT");
+      committed = true;
+    } catch (error) {
+      if (!committed && this.db.isTransaction) this.db.exec("ROLLBACK");
+      throw error;
     }
-    const revision = current.revision + 1;
-    const updatedAt = new Date().toISOString();
-    this.db.prepare(`INSERT INTO terminal_workspaces(owner_id, document_json, revision, updated_at)
-      VALUES (?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET document_json=excluded.document_json,
-      revision=excluded.revision, updated_at=excluded.updated_at`).run(userId, JSON.stringify(parsed), revision, updatedAt);
     return { document: parsed, revision, updatedAt };
   }
 }

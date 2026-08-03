@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { useTerminalStore, type TerminalAreaState } from "../../stores/terminals";
+import { terminalWorkspaceSchema } from "@workbench/contracts";
 
 const SAVE_DELAY_MS = 500;
 const POLL_INTERVAL_MS = 3_000;
@@ -14,12 +15,26 @@ export function TerminalWorkspaceSync() {
   const saving = useTerminalStore((state) => state.saving);
   const revision = useTerminalStore((state) => state.revision);
   const areas = useTerminalStore((state) => state.areas);
+  const hasTerminalTabs = useTerminalStore((state) => Object.values(state.areas).some((area) => area.tabs.length > 0));
   const retryRef = useRef<number | null>(null);
+  const blockedAreasRef = useRef<Record<string, TerminalAreaState> | null>(null);
 
   useEffect(() => {
     let active = true;
     void apiClient.terminalWorkspace().then((response) => {
       if (!active) return;
+      try {
+        const draft = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? "null") as unknown;
+        const parsed = terminalWorkspaceSchema.safeParse(
+          draft && typeof draft === "object" && "document" in draft
+            ? (draft as { document: unknown }).document
+            : null,
+        );
+        if (parsed.success) {
+          useTerminalStore.getState().restoreDraft(parsed.data, response.revision);
+          return;
+        }
+      } catch { /* Ein beschädigter Draft wird ignoriert; der Serverstand bleibt verfügbar. */ }
       useTerminalStore.getState().initializeRemote(response.document, response.revision);
     }).catch((error: unknown) => {
       if (!active) return;
@@ -30,7 +45,7 @@ export function TerminalWorkspaceSync() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !dirty || saving) return;
+    if (!hydrated || !dirty || saving || blockedAreasRef.current === areas) return;
     const snapshotAreas = areas;
     const snapshotRevision = revision;
     try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ document: documentFromAreas(snapshotAreas), revision: snapshotRevision })); } catch { /* Server bleibt autoritativ. */ }
@@ -42,14 +57,16 @@ export function TerminalWorkspaceSync() {
           const current = useTerminalStore.getState();
           const unchanged = JSON.stringify(current.areas) === JSON.stringify(snapshotAreas);
           current.markSaved(response.revision, unchanged);
+          blockedAreasRef.current = null;
           if (unchanged) { try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignored */ } }
         })
         .catch(async (error: unknown) => {
           if (error instanceof ApiClientError && error.status === 409) {
             try {
               const latest = await apiClient.terminalWorkspace();
-              useTerminalStore.getState().replaceRemote(latest.document, latest.revision);
-              try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignored */ }
+              const current = useTerminalStore.getState();
+              blockedAreasRef.current = current.areas;
+              current.resolveConflict(latest.revision);
               return;
             } catch { /* retry below */ }
           }
@@ -62,15 +79,26 @@ export function TerminalWorkspaceSync() {
   useEffect(() => {
     if (!hydrated) return;
     const poll = () => {
+      if (globalThis.document.visibilityState === "hidden") return;
       const state = useTerminalStore.getState();
+      if (!Object.values(state.areas).some((area) => area.tabs.length > 0) && !state.dirty) return;
       if (state.dirty || state.saving) return;
       void apiClient.terminalWorkspace().then((response) => {
         if (response.revision > useTerminalStore.getState().revision) useTerminalStore.getState().applyRemote(response.document, response.revision);
       }).catch(() => { /* later poll retries */ });
     };
     const handle = window.setInterval(poll, POLL_INTERVAL_MS);
-    return () => window.clearInterval(handle);
-  }, [hydrated]);
+    const onVisible = () => {
+      if (globalThis.document.visibilityState === "visible") poll();
+    };
+    window.addEventListener("focus", onVisible);
+    globalThis.document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(handle);
+      window.removeEventListener("focus", onVisible);
+      globalThis.document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [hasTerminalTabs, hydrated]);
 
   useEffect(() => () => { if (retryRef.current !== null) window.clearTimeout(retryRef.current); }, []);
   return null;

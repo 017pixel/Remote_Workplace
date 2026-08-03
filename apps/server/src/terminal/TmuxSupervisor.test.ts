@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { TmuxSupervisor } from "./TmuxSupervisor.js";
@@ -39,5 +40,11 @@ describe.skipIf(!existsSync(executable))("TmuxSupervisor", () => {
       projectId: "test-project",
       managed: true,
     }));
+
+    // Maus muss pro Session aktiviert sein, damit Apps mit Maus-Reporting
+    // (z. B. OpenCode) Mausrad-Scrollen durchgereicht bekommen.
+    const options = spawnSync(executable, ["show-options", "-t", name, "mouse"], { encoding: "utf8", timeout: 3_000 });
+    expect(options.status).toBe(0);
+    expect(options.stdout).toContain("on");
   });
 });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_CLI_INSTANCES, MAX_TERMINAL_TABS, useTerminalStore } from "./terminals";
+import { CLI_INSTANCE_LIMITS, MAX_TERMINAL_TABS, useTerminalStore } from "./terminals";
 
 describe("terminal areas", () => {
   beforeEach(() => useTerminalStore.setState({ areas: {}, hydrated: true, revision: 0, dirty: false, saving: false, syncError: null }));
@@ -24,9 +24,9 @@ describe("terminal areas", () => {
     ]);
   });
 
-  it("caps Codex and OpenCode areas at four instances", () => {
+  it("caps CLI areas at the server-abgestimmten Instanzgrenzen", () => {
     useTerminalStore.getState().ensureArea("opencode-standalone", null, "opencode");
-    for (let index = 1; index < MAX_CLI_INSTANCES; index += 1) {
+    for (let index = 1; index < CLI_INSTANCE_LIMITS.opencode; index += 1) {
       expect(useTerminalStore.getState().addTab("opencode-standalone", null, "opencode")).not.toBeNull();
     }
     expect(useTerminalStore.getState().addTab("opencode-standalone", null, "opencode")).toBeNull();
