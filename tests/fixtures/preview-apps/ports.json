@@ -1,0 +1,10 @@
+{
+  "spa": 47101,
+  "mpa": 47102,
+  "api": 47103,
+  "realtime": 47104,
+  "cookie": 47105,
+  "serviceWorker": 47106,
+  "storage": 47107,
+  "broken": 47108
+}

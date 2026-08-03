@@ -1,9 +1,11 @@
-import { ArrowLeft, ArrowRight, Braces, Camera, ExternalLink, Globe2, Hand, LoaderCircle, MoreHorizontal, MousePointer2, Plus, RotateCw, Search, SquareCode, X } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, BracesIcon, BrowserIcon, CameraIcon, CloseIcon, DevtoolsIcon, ExternalLinkIcon, HandIcon, LoaderIcon, MoreIcon, PlusIcon, PointerIcon, RefreshIcon, SearchIcon } from "../icons";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { LocalPort } from "@workbench/contracts";
 import { LocalPorts } from "./LocalPorts";
 import { browserClipboardAction, utf8ByteLength, writeClipboardText } from "../../lib/clipboard";
 import { normalizePreviewTarget } from "../../lib/previewTargets";
+import { useMenuFocus } from "../../lib/useMenuFocus";
+import { useModalFocus } from "../../lib/useModalFocus";
 
 export interface ChromiumBrowserState {
   url: string;
@@ -53,10 +55,23 @@ function storeSession(key: string, value: string | null) {
 const browserClipboardMaximumBytes = 1_048_576;
 type ClipboardRequestPurpose = "copy" | "sync";
 
+function BrowserSourceDialog({ sourceView, onClose }: {
+  sourceView: { source: string; url: string } | null;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalFocus(dialogRef, sourceView !== null, onClose);
+  if (!sourceView) return null;
+  return <div ref={dialogRef} className="browser-source-backdrop" role="dialog" aria-modal="true" aria-label="Seitenquelltext" tabIndex={-1}>
+    <section><header><div><span>Seitenquelltext</span><strong>{sourceView.url}</strong></div><button type="button" onClick={onClose} aria-label="Seitenquelltext schließen"><CloseIcon className="h-4 w-4" /></button></header><pre>{sourceView.source}</pre></section>
+  </div>;
+}
+
 export function ChromiumBrowser({
   instanceId,
   profileKey,
   initialUrl,
+  active = true,
   onLocalAddress,
   onStateChange,
   extraToolbarActions,
@@ -64,6 +79,7 @@ export function ChromiumBrowser({
   instanceId: string;
   profileKey?: string;
   initialUrl?: string;
+  active?: boolean;
   /** Ziel löst sich zu einem lokalen Port auf: Aufrufer übernimmt (z. B. schnelle iframe-Vorschau statt Chromium-Stream). */
   onLocalAddress?: (value: string) => void;
   onStateChange?: (state: ChromiumBrowserState) => void;
@@ -71,18 +87,21 @@ export function ChromiumBrowser({
 }) {
   const storageKey = `workbench-browser-session:${instanceId}`;
   const viewportRef = useRef<HTMLDivElement>(null);
+  const contextMenuElementRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const controllerIdRef = useRef(createUuid());
   const controllerChannelRef = useRef<BroadcastChannel | null>(null);
   const activeControllerRef = useRef(true);
+  const activeRef = useRef(active);
   const sessionRef = useRef<string | null>(readSession(storageKey));
   const disposedRef = useRef(false);
   const reconnectRef = useRef<number | null>(null);
   const heartbeatRef = useRef<number | null>(null);
   const resizeRef = useRef<number | null>(null);
   const pendingUrlRef = useRef<string | null>(null);
+  const initialNavigationRef = useRef<string | null>(initialUrl ?? null);
   const requestedUrlRef = useRef<string | null>(null);
   const addressEditingRef = useRef(false);
   const touchScrollRef = useRef<{ x: number; y: number } | null>(null);
@@ -93,19 +112,44 @@ export function ChromiumBrowser({
   const fatalConnectionRef = useRef(false);
   const retriesRef = useRef(0);
   const frameTimeoutRef = useRef<number | null>(null);
+  const frameRenderRef = useRef<number | null>(null);
   const [status, setStatus] = useState<BrowserStatus>(initialUrl || sessionRef.current ? "connecting" : "disconnected");
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [state, setState] = useState({ url: "about:blank", title: "Neuer Tab", loading: false, canGoBack: false, canGoForward: false });
   const [frameReady, setFrameReady] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const pressedPointerRef = useRef<{ x: number; y: number; button: "left" | "middle" | "right" | "none" } | null>(null);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
   const [devtoolsSessionId, setDevtoolsSessionId] = useState<string | null>(null);
   const [sourceView, setSourceView] = useState<{ source: string; url: string } | null>(null);
   const [touchMode, setTouchMode] = useState<"interact" | "scroll">("scroll");
   const [clipboardStatus, setClipboardStatus] = useState("");
+  const lastFrameRef = useRef<{ data: string; width: number; height: number } | null>(null);
+  useMenuFocus(contextMenuElementRef, contextMenu !== null, () => setContextMenu(null));
   const onStateChangeRef = useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
+
+  const renderLatestFrame = useCallback(() => {
+    if (!activeRef.current || frameRenderRef.current !== null) return;
+    frameRenderRef.current = window.setTimeout(() => {
+      frameRenderRef.current = null;
+      const latest = lastFrameRef.current;
+      if (!activeRef.current || !latest) return;
+      if (imageRef.current) imageRef.current.src = `data:image/jpeg;base64,${latest.data}`;
+      setFrameReady(true);
+    }, 16);
+  }, []);
+
+  useEffect(() => {
+    const updateActivity = () => {
+      activeRef.current = active && globalThis.document.visibilityState !== "hidden";
+      if (activeRef.current) renderLatestFrame();
+    };
+    updateActivity();
+    globalThis.document.addEventListener("visibilitychange", updateActivity);
+    return () => globalThis.document.removeEventListener("visibilitychange", updateActivity);
+  }, [active, renderLatestFrame]);
 
   useEffect(() => {
     onStateChangeRef.current?.(state);
@@ -194,11 +238,15 @@ export function ChromiumBrowser({
     setStatus("connecting");
     const socket = new WebSocket(websocketUrl());
     socketRef.current = socket;
-    socket.onopen = () => {
+      socket.onopen = () => {
+      if (!activeRef.current) {
+        socket.close();
+        return;
+      }
       retriesRef.current = 0;
       setError(null);
       createOrAttach();
-      heartbeatRef.current = window.setInterval(() => send({ type: "browser.ping" }), 25_000);
+      heartbeatRef.current = window.setInterval(() => { if (activeRef.current) send({ type: "browser.ping" }); }, 25_000);
     };
     socket.onmessage = (event) => {
       let message: ServerMessage;
@@ -209,13 +257,15 @@ export function ChromiumBrowser({
         setDevtoolsSessionId(message.sessionId);
         setStatus("ready");
         setState((current) => ({ ...current, url: message.url, title: message.title }));
-        const pendingUrl = pendingUrlRef.current;
+        const pendingUrl = pendingUrlRef.current ?? initialNavigationRef.current;
         if (pendingUrl) {
           pendingUrlRef.current = null;
+          initialNavigationRef.current = null;
+          requestedUrlRef.current = pendingUrl;
           setAddress(pendingUrl === "about:blank" ? "" : pendingUrl);
           setFrameReady(false);
           startFrameTimeout();
-          send({ type: "browser.navigate", sessionId: message.sessionId, url: pendingUrl });
+          if (message.url !== pendingUrl) send({ type: "browser.navigate", sessionId: message.sessionId, url: pendingUrl });
         } else {
           if (!addressEditingRef.current) setAddress(message.url === "about:blank" ? "" : message.url);
           if (message.url !== "about:blank") startFrameTimeout();
@@ -231,9 +281,10 @@ export function ChromiumBrowser({
           if (message.url === requestedUrl || !message.loading) requestedUrlRef.current = null;
         }
       } else if (message.type === "browser.frame") {
+        if (!activeRef.current) return;
         clearFrameTimeout();
-        if (imageRef.current) imageRef.current.src = `data:image/jpeg;base64,${message.data}`;
-        setFrameReady(true);
+        lastFrameRef.current = { data: message.data, width: message.width, height: message.height };
+        renderLatestFrame();
       } else if (message.type === "browser.screenshot") {
         const bytes = Uint8Array.from(atob(message.data), (character) => character.charCodeAt(0));
         const link = document.createElement("a");
@@ -287,7 +338,7 @@ export function ChromiumBrowser({
     };
     socket.onclose = () => {
       if (socketRef.current !== socket) return;
-      socketRef.current = null;
+        socketRef.current = null;
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
       for (const pending of clipboardRequestsRef.current.values()) window.clearTimeout(pending.timeout);
@@ -295,12 +346,31 @@ export function ChromiumBrowser({
       activeCopyRequestRef.current = null;
       latestSelectionRequestRef.current = null;
       clipboardSelectionRef.current = "";
-      if (disposedRef.current || fatalConnectionRef.current) return;
+      if (disposedRef.current || fatalConnectionRef.current || !activeRef.current) return;
       setStatus("disconnected");
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
     };
     socket.onerror = () => socket.close();
-  }, [clearFrameTimeout, createOrAttach, send, startFrameTimeout, storageKey]);
+  }, [clearFrameTimeout, createOrAttach, renderLatestFrame, send, startFrameTimeout, storageKey]);
+
+  useEffect(() => {
+    activeRef.current = active && globalThis.document.visibilityState !== "hidden";
+    if (activeRef.current) {
+      if (!socketRef.current && (initialUrl || sessionRef.current)) connect();
+    } else {
+      socketRef.current?.close();
+    }
+    const updateVisibility = () => {
+      activeRef.current = active && globalThis.document.visibilityState !== "hidden";
+      if (activeRef.current) {
+        if (!socketRef.current && (initialUrl || sessionRef.current)) connect();
+      } else {
+        socketRef.current?.close();
+      }
+    };
+    globalThis.document.addEventListener("visibilitychange", updateVisibility);
+    return () => globalThis.document.removeEventListener("visibilitychange", updateVisibility);
+  }, [active, connect, initialUrl]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -310,6 +380,7 @@ export function ChromiumBrowser({
     const observer = new ResizeObserver(() => {
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
       resizeRef.current = window.setTimeout(() => {
+        if (!activeRef.current) return;
         const sessionId = sessionRef.current;
         if (sessionId) send({ type: "browser.resize", sessionId, ...dimensions() });
       }, 60);
@@ -318,13 +389,15 @@ export function ChromiumBrowser({
     // Kein Chromium-Prozess für den bloßen Blank-Zustand: Erst ein bekanntes
     // Ziel (initialUrl) oder eine wiederaufnehmbare Session rechtfertigt die
     // Verbindung. Freie Navigation stößt sie in navigate() selbst an.
-    if (initialUrl || sessionRef.current) connect();
+    if (activeRef.current && (initialUrl || sessionRef.current)) connect();
     return () => {
       disposedRef.current = true;
       observer.disconnect();
       if (resizeRef.current) window.clearTimeout(resizeRef.current);
       if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
+      if (frameRenderRef.current) window.clearTimeout(frameRenderRef.current);
+      frameRenderRef.current = null;
       clearFrameTimeout();
       for (const pending of clipboardRequests.values()) window.clearTimeout(pending.timeout);
       clipboardRequests.clear();
@@ -410,9 +483,25 @@ export function ChromiumBrowser({
       (event.currentTarget as HTMLElement).focus();
     }
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : event.button === 0 ? "left" : "none";
+    if (action === "down") pressedPointerRef.current = { ...point, button };
     send({ type: "browser.pointer", sessionId, action, ...point, button, buttons: event.buttons });
+    if (action === "up") pressedPointerRef.current = null;
     if (action === "up" && event.button === 0) window.setTimeout(() => requestSelection("sync"), 30);
   };
+  const cancelPointer = () => {
+    touchScrollRef.current = null;
+    const sessionId = sessionRef.current;
+    const pressed = pressedPointerRef.current;
+    pressedPointerRef.current = null;
+    if (sessionId && pressed) send({ type: "browser.pointer", sessionId, action: "up", ...pressed, buttons: 0 });
+  };
+  useEffect(() => () => {
+    touchScrollRef.current = null;
+    const sessionId = sessionRef.current;
+    const pressed = pressedPointerRef.current;
+    pressedPointerRef.current = null;
+    if (sessionId && pressed) send({ type: "browser.pointer", sessionId, action: "up", ...pressed, buttons: 0 });
+  }, [send]);
   const wheel = (event: React.WheelEvent) => {
     claimControl();
     if (event.ctrlKey) { event.preventDefault(); return; }
@@ -429,8 +518,8 @@ export function ChromiumBrowser({
     const bounds = viewportRef.current?.getBoundingClientRect();
     if (!bounds) return;
     setContextMenu({
-      x: Math.min(bounds.width - 222, Math.max(8, event.clientX - bounds.left)),
-      y: Math.min(bounds.height - 270, Math.max(8, event.clientY - bounds.top)),
+      x: Math.max(0, Math.min(bounds.width - 222, Math.max(8, event.clientX - bounds.left))),
+      y: Math.max(0, Math.min(bounds.height - 270, Math.max(8, event.clientY - bounds.top))),
     });
   };
 
@@ -445,6 +534,15 @@ export function ChromiumBrowser({
     : null;
   const key = (event: React.KeyboardEvent) => {
     claimControl();
+    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+      event.preventDefault();
+      const viewport = viewportRef.current;
+      setContextMenu(viewport ? {
+        x: Math.max(8, Math.min(viewport.clientWidth - 222, viewport.clientWidth / 2 - 111)),
+        y: Math.max(8, Math.min(viewport.clientHeight - 270, viewport.clientHeight / 2 - 135)),
+      } : { x: 8, y: 8 });
+      return;
+    }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") { event.preventDefault(); addressRef.current?.focus(); addressRef.current?.select(); return; }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "r") { event.preventDefault(); simpleAction("browser.reload"); return; }
     const sessionId = sessionRef.current;
@@ -479,18 +577,18 @@ export function ChromiumBrowser({
     <section className="chromium-browser" aria-label="Chromium Browser">
       <header className="browser-toolbar">
         <div className="browser-nav-buttons">
-          <button type="button" disabled={!state.canGoBack} onClick={() => simpleAction("browser.back")} aria-label="Zurück"><ArrowLeft className="h-4 w-4" /></button>
-          <button type="button" disabled={!state.canGoForward} onClick={() => simpleAction("browser.forward")} aria-label="Vorwärts"><ArrowRight className="h-4 w-4" /></button>
-          <button type="button" onClick={() => simpleAction("browser.reload")} aria-label="Neu laden"><RotateCw className={`h-4 w-4 ${state.loading ? "animate-spin" : ""}`} /></button>
+          <button type="button" disabled={!state.canGoBack} onClick={() => simpleAction("browser.back")} aria-label="Zurück"><ArrowLeftIcon className="h-4 w-4" /></button>
+          <button type="button" disabled={!state.canGoForward} onClick={() => simpleAction("browser.forward")} aria-label="Vorwärts"><ArrowRightIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={() => simpleAction("browser.reload")} aria-label="Neu laden"><RefreshIcon className={`h-4 w-4 ${state.loading ? "animate-spin" : ""}`} /></button>
         </div>
         <form className="browser-address" onSubmit={(event) => { event.preventDefault(); navigate(); }}>
-          {state.loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : blank ? <Search className="h-3.5 w-3.5" /> : <Globe2 className="h-3.5 w-3.5" />}
+          {state.loading ? <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> : blank ? <SearchIcon className="h-3.5 w-3.5" /> : <BrowserIcon className="h-3.5 w-3.5" />}
           <input ref={addressRef} value={address} onChange={(event) => setAddress(event.target.value)} onFocus={(event) => { addressEditingRef.current = true; event.currentTarget.select(); }} onBlur={() => { addressEditingRef.current = false; }} placeholder="Suchen oder Adresse eingeben" aria-label="Browser-Adresse" />
         </form>
-        <button type="button" onClick={() => navigate("about:blank")} aria-label="Neuer Tab" title="Lokale Dienste öffnen"><Plus className="h-4 w-4" /></button>
-        <button type="button" className="browser-touch-mode" onClick={() => setTouchMode((current) => current === "scroll" ? "interact" : "scroll")} aria-label={touchMode === "scroll" ? "Browsermodus: Scrollen. Zu Interagieren wechseln" : "Browsermodus: Interagieren. Zu Scrollen wechseln"} aria-pressed={touchMode === "interact"}>{touchMode === "scroll" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}</button>
-        <button type="button" className="browser-more-button" onClick={() => { const viewport = viewportRef.current; setContextMenu(viewport ? { x: Math.max(8, viewport.clientWidth - 222), y: 8 } : { x: 8, y: 8 }); }} aria-label="Weitere Browseraktionen" aria-expanded={contextMenu !== null}><MoreHorizontal className="h-4 w-4" /></button>
-        {/^https?:/.test(state.url) ? <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Seite in neuem Tab öffnen"><ExternalLink className="h-4 w-4" /></a> : null}
+        <button type="button" onClick={() => navigate("about:blank")} aria-label="Neuer Tab" title="Lokale Dienste öffnen"><PlusIcon className="h-4 w-4" /></button>
+        <button type="button" className="browser-touch-mode" onClick={() => setTouchMode((current) => current === "scroll" ? "interact" : "scroll")} aria-label={touchMode === "scroll" ? "Browsermodus: Scrollen. Zu Interagieren wechseln" : "Browsermodus: Interagieren. Zu Scrollen wechseln"} aria-pressed={touchMode === "interact"}>{touchMode === "scroll" ? <HandIcon className="h-4 w-4" /> : <PointerIcon className="h-4 w-4" />}</button>
+        <button type="button" className="browser-more-button" onClick={() => { const viewport = viewportRef.current; setContextMenu(viewport ? { x: Math.max(0, viewport.clientWidth - 222), y: 8 } : { x: 8, y: 8 }); }} aria-label="Weitere Browseraktionen" aria-expanded={contextMenu !== null}><MoreIcon className="h-4 w-4" /></button>
+        {/^https?:/.test(state.url) ? <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Seite in neuem Tab öffnen"><ExternalLinkIcon className="h-4 w-4" /></a> : null}
         {extraToolbarActions}
         <span className={`browser-connection is-${status}`} title={error ?? state.title} />
       </header>
@@ -501,7 +599,7 @@ export function ChromiumBrowser({
         onPointerMove={(event) => pointer("move", event)}
         onPointerDown={(event) => { claimControl(); if (event.button === 2) openBrowserMenu(event); else { setContextMenu(null); pointer("down", event); } }}
         onPointerUp={(event) => pointer("up", event)}
-        onPointerCancel={() => { touchScrollRef.current = null; }}
+        onPointerCancel={cancelPointer}
         onWheel={wheel}
         onContextMenu={openBrowserMenu}
         onKeyDown={key}
@@ -521,21 +619,21 @@ export function ChromiumBrowser({
       >
         <img ref={imageRef} className={blank ? "is-hidden" : ""} alt="Gerenderte Chromium-Seite" draggable={false} decoding="async" />
         {blank ? <LocalPorts onOpen={localPort} compact /> : null}
-        {!blank && !frameReady && !error ? <div className="browser-loading"><LoaderCircle className="h-5 w-5 animate-spin" /><span>Chromium lädt die Seite</span></div> : null}
-        {error ? <div className="browser-error"><Globe2 className="h-5 w-5" /><strong>Browser nicht verfügbar</strong><span>{error}</span><div><button type="button" className="quiet-button-primary" onClick={() => window.location.reload()}>Wiederverbinden</button><button type="button" className="quiet-button" onClick={() => navigate("about:blank")}>Lokale Dienste</button></div></div> : null}
+        {!blank && !frameReady && !error ? <div className="browser-loading"><LoaderIcon className="h-5 w-5 animate-spin" /><span>Chromium lädt die Seite</span></div> : null}
+        {error ? <div className="browser-error"><BrowserIcon className="h-5 w-5" /><strong>Browser nicht verfügbar</strong><span>{error}</span><div><button type="button" className="quiet-button-primary" onClick={() => window.location.reload()}>Wiederverbinden</button><button type="button" className="quiet-button" onClick={() => navigate("about:blank")}>Lokale Dienste</button></div></div> : null}
         {clipboardStatus ? <p className="browser-clipboard-status" role="status">{clipboardStatus}</p> : null}
-        {contextMenu ? <div className="browser-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" aria-label="Browseraktionen" onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" role="menuitem" disabled={!state.canGoBack} onClick={() => { simpleAction("browser.back"); setContextMenu(null); }}><ArrowLeft className="h-4 w-4" /> Zurück</button>
-          <button type="button" role="menuitem" disabled={!state.canGoForward} onClick={() => { simpleAction("browser.forward"); setContextMenu(null); }}><ArrowRight className="h-4 w-4" /> Vorwärts</button>
-          <button type="button" role="menuitem" onClick={() => { simpleAction("browser.reload"); setContextMenu(null); }}><RotateCw className="h-4 w-4" /> Neu laden</button>
+        {contextMenu ? <div ref={contextMenuElementRef} className="browser-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" aria-label="Browseraktionen" onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" role="menuitem" disabled={!state.canGoBack} onClick={() => { simpleAction("browser.back"); setContextMenu(null); }}><ArrowLeftIcon className="h-4 w-4" /> Zurück</button>
+          <button type="button" role="menuitem" disabled={!state.canGoForward} onClick={() => { simpleAction("browser.forward"); setContextMenu(null); }}><ArrowRightIcon className="h-4 w-4" /> Vorwärts</button>
+          <button type="button" role="menuitem" onClick={() => { simpleAction("browser.reload"); setContextMenu(null); }}><RefreshIcon className="h-4 w-4" /> Neu laden</button>
           <span />
-          <button type="button" role="menuitem" disabled={blank} onClick={() => sessionAction("browser.source")}><Braces className="h-4 w-4" /> Seitenquelltext</button>
-          <button type="button" role="menuitem" disabled={blank} onClick={() => sessionAction("browser.screenshot")}><Camera className="h-4 w-4" /> Screenshot aufnehmen</button>
-          <button type="button" role="menuitem" disabled={!devtoolsUrl} onClick={() => { setDevtoolsOpen(true); setContextMenu(null); }}><SquareCode className="h-4 w-4" /> Untersuchen</button>
+          <button type="button" role="menuitem" disabled={blank} onClick={() => sessionAction("browser.source")}><BracesIcon className="h-4 w-4" /> Seitenquelltext</button>
+          <button type="button" role="menuitem" disabled={blank} onClick={() => sessionAction("browser.screenshot")}><CameraIcon className="h-4 w-4" /> Screenshot aufnehmen</button>
+          <button type="button" role="menuitem" disabled={!devtoolsUrl} onClick={() => { setDevtoolsOpen(true); setContextMenu(null); }}><DevtoolsIcon className="h-4 w-4" /> Untersuchen</button>
         </div> : null}
       </div>
-      {devtoolsOpen && devtoolsUrl ? <section className="browser-devtools" aria-label="Entwicklertools"><header><div><span>Chromium</span><strong>Developer Tools</strong></div><button type="button" onClick={() => setDevtoolsOpen(false)} aria-label="Developer Tools schließen"><X className="h-4 w-4" /></button></header><iframe src={devtoolsUrl} title="Chromium Developer Tools" /></section> : null}
-      {sourceView ? <div className="browser-source-backdrop" role="dialog" aria-modal="true" aria-label="Seitenquelltext"><section><header><div><span>Seitenquelltext</span><strong>{sourceView.url}</strong></div><button type="button" onClick={() => setSourceView(null)} aria-label="Seitenquelltext schließen"><X className="h-4 w-4" /></button></header><pre>{sourceView.source}</pre></section></div> : null}
+      {devtoolsOpen && devtoolsUrl ? <section className="browser-devtools" aria-label="Entwicklertools"><header><div><span>Chromium</span><strong>Developer Tools</strong></div><button type="button" onClick={() => setDevtoolsOpen(false)} aria-label="Developer Tools schließen"><CloseIcon className="h-4 w-4" /></button></header><iframe src={devtoolsUrl} title="Chromium Developer Tools" /></section> : null}
+      <BrowserSourceDialog sourceView={sourceView} onClose={() => setSourceView(null)} />
     </section>
   );
 }

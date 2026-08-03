@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, MonitorSmartphone, RotateCw, Server, ShieldCheck } from "lucide-react";
-import { apiClient } from "../../lib/apiClient";
+import { DeviceRotateIcon, ExternalLinkIcon, RefreshIcon, ServerIcon, ShieldIcon } from "../icons";
 import { normalizePreviewTarget } from "../../lib/previewTargets";
 import { DevicePickerButton } from "../DevicePickerButton";
 import { DevicePreviewFrame } from "../DevicePreviewFrame";
 import { PreviewSlotFrame } from "../PreviewSlotFrame";
+import { ExternalPreviewChoice } from "../preview/ExternalPreviewChoice";
 import type { DeviceOrientation, DevicePresetId } from "../../config/devicePresets";
 import { ChromiumBrowser, type ChromiumBrowserState } from "./ChromiumBrowser";
+import { useRouteActivity } from "../../lib/routeActivity";
 
 interface LocalTarget {
   port: number;
@@ -48,12 +49,18 @@ function hostOf(url: string): string | null {
 // Wege teilen sich dieselbe Komponente, egal ob in der klassischen Workbench
 // oder als Werkzeug-Knoten im Infinite Canvas – dort landet man über
 // `ToolPanel`.
-export function BrowserPanel({ instanceId }: { instanceId: string }) {
+export function BrowserPanel({ instanceId, initialUrl, requestKey = 0 }: { instanceId: string; initialUrl?: string; requestKey?: number }) {
+  const routeActive = useRouteActivity();
   const targetStorageKey = `workbench:browser-target:${instanceId}`;
   const slotStorageKey = `workbench:browser-slot:${instanceId}`;
+  const initialTarget = initialUrl ? normalizePreviewTarget(initialUrl) : null;
+  const initialLocalTarget = initialTarget?.kind === "local"
+    ? { port: initialTarget.port, path: initialTarget.path }
+    : null;
+  const initialExternalUrl = initialTarget?.kind === "external" ? initialTarget.url : null;
 
-  const [target, setTarget] = useState<LocalTarget | null>(() => readStoredTarget(targetStorageKey));
-  const [forceStream, setForceStream] = useState(false);
+  const [target, setTarget] = useState<LocalTarget | null>(() => initialLocalTarget ?? readStoredTarget(targetStorageKey));
+  const [forceStream, setForceStream] = useState(initialExternalUrl !== null);
   const [slotId, setSlotId] = useState<number | null>(() => {
     try {
       const raw = window.sessionStorage.getItem(slotStorageKey);
@@ -68,46 +75,62 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
   const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
   const [streamState, setStreamState] = useState<ChromiumBrowserState | null>(null);
   const [addressDraft, setAddressDraft] = useState(target ? addressForTarget(target) : "");
+  const [externalUrl, setExternalUrl] = useState<string | null>(null);
+  const [streamInitialUrl, setStreamInitialUrl] = useState<string | null>(initialExternalUrl);
   const heldSlotRef = useRef<{ slotId: number; targetPort: number } | null>(null);
+  const appliedRequestRef = useRef<string | null>(null);
 
   useEffect(() => {
     setAddressDraft(target ? addressForTarget(target) : "");
   }, [target]);
 
+  // Die Lease gibt `LocalPreviewRuntime` beim Unmount selbst frei; hier wird nur
+  // die lokal gemerkte Slot-Zuordnung verworfen.
   const releaseHeldSlot = useCallback(() => {
-    const held = heldSlotRef.current;
-    if (!held) return;
     heldSlotRef.current = null;
-    void apiClient.assignPreviewSlot({
-      slotId: held.slotId,
-      targetPort: null,
-      isolate: false,
-      expectedTargetPort: held.targetPort,
-    }).catch(() => {
-      // Slot kann sich zwischenzeitlich geändert haben – nichts weiter zu tun.
-    });
     try {
       window.sessionStorage.removeItem(slotStorageKey);
     } catch {
-      // Der Server gibt den Slot trotzdem frei.
+      // Der Server gibt den Slot ohnehin mit der Lease frei.
     }
   }, [slotStorageKey]);
-
-  // Deckt sowohl das Schließen in der klassischen Workbench als auch das
-  // Entfernen eines Orbit-Werkzeugknotens ab: React unmountet in beiden
-  // Fällen dieselbe Komponente.
-  useEffect(() => () => releaseHeldSlot(), [releaseHeldSlot]);
 
   const goLocal = (nextTarget: LocalTarget) => {
     if (heldSlotRef.current && heldSlotRef.current.targetPort !== nextTarget.port) releaseHeldSlot();
     setForceStream(false);
+    setStreamInitialUrl(null);
     setPublicUrl(null);
     setTarget(nextTarget);
     storeTarget(targetStorageKey, nextTarget);
   };
 
+  useEffect(() => {
+    if (!initialUrl) return;
+    const requestId = `${requestKey}:${initialUrl}`;
+    if (appliedRequestRef.current === requestId) return;
+    appliedRequestRef.current = requestId;
+    const parsed = normalizePreviewTarget(initialUrl);
+    if (!parsed) return;
+    setExternalUrl(null);
+    if (parsed.kind === "local") {
+      if (heldSlotRef.current && heldSlotRef.current.targetPort !== parsed.port) releaseHeldSlot();
+      setForceStream(false);
+      setStreamInitialUrl(null);
+      setPublicUrl(null);
+      setTarget({ port: parsed.port, path: parsed.path });
+      storeTarget(targetStorageKey, { port: parsed.port, path: parsed.path });
+      return;
+    }
+    releaseHeldSlot();
+    setTarget(null);
+    setPublicUrl(null);
+    setStreamInitialUrl(parsed.url);
+    setForceStream(true);
+  }, [initialUrl, releaseHeldSlot, requestKey, targetStorageKey]);
+
   const useStreamForCurrentTarget = () => {
     releaseHeldSlot();
+    if (target) setStreamInitialUrl(`http://127.0.0.1:${target.port}${target.path}`);
     setForceStream(true);
   };
 
@@ -119,7 +142,9 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
   const submitAddress = (event: React.FormEvent) => {
     event.preventDefault();
     const parsed = normalizePreviewTarget(addressDraft);
-    if (parsed?.kind === "local") goLocal({ port: parsed.port, path: parsed.path });
+    if (parsed?.kind === "local") { setExternalUrl(null); goLocal({ port: parsed.port, path: parsed.path }); return; }
+    // Externe Adressen erreichen den lokalen Preview-Gateway nie.
+    if (parsed?.kind === "external") setExternalUrl(parsed.url);
   };
 
   const localMode = target !== null && !forceStream;
@@ -127,15 +152,15 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
 
   const streamExtraActions = (
     <>
-      <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} />
+      <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} iconOnly />
       {deviceId !== "responsive" ? (
         <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")}>
-          <MonitorSmartphone className="h-4 w-4" />
+          <DeviceRotateIcon className="h-4 w-4" />
         </button>
       ) : null}
       {forceStream && target ? (
         <button type="button" className="is-active" title="Direkte iframe-Vorschau verwenden" aria-label="Direkte iframe-Vorschau verwenden" onClick={() => setForceStream(false)}>
-          <ShieldCheck className="h-4 w-4" />
+          <ShieldIcon className="h-4 w-4" />
         </button>
       ) : null}
     </>
@@ -146,24 +171,31 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
       {localMode ? (
         <header className="browser-toolbar">
           <form className="browser-address" onSubmit={submitAddress}>
-            <ShieldCheck className="h-3.5 w-3.5" />
+            <ShieldIcon className="h-3.5 w-3.5" />
             <input value={addressDraft} onChange={(event) => setAddressDraft(event.target.value)} aria-label="Browser-Adresse" placeholder="Port oder lokale Adresse" />
           </form>
-          <button type="button" onClick={() => setReloadKey((value) => value + 1)} aria-label="Neu laden" title="Neu laden"><RotateCw className="h-4 w-4" /></button>
-          <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} />
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)} aria-label="Neu laden" title="Neu laden"><RefreshIcon className="h-4 w-4" /></button>
+          <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} iconOnly />
           {deviceId !== "responsive" ? (
             <button type="button" title="Ausrichtung drehen" aria-label="Ausrichtung drehen" onClick={() => setOrientation((current) => current === "portrait" ? "landscape" : "portrait")}>
-              <MonitorSmartphone className="h-4 w-4" />
+              <DeviceRotateIcon className="h-4 w-4" />
             </button>
           ) : null}
           <button type="button" title="Server-Chromium verwenden: geteilte Geräte- oder Cookie-Session" aria-label="Server-Chromium verwenden" onClick={useStreamForCurrentTarget}>
-            <Server className="h-4 w-4" />
+            <ServerIcon className="h-4 w-4" />
           </button>
-          {publicUrl ? <a href={publicUrl} target="_blank" rel="noopener noreferrer" aria-label="In neuem Tab öffnen" title="In neuem Tab öffnen"><ExternalLink className="h-4 w-4" /></a> : null}
+          {publicUrl ? <a href={publicUrl} target="_blank" rel="noopener noreferrer" aria-label="In neuem Tab öffnen" title="In neuem Tab öffnen"><ExternalLinkIcon className="h-4 w-4" /></a> : null}
         </header>
       ) : null}
       <div className="browser-panel-body">
-        {localMode ? (
+        {externalUrl ? (
+          <ExternalPreviewChoice url={externalUrl} onUseChromium={() => {
+            releaseHeldSlot();
+            setStreamInitialUrl(externalUrl);
+            setExternalUrl(null);
+            setForceStream(true);
+          }} />
+        ) : localMode ? (
           <PreviewSlotFrame
             targetPort={target!.port}
             path={target!.path}
@@ -173,6 +205,9 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
             orientation={orientation}
             reloadKey={reloadKey}
             title="Browser-Vorschau"
+            previewNodeId={`browser:${instanceId}`}
+            showControls
+            onOrientationChange={setOrientation}
             onSlotAssigned={(assignedSlotId, url) => {
               setSlotId(assignedSlotId);
               heldSlotRef.current = { slotId: assignedSlotId, targetPort: target!.port };
@@ -187,9 +222,10 @@ export function BrowserPanel({ instanceId }: { instanceId: string }) {
         ) : (
           <DevicePreviewFrame deviceId={deviceId} orientation={orientation} origin={streamOrigin} {...(streamOrigin ? { runtime: "shared-browser" as const } : {})}>
             <ChromiumBrowser
-              key={forceStream && target ? `local-stream:${target.port}` : "stream"}
-              instanceId={forceStream && target ? `${instanceId}:local:${target.port}` : instanceId}
-              {...(forceStream && target ? { initialUrl: `http://127.0.0.1:${target.port}${target.path}` } : {})}
+              key={streamInitialUrl ? `stream:${streamInitialUrl}:${requestKey}` : `stream:${requestKey}`}
+              instanceId={forceStream && target && !streamInitialUrl ? `${instanceId}:local:${target.port}` : instanceId}
+              active={routeActive}
+              {...(streamInitialUrl ? { initialUrl: streamInitialUrl } : {})}
               onLocalAddress={onLocalAddress}
               onStateChange={setStreamState}
               extraToolbarActions={streamExtraActions}

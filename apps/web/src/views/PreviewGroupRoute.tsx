@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Maximize2, Minimize2, MonitorSmartphone, Server, ShieldCheck, Smartphone } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { DeviceRotateIcon, ExternalLinkIcon, FullscreenIcon, RestoreIcon, SmartphoneIcon } from "../components/icons";
+import { useParams } from "react-router";
 import { orbitWorkspaceSchema, type OrbitNode } from "@workbench/contracts";
 import { workbenchQueries } from "../lib/queryOptions";
-import { normalizePreviewTarget, previewTargetOrigin } from "../lib/previewTargets";
+import { normalizePreviewTarget } from "../lib/previewTargets";
 import { PreviewSlotFrame } from "../components/PreviewSlotFrame";
-import { DevicePreviewFrame } from "../components/DevicePreviewFrame";
-import { ChromiumBrowser } from "../components/browser/ChromiumBrowser";
-import { defaultPreviewDeviceId, getGroupedDevicePresets, type DeviceOrientation, type DevicePresetId } from "../config/devicePresets";
+import { getGroupedDevicePresets, type DeviceOrientation } from "../config/devicePresets";
+import { resolvePreviewDevice } from "../lib/previewDevice";
+import { ExternalPreviewChoice } from "../components/preview/ExternalPreviewChoice";
 import { previewGroupSnapshotKey } from "../lib/previewWindow";
+import { useRouteActivity } from "../lib/routeActivity";
 
 // Lokale Auswahl, die dem Orbit-Dokument folgt: Ändert jemand das Gerät an
 // einem anderen Gerät, übernimmt dieses Fenster den neuen Wert.
@@ -21,30 +22,37 @@ function useSyncedState<T>(value: T): [T, (next: T) => void] {
 
 export function PreviewStandaloneSlot({ node, lazy = false }: { node: OrbitNode; lazy?: boolean }) {
   const target = normalizePreviewTarget(node.previewTarget ?? "");
-  const [deviceId, setDeviceId] = useSyncedState<DevicePresetId>((node.previewDeviceId ?? defaultPreviewDeviceId) as DevicePresetId);
+  const [deviceId, setDeviceId] = useSyncedState<string | null>(node.previewDeviceId);
   const [orientation, setOrientation] = useSyncedState<DeviceOrientation>(node.previewOrientation);
-  const [runtime, setRuntime] = useSyncedState(node.previewRuntime);
-  const origin = previewTargetOrigin(target);
+  const preference = useQuery(workbenchQueries.previewDevicePreference());
+  const resolvedDevice = resolvePreviewDevice({ deviceId, orientation }, preference.data);
   return (
     <article className="preview-group-page-slot">
       <header>
         <div><span className={`orbit-preview-state ${target ? "is-active" : ""}`} /><strong>{node.title}</strong>{node.previewIsolation ? <i title="Eigene Session" /> : null}</div>
-        <div className="preview-slot-runtime" role="group" aria-label="Preview-Quelle">
-          <button type="button" className={runtime === "iframe" ? "is-active" : ""} aria-pressed={runtime === "iframe"} title="Direkt: iframe auf den lokalen Devserver" onClick={() => setRuntime("iframe")}><ShieldCheck className="h-3.5 w-3.5" /><span>Direkt</span></button>
-          <button type="button" className={runtime === "shared-browser" ? "is-active" : ""} aria-pressed={runtime === "shared-browser"} title="Server: gestreamter Chromium auf dem Entwicklungsserver" onClick={() => setRuntime("shared-browser")}><Server className="h-3.5 w-3.5" /><span>Server</span></button>
-        </div>
-        <label><Smartphone className="h-3.5 w-3.5" /><select value={deviceId} onChange={(event) => setDeviceId(event.target.value as DevicePresetId)} aria-label={`Gerät für ${node.title}`}>{getGroupedDevicePresets().map((group) => <optgroup key={group.group} label={group.label}>{group.devices.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}</optgroup>)}</select></label>
-        {deviceId !== "responsive" ? <button type="button" onClick={() => setOrientation(orientation === "portrait" ? "landscape" : "portrait")} aria-label="Ausrichtung drehen"><MonitorSmartphone className="h-3.5 w-3.5" /></button> : null}
+        <label><SmartphoneIcon className="h-3.5 w-3.5" /><select value={deviceId ?? "__default"} onChange={(event) => setDeviceId(event.target.value === "__default" ? null : event.target.value)} aria-label={`Gerät für ${node.title}`}><option value="__default">Standard verwenden</option>{getGroupedDevicePresets().map((group) => <optgroup key={group.group} label={group.label}>{group.devices.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}</optgroup>)}</select></label>
+        {resolvedDevice.deviceId !== "responsive" ? <button type="button" onClick={() => setOrientation(orientation === "portrait" ? "landscape" : "portrait")} aria-label="Ausrichtung drehen"><DeviceRotateIcon className="h-3.5 w-3.5" /></button> : null}
       </header>
       <div className="preview-group-page-viewport">
-        {!target ? <div className="preview-group-page-empty">Für diesen Slot ist noch kein Ziel hinterlegt.</div> : runtime === "shared-browser" ? (
-          <DevicePreviewFrame deviceId={deviceId} orientation={orientation} runtime="shared-browser" origin={origin}>
-            <ChromiumBrowser instanceId={`preview-slot:${node.id}`} profileKey={`preview-slot:${node.previewSlotId ?? node.id}`} initialUrl={target.kind === "local" ? `http://127.0.0.1:${target.port}${node.previewPath}` : target.url} />
-          </DevicePreviewFrame>
-        ) : target.kind === "local" ? (
-          <PreviewSlotFrame targetPort={target.port} path={node.previewPath} requestedSlotId={node.previewSlotId} isolate={node.previewIsolation} deviceId={deviceId} orientation={orientation} title={node.title} lazy={lazy} projectId={node.projectId} sessionKey={`orbit-preview:${node.id}`} />
+        {!target ? <div className="preview-group-page-empty">Für diesen Slot ist noch kein Ziel hinterlegt.</div> : target.kind === "local" ? (
+          <PreviewSlotFrame
+            targetPort={target.port}
+            path={node.previewPath}
+            requestedSlotId={node.previewSlotId}
+            isolate={node.previewIsolation}
+            storageProfileId={node.previewStorageProfileId}
+            previewNodeId={node.id}
+            deviceId={deviceId}
+            orientation={orientation}
+            title={node.title}
+            lazy={lazy}
+            showControls
+            projectId={node.projectId}
+            sessionKey={`preview-window:${node.id}`}
+            onOrientationChange={setOrientation}
+          />
         ) : (
-          <DevicePreviewFrame deviceId={deviceId} orientation={orientation} runtime="iframe" origin={origin}><iframe src={target.url} title={node.title} className="h-full w-full border-0 bg-white" allowFullScreen /></DevicePreviewFrame>
+          <ExternalPreviewChoice url={target.url} />
         )}
       </div>
     </article>
@@ -85,7 +93,8 @@ export function PreviewSlotCarousel({ slots, className, lazy = false }: { slots:
 // Orbit (Ziel, Gerät, Layout) auch in externen Fenstern und auf anderen
 // Geräten ankommen.
 function usePreviewGroup(groupId: string | undefined) {
-  const query = useQuery({ ...workbenchQueries.orbit(), refetchInterval: 5_000 });
+  const routeActive = useRouteActivity();
+  const query = useQuery({ ...workbenchQueries.orbit(), refetchInterval: 5_000, enabled: routeActive });
   const found = useMemo(() => {
     let snapshot = null;
     if (groupId) try {
@@ -111,7 +120,7 @@ export function PreviewGroupRoute() {
   if (!found) return <div className="preview-group-page-missing"><strong>Preview-Gruppe nicht gefunden</strong><span>Die Gruppe wurde gelöscht oder gehört nicht zum aktuellen Orbit-Dokument.</span></div>;
   return (
     <main className="preview-group-page" data-layout={found.group.previewLayout ?? "1"}>
-      <header><div><span>Preview-Gruppe</span><h1>{found.group.title}</h1></div><a href="/workbench/workbench"><ExternalLink className="h-4 w-4" />Im Orbit öffnen</a></header>
+      <header><div><span>Preview-Gruppe</span><h1>{found.group.title}</h1></div><a href="/workbench/workbench"><ExternalLinkIcon className="h-4 w-4" />Im Orbit öffnen</a></header>
       <PreviewSlotCarousel slots={found.slots} className="preview-group-page-grid" />
       <small className="preview-group-page-note">Geräterahmen sind visuell. DPR und CSS-Safe-Areas lassen sich in iframes nicht vollständig emulieren.</small>
     </main>
@@ -144,7 +153,7 @@ export function PreviewGroupWindowRoute() {
         <strong>{found.group.title}</strong>
         <small>{found.slots.length} {found.slots.length === 1 ? "Slot" : "Slots"}</small>
         <button type="button" onClick={toggleFullscreen} title={fullscreen ? "Vollbild verlassen" : "Vollbild"} aria-label={fullscreen ? "Vollbild verlassen" : "Vollbild"}>
-          {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          {fullscreen ? <RestoreIcon className="h-4 w-4" /> : <FullscreenIcon className="h-4 w-4" />}
         </button>
       </header>
       <div className="preview-window-grid">
