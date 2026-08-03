@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiIdentityHeaders } from "./helpers/environment";
 
 const workbench = process.env.WORKBENCH_E2E_URL;
 
@@ -20,10 +21,10 @@ test("covers precise canvas chrome, menus, zoom and editable routing", async ({ 
   test.setTimeout(90_000);
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
   const orbitUrl = new URL("/api/v1/orbit", workbench).toString();
-  const current = await (await page.request.get(orbitUrl)).json();
+  const current = await (await page.request.get(orbitUrl, { headers: apiIdentityHeaders("user@example.com") })).json();
   const boardId = `improvements-${Date.now()}`;
-  const seed = await page.request.put(orbitUrl, { data: { expectedRevision: current.revision, document: {
-    version: 6, activeBoardId: boardId, focusedNodeId: null, boards: [{
+  const seed = await page.request.put(orbitUrl, { headers: apiIdentityHeaders("user@example.com"), data: { expectedRevision: current.revision, document: {
+    version: 7, activeBoardId: boardId, focusedNodeId: null, boards: [{
       id: boardId, name: "Verbesserungen", viewport: { x: 180, y: 170, zoom: .68 }, worldBounds: { minX: -1_600, minY: -1_000, maxX: 6_400, maxY: 1_400 },
       nodes: [
         node("project", "project", "Sample", -100, 0),
@@ -39,7 +40,7 @@ test("covers precise canvas chrome, menus, zoom and editable routing", async ({ 
   } } });
   await expect(seed).toBeOK();
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByLabel("Gespeicherte Szene öffnen")).toHaveCount(0);
   await page.getByRole("button", { name: "Arbeitsfläche umbenennen" }).click();

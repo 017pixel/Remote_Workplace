@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { apiIdentityHeaders } from "./helpers/environment";
 
 const workbench = process.env.WORKBENCH_E2E_URL;
 
 test.use({
+  extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
   viewport: { width: 390, height: 844 },
   hasTouch: true,
   isMobile: true,
@@ -15,16 +17,17 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
 
   const orbitUrl = new URL("/api/v1/orbit", workbench).toString();
-  const currentResponse = await page.request.get(orbitUrl);
+  const currentResponse = await page.request.get(orbitUrl, { headers: apiIdentityHeaders("user@example.com") });
   await expect(currentResponse).toBeOK();
   const current = await currentResponse.json();
   const marker = `Mobile Canvas ${Date.now()}`;
   const boardId = `mobile-e2e-${Date.now()}`;
   const seedResponse = await page.request.put(orbitUrl, {
+    headers: apiIdentityHeaders("user@example.com"),
     data: {
       expectedRevision: current.revision,
       document: {
-        version: 6,
+        version: 7,
         activeBoardId: boardId,
         focusedNodeId: null,
         boards: [{
@@ -53,10 +56,11 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
         }],
       },
     },
+    headers: apiIdentityHeaders("user@example.com"),
   });
   await expect(seedResponse).toBeOK();
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   const orbitPage = page.locator(".orbit-page");
   await expect(orbitPage).toBeVisible();
   await expect(orbitPage).toHaveAttribute("data-mobile-mode", "navigate");
@@ -122,7 +126,7 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
 
   await page.locator(".orbit-node-header").click();
   await expect(page.getByRole("button", { name: "Eigenschaften öffnen" })).toBeVisible();
-  await expect(page.locator(".orbit-resize-corner")).toHaveCount(4);
+  await expect(page.locator(".orbit-resize-corner")).toHaveCount(8);
   await page.getByRole("button", { name: "Eigenschaften öffnen" }).click();
   await expect(page.locator(".orbit-inspector")).toBeVisible();
   await page.getByRole("button", { name: "Eigenschaften einklappen" }).click();

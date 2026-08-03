@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { CheckIcon, CloseIcon, PlusIcon } from "../icons";
 import { PASTEL_NODE_COLORS, useNodeColors } from "../../stores/nodeColors";
 
 /**
@@ -26,7 +26,7 @@ export function OrbitColorPicker({ value, onSelect }: { value: string | null; on
       style={{ background: color }}
       onClick={() => onSelect(color)}
     >
-      {value === color ? <Check className="h-3 w-3" aria-hidden /> : null}
+      {value === color ? <CheckIcon className="h-3 w-3" aria-hidden /> : null}
     </button>
   );
 
@@ -49,7 +49,7 @@ export function OrbitColorPicker({ value, onSelect }: { value: string | null; on
                   aria-label={`Eigene Farbe ${color} entfernen`}
                   onClick={() => removeCustomColor(color)}
                 >
-                  <X className="h-2.5 w-2.5" aria-hidden />
+                  <CloseIcon className="h-2.5 w-2.5" aria-hidden />
                 </button>
               </span>
             ))}
@@ -72,7 +72,7 @@ export function OrbitColorPicker({ value, onSelect }: { value: string | null; on
           className="orbit-color-add"
           onClick={() => { addCustomColor(draft); onSelect(draft); }}
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden /> Übernehmen
+          <PlusIcon className="h-3.5 w-3.5" aria-hidden /> Übernehmen
         </button>
         <button
           type="button"

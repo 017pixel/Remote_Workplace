@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { migrateWorkspaceToOrbit, useOrbitStore } from "../../stores/orbit";
 import { useWorkspaceStore } from "../../stores/workspace";
+import { useRouteActivity } from "../../lib/routeActivity";
 
 const AUTOSAVE_DELAY_MS = 700;
 const MAX_RETRY_DELAY_MS = 15_000;
@@ -13,9 +14,6 @@ function readPendingDraft() {
     if (!value) return null;
     const parsed = JSON.parse(value) as { baseRevision?: unknown; document?: unknown };
     if (!Number.isSafeInteger(parsed.baseRevision)) return null;
-    const doc = parsed.document as { boards?: Array<{ nodes?: Array<unknown> }> } | undefined;
-    const totalNodes = doc?.boards?.reduce((sum, board) => sum + (board.nodes?.length ?? 0), 0) ?? 0;
-    if (totalNodes === 0) return null;
     return { baseRevision: parsed.baseRevision as number, document: parsed.document };
   } catch {
     return null;
@@ -27,6 +25,7 @@ function clearPendingDraft() {
 }
 
 export function OrbitSync() {
+  const routeActive = useRouteActivity();
   const hydrated = useOrbitStore((state) => state.hydrated);
   const dirty = useOrbitStore((state) => state.dirty);
   const document = useOrbitStore((state) => state.document);
@@ -34,6 +33,7 @@ export function OrbitSync() {
   const saving = useOrbitStore((state) => state.saving);
   const syncInterval = useRef(5_000);
   const retryDelay = useRef(AUTOSAVE_DELAY_MS);
+  const blockedDocument = useRef<unknown>(null);
 
   useEffect(() => {
     let active = true;
@@ -48,7 +48,10 @@ export function OrbitSync() {
       }
     }).catch((error: unknown) => {
       if (!active) return;
-      useOrbitStore.getState().markSyncError(error instanceof Error ? error.message : "Orbit konnte nicht geladen werden.");
+      useOrbitStore.setState({
+        hydrated: true,
+        syncError: error instanceof Error ? error.message : "Orbit konnte nicht geladen werden.",
+      });
     });
     return () => { active = false; };
   }, []);
@@ -61,7 +64,7 @@ export function OrbitSync() {
   }, [dirty, document, hydrated, revision]);
 
   useEffect(() => {
-    if (!hydrated || !dirty || saving) return;
+    if (!hydrated || !dirty || saving || blockedDocument.current === document) return;
     const handle = window.setTimeout(() => {
       const snapshot = useOrbitStore.getState();
       snapshot.markSaving(true);
@@ -69,6 +72,7 @@ export function OrbitSync() {
         .then((response) => {
           if (!response) return;
           retryDelay.current = AUTOSAVE_DELAY_MS;
+          blockedDocument.current = null;
           useOrbitStore.getState().markSaved(response, snapshot.document);
           if (!useOrbitStore.getState().dirty) clearPendingDraft();
         })
@@ -77,8 +81,11 @@ export function OrbitSync() {
             try {
               const latest = await apiClient.orbit();
               retryDelay.current = AUTOSAVE_DELAY_MS;
-              useOrbitStore.getState().resolveConflict(latest, "Ein abweichender lokaler Entwurf wurde serverseitig gesichert. Der neuere Serverstand bleibt aktiv.");
-              clearPendingDraft();
+              blockedDocument.current = snapshot.document;
+              useOrbitStore.getState().resolveConflict(
+                latest,
+                "Die Arbeitsfläche wurde parallel geändert. Dein lokaler Entwurf bleibt erhalten und wird nach der nächsten Bearbeitung erneut gespeichert.",
+              );
               return;
             } catch (retryError) {
               retryDelay.current = Math.min(MAX_RETRY_DELAY_MS, Math.round(retryDelay.current * 1.8 + Math.random() * 400));
@@ -88,8 +95,8 @@ export function OrbitSync() {
           }
           if (error instanceof ApiClientError && error.status === 400) {
             retryDelay.current = AUTOSAVE_DELAY_MS;
+            blockedDocument.current = snapshot.document;
             useOrbitStore.getState().markSaveBlocked(error.message);
-            clearPendingDraft();
             return;
           }
           retryDelay.current = Math.min(MAX_RETRY_DELAY_MS, Math.round(retryDelay.current * 1.8 + Math.random() * 400));
@@ -102,6 +109,7 @@ export function OrbitSync() {
   useEffect(() => {
     if (!hydrated) return;
     const poll = () => {
+      if (!routeActive) return;
       const state = useOrbitStore.getState();
       if (state.dirty || state.saving) return;
       void apiClient.orbit().then((response) => {
@@ -111,7 +119,7 @@ export function OrbitSync() {
     };
     const handle = window.setInterval(poll, syncInterval.current);
     return () => window.clearInterval(handle);
-  }, [hydrated]);
+  }, [hydrated, routeActive]);
 
   return null;
 }

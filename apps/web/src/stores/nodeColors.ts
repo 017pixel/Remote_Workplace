@@ -5,6 +5,10 @@ import { persist } from "zustand/middleware";
  * Pastelltöne für Orbit-Knoten. Gedeckt genug, dass mehrere davon nebeneinander
  * auf der fast schwarzen Fläche nicht streiten, und hell genug, dass die daraus
  * gezeichneten Verbindungslinien lesbar bleiben.
+ *
+ * Diese Farben sind Inhaltdaten, keine UI-Farben: Sie werden vom Nutzer über
+ * den Farbwähler frei gewählt und im localStorage des Knotens gespeichert.
+ * Deshalb gehören sie nicht in den @theme-Block der Design-Tokens.
  */
 export const PASTEL_NODE_COLORS = [
   "#a8c7fa", "#b3a4f7", "#d3a4e8", "#f0a6c4",

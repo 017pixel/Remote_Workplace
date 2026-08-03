@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiIdentityHeaders } from "./helpers/environment";
 
 const workbench = process.env.WORKBENCH_E2E_URL;
 
@@ -14,12 +15,12 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByRole("button", { name: "Auf Server gespeichert" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".topbar")).toHaveCount(0);
 
-  const projectsResponse = await page.request.get(new URL("/api/v1/projects", workbench).toString());
+  const projectsResponse = await page.request.get(new URL("/api/v1/projects", workbench).toString(), { headers: apiIdentityHeaders("user@example.com") });
   const projectsPayload = await projectsResponse.json() as { projects: Array<{ name: string; availability: string }> };
   const projectName = projectsPayload.projects.find((project) => project.availability === "available")?.name;
   expect(projectName).toBeTruthy();
@@ -45,7 +46,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await expect(page.getByRole("textbox", { name: "Aufgabe 1", exact: true }).last()).toHaveValue(task);
   await expect(page.getByLabel("Aufgabe 1 abhaken").last()).toBeChecked();
 
-  const initialLayout = await (await page.request.get(new URL("/api/v1/orbit", workbench).toString())).json();
+  const initialLayout = await (await page.request.get(new URL("/api/v1/orbit", workbench).toString(), { headers: apiIdentityHeaders("user@example.com") })).json();
   const initialBoard = initialLayout.document.boards.find((candidate: { id: string }) => candidate.id === initialLayout.document.activeBoardId);
   const projectNode = initialBoard.nodes.find((node: { type: string; title: string }) => node.type === "project" && node.title === projectName);
   const noteNode = initialBoard.nodes.find((node: { type: string; content: string }) => node.type === "note" && node.content === marker);
@@ -57,7 +58,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
 
   const secondContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const secondPage = await secondContext.newPage();
-  await secondPage.goto(`${workbench}/workbench`);
+  await secondPage.goto(`${workbench}/workbench/workbench`);
   const secondNote = secondPage.getByLabel("Neue Notiz bearbeiten").last();
   await expect(secondNote).toHaveValue(marker);
   const remoteMarker = `${marker} · Gerät 2`;
@@ -113,7 +114,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await expect(terminalNode.locator(".panel-island")).toHaveCount(0);
   await expect(terminalNode.locator(".orbit-live-dragbar")).toHaveCount(0);
   await expect(page.locator(".orbit-inspector")).toHaveCount(0);
-  await expect(terminalNode.locator(".orbit-resize-corner")).toHaveCount(4);
+  await expect(terminalNode.locator(".orbit-resize-corner")).toHaveCount(8);
   const beforeResize = await terminalNode.boundingBox();
   const resizeHandle = terminalNode.locator(".react-flow__resize-control.handle.bottom.right");
   const resizeHandleBox = await resizeHandle.boundingBox();
@@ -184,12 +185,12 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await expect(page.getByRole("button", { name: "Auf Server gespeichert" })).toBeVisible({ timeout: 15_000 });
   const firstBoardId = await workspaceSelect.inputValue();
   const boardCount = await workspaceSelect.locator("option").count();
-  const readBoardCount = async () => Number((await (await page.request.get(new URL("/api/v1/orbit", workbench).toString())).json()).document.boards.length);
+  const readBoardCount = async () => Number((await (await page.request.get(new URL("/api/v1/orbit", workbench).toString(), { headers: apiIdentityHeaders("user@example.com") })).json()).document.boards.length);
   await page.getByRole("button", { name: "Arbeitsfläche hinzufügen" }).click();
   await expect(workspaceSelect.locator("option")).toHaveCount(boardCount + 1);
   await expect(page.locator(".orbit-live-node")).toHaveCount(0);
   await expect.poll(readBoardCount, { timeout: 15_000 }).toBeGreaterThanOrEqual(boardCount + 1);
-  const afterBoardSave = await page.request.get(new URL("/api/v1/orbit", workbench).toString());
+  const afterBoardSave = await page.request.get(new URL("/api/v1/orbit", workbench).toString(), { headers: apiIdentityHeaders("user@example.com") });
   expect((await afterBoardSave.json()).document.boards.length).toBeGreaterThanOrEqual(2);
   await workspaceSelect.selectOption(firstBoardId);
   await expect(page.locator(".orbit-live-node")).not.toHaveCount(0);
@@ -270,7 +271,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   expect(mobileBounds.scrollWidth).toBeLessThanOrEqual(mobileBounds.clientWidth);
   expect(mobileBounds.scrollHeight).toBeLessThanOrEqual(mobileBounds.clientHeight);
 
-  const orbitResponse = await page.request.get(new URL("/api/v1/orbit", workbench).toString());
+  const orbitResponse = await page.request.get(new URL("/api/v1/orbit", workbench).toString(), { headers: apiIdentityHeaders("user@example.com") });
   await expect(orbitResponse).toBeOK();
   const orbit = await orbitResponse.json();
   expect(orbit.revision).toBeGreaterThan(0);

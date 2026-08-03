@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, ExternalLink, File, FolderUp, Images, Pencil, Plus, RefreshCw, Search, Trash2, Upload, FolderOpen, Folder } from "lucide-react";
+import { CopyIcon, DownloadIcon, EditIcon, ExternalLinkIcon, FileIcon, FolderIcon, FolderOpenIcon, GalerieIcon, PlusIcon, RefreshIcon, SearchIcon, TrashIcon, UploadIcon } from "../icons";
 import type { OrbitAsset, GalleryFolder } from "@workbench/contracts";
 import { apiClient } from "../../lib/apiClient";
 import { ContentDialog } from "../ModalDialog";
@@ -25,7 +25,7 @@ interface VariantConfig {
   countNoun: string;
   emptyTitle: string;
   emptyHint: string;
-  Icon: typeof Images;
+  Icon: typeof GalerieIcon;
 }
 
 const VARIANTS: Record<GalleryVariant, VariantConfig> = {
@@ -50,7 +50,7 @@ const VARIANTS: Record<GalleryVariant, VariantConfig> = {
     countNoun: "Dateien",
     emptyTitle: "Dein Bildarchiv ist bereit",
     emptyHint: "Bilder, die du im Canvas einfügst, erscheinen hier automatisch.",
-    Icon: Images,
+    Icon: GalerieIcon,
   },
   files: {
     label: "Dateigalerie",
@@ -73,7 +73,7 @@ const VARIANTS: Record<GalleryVariant, VariantConfig> = {
     countNoun: "Dateien",
     emptyTitle: "Deine Dateigalerie ist bereit",
     emptyHint: "Lade Dateien über Hochladen hoch oder ziehe sie auf den Canvas.",
-    Icon: FolderUp,
+    Icon: UploadIcon,
   },
 };
 
@@ -104,18 +104,18 @@ function AssetCard({ asset, url, onStatus, onDelete, onRename, onMove, folders }
     {image ? <img src={url} alt={asset.filename} onLoad={(event) => {
       const { naturalWidth, naturalHeight } = event.currentTarget;
       setShape(naturalWidth > naturalHeight * 1.35 ? "wide" : naturalHeight > naturalWidth * 1.35 ? "tall" : "square");
-    }} /> : <div className="orbit-gallery-file-icon"><File className="h-7 w-7" /></div>}
+    }} /> : <div className="orbit-gallery-file-icon"><FileIcon className="h-7 w-7" /></div>}
     <div className="orbit-gallery-card-meta"><strong title={asset.filename}>{asset.filename}</strong><small>{asset.mimeType} · {formatBytes(asset.bytes)}</small></div>
     <div className="orbit-gallery-card-actions">
-      {image ? <button type="button" onClick={() => void copy()} aria-label={`${asset.filename} kopieren`} title="Bild kopieren"><Copy className="h-3.5 w-3.5" /></button> : null}
-      <a href={url} download={asset.filename} aria-label={`${asset.filename} herunterladen`} title="Herunterladen"><Download className="h-3.5 w-3.5" /></a>
-      <a href={url} target="_blank" rel="noreferrer" aria-label={`${asset.filename} öffnen`} title="Original öffnen"><ExternalLink className="h-3.5 w-3.5" /></a>
-      <button type="button" onClick={() => onRename(asset)} aria-label={`${asset.filename} umbenennen`} title="Umbenennen"><Pencil className="h-3.5 w-3.5" /></button>
+      {image ? <button type="button" onClick={() => void copy()} aria-label={`${asset.filename} kopieren`} title="Bild kopieren"><CopyIcon className="h-3.5 w-3.5" /></button> : null}
+      <a href={url} download={asset.filename} aria-label={`${asset.filename} herunterladen`} title="Herunterladen"><DownloadIcon className="h-3.5 w-3.5" /></a>
+      <a href={url} target="_blank" rel="noreferrer" aria-label={`${asset.filename} öffnen`} title="Original öffnen"><ExternalLinkIcon className="h-3.5 w-3.5" /></a>
+      <button type="button" onClick={() => onRename(asset)} aria-label={`${asset.filename} umbenennen`} title="Umbenennen"><EditIcon className="h-3.5 w-3.5" /></button>
       {/* Als Dialog statt als Aufklapp-Menü in der Karte: Das Menü klappte nach oben
           aus der Karte heraus und wurde vom Karten- und Gitter-Clipping verschluckt —
           es war nicht sichtbar und nicht klickbar. */}
-      <button type="button" onClick={() => setShowMoveMenu(true)} aria-label="In Ordner verschieben" title="Verschieben"><FolderOpen className="h-3.5 w-3.5" /></button>
-      <button type="button" onClick={() => onDelete(asset)} aria-label={`${asset.filename} löschen`} title="Löschen" className="is-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+      <button type="button" onClick={() => setShowMoveMenu(true)} aria-label="In Ordner verschieben" title="Verschieben"><FolderOpenIcon className="h-3.5 w-3.5" /></button>
+      <button type="button" onClick={() => onDelete(asset)} aria-label={`${asset.filename} löschen`} title="Löschen" className="is-danger"><TrashIcon className="h-3.5 w-3.5" /></button>
     </div>
     <ContentDialog
       open={showMoveMenu}
@@ -125,11 +125,11 @@ function AssetCard({ asset, url, onStatus, onDelete, onRename, onMove, folders }
     >
       <div className="gallery-move-options">
         <button type="button" onClick={() => { onMove(asset, null); setShowMoveMenu(false); }} className={asset.folderId === null ? "is-active" : ""}>
-          <FolderOpen className="h-4 w-4" /> Ohne Ordner
+          <FolderOpenIcon className="h-4 w-4" /> Ohne Ordner
         </button>
         {folders.map((folder) => (
           <button key={folder.id} type="button" onClick={() => { onMove(asset, folder.id); setShowMoveMenu(false); }} className={asset.folderId === folder.id ? "is-active" : ""}>
-            <Folder className="h-4 w-4" /> {folder.name}
+            <FolderIcon className="h-4 w-4" /> {folder.name}
           </button>
         ))}
         {folders.length === 0 ? <p className="gallery-move-empty">Es gibt noch keine Ordner. Lege oben in der Leiste einen an.</p> : null}
@@ -275,7 +275,7 @@ export function OrbitGalleryNode({ variant = "media" }: { variant?: GalleryVaria
       </div>
       <div className="orbit-gallery-head-actions">
         <button type="button" className="orbit-gallery-upload" disabled={uploading} onClick={() => inputRef.current?.click()}>
-          <Upload className="h-3.5 w-3.5" />{uploading ? "Wird geladen…" : "Hochladen"}
+          <UploadIcon className="h-3.5 w-3.5" />{uploading ? "Wird geladen…" : "Hochladen"}
         </button>
       </div>
     </header>
@@ -283,22 +283,22 @@ export function OrbitGalleryNode({ variant = "media" }: { variant?: GalleryVaria
     <div className="orbit-gallery-toolbar">
       <div className="orbit-gallery-folders">
         <button type="button" className={`orbit-gallery-folder${selectedFolderId === null ? " is-active" : ""}`} onClick={() => setSelectedFolderId(null)}>
-          <Folder className="h-3.5 w-3.5" /><span>Alle</span>
+          <FolderIcon className="h-3.5 w-3.5" /><span>Alle</span>
         </button>
         {folderList.map((folder) => <div key={folder.id} className="orbit-gallery-folder-wrapper">
           <button type="button" className={`orbit-gallery-folder${selectedFolderId === folder.id ? " is-active" : ""}`} onClick={() => setSelectedFolderId(folder.id)}>
-            <FolderOpen className="h-3.5 w-3.5" /><span>{folder.name}</span><span className="orbit-gallery-folder-count">{folder.fileCount}</span>
+            <FolderOpenIcon className="h-3.5 w-3.5" /><span>{folder.name}</span><span className="orbit-gallery-folder-count">{folder.fileCount}</span>
           </button>
-          <button type="button" className="orbit-gallery-folder-rename" onClick={() => { setEditingFolder(folder); setEditingFolderName(folder.name); }} title="Ordner umbenennen"><Pencil className="h-3 w-3" /></button>
-          <button type="button" className="orbit-gallery-folder-delete" onClick={() => void handleDeleteFolder(folder)} title="Ordner löschen"><Trash2 className="h-3 w-3" /></button>
+          <button type="button" className="orbit-gallery-folder-rename" onClick={() => { setEditingFolder(folder); setEditingFolderName(folder.name); }} title="Ordner umbenennen"><EditIcon className="h-3 w-3" /></button>
+          <button type="button" className="orbit-gallery-folder-delete" onClick={() => void handleDeleteFolder(folder)} title="Ordner löschen"><TrashIcon className="h-3 w-3" /></button>
         </div>)}
         {showNewFolder ? <div className="orbit-gallery-folder-new">
           <input type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Ordnername" autoFocus onKeyDown={(e) => { if (e.key === "Enter") void handleCreateFolder(); if (e.key === "Escape") { setShowNewFolder(false); setNewFolderName(""); } }} />
-          <button type="button" onClick={() => void handleCreateFolder()}><Plus className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={() => void handleCreateFolder()}><PlusIcon className="h-3.5 w-3.5" /></button>
           <button type="button" onClick={() => { setShowNewFolder(false); setNewFolderName(""); }}>×</button>
-        </div> : <button type="button" className="orbit-gallery-folder-add" onClick={() => setShowNewFolder(true)}><Plus className="h-3.5 w-3.5" /><span>Ordner</span></button>}
+        </div> : <button type="button" className="orbit-gallery-folder-add" onClick={() => setShowNewFolder(true)}><PlusIcon className="h-3.5 w-3.5" /><span>Ordner</span></button>}
       </div>
-      <label className="orbit-gallery-search"><Search className="h-3.5 w-3.5" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Suchen…" aria-label="Galerie durchsuchen" /></label>
+      <label className="orbit-gallery-search"><SearchIcon className="h-3.5 w-3.5" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Suchen…" aria-label="Galerie durchsuchen" /></label>
     </div>
     {editingFolder ? <div className="orbit-gallery-folder-edit">
       <span>Ordner umbenennen:</span>
@@ -314,13 +314,13 @@ export function OrbitGalleryNode({ variant = "media" }: { variant?: GalleryVaria
         <strong>{query ? "Kein Treffer" : config.emptyTitle}</strong>
         <span>{query ? "Versuche einen anderen Suchbegriff." : config.emptyHint}</span>
         {!query ? <div className="orbit-gallery-empty-actions">
-          <button type="button" className="orbit-gallery-empty-action" onClick={() => inputRef.current?.click()}><Upload className="h-4 w-4" />{variant === "media" ? "Bilder hochladen" : "Dateien hochladen"}</button>
-          {folderList.length === 0 ? <button type="button" className="orbit-gallery-empty-action is-ghost" onClick={() => setShowNewFolder(true)}><Plus className="h-4 w-4" />Ordner anlegen</button> : null}
+          <button type="button" className="orbit-gallery-empty-action" onClick={() => inputRef.current?.click()}><UploadIcon className="h-4 w-4" />{variant === "media" ? "Bilder hochladen" : "Dateien hochladen"}</button>
+          {folderList.length === 0 ? <button type="button" className="orbit-gallery-empty-action is-ghost" onClick={() => setShowNewFolder(true)}><PlusIcon className="h-4 w-4" />Ordner anlegen</button> : null}
         </div> : null}
-        {!query ? <span className="orbit-gallery-empty-drop"><FolderUp className="h-3.5 w-3.5" />Oder Dateien per Drag &amp; Drop hierher ziehen</span> : null}
+        {!query ? <span className="orbit-gallery-empty-drop"><UploadIcon className="h-3.5 w-3.5" />Oder Dateien per Drag &amp; Drop hierher ziehen</span> : null}
       </div> : null}
       {archive.isError ? <div className="orbit-gallery-empty is-error">
-        <div className="orbit-gallery-empty-icon"><RefreshCw className="h-10 w-10" /></div>
+        <div className="orbit-gallery-empty-icon"><RefreshIcon className="h-10 w-10" /></div>
         <strong>Fehler beim Laden</strong>
         <span>{errorMessage}</span>
         <button type="button" onClick={() => void archive.refetch()}>Erneut versuchen</button>

@@ -1,4 +1,5 @@
 import {
+  ORBIT_DOCUMENT_VERSION,
   ORBIT_LIMITS,
   orbitWorkspaceSchema,
   type OrbitBoard,
@@ -11,14 +12,35 @@ import {
   type Workspace,
 } from "@workbench/contracts";
 import { create } from "zustand";
-import { defaultPreviewDeviceId } from "../config/devicePresets";
 import { generateId } from "../lib/id";
 
 const DEFAULT_BOARD_ID = "orbit-default";
 
+/**
+ * Hebt ein Orbit-Dokument auf Version 8. Preview-Slots erhalten eine stabile
+ * Storage-Identität; ein bisher leeres Gerät bleibt als ausdrückliches
+ * "responsive" erhalten, damit der sichtbare Zustand sich nicht ändert. Erst
+ * neu erzeugte Slots erben die Benutzerpräferenz über `null`.
+ */
+export function migrateOrbitDocument(document: OrbitWorkspace): OrbitWorkspace {
+  if (document.version === ORBIT_DOCUMENT_VERSION) return document;
+  return orbitWorkspaceSchema.parse({
+    ...document,
+    version: ORBIT_DOCUMENT_VERSION,
+    boards: document.boards.map((board) => ({
+      ...board,
+      nodes: board.nodes.map((node) => node.type !== "previewSlot" ? node : {
+        ...node,
+        previewDeviceId: node.previewDeviceId ?? "responsive",
+        previewStorageProfileId: node.previewStorageProfileId ?? generateId(),
+      }),
+    })),
+  });
+}
+
 export function freshOrbitWorkspace(): OrbitWorkspace {
   return orbitWorkspaceSchema.parse({
-    version: 6,
+    version: ORBIT_DOCUMENT_VERSION,
     activeBoardId: DEFAULT_BOARD_ID,
     focusedNodeId: null,
     boards: [{
@@ -30,6 +52,17 @@ export function freshOrbitWorkspace(): OrbitWorkspace {
       edges: [],
     }],
   });
+}
+
+// Neue Orbit-Knoten bekommen bewusst mehr Arbeitsfläche. Bereits gespeicherte
+// individuelle Größen bleiben unverändert.
+export const ORBIT_DEFAULT_SIZE_SCALE = 1.25;
+
+function orbitDefaultSize(width: number, height: number) {
+  return {
+    width: Math.round(width * ORBIT_DEFAULT_SIZE_SCALE),
+    height: Math.round(height * ORBIT_DEFAULT_SIZE_SCALE),
+  };
 }
 
 export interface AddOrbitNodeInput {
@@ -48,6 +81,7 @@ export interface AddOrbitNodeInput {
   previewDeviceId?: string | null;
   previewOrientation?: "portrait" | "landscape";
   previewSlotId?: number | null;
+  previewStorageProfileId?: string | null;
   previewIsolation?: boolean;
   previewRuntime?: "iframe" | "shared-browser";
   previewReferenceId?: string | null;
@@ -58,6 +92,8 @@ export interface AddOrbitNodeInput {
   provider?: "codex" | "opencode" | "claude" | null;
   content?: string;
   language?: string | null;
+  hermesSourceFilter?: "all" | "web" | "telegram" | "cron";
+  hermesStatusFilter?: "all" | "success" | "failed";
 }
 
 interface OrbitState {
@@ -171,19 +207,23 @@ function updatePreviewReferences(
 }
 
 export function orbitDefaultNodeSize(type: OrbitNode["type"], toolType?: PanelType | null) {
-  if (type === "project") return { width: 240, height: 170 };
-  if (type === "frame") return { width: 680, height: 440 };
-  if (type === "previewGroup") return { width: 880, height: 420 };
-  if (type === "previewSlot") return { width: 480, height: 360 };
+  if (type === "project") return orbitDefaultSize(240, 170);
+  if (type === "frame") return orbitDefaultSize(680, 440);
+  if (type === "previewGroup") return orbitDefaultSize(880, 420);
+  if (type === "previewSlot") return orbitDefaultSize(480, 360);
   if (type === "tool") return toolType === "terminal" || toolType === "codex" || toolType === "opencode"
-    ? { width: 620, height: 380 }
-    : { width: 720, height: 460 };
-  if (type === "usage") return { width: 340, height: 230 };
-  if (type === "todo") return { width: 390, height: 300 };
-  if (type === "snippet") return { width: 420, height: 260 };
-  if (type === "asset") return { width: 420, height: 300 };
-  if (type === "gallery" || type === "fileGallery") return { width: 960, height: 680 };
-  return { width: 340, height: 220 };
+    ? orbitDefaultSize(620, 380)
+    : orbitDefaultSize(720, 460);
+  if (type === "usage") return orbitDefaultSize(340, 230);
+  if (type === "hermesStatus") return orbitDefaultSize(320, 260);
+  if (type === "hermesTasks") return orbitDefaultSize(380, 300);
+  if (type === "hermesCron") return orbitDefaultSize(380, 320);
+  if (type === "hermesResults") return orbitDefaultSize(400, 380);
+  if (type === "todo") return orbitDefaultSize(390, 300);
+  if (type === "snippet") return orbitDefaultSize(420, 260);
+  if (type === "asset") return orbitDefaultSize(420, 300);
+  if (type === "gallery" || type === "fileGallery") return orbitDefaultSize(960, 680);
+  return orbitDefaultSize(340, 220);
 }
 
 const PREVIEW_GROUP_GAP = 8;
@@ -193,7 +233,7 @@ const PREVIEW_GROUP_HEADER = 44;
 // Ein Slot ist so bemessen, dass ein iPhone 13 (390 × 844) im Geräterahmen
 // gut lesbar bleibt. Beim Layoutwechsel bleibt diese Größe erhalten – die
 // Gruppe wächst stattdessen um einen weiteren Slot.
-export const previewSlotBaseSize = { width: 400, height: 660 };
+export const previewSlotBaseSize = orbitDefaultSize(400, 660);
 
 export function previewLayoutMatrix(layout: "1" | "2" | "3" | "6") {
   return {
@@ -268,9 +308,11 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     previewLayout: input.type === "previewGroup" ? (input.previewLayout ?? "1") : null,
     previewTarget: input.type === "previewSlot" ? (input.previewTarget ?? null) : null,
     previewPath: input.previewPath ?? "/",
-    previewDeviceId: input.type === "previewSlot" ? (input.previewDeviceId ?? defaultPreviewDeviceId) : null,
+    // `null` erbt ab v7 die Benutzerpräferenz (Standard iPhone 13).
+    previewDeviceId: input.type === "previewSlot" ? (input.previewDeviceId ?? null) : null,
     previewOrientation: input.previewOrientation ?? "portrait",
     previewSlotId: input.type === "previewSlot" ? (input.previewSlotId ?? null) : null,
+    previewStorageProfileId: input.type === "previewSlot" ? (input.previewStorageProfileId ?? generateId()) : null,
     previewIsolation: input.previewIsolation ?? true,
     previewRuntime: input.previewRuntime ?? "iframe",
     previewReferenceId: input.previewReferenceId ?? null,
@@ -282,6 +324,8 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     content: input.content ?? "",
     language: input.language ?? (input.type === "snippet" ? "typescript" : null),
     color: null,
+    hermesSourceFilter: input.hermesSourceFilter ?? "all",
+    hermesStatusFilter: input.hermesStatusFilter ?? "all",
     locked: false,
     zIndex,
   };
@@ -336,7 +380,7 @@ export function migrateWorkspaceToOrbit(workspace: Workspace): OrbitWorkspace {
     };
   });
   const safeBoards = boards.length > 0 ? boards : freshOrbitWorkspace().boards;
-  return orbitWorkspaceSchema.parse({ version: 6, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
+  return orbitWorkspaceSchema.parse({ version: ORBIT_DOCUMENT_VERSION, activeBoardId: safeBoards[0]!.id, focusedNodeId: null, boards: safeBoards });
 }
 
 export const useOrbitStore = create<OrbitState>((set, get) => ({
@@ -349,11 +393,12 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
   syncError: null,
   syncNotice: null,
   initialize: (response, migrated) => set({
-    document: !response.initialized && migrated ? migrated : response.document,
+    document: migrateOrbitDocument(!response.initialized && migrated ? migrated : response.document),
     revision: response.revision,
     updatedAt: response.updatedAt,
     hydrated: true,
-    dirty: !response.initialized && Boolean(migrated),
+    // Auch eine reine Schemamigration muss gespeichert werden.
+    dirty: (!response.initialized && Boolean(migrated)) || response.document.version !== ORBIT_DOCUMENT_VERSION,
     syncError: null,
     syncNotice: null,
   }),
@@ -368,21 +413,23 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     };
     return state.syncError || state.syncNotice ? { ...state, syncError: null, syncNotice: null } : state;
   }),
-  // Ein Revisionskonflikt ist bereits aufgelöst (neuerer Serverstand aktiv) –
-  // kein Fehler, sondern ein neutraler Hinweis. Darum syncNotice statt syncError.
-  resolveConflict: (response, message) => set({
-    document: response.document,
+  // Der lokale Entwurf bleibt erhalten. Nur die Basisrevision wird angehoben;
+  // OrbitSync blockiert einen automatischen Retry bis zur nächsten Bearbeitung.
+  resolveConflict: (response, message) => set((state) => ({
+    document: state.document,
     revision: response.revision,
     updatedAt: response.updatedAt,
     hydrated: true,
-    dirty: false,
+    dirty: true,
     saving: false,
     syncError: null,
     syncNotice: message,
-  }),
+  })),
   markSaving: (saving) => set({ saving }),
   markSaved: (response, savedDocument) => set((state) => state.document === savedDocument ? ({
-    document: response.document,
+    // Den lokalen Objektverweis behalten. React Flow kann während der
+    // Antwort noch eine Pointer-Geste ausführen; ein unnötiger Dokumenttausch
+    // darf dabei keinen sichtbaren Canvas-Zustand zurücksetzen.
     revision: response.revision,
     updatedAt: response.updatedAt,
     dirty: false,
@@ -397,7 +444,7 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     syncError: null,
     syncNotice: null,
   })),
-  markSaveBlocked: (syncError) => set({ syncError, syncNotice: null, saving: false, dirty: false }),
+  markSaveBlocked: (syncError) => set({ syncError, syncNotice: null, saving: false, dirty: true }),
   markSyncError: (syncError) => set({ syncError, syncNotice: null, saving: false }),
   addNode: (input) => {
     const board = activeBoard(get().document);
@@ -460,6 +507,11 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
         .filter((node) => node.type === "previewGroup" && (node.id === canonicalGroupId || node.previewReferenceId === canonicalGroupId))
         .sort((left, right) => left.id === canonicalGroupId ? -1 : right.id === canonicalGroupId ? 1 : left.zIndex - right.zIndex);
       const needed = Number(layout);
+      const additionalNodes = groups.reduce((total, group) => {
+        const current = board.nodes.filter((node) => node.parentId === group.id && node.type === "previewSlot").length;
+        return total + Math.max(0, needed - current);
+      }, 0);
+      if (board.nodes.length + additionalNodes > ORBIT_LIMITS.maxNodesPerBoard) return board;
       let nodes = board.nodes;
       let maximumZ = Math.max(0, ...nodes.map((item) => item.zIndex));
       for (const group of groups) {
@@ -491,9 +543,11 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
             projectId: group.projectId,
             previewTarget: canonicalSlot?.previewTarget ?? null,
             previewPath: canonicalSlot?.previewPath ?? "/",
-            previewDeviceId: canonicalSlot?.previewDeviceId ?? defaultPreviewDeviceId,
+            previewDeviceId: canonicalSlot?.previewDeviceId ?? null,
             previewOrientation: canonicalSlot?.previewOrientation ?? "portrait",
             previewSlotId: canonicalSlot?.previewSlotId ?? null,
+            // Referenzgruppen teilen das Storage-Profil des kanonischen Slots.
+            previewStorageProfileId: canonicalSlot?.previewStorageProfileId ?? null,
             previewIsolation: canonicalSlot?.previewIsolation ?? true,
             previewRuntime: canonicalSlot?.previewRuntime ?? "iframe",
             previewReferenceId: group.id === canonicalGroupId ? null : canonicalGroupId,
@@ -593,7 +647,11 @@ export const useOrbitStore = create<OrbitState>((set, get) => ({
     if (Math.abs(current.x - viewport.x) <= .01 && Math.abs(current.y - viewport.y) <= .01 && Math.abs(current.zoom - viewport.zoom) <= .001) return state;
     return { document: updateActiveBoard(state.document, (board) => ({ ...board, viewport })), dirty: true };
   }),
-  setWorldBounds: (worldBounds) => set((state) => ({ document: updateActiveBoard(state.document, (board) => ({ ...board, worldBounds })), dirty: true })),
+  setWorldBounds: (worldBounds) => set((state) => {
+    const current = activeBoard(state.document).worldBounds;
+    if (current.minX === worldBounds.minX && current.minY === worldBounds.minY && current.maxX === worldBounds.maxX && current.maxY === worldBounds.maxY) return state;
+    return { document: updateActiveBoard(state.document, (board) => ({ ...board, worldBounds })), dirty: true };
+  }),
   activateBoard: (activeBoardId) => set((state) => state.document.boards.some((board) => board.id === activeBoardId) ? { document: { ...state.document, activeBoardId, focusedNodeId: null }, dirty: true } : state),
   addBoard: (name) => {
     const state = get();

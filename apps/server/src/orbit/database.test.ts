@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { mkdtemp, rm, unlink } from "node:fs/promises";
+import { chmod, readFile } from "node:fs/promises";
+import { mkdtemp, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
@@ -86,6 +86,7 @@ describe("OrbitDatabase", () => {
       previewDeviceId: null,
       previewOrientation: "portrait" as const,
       previewSlotId: null,
+      previewStorageProfileId: null,
       previewIsolation: true,
       previewRuntime: "iframe" as const,
       previewReferenceId: null,
@@ -97,6 +98,8 @@ describe("OrbitDatabase", () => {
       content: "",
       language: null,
       color: null,
+      hermesSourceFilter: "all",
+      hermesStatusFilter: "all",
       locked: false,
       zIndex: index,
     }));
@@ -120,6 +123,38 @@ describe("OrbitDatabase", () => {
 
     const recovered = new OrbitDatabase(path);
     expect(recovered.get()).toMatchObject({ revision: 1, initialized: true, document: { boards: [{ name: "Wiederhergestellt" }] } });
+    recovered.close();
+  });
+
+  it("confirms the committed revision even when the external backup is temporarily unwritable", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workbench-orbit-backup-failure-"));
+    directories.push(directory);
+    const path = join(directory, "workbench.sqlite");
+    const backupDirectory = join(directory, "backups");
+    const db = new OrbitDatabase(path, backupDirectory);
+    await chmod(backupDirectory, 0o500);
+    const saved = db.save(createDefaultOrbitWorkspace(), 0);
+    expect(saved.revision).toBe(1);
+    expect(db.get().revision).toBe(1);
+    db.close();
+    await chmod(backupDirectory, 0o700);
+
+    const inspected = new DatabaseSync(path, { readOnly: true });
+    expect(inspected.prepare("SELECT count(*) count FROM orbit_backup_outbox").get()).toEqual({ count: 1 });
+    inspected.close();
+  });
+
+  it("falls back to a valid revision backup when current.json is corrupt", async () => {
+    const { path, db } = await database();
+    const document = createDefaultOrbitWorkspace();
+    document.boards[0]!.name = "Revision bleibt gültig";
+    db.save(document, 0);
+    db.close();
+    await writeFile(`${path}.orbit-backups/current.json`, "{beschädigt", "utf8");
+    await unlink(path);
+
+    const recovered = new OrbitDatabase(path);
+    expect(recovered.get()).toMatchObject({ revision: 1, document: { boards: [{ name: "Revision bleibt gültig" }] } });
     recovered.close();
   });
 

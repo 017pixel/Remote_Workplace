@@ -1,19 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FilesystemEntry, FilesystemTreeResponse, ProjectsResponse } from "@workbench/contracts";
-import {
-  ChevronRight,
-  File,
-  FileQuestion,
-  Folder,
-  FolderOpen,
-  FolderSearch2,
-  Link2,
-  Search,
-} from "lucide-react";
+import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon, FolderSearchIcon, LinkIcon, SearchIcon, UnknownFileIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
 import { ModalFrame } from "../ModalDialog";
-import type { OrbitPalettePayload } from "../Sidebar";
+import { requestOrbitNode } from "../../lib/orbitPalette";
 
 interface BranchState {
   entries: FilesystemEntry[];
@@ -48,10 +39,10 @@ function formatBytes(bytes: number | null): string {
 }
 
 function entryIcon(entry: FilesystemEntry, expanded: boolean) {
-  if (entry.kind === "directory") return expanded ? <FolderOpen aria-hidden /> : <Folder aria-hidden />;
-  if (entry.kind === "symlink") return <Link2 aria-hidden />;
-  if (entry.kind === "file") return <File aria-hidden />;
-  return <FileQuestion aria-hidden />;
+  if (entry.kind === "directory") return expanded ? <FolderOpenIcon aria-hidden /> : <FolderIcon aria-hidden />;
+  if (entry.kind === "symlink") return <LinkIcon aria-hidden />;
+  if (entry.kind === "file") return <FileIcon aria-hidden />;
+  return <UnknownFileIcon aria-hidden />;
 }
 
 interface TreeRowsProps {
@@ -96,7 +87,7 @@ function TreeRows({ directory, depth, branches, expanded, selectedPath, onSelect
             disabled={!entry.readable}
             aria-label={`${entry.name} ${isExpanded ? "einklappen" : "aufklappen"}`}
             tabIndex={-1}
-          ><ChevronRight className={isExpanded ? "is-open" : ""} /></button> : <span className="orbit-server-tree-spacer" />}
+          ><ChevronRightIcon className={isExpanded ? "is-open" : ""} /></button> : <span className="orbit-server-tree-spacer" />}
           <span className="orbit-server-tree-icon">{entryIcon(entry, isExpanded)}</span>
           <span className="orbit-server-tree-name">{entry.name}</span>
           <span className="orbit-server-tree-kind">{entry.kind === "directory" ? "Ordner" : entry.kind === "file" ? formatBytes(entry.sizeBytes) : entry.kind === "symlink" ? "Verweis" : "Datei"}</span>
@@ -276,7 +267,7 @@ export function OrbitProjectBrowserDialog({ open, onClose }: OrbitProjectBrowser
         const exists = current.projects.some((project) => project.id === result.project.id);
         return { ...current, projects: exists ? current.projects.map((project) => project.id === result.project.id ? result.project : project) : [...current.projects, result.project] };
       });
-      window.dispatchEvent(new CustomEvent<OrbitPalettePayload>("orbit:add", { detail: { type: "project", title: result.project.name, projectId: result.project.id } }));
+      requestOrbitNode({ type: "project", title: result.project.name, projectId: result.project.id });
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       requestClose();
     } catch (error) {
@@ -288,13 +279,13 @@ export function OrbitProjectBrowserDialog({ open, onClose }: OrbitProjectBrowser
 
   return <ModalFrame open={open} title="Serverprojekt öffnen" description={root ? `Browser-Root ${root}` : "Serverstruktur wird geladen"} className="orbit-project-browser" backdropClassName="orbit-project-browser-backdrop" onClose={onClose}>{(requestClose) => <>
     <form className="orbit-project-browser-path" onSubmit={(event) => { event.preventDefault(); void navigateTo(pathInput); }}>
-      <Search aria-hidden />
+      <SearchIcon aria-hidden />
       <label className="sr-only" htmlFor="orbit-project-path">Serverpfad</label>
       <input id="orbit-project-path" autoFocus value={pathInput} onChange={(event) => setPathInput(event.target.value)} placeholder="~/projects oder vollständigen Pfad eingeben" spellCheck={false} autoCapitalize="none" />
       <button type="submit" disabled={navigating || !pathInput.trim()}>{navigating ? "Lädt" : "Öffnen"}</button>
     </form>
     <nav className="orbit-project-browser-breadcrumbs" aria-label="Aktueller Serverpfad">
-      {breadcrumbs.map((item, index) => <span key={item.path} className={index > 0 && index < breadcrumbs.length - 1 ? "is-middle" : ""}>{index > 0 ? <ChevronRight aria-hidden /> : null}<button type="button" onClick={() => void navigateTo(item.path, item.path !== root)}>{item.label}</button></span>)}
+      {breadcrumbs.map((item, index) => <span key={item.path} className={index > 0 && index < breadcrumbs.length - 1 ? "is-middle" : ""}>{index > 0 ? <ChevronRightIcon aria-hidden /> : null}<button type="button" onClick={() => void navigateTo(item.path, item.path !== root)}>{item.label}</button></span>)}
     </nav>
     {navigationError ? <div className="orbit-project-browser-alert" role="alert">{navigationError}</div> : null}
     <div className="orbit-project-browser-body">
@@ -305,7 +296,7 @@ export function OrbitProjectBrowserDialog({ open, onClose }: OrbitProjectBrowser
         </div> : null}
       </section>
       <aside className="orbit-project-browser-selection">
-        <span className="orbit-project-browser-selection-icon"><FolderSearch2 aria-hidden /></span>
+        <span className="orbit-project-browser-selection-icon"><FolderSearchIcon aria-hidden /></span>
         <small>Ausgewählter Projektordner</small>
         <strong>{selectedName ?? "Noch keinen Ordner gewählt"}</strong>
         <p>{selectedPath ?? "Ordnerzeile markieren. Dateien bleiben nur zur Orientierung sichtbar."}</p>

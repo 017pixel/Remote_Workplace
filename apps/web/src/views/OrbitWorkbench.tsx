@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import {
   Background,
   BackgroundVariant,
@@ -27,37 +27,13 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {
-  BoxSelect,
-  ChevronLeft,
-  ChevronRight,
-  Command,
-  Frame,
-  FolderSearch2,
-  Hand,
-  ListTodo,
-  Lock,
-  LocateFixed,
-  Maximize,
-  Minus,
-  MousePointer2,
-  Plus,
-  Pencil,
-  Copy,
-  Redo2,
-  Save,
-  Search,
-  StickyNote,
-  Trash2,
-  Undo2,
-  X,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, CommandIcon, CopyIcon, EditIcon, FinderIcon, FolderSearchIcon, FrameIcon, FullscreenIcon, HandIcon, LocateIcon, LockIcon, MinusIcon, NoteIcon, PlusIcon, PointerIcon, RedoIcon, SaveIcon, SearchIcon, SelectBoxIcon, TodoIcon, TrashIcon, UndoIcon } from "../components/icons";
 import type { OrbitBoard, OrbitNode, Project } from "@workbench/contracts";
-import { OrbitNodeView } from "../components/orbit/OrbitNodeView";
+import { OrbitNodeRuntimeProvider, OrbitNodeView } from "../components/orbit/OrbitNodeView";
 import { OrbitEdgeView } from "../components/orbit/OrbitEdgeView";
 import { OrbitSync } from "../components/orbit/OrbitSync";
 import { OrbitProjectBrowserDialog } from "../components/orbit/OrbitProjectBrowserDialog";
-import type { OrbitPalettePayload } from "../components/Sidebar";
+import { consumeOrbitPayloads, dequeueOrbitPayload, type OrbitPalettePayload } from "../lib/orbitPalette";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
@@ -67,9 +43,14 @@ import { resolveOrbitProjectId } from "../lib/orbitProjectBinding";
 import { nearestEdgeSides, orbitEdgeColor } from "../lib/orbitAppearance";
 import { OrbitColorPicker } from "../components/orbit/OrbitColorPicker";
 import { compactedOrbitBounds, expandedOrbitBounds, orbitBoundsEqual } from "../lib/orbitTerritory";
+import { orbitNodeWorldRectangle, orbitSnapPreview, type OrbitSnapPreview } from "../lib/orbitSnap";
+import { useMenuFocus } from "../lib/useMenuFocus";
+import { useRouteActivity } from "../lib/routeActivity";
 import { serializeOrbitTodo } from "../lib/orbitTodo";
+import { elementContainsEventTarget } from "../lib/domEvents";
 import { getActiveOrbitBoard, orbitDefaultNodeSize, previewGroupSize, previewSlotGeometry, useOrbitStore } from "../stores/orbit";
 import { useWorkspaceStore } from "../stores/workspace";
+import { createOrbitBoardIndex, type OrbitBoardIndex } from "../lib/orbitBoardIndex";
 
 const nodeTypes = { orbit: OrbitNodeView };
 const edgeTypes = { orbit: OrbitEdgeView };
@@ -91,6 +72,10 @@ const typeLabels: Record<OrbitNode["type"], string> = {
   asset: "Archivdatei",
   gallery: "Mediengalerie",
   fileGallery: "Dateigalerie",
+  hermesStatus: "Hermes Status",
+  hermesTasks: "Hermes Aufgaben",
+  hermesCron: "Hermes Automatisierungen",
+  hermesResults: "Hermes Ergebnisse",
 };
 
 type MobileCanvasMode = "navigate" | "interact";
@@ -99,20 +84,42 @@ type CanvasInteraction = "node" | "pane";
 const MINIMAP_WIDTH = 144;
 const MINIMAP_HEIGHT = 94;
 
-function flowNode(node: OrbitNode, focusedNodeId: string | null, interactive = true, board?: OrbitBoard): FlowNode {
-  const parent = node.parentId ? board?.nodes.find((candidate) => candidate.id === node.parentId) : undefined;
-  const siblings = parent ? (board?.nodes.filter((candidate) => candidate.parentId === parent.id && candidate.type === "previewSlot") ?? []).sort((left, right) => left.zIndex - right.zIndex) : [];
+type FlowGeometry = {
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+};
+
+function viewportsEqual(left: OrbitBoard["viewport"], right: OrbitBoard["viewport"]) {
+  return Math.abs(left.x - right.x) <= .01
+    && Math.abs(left.y - right.y) <= .01
+    && Math.abs(left.zoom - right.zoom) <= .001;
+}
+
+function flowNode(
+  node: OrbitNode,
+  focusedNodeId: string | null,
+  interactive = true,
+  board?: OrbitBoard,
+  geometryOverrides?: ReadonlyMap<string, FlowGeometry>,
+  index?: OrbitBoardIndex,
+): FlowNode {
+  const ownGeometry = geometryOverrides?.get(node.id);
+  const boardIndex = board ? index ?? createOrbitBoardIndex(board) : undefined;
+  const parent = node.parentId ? boardIndex?.nodesById.get(node.parentId) : undefined;
+  const parentGeometry = parent ? geometryOverrides?.get(parent.id) : undefined;
+  const layoutParent = parent && parentGeometry ? { ...parent, position: parentGeometry.position, size: parentGeometry.size } : parent;
+  const siblings = parent ? (boardIndex?.previewSlotsByParent.get(parent.id) ?? []) : [];
   const childIndex = parent ? siblings.findIndex((candidate) => candidate.id === node.id) : -1;
-  const geometry = parent && childIndex >= 0 ? previewSlotGeometry(parent, childIndex) : null;
+  const geometry = ownGeometry ?? (layoutParent && childIndex >= 0 ? previewSlotGeometry(layoutParent, childIndex) : { position: node.position, size: node.size });
   const activeSlots = parent ? Number(parent.previewLayout ?? "1") : 0;
   return {
     id: node.id,
     type: "orbit",
-    position: geometry?.position ?? node.position,
+    position: geometry.position,
     data: {},
-    width: geometry?.size.width ?? node.size.width,
-    height: geometry?.size.height ?? node.size.height,
-    style: { width: geometry?.size.width ?? node.size.width, height: geometry?.size.height ?? node.size.height, zIndex: node.type === "frame" || node.type === "previewGroup" ? 0 : Math.max(1, node.zIndex) },
+    width: geometry.size.width,
+    height: geometry.size.height,
+    style: { width: geometry.size.width, height: geometry.size.height, zIndex: node.type === "frame" || node.type === "previewGroup" ? 0 : Math.max(1, node.zIndex) },
     ...(node.parentId ? { parentId: node.parentId } : {}),
     hidden: childIndex >= activeSlots && childIndex >= 0,
     dragHandle: ".orbit-node-drag-handle",
@@ -120,6 +127,13 @@ function flowNode(node: OrbitNode, focusedNodeId: string | null, interactive = t
     selectable: interactive,
     selected: node.id === focusedNodeId,
   };
+}
+
+function geometryFromFlowNode(node: FlowNode): FlowGeometry | null {
+  const width = node.width ?? node.measured?.width;
+  const height = node.height ?? node.measured?.height;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return { position: node.position, size: { width: width!, height: height! } };
 }
 
 function flowEdge(edge: OrbitBoard["edges"][number], nodesById: ReadonlyMap<string, OrbitNode>): FlowEdge {
@@ -216,10 +230,22 @@ function orbitNodeIdAtPoint(point: { x: number; y: number }, excludedId: string)
     .find((id): id is string => Boolean(id)) ?? null;
 }
 
+function containsOrbitPoint(rectangle: { position: { x: number; y: number }; size: { width: number; height: number } }, point: { x: number; y: number }) {
+  return point.x >= rectangle.position.x
+    && point.x <= rectangle.position.x + rectangle.size.width
+    && point.y >= rectangle.position.y
+    && point.y <= rectangle.position.y + rectangle.size.height;
+}
+
 function commandPayloads(projects: Project[]): Array<{ keywords: string; payload: OrbitPalettePayload }> {
   const base: Array<{ keywords: string; payload: OrbitPalettePayload }> = [
     { keywords: "terminal shell konsole", payload: { type: "tool", title: "Terminal", toolType: "terminal" } },
     { keywords: "t3 code agent", payload: { type: "tool", title: "T3 Code", toolType: "t3-code" } },
+    { keywords: "hermes agent chat assistent", payload: { type: "tool", title: "Hermes Agent", toolType: "hermes" } },
+    { keywords: "hermes status health dienst gateway", payload: { type: "hermesStatus", title: "Hermes Status" } },
+    { keywords: "hermes aufgaben tasks laufend", payload: { type: "hermesTasks", title: "Hermes Aufgaben" } },
+    { keywords: "hermes cron automatisierungen jobs", payload: { type: "hermesCron", title: "Hermes Automatisierungen" } },
+    { keywords: "hermes ergebnisse results telegram cron", payload: { type: "hermesResults", title: "Hermes Ergebnisse" } },
     { keywords: "preview browser web", payload: { type: "tool", title: "Preview", toolType: "preview" } },
     { keywords: "preview gruppe einzeln 1er split", payload: { type: "previewGroup", title: "Einzel-Preview", layout: "1" } },
     { keywords: "preview gruppe 2er split", payload: { type: "previewGroup", title: "2er-Preview-Gruppe", layout: "2" } },
@@ -233,8 +259,7 @@ function commandPayloads(projects: Project[]): Array<{ keywords: string; payload
     { keywords: "todo aufgabe liste checkliste", payload: { type: "todo", title: "To-do-Liste" } },
     { keywords: "snippet code block", payload: { type: "snippet", title: "Code-Snippet" } },
     { keywords: "frame bereich gruppe umrandung", payload: { type: "frame", title: "Neuer Bereich" } },
-    { keywords: "galerie bilder screenshots archiv medien", payload: { type: "gallery", title: "Mediengalerie" } },
-    { keywords: "dateigalerie dateien files upload download speicher", payload: { type: "fileGallery", title: "Dateigalerie" } },
+    { keywords: "dateien files dateimanager finder explorer ordner server upload download", payload: { type: "tool", title: "Dateimanager", toolType: "files" } },
     { keywords: "usage codex limits nutzung", payload: { type: "usage", title: "Codex Nutzung", provider: "codex" } },
     { keywords: "usage opencode limits nutzung", payload: { type: "usage", title: "OpenCode Nutzung", provider: "opencode" } },
     { keywords: "usage claude code limits nutzung", payload: { type: "usage", title: "Claude Code Nutzung", provider: "claude" } },
@@ -242,11 +267,21 @@ function commandPayloads(projects: Project[]): Array<{ keywords: string; payload
   return [...base, ...projects.map((project) => ({ keywords: `projekt project ${project.name}`, payload: { type: "project" as const, title: project.name, projectId: project.id } }))];
 }
 
+const minimapTokens: Record<string, string> = {};
+function minimapToken(name: string, fallback: string): string {
+  if (!minimapTokens[name]) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    minimapTokens[name] = value || fallback;
+  }
+  return minimapTokens[name];
+}
+
 function minimapNodeColor(type: OrbitNode["type"]): string {
-  if (type === "project") return "#6686a5";
-  if (type === "usage") return "#719b77";
-  if (type === "frame") return "#4c4c4c";
-  return "#8a8a84";
+  if (type === "project") return minimapToken("--orbit-minimap-project", "#6686a5");
+  if (type === "usage") return minimapToken("--orbit-minimap-usage", "#719b77");
+  if (type === "hermesStatus" || type === "hermesTasks" || type === "hermesCron" || type === "hermesResults") return minimapToken("--orbit-minimap-usage", "#719b77");
+  if (type === "frame") return minimapToken("--orbit-minimap-frame", "#4c4c4c");
+  return minimapToken("--orbit-minimap-tool", "#8a8a84");
 }
 
 function OrbitMiniMap({ board, wrapper }: { board: OrbitBoard; wrapper: React.RefObject<HTMLDivElement | null> }) {
@@ -332,18 +367,18 @@ function OrbitInspector({ projects, expanded, onExpand, onCollapse }: { projects
   const node = board.nodes.find((candidate) => candidate.id === document.focusedNodeId);
   const [targetId, setTargetId] = useState("");
   if (!node) return null;
-  if (!expanded) return <button type="button" className="orbit-inspector-trigger nodrag nowheel" onClick={onExpand} aria-label="Eigenschaften öffnen" aria-expanded="false"><ChevronLeft className="h-4 w-4" /><span>Eigenschaften öffnen</span></button>;
+  if (!expanded) return <button type="button" className="orbit-inspector-trigger nodrag nowheel" onClick={onExpand} aria-label="Eigenschaften öffnen" aria-expanded="false"><ChevronLeftIcon className="h-4 w-4" /><span>Eigenschaften öffnen</span></button>;
   const relatedEdges = board.edges.filter((edge) => edge.source === node.id || edge.target === node.id);
   return (
     <aside className="orbit-inspector nodrag nowheel" aria-label="Knoten-Inspector">
-      <header><div><span>{typeLabels[node.type]}</span><strong>Eigenschaften</strong></div><button type="button" onClick={onCollapse} aria-label="Eigenschaften einklappen"><X className="h-4 w-4" /></button></header>
+      <header><div><span>{typeLabels[node.type]}</span><strong>Eigenschaften</strong></div><button type="button" onClick={onCollapse} aria-label="Eigenschaften einklappen"><CloseIcon className="h-4 w-4" /></button></header>
       <div className="orbit-inspector-scroll">
         <label><span>Titel</span><input value={node.title} onChange={(event) => updateNode(node.id, { title: event.target.value || "Unbenannt" })} /></label>
-        {node.type !== "project" && node.type !== "usage" && node.type !== "frame" ? <label><span>Projekt</span><select aria-label="Projekt" value={node.projectId ?? ""} onChange={(event) => assignProject(node.id, event.target.value || null)}><option value="">Nicht verbunden</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label> : null}
+        {node.type !== "project" && node.type !== "usage" && node.type !== "frame" && node.type !== "hermesStatus" && node.type !== "hermesTasks" && node.type !== "hermesCron" && node.type !== "hermesResults" ? <label><span>Projekt</span><select aria-label="Projekt" value={node.projectId ?? ""} onChange={(event) => assignProject(node.id, event.target.value || null)}><option value="">Nicht verbunden</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label> : null}
         {node.type === "snippet" ? <label><span>Sprache</span><input value={node.language ?? ""} onChange={(event) => updateNode(node.id, { language: event.target.value })} /></label> : null}
         <p className="orbit-inspector-hint">Größe und Position direkt am Knoten verändern.</p>
         <label className="orbit-inspector-check"><input type="checkbox" checked={node.locked} onChange={(event) => updateNode(node.id, { locked: event.target.checked })} /><span>Position sperren</span></label>
-        <section><h3>Verbindungen</h3>{relatedEdges.map((edge) => <div className="orbit-edge-editor" key={edge.id}><input aria-label="Verbindungsbezeichnung" value={edge.label ?? ""} placeholder={edge.kind} onChange={(event) => updateEdge(edge.id, { label: event.target.value || null })} /><button type="button" onClick={() => removeEdge(edge.id)} aria-label="Verbindung entfernen"><Trash2 className="h-3.5 w-3.5" /></button></div>)}<div className="orbit-edge-create"><select aria-label="Zielknoten" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">Mit Knoten verbinden…</option>{board.nodes.filter((candidate) => candidate.id !== node.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}</option>)}</select><button type="button" aria-label="Verbindung erstellen" disabled={!targetId} onClick={() => { if (targetId) { addEdgeToStore({ source: node.id, target: targetId, kind: "manual", label: "verbunden mit" }); setTargetId(""); } }}><Plus className="h-4 w-4" /></button></div></section>
+        <section><h3>Verbindungen</h3>{relatedEdges.map((edge) => <div className="orbit-edge-editor" key={edge.id}><input aria-label="Verbindungsbezeichnung" value={edge.label ?? ""} placeholder={edge.kind} onChange={(event) => updateEdge(edge.id, { label: event.target.value || null })} /><button type="button" onClick={() => removeEdge(edge.id)} aria-label="Verbindung entfernen"><TrashIcon className="h-3.5 w-3.5" /></button></div>)}<div className="orbit-edge-create"><select aria-label="Zielknoten" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">Mit Knoten verbinden…</option>{board.nodes.filter((candidate) => candidate.id !== node.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}</option>)}</select><button type="button" aria-label="Verbindung erstellen" disabled={!targetId} onClick={() => { if (targetId) { addEdgeToStore({ source: node.id, target: targetId, kind: "manual", label: "verbunden mit" }); setTargetId(""); } }}><PlusIcon className="h-4 w-4" /></button></div></section>
       </div>
     </aside>
   );
@@ -351,6 +386,8 @@ function OrbitInspector({ projects, expanded, onExpand, onCollapse }: { projects
 
 function OrbitCanvas() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const routeActive = useRouteActivity();
   const document = useOrbitStore((state) => state.document);
   const hydrated = useOrbitStore((state) => state.hydrated);
   const dirty = useOrbitStore((state) => state.dirty);
@@ -379,21 +416,46 @@ function OrbitCanvas() {
   const renameBoard = useOrbitStore((state) => state.renameBoard);
   const removeBoard = useOrbitStore((state) => state.removeBoard);
   const replaceDocument = useOrbitStore((state) => state.replaceDocument);
-  const projectsQuery = useQuery(workbenchQueries.projects());
-  const projects = projectsQuery.data?.projects.filter((project) => project.availability === "available") ?? [];
+  const projectsQuery = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projects = useMemo(
+    () => projectsQuery.data?.projects.filter((project) => project.availability === "available") ?? [],
+    [projectsQuery.data?.projects],
+  );
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
   const selectProject = useWorkspaceStore((state) => state.selectProject);
   const isMobile = useResponsiveShell().isTouchShell;
   const board = document.boards.find((candidate) => candidate.id === document.activeBoardId) ?? document.boards[0]!;
+  const hasPreviewSlots = useMemo(() => board.nodes.some((node) => node.type === "previewSlot"), [board.nodes]);
+  const servicesQuery = useQuery({ ...workbenchQueries.services(), enabled: routeActive });
+  const localPortsQuery = useQuery({ ...workbenchQueries.localPorts(), enabled: routeActive && hasPreviewSlots });
+  const refreshLocalPorts = localPortsQuery.refetch;
+  const orbitNodeRuntime = useMemo(() => ({
+    projects: projectsQuery.data?.projects ?? [],
+    services: servicesQuery.data?.services ?? [],
+    localPorts: localPortsQuery.data ?? null,
+    localPortsLoading: localPortsQuery.isLoading,
+    localPortsError: localPortsQuery.isError,
+    refreshLocalPorts,
+  }), [localPortsQuery.data, localPortsQuery.isError, localPortsQuery.isLoading, projectsQuery.data?.projects, refreshLocalPorts, servicesQuery.data?.services]);
+  const boardIndex = useMemo(() => createOrbitBoardIndex(board), [board]);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef(board);
+  boardRef.current = board;
   const pastePositionRef = useRef<{ x: number; y: number } | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
+  // Paletten-Payloads, die vor der Server-Hydrierung eintreffen (z. B. Klick auf
+  // „Files" in der Sidebar, während das Orbit-Dokument noch lädt), würden beim
+  // `initialize` verloren gehen. Sie werden hier gesammelt und nach der
+  // Hydrierung verarbeitet.
+  const pendingPayloadsRef = useRef<OrbitPalettePayload[]>([]);
   const [commandOpen, setCommandOpen] = useState(false);
   const [projectBrowserOpen, setProjectBrowserOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [connectionsVisible, setConnectionsVisible] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [snapPreview, setSnapPreview] = useState<OrbitSnapPreview | null>(null);
+  const [resizingNodeId, setResizingNodeId] = useState<string | null>(null);
   const [canvasInteraction, setCanvasInteraction] = useState<CanvasInteraction | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [edgeMenu, setEdgeMenu] = useState<{ edgeId: string; x: number; y: number } | null>(null);
@@ -413,6 +475,7 @@ function OrbitCanvas() {
   const [toolbarOverflow, setToolbarOverflow] = useState({ before: false, after: false });
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
   const [flowEdges, setFlowEdges] = useState<FlowEdge[]>([]);
+  const flowNodesRef = useRef<FlowNode[]>([]);
   const historyRef = useRef<typeof document[]>([]);
   const futureRef = useRef<typeof document[]>([]);
   const previousDocumentRef = useRef(document);
@@ -422,19 +485,21 @@ function OrbitCanvas() {
   const [historyVersion, setHistoryVersion] = useState(0);
   const connectionRef = useRef<{ sourceId: string | null; completed: boolean }>({ sourceId: null, completed: false });
   const contextMenuRef = useRef(contextMenu);
+  const contextMenuElementRef = useRef<HTMLDivElement>(null);
   const suppressContextMenuRef = useRef(false);
   const toolbarRef = useRef<HTMLElement>(null);
   const prevFocusedNodeIdRef = useRef<string | null>(document.focusedNodeId);
-  const nodeGeometryKey = board.nodes.map((node) => `${node.id}:${node.parentId ?? ""}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}:${node.previewLayout ?? ""}:${node.previewTarget ?? ""}:${node.previewDeviceId ?? ""}:${node.previewSlotId ?? ""}`).join("|");
-  const nodeProjectKey = board.nodes.map((node) => `${node.id}:${node.projectId ?? ""}`).join("|");
-  // Die Kantenfarbe hängt an der Knotenfarbe (siehe orbitEdgeColor). Ohne diesen
-  // Schlüssel wurde `nodesById` beim Umfärben nicht neu berechnet: Der Knoten
-  // wechselte sofort die Farbe, seine Verbindungen erst nach einem Neuladen.
-  const nodeColorKey = board.nodes.map((node) => `${node.id}:${node.color ?? ""}`).join("|");
-  const nodeIdKey = board.nodes.map((node) => node.id).join("|");
+  const nodeGeometryKey = useMemo(
+    () => board.nodes.map((node) => `${node.id}:${node.parentId ?? ""}:${node.position.x}:${node.position.y}:${node.size.width}:${node.size.height}:${node.zIndex}:${Number(node.locked)}:${node.previewLayout ?? ""}:${node.previewTarget ?? ""}:${node.previewDeviceId ?? ""}:${node.previewSlotId ?? ""}`).join("|"),
+    [board.nodes],
+  );
 
   const canvasInteractive = !isMobile || mobileCanvasMode === "interact";
   contextMenuRef.current = contextMenu;
+  useMenuFocus(contextMenuElementRef, contextMenu !== null && !contextRename, () => {
+    setContextMenu(null);
+    setContextRename(false);
+  });
 
   const beginCanvasInteraction = useCallback((interaction: CanvasInteraction) => {
     canvasInteractionRef.current = interaction;
@@ -442,26 +507,33 @@ function OrbitCanvas() {
   }, []);
 
   const endCanvasInteraction = useCallback(() => {
-    if (canvasInteractionRef.current === null) return;
-    canvasInteractionRef.current = null;
-    setCanvasInteraction(null);
+    if (canvasInteractionRef.current !== null) {
+      canvasInteractionRef.current = null;
+      setCanvasInteraction(null);
+    }
     setDraggingNodeId(null);
+    setSnapPreview(null);
+    setResizingNodeId(null);
     setDeleteArmed(false);
   }, []);
 
   useEffect(() => {
     const focusedChanged = prevFocusedNodeIdRef.current !== document.focusedNodeId;
     prevFocusedNodeIdRef.current = document.focusedNodeId;
-    setFlowNodes((current) => {
+    const currentBoard = boardRef.current;
+    const nextNodes = (() => {
+      const current = flowNodesRef.current;
       const selectedIds = focusedChanged ? null : new Set(current.filter((n) => n.selected).map((n) => n.id));
-      return board.nodes.map((node) => {
-        const flow = flowNode(node, document.focusedNodeId, canvasInteractive, board);
+      return currentBoard.nodes.map((node) => {
+        const flow = flowNode(node, document.focusedNodeId, canvasInteractive, currentBoard, undefined, boardIndex);
         if (selectedIds?.has(node.id)) flow.selected = true;
         return flow;
       });
-    });
-  }, [nodeGeometryKey, document.focusedNodeId, canvasInteractive, board]);
-  const nodesById = useMemo(() => new Map(board.nodes.map((node) => [node.id, node])), [nodeGeometryKey, nodeProjectKey, nodeColorKey]);
+    })();
+    flowNodesRef.current = nextNodes;
+    setFlowNodes(nextNodes);
+  }, [boardIndex, nodeGeometryKey, document.focusedNodeId, canvasInteractive, board.id]);
+  const nodesById = boardIndex.nodesById;
   useEffect(() => { setFlowEdges(board.edges.map((edge) => flowEdge(edge, nodesById))); }, [board.edges, nodesById]);
   useEffect(() => {
     setEdgeMenu(null);
@@ -473,8 +545,14 @@ function OrbitCanvas() {
     setInspectorOpen(false);
     setWorkspaceEditing(false);
     setWorkspaceName(board.name);
-    if (instanceRef.current) void instanceRef.current.setViewport(board.viewport, { duration: 220 });
-  }, [board.id, board.name]);
+    const viewport = { x: board.viewport.x, y: board.viewport.y, zoom: board.viewport.zoom };
+    if (instanceRef.current && !viewportsEqual(instanceRef.current.getViewport(), viewport)) {
+      // React Flow verwaltet die sichtbare Bewegung selbst. Eine animierte
+      // Rückanwendung nach jedem Autosave würde eine neue Benutzerbewegung
+      // bekämpfen und den Canvas kurz auf den alten Stand ziehen.
+      void instanceRef.current.setViewport(viewport, { duration: 0 });
+    }
+  }, [board.id, board.name, board.viewport.x, board.viewport.y, board.viewport.zoom]);
   useEffect(() => { setInspectorOpen(false); }, [document.focusedNodeId]);
 
   useEffect(() => {
@@ -651,6 +729,12 @@ function OrbitCanvas() {
   }, [isMobile]);
 
   const addPayload = useCallback((payload: OrbitPalettePayload, requestedPosition?: { x: number; y: number }) => {
+    if (!useOrbitStore.getState().hydrated) {
+      // Noch nicht mit dem Server synchronisiert: den Payload zurückstellen,
+      // damit der Knoten nicht beim Laden des Dokuments überschrieben wird.
+      pendingPayloadsRef.current.push(payload);
+      return;
+    }
     const requestedCenter = requestedPosition ?? centerPosition();
     const current = getActiveOrbitBoard();
     if (payload.type === "previewGroup") {
@@ -740,7 +824,7 @@ function OrbitCanvas() {
       try {
         if (file.type.startsWith("image/")) {
           const asset = await apiClient.uploadOrbitAsset(file);
-          addNode({ type: "asset", title: asset.filename, position: { x: point.x + index * 32, y: point.y + index * 32 }, size: { width: 420, height: 300 }, assetId: asset.id, assetMimeType: asset.mimeType, assetBytes: asset.bytes });
+          addNode({ type: "asset", title: asset.filename, position: { x: point.x + index * 32, y: point.y + index * 32 }, size: orbitDefaultNodeSize("asset"), assetId: asset.id, assetMimeType: asset.mimeType, assetBytes: asset.bytes });
           setPasteStatus(`${asset.filename} wurde archiviert.`);
         } else {
           const uploaded = await apiClient.uploadGalleryFile(file);
@@ -781,7 +865,11 @@ function OrbitCanvas() {
   }, [pasteIntoOrbit]);
 
   useEffect(() => {
-    const listener = (event: Event) => addPayload((event as CustomEvent<OrbitPalettePayload>).detail);
+    const listener = (event: Event) => {
+      const payload = (event as CustomEvent<OrbitPalettePayload>).detail;
+      dequeueOrbitPayload(payload);
+      addPayload(payload);
+    };
     window.addEventListener("orbit:add", listener);
     return () => window.removeEventListener("orbit:add", listener);
   }, [addPayload]);
@@ -797,6 +885,22 @@ function OrbitCanvas() {
     for (const intent of consumeOrbitIntents()) addPayload(intent);
   }, [addPayload, hydrated, location.pathname]);
 
+  // Vor der Hydrierung zurückgestellte Paletten-Payloads jetzt verarbeiten.
+  useEffect(() => {
+    if (!hydrated) return;
+    const pending = pendingPayloadsRef.current;
+    if (pending.length === 0) return;
+    pendingPayloadsRef.current = [];
+    for (const payload of pending) addPayload(payload);
+  }, [addPayload, hydrated]);
+
+  // Anfragen, deren `orbit:add`-Event vor dem Mount der Workbench verloren ging
+  // (z. B. Sidebar-Klick direkt nach dem Seitenaufbau), über die Queue nachholen.
+  useEffect(() => {
+    if (!hydrated) return;
+    for (const payload of consumeOrbitPayloads()) addPayload(payload);
+  }, [addPayload, hydrated]);
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -809,16 +913,63 @@ function OrbitCanvas() {
     return () => window.removeEventListener("keydown", key);
   }, []);
 
+  const expandTerritoryForGeometry = useCallback((geometry: FlowGeometry) => {
+    const current = getActiveOrbitBoard();
+    const bounds = expandedOrbitBounds(current.worldBounds, geometry);
+    if (!orbitBoundsEqual(bounds, current.worldBounds)) setWorldBounds(bounds);
+  }, [setWorldBounds]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setFlowNodes((current) => applyNodeChanges(changes, current));
+    const previous = flowNodesRef.current;
+    const applied = applyNodeChanges(changes, previous);
+    const appliedById = new Map(applied.map((node) => [node.id, node] as const));
+    const changedIds = new Set(changes.filter((change) => change.type === "position" || change.type === "dimensions").map((change) => change.id));
+    const layoutParentIds = new Set(
+      changes
+        .filter((change) => change.type === "position" || change.type === "dimensions")
+        .map((change) => boardIndex.nodesById.get(change.id))
+        .filter((node): node is OrbitNode => node?.type === "previewGroup")
+        .map((node) => node.id),
+    );
+    const geometryOverrides = new Map<string, FlowGeometry>();
+    for (const id of changedIds) {
+      const stored = boardIndex.nodesById.get(id);
+      if (!stored || (stored.parentId !== null && layoutParentIds.has(stored.parentId))) continue;
+      const changed = appliedById.get(id);
+      const geometry = changed ? geometryFromFlowNode(changed) : null;
+      if (geometry) geometryOverrides.set(id, geometry);
+    }
+    const next = applied.map((node) => {
+      const stored = boardIndex.nodesById.get(node.id);
+      if (!stored || geometryOverrides.size === 0) return node;
+      const derived = flowNode(stored, document.focusedNodeId, canvasInteractive, board, geometryOverrides, boardIndex);
+      return {
+        ...node,
+        position: derived.position,
+        width: derived.width!,
+        height: derived.height!,
+        style: derived.style ?? {},
+        hidden: derived.hidden ?? false,
+      };
+    });
+    flowNodesRef.current = next;
+    setFlowNodes(next);
+    const resizeStart = changes.find((change) => change.type === "dimensions" && change.resizing);
+    const resizeEnd = changes.some((change) => change.type === "dimensions" && change.resizing === false);
+    if (resizeStart && "id" in resizeStart) setResizingNodeId(resizeStart.id);
+    if (resizeEnd) setResizingNodeId(null);
+    for (const [id, geometry] of geometryOverrides) {
+      const stored = boardIndex.nodesById.get(id);
+      if (stored?.parentId === null) expandTerritoryForGeometry(geometry);
+    }
     for (const change of changes) {
-      const stored = "id" in change ? getActiveOrbitBoard().nodes.find((node) => node.id === change.id) : undefined;
+      const stored = "id" in change ? boardIndex.nodesById.get(change.id) : undefined;
       if (change.type === "select" && change.selected) {
         if (stored?.type === "project" && stored.projectId) selectProject(stored.projectId);
       }
       if (change.type === "remove") removeNodeAndReleaseSlots(change.id);
     }
-  }, [removeNodeAndReleaseSlots, selectProject]);
+  }, [board, boardIndex, canvasInteractive, document.focusedNodeId, expandTerritoryForGeometry, removeNodeAndReleaseSlots, selectProject]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setFlowEdges((current) => applyEdgeChanges(changes, current));
@@ -868,10 +1019,15 @@ function OrbitCanvas() {
   const expandTerritory = useCallback((dragged: FlowNode) => {
     const source = getActiveOrbitBoard();
     const stored = source.nodes.find((node) => node.id === dragged.id);
-    if (!stored) return;
-    const bounds = expandedOrbitBounds(source.worldBounds, { position: dragged.position, size: stored.size });
-    if (!orbitBoundsEqual(bounds, source.worldBounds)) setWorldBounds(bounds);
-  }, [setWorldBounds]);
+    if (!stored || stored.parentId !== null) return;
+    expandTerritoryForGeometry({
+      position: dragged.position,
+      size: {
+        width: dragged.width ?? dragged.measured?.width ?? stored.size.width,
+        height: dragged.height ?? dragged.measured?.height ?? stored.size.height,
+      },
+    });
+  }, [expandTerritoryForGeometry]);
 
   const isOverDeleteZone = useCallback((event: MouseEvent | TouchEvent) => {
     const point = dragPoint(event);
@@ -884,15 +1040,25 @@ function OrbitCanvas() {
   const startNodeDrag: OnNodeDrag = useCallback((_event, dragged) => {
     beginCanvasInteraction("node");
     setDraggingNodeId(dragged.id);
+    setSnapPreview(null);
     setEdgeMenu(null);
   }, [beginCanvasInteraction]);
 
   const trackNodeDrag: OnNodeDrag = useCallback((event, dragged) => {
     setDeleteArmed(isOverDeleteZone(event));
     expandTerritory(dragged);
+    const point = dragPoint(event);
+    const worldPoint = point ? instanceRef.current?.screenToFlowPosition(point) : null;
+    const current = getActiveOrbitBoard();
+    setSnapPreview(worldPoint ? orbitSnapPreview(current, dragged.id, worldPoint, createOrbitBoardIndex(current)) : null);
   }, [expandTerritory, isOverDeleteZone]);
 
   const finishNodeDrag: OnNodeDrag = useCallback((event, dragged) => {
+    const point = dragPoint(event);
+    const currentBefore = getActiveOrbitBoard();
+    const currentIndex = createOrbitBoardIndex(currentBefore);
+    const worldPoint = point ? instanceRef.current?.screenToFlowPosition(point) : null;
+    const snap = worldPoint ? orbitSnapPreview(currentBefore, dragged.id, worldPoint, currentIndex) : null;
     const shouldDelete = isOverDeleteZone(event);
     endCanvasInteraction();
     setDraggingNodeId(null);
@@ -901,38 +1067,42 @@ function OrbitCanvas() {
       window.setTimeout(() => removeNodeAndReleaseSlots(dragged.id), 120);
       return;
     }
-    const point = dragPoint(event);
-    const currentBefore = getActiveOrbitBoard();
-    const stored = currentBefore.nodes.find((node) => node.id === dragged.id);
-    if (stored?.type === "previewSlot" && point) {
-      const targetId = orbitNodeIdAtPoint(point, dragged.id);
-      const hit = currentBefore.nodes.find((node) => node.id === targetId);
-      const targetGroupId = hit?.type === "previewGroup" ? hit.id : hit?.type === "previewSlot" ? hit.parentId : null;
-      if (stored.parentId) {
-        const parentElement = globalThis.document.querySelector<HTMLElement>(`.react-flow__node-orbit[data-id="${CSS.escape(stored.parentId)}"]`);
-        const bounds = parentElement?.getBoundingClientRect();
-        const outside = bounds ? point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom : false;
-        if (outside) {
-          const absolute = instanceRef.current?.screenToFlowPosition(point) ?? dragged.position;
-          updateNode(stored.id, { parentId: null, position: { x: absolute.x - 240, y: absolute.y - 180 }, size: { width: 480, height: 360 } });
+    const stored = currentIndex.nodesById.get(dragged.id);
+    if (stored?.type === "previewSlot" && worldPoint) {
+      if (snap?.action === "swap" && snap.targetSlotId) {
+        const target = currentIndex.nodesById.get(snap.targetSlotId);
+        if (target) {
+          updateNode(stored.id, { zIndex: target.zIndex });
+          updateNode(target.id, { zIndex: stored.zIndex });
           return;
         }
-        if (hit?.type === "previewSlot" && hit.parentId === stored.parentId && hit.id !== stored.id) {
-          updateNode(stored.id, { zIndex: hit.zIndex });
-          updateNode(hit.id, { zIndex: stored.zIndex });
-          return;
-        }
-      } else if (targetGroupId) {
-        const targetGroup = currentBefore.nodes.find((node) => node.id === targetGroupId);
+      }
+      if (snap?.action === "attach") {
+        const targetGroup = currentIndex.nodesById.get(snap.targetGroupId);
         if (targetGroup?.type === "previewGroup") {
-          const occupied = currentBefore.nodes.filter((node) => node.parentId === targetGroupId && node.type === "previewSlot").length;
+          const occupied = currentIndex.previewSlotsByParent.get(targetGroup.id)?.length ?? 0;
           if (occupied >= 6) return;
           const capacity = Number(targetGroup.previewLayout ?? "1");
           const required = occupied + 1;
           if (required > capacity) {
-            useOrbitStore.getState().setPreviewGroupLayout(targetGroupId, required <= 2 ? "2" : required <= 3 ? "3" : "6");
+            useOrbitStore.getState().setPreviewGroupLayout(targetGroup.id, required <= 2 ? "2" : required <= 3 ? "3" : "6");
           }
-          updateNode(stored.id, { parentId: targetGroupId, position: { x: 8, y: 52 }, size: { width: 320, height: 240 } });
+          const nextGroup = getActiveOrbitBoard().nodes.find((node) => node.id === targetGroup.id && node.type === "previewGroup");
+          const geometry = nextGroup ? previewSlotGeometry(nextGroup, occupied) : null;
+          updateNode(stored.id, {
+            parentId: targetGroup.id,
+            position: geometry?.position ?? { x: 8, y: 52 },
+            size: geometry?.size ?? orbitDefaultNodeSize("previewSlot"),
+          });
+          return;
+        }
+      }
+      if (stored.parentId) {
+        const parent = currentIndex.nodesById.get(stored.parentId);
+        const outside = parent ? !containsOrbitPoint(orbitNodeWorldRectangle(currentBefore, parent, currentIndex), worldPoint) : true;
+        if (outside) {
+          const size = orbitDefaultNodeSize("previewSlot");
+          updateNode(stored.id, { parentId: null, position: { x: worldPoint.x - size.width / 2, y: worldPoint.y - size.height / 2 }, size });
           return;
         }
       }
@@ -982,10 +1152,22 @@ function OrbitCanvas() {
   const commands = commandPayloads(projects).filter((item) => `${item.payload.title} ${item.keywords}`.toLowerCase().includes(commandQuery.toLowerCase())).slice(0, 12);
   const syncLabel = syncError ? "Synchronisierung gestört" : saving ? "Wird gespeichert" : dirty ? "Ungespeicherte Änderung" : syncNotice ? "Serverstand übernommen" : "Auf Server gespeichert";
   const syncTone = syncError ? "error" : saving || dirty ? "busy" : syncNotice ? "info" : "saved";
-  const activeNodeIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [nodeIdKey]);
-  const activeFlowNodes = useMemo(() => flowNodes.filter((node) => activeNodeIds.has(node.id)), [activeNodeIds, flowNodes]);
+  const activeNodeIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board.nodes]);
+  const activeFlowNodes = useMemo(() => flowNodes
+    .filter((node) => activeNodeIds.has(node.id))
+    .map((node) => {
+      const classes = [
+        node.className,
+        node.id === snapPreview?.targetGroupId ? "is-snap-target" : "",
+        node.id === snapPreview?.targetSlotId ? "is-snap-slot-target" : "",
+        node.id === resizingNodeId ? "is-resizing" : "",
+      ].filter(Boolean).join(" ");
+      return classes ? { ...node, className: classes } : node;
+    }), [activeNodeIds, flowNodes, resizingNodeId, snapPreview]);
   const activeFlowEdges = useMemo(() => flowEdges.filter((edge) => activeNodeIds.has(edge.source) && activeNodeIds.has(edge.target)), [activeNodeIds, flowEdges]);
   const contextNode = contextMenu?.nodeId ? board.nodes.find((node) => node.id === contextMenu.nodeId) : undefined;
+  const snapTarget = snapPreview ? board.nodes.find((node) => node.id === snapPreview.targetGroupId) : undefined;
+  const snapSlot = snapPreview?.targetSlotId ? board.nodes.find((node) => node.id === snapPreview.targetSlotId) : undefined;
 
   const openContextMenu = (event: MouseEvent | React.MouseEvent, kind: "pane" | "node", nodeId?: string) => {
     event.preventDefault();
@@ -1015,7 +1197,7 @@ function OrbitCanvas() {
 
   return (
     <div
-      className={`orbit-page ${dragActive ? "is-drag-active" : ""} ${canvasInteraction ? "is-orbit-interacting" : ""} ${isMobile ? `is-mobile-${mobileCanvasMode}` : ""}`}
+      className={`orbit-page ${dragActive ? "is-drag-active" : ""} ${canvasInteraction === "node" ? "is-orbit-interacting" : ""} ${isMobile ? `is-mobile-${mobileCanvasMode}` : ""}`}
       data-mobile-mode={isMobile ? mobileCanvasMode : undefined}
       ref={wrapperRef}
       tabIndex={0}
@@ -1026,22 +1208,22 @@ function OrbitCanvas() {
         <div className="orbit-workspace-control">
           {workspaceEditing ? <form className="orbit-workspace-rename" onSubmit={(event) => { event.preventDefault(); saveWorkspaceName(); }}>
             <input autoFocus aria-label="Name der Arbeitsfläche" value={workspaceName} maxLength={80} onChange={(event) => setWorkspaceName(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { setWorkspaceName(board.name); setWorkspaceEditing(false); } }} />
-            <button type="submit" disabled={!workspaceName.trim()} aria-label="Arbeitsflächenname speichern" title="Arbeitsflächenname speichern"><Save className="h-4 w-4" /></button>
-            <button type="button" onClick={() => { setWorkspaceName(board.name); setWorkspaceEditing(false); }} aria-label="Umbenennen abbrechen" title="Umbenennen abbrechen"><X className="h-4 w-4" /></button>
+            <button type="submit" disabled={!workspaceName.trim()} aria-label="Arbeitsflächenname speichern" title="Arbeitsflächenname speichern"><SaveIcon className="h-4 w-4" /></button>
+            <button type="button" onClick={() => { setWorkspaceName(board.name); setWorkspaceEditing(false); }} aria-label="Umbenennen abbrechen" title="Umbenennen abbrechen"><CloseIcon className="h-4 w-4" /></button>
           </form> : <>
             <label><span>Arbeitsfläche</span><select aria-label="Arbeitsfläche auswählen" value={board.id} onChange={(event) => activateBoard(event.target.value)}>{document.boards.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.nodes.length}</option>)}</select></label>
-            <button type="button" onClick={() => { setWorkspaceName(board.name); setWorkspaceEditing(true); }} aria-label="Arbeitsfläche umbenennen" title="Arbeitsfläche umbenennen"><Pencil className="h-4 w-4" /></button>
+            <button type="button" onClick={() => { setWorkspaceName(board.name); setWorkspaceEditing(true); }} aria-label="Arbeitsfläche umbenennen" title="Arbeitsfläche umbenennen"><EditIcon className="h-4 w-4" /></button>
           </>}
-          <button type="button" onClick={createWorkspace} aria-label="Arbeitsfläche hinzufügen" title="Arbeitsfläche hinzufügen"><Plus className="h-4 w-4" /></button>
-          {document.boards.length > 1 ? <button type="button" onClick={() => removeBoard(board.id)} aria-label="Arbeitsfläche entfernen" title="Arbeitsfläche entfernen"><Trash2 className="h-4 w-4" /></button> : null}
+          <button type="button" onClick={createWorkspace} aria-label="Arbeitsfläche hinzufügen" title="Arbeitsfläche hinzufügen"><PlusIcon className="h-4 w-4" /></button>
+          {document.boards.length > 1 ? <button type="button" onClick={() => removeBoard(board.id)} aria-label="Arbeitsfläche entfernen" title="Arbeitsfläche entfernen"><TrashIcon className="h-4 w-4" /></button> : null}
         </div>
         <span className="orbit-island-divider" />
         <div className="orbit-island-buttons" aria-label="Verlauf und Knoten">
-          <button type="button" onClick={undo} disabled={historyRef.current.length === 0} title="Rückgängig" aria-label="Rückgängig"><Undo2 className="h-4 w-4" /></button>
-          <button type="button" onClick={redo} disabled={futureRef.current.length === 0} title="Wiederholen" aria-label="Wiederholen"><Redo2 className="h-4 w-4" /></button>
-          <button type="button" onClick={() => addPayload({ type: "note", title: "Neue Notiz" })} title="Notiz hinzufügen" aria-label="Notiz hinzufügen"><StickyNote className="h-4 w-4" /></button>
-          <button type="button" onClick={() => addPayload({ type: "frame", title: "Neuer Bereich" })} title="Bereich hinzufügen" aria-label="Bereich hinzufügen"><Frame className="h-4 w-4" /></button>
-          <button type="button" onClick={() => setConnectionsVisible((visible) => !visible)} className={connectionsVisible ? "is-active" : ""} title="Verbindungen umschalten" aria-label="Verbindungen umschalten"><LocateFixed className="h-4 w-4" /></button>
+          <button type="button" onClick={undo} disabled={historyRef.current.length === 0} title="Rückgängig" aria-label="Rückgängig"><UndoIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={redo} disabled={futureRef.current.length === 0} title="Wiederholen" aria-label="Wiederholen"><RedoIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={() => addPayload({ type: "note", title: "Neue Notiz" })} title="Notiz hinzufügen" aria-label="Notiz hinzufügen"><NoteIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={() => addPayload({ type: "frame", title: "Neuer Bereich" })} title="Bereich hinzufügen" aria-label="Bereich hinzufügen"><FrameIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={() => setConnectionsVisible((visible) => !visible)} className={connectionsVisible ? "is-active" : ""} title="Verbindungen umschalten" aria-label="Verbindungen umschalten"><LocateIcon className="h-4 w-4" /></button>
         </div>
         <span className="orbit-island-divider" />
         <div className={`orbit-sync-status is-${syncTone} ${syncOpen ? "is-open" : ""}`}>
@@ -1055,18 +1237,19 @@ function OrbitCanvas() {
           </div>
         </div>
       </nav>
-      {isMobile && toolbarOverflow.before ? <button type="button" className="orbit-toolbar-step is-before" onClick={() => scrollToolbar(-1)} aria-label="Steuerleiste zurückscrollen"><ChevronLeft className="h-4 w-4" /></button> : null}
-      {isMobile && toolbarOverflow.after ? <button type="button" className="orbit-toolbar-step is-after" onClick={() => scrollToolbar(1)} aria-label="Steuerleiste weiterscrollen"><ChevronRight className="h-4 w-4" /></button> : null}
+      {isMobile && toolbarOverflow.before ? <button type="button" className="orbit-toolbar-step is-before" onClick={() => scrollToolbar(-1)} aria-label="Steuerleiste zurückscrollen"><ChevronLeftIcon className="h-4 w-4" /></button> : null}
+      {isMobile && toolbarOverflow.after ? <button type="button" className="orbit-toolbar-step is-after" onClick={() => scrollToolbar(1)} aria-label="Steuerleiste weiterscrollen"><ChevronRightIcon className="h-4 w-4" /></button> : null}
 
       <div className="orbit-quick-panel" aria-label="Canvas-Steuerung">
-        <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><Command className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><BoxSelect className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <><button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button></> : null}</div>
-        <div className="orbit-zoom-row" aria-label="Canvas-Ansicht"><button type="button" onClick={() => instanceRef.current?.zoomOut({ duration: 160 })} aria-label="Verkleinern" title="Verkleinern"><Minus className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.zoomIn({ duration: 160 })} aria-label="Vergrößern" title="Vergrößern"><Plus className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.fitView({ duration: 220, padding: .18 })} aria-label="Alles zeigen" title="Alles zeigen"><Maximize className="h-4 w-4" /></button></div>
+        <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><CommandIcon className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><SelectBoxIcon className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <><button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <HandIcon className="h-4 w-4" /> : <PointerIcon className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button></> : null}</div>
+        <div className="orbit-zoom-row" aria-label="Canvas-Ansicht"><button type="button" onClick={() => instanceRef.current?.zoomOut({ duration: 160 })} aria-label="Verkleinern" title="Verkleinern"><MinusIcon className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.zoomIn({ duration: 160 })} aria-label="Vergrößern" title="Vergrößern"><PlusIcon className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.fitView({ duration: 220, padding: .18 })} aria-label="Alles zeigen" title="Alles zeigen"><FullscreenIcon className="h-4 w-4" /></button></div>
       </div>
-      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => { setMobileHintVisible(false); try { window.localStorage.setItem("workbench:orbit-touch-hint:v1", "dismissed"); } catch { /* Hint remains session-local without storage. */ } }} aria-label="Gestenhinweis schließen"><X className="h-4 w-4" /></button></div> : null}
-      <ReactFlow
-        key={board.id}
-        nodes={activeFlowNodes}
-        edges={connectionsVisible ? activeFlowEdges : []}
+      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => { setMobileHintVisible(false); try { window.localStorage.setItem("workbench:orbit-touch-hint:v1", "dismissed"); } catch { /* Hint remains session-local without storage. */ } }} aria-label="Gestenhinweis schließen"><CloseIcon className="h-4 w-4" /></button></div> : null}
+      <OrbitNodeRuntimeProvider data={orbitNodeRuntime}>
+        <ReactFlow
+          key={board.id}
+          nodes={activeFlowNodes}
+          edges={connectionsVisible ? activeFlowEdges : []}
         onlyRenderVisibleElements={false}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -1102,7 +1285,7 @@ function OrbitCanvas() {
         onPaneClick={(event) => { pastePositionRef.current = instanceRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? null; wrapperRef.current?.focus(); focusNode(null); setEdgeMenu(null); setContextMenu(null); }}
         onDrop={drop}
         onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
-        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setDragActive(false); }}
+        onDragLeave={(event) => { if (!elementContainsEventTarget(event.currentTarget, event.relatedTarget)) setDragActive(false); }}
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
         onInit={(instance) => { instanceRef.current = instance; }}
         onMoveStart={startCanvasPan}
@@ -1135,47 +1318,48 @@ function OrbitCanvas() {
         fitView={board.nodes.length === 0}
         className="orbit-flow"
         proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="#343434" />
-      </ReactFlow>
-      {canvasInteraction ? <div className="orbit-interaction-shield" aria-hidden onPointerUp={endCanvasInteraction} onPointerCancel={endCanvasInteraction} /> : null}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color={minimapToken("--orbit-canvas-dot", "#343434")} />
+        </ReactFlow>
+      </OrbitNodeRuntimeProvider>
+      {canvasInteraction === "node" ? <div className="orbit-interaction-shield" aria-hidden onPointerUp={endCanvasInteraction} onPointerCancel={endCanvasInteraction} /> : null}
       <OrbitMiniMap board={board} wrapper={wrapperRef} />
-      <div className="orbit-drop-cue" aria-hidden><Plus className="h-5 w-5" /><span>Auf dem Orbit ablegen</span></div>
-      <div className={`orbit-delete-zone ${draggingNodeId ? "is-visible" : ""} ${deleteArmed ? "is-armed" : ""}`} aria-hidden={!draggingNodeId}><Trash2 className="h-5 w-5" /><div><strong>{deleteArmed ? "Loslassen zum Entfernen" : "Hierher ziehen zum Entfernen"}</strong><span>Der Knoten wird aus dieser Arbeitsfläche gelöscht.</span></div></div>
+      <div className="orbit-drop-cue" aria-hidden><PlusIcon className="h-5 w-5" /><span>Auf dem Orbit ablegen</span></div>
+      {snapPreview && snapTarget ? <div className="orbit-snap-cue is-visible" role="status" aria-live="polite"><FrameIcon className="h-4 w-4" /><div><strong>{snapPreview.action === "swap" ? "Slot tauschen" : "Preview einordnen"}</strong><span>{snapSlot ? `${snapSlot.title} in ${snapTarget.title}` : snapTarget.title}</span></div></div> : null}
+      <div className={`orbit-delete-zone ${draggingNodeId ? "is-visible" : ""} ${deleteArmed ? "is-armed" : ""}`} aria-hidden={!draggingNodeId}><TrashIcon className="h-5 w-5" /><div><strong>{deleteArmed ? "Loslassen zum Entfernen" : "Hierher ziehen zum Entfernen"}</strong><span>Der Knoten wird aus dieser Arbeitsfläche gelöscht.</span></div></div>
       {edgeMenu ? <div className={`orbit-edge-menu ${edgeEditing ? "is-editing" : ""}`} style={{ left: edgeMenu.x, top: edgeMenu.y }} role="dialog" aria-label="Verbindung bearbeiten" onPointerDown={(event) => event.stopPropagation()}>
-        {edgeEditing ? <form onSubmit={(event) => { event.preventDefault(); updateEdge(edgeMenu.edgeId, { label: edgeLabelDraft.trim() || null }); setEdgeEditing(false); }}><input autoFocus aria-label="Verbindungstext" value={edgeLabelDraft} maxLength={80} onChange={(event) => setEdgeLabelDraft(event.target.value)} /><button type="submit"><Save className="h-3.5 w-3.5" /> Speichern</button></form> : <><span>Verbindung</span><div><button type="button" className="is-edit" onClick={() => setEdgeEditing(true)}><Pencil className="h-3.5 w-3.5" /> Bearbeiten</button><button type="button" className="is-delete" onClick={() => { removeEdge(edgeMenu.edgeId); setEdgeMenu(null); }}><Trash2 className="h-3.5 w-3.5" /> Löschen</button></div></>}
+        {edgeEditing ? <form onSubmit={(event) => { event.preventDefault(); updateEdge(edgeMenu.edgeId, { label: edgeLabelDraft.trim() || null }); setEdgeEditing(false); }}><input autoFocus aria-label="Verbindungstext" value={edgeLabelDraft} maxLength={80} onChange={(event) => setEdgeLabelDraft(event.target.value)} /><button type="submit"><SaveIcon className="h-3.5 w-3.5" /> Speichern</button></form> : <><span>Verbindung</span><div><button type="button" className="is-edit" onClick={() => setEdgeEditing(true)}><EditIcon className="h-3.5 w-3.5" /> Bearbeiten</button><button type="button" className="is-delete" onClick={() => { removeEdge(edgeMenu.edgeId); setEdgeMenu(null); }}><TrashIcon className="h-3.5 w-3.5" /> Löschen</button></div></>}
       </div> : null}
-      {contextMenu ? <div className="orbit-context-menu nodrag nowheel" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" aria-label={contextMenu.kind === "node" ? "Knotenaktionen" : "Schnellaktionen"} onPointerDown={(event) => event.stopPropagation()}>
+      {contextMenu ? <div ref={contextMenuElementRef} className="orbit-context-menu nodrag nowheel" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" aria-label={contextMenu.kind === "node" ? "Knotenaktionen" : "Schnellaktionen"} onPointerDown={(event) => event.stopPropagation()}>
         <header><span>{contextMenu.kind === "node" ? typeLabels[contextNode?.type ?? "note"] : "Neue Fläche"}</span><strong>{contextNode?.title ?? "Schnell hinzufügen"}</strong></header>
-        {contextRename && contextNode ? <form onSubmit={(event) => { event.preventDefault(); updateNode(contextNode.id, { title: contextName.trim() || "Unbenannt" }); setContextMenu(null); }}><input autoFocus value={contextName} maxLength={120} aria-label="Neuer Name" onChange={(event) => setContextName(event.target.value)} /><button type="submit"><Save className="h-4 w-4" /> Speichern</button></form> : contextMenu.kind === "node" && contextNode ? <div className="orbit-context-actions">
-          <button type="button" role="menuitem" onClick={() => { setInspectorOpen(true); setContextMenu(null); }}><Pencil className="h-4 w-4" /><span>Eigenschaften bearbeiten</span></button>
-          <button type="button" role="menuitem" onClick={() => setContextRename(true)}><Pencil className="h-4 w-4" /><span>Name ändern</span></button>
-          <button type="button" role="menuitem" onClick={() => { duplicateNode(contextNode.id); setContextMenu(null); }}><Copy className="h-4 w-4" /><span>Duplizieren</span></button>
-          <button type="button" role="menuitem" onClick={() => { updateNode(contextNode.id, { locked: !contextNode.locked }); setContextMenu(null); }}><Lock className="h-4 w-4" /><span>{contextNode.locked ? "Position entsperren" : "Position sperren"}</span></button>
+        {contextRename && contextNode ? <form onSubmit={(event) => { event.preventDefault(); updateNode(contextNode.id, { title: contextName.trim() || "Unbenannt" }); setContextMenu(null); }}><input autoFocus value={contextName} maxLength={120} aria-label="Neuer Name" onChange={(event) => setContextName(event.target.value)} /><button type="submit"><SaveIcon className="h-4 w-4" /> Speichern</button></form> : contextMenu.kind === "node" && contextNode ? <div className="orbit-context-actions">
+          <button type="button" role="menuitem" onClick={() => { setInspectorOpen(true); setContextMenu(null); }}><EditIcon className="h-4 w-4" /><span>Eigenschaften bearbeiten</span></button>
+          <button type="button" role="menuitem" onClick={() => setContextRename(true)}><EditIcon className="h-4 w-4" /><span>Name ändern</span></button>
+          <button type="button" role="menuitem" onClick={() => { duplicateNode(contextNode.id); setContextMenu(null); }}><CopyIcon className="h-4 w-4" /><span>Duplizieren</span></button>
+          <button type="button" role="menuitem" onClick={() => { updateNode(contextNode.id, { locked: !contextNode.locked }); setContextMenu(null); }}><LockIcon className="h-4 w-4" /><span>{contextNode.locked ? "Position entsperren" : "Position sperren"}</span></button>
           {/* Farbe des Knotens. Die von ihm ausgehenden Verbindungen ziehen mit
               (siehe orbitEdgeColor) — deshalb steht das direkt im Kontextmenü. */}
           <OrbitColorPicker
             value={contextNode.color}
             onSelect={(color) => { updateNode(contextNode.id, { color }); setContextMenu(null); }}
           />
-          <button type="button" role="menuitem" className="is-danger" onClick={() => { removeNodeAndReleaseSlots(contextNode.id); setContextMenu(null); }}><Trash2 className="h-4 w-4" /><span>Komplett löschen</span></button>
+          <button type="button" role="menuitem" className="is-danger" onClick={() => { removeNodeAndReleaseSlots(contextNode.id); setContextMenu(null); }}><TrashIcon className="h-4 w-4" /><span>Komplett löschen</span></button>
         </div> : <div className="orbit-context-actions">
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "note", title: "Neue Textfläche" })}><StickyNote className="h-4 w-4" /><span>Neue Textfläche</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "todo", title: "To-do-Liste" })}><ListTodo className="h-4 w-4" /><span>Neue To-do-Liste</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Terminal", toolType: "terminal" })}><Command className="h-4 w-4" /><span>Neues Terminal</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Codex", toolType: "codex" })}><Command className="h-4 w-4" /><span>Codex öffnen</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "OpenCode", toolType: "opencode" })}><Command className="h-4 w-4" /><span>OpenCode öffnen</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "frame", title: "Neuer Bereich" })}><Frame className="h-4 w-4" /><span>Neuer Bereich</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "Einzel-Preview", layout: "1" })}><Frame className="h-4 w-4" /><span>Einzel-Preview</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "3er-Preview-Gruppe", layout: "3" })}><Frame className="h-4 w-4" /><span>3er-Preview-Gruppe</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "gallery", title: "Mediengalerie" })}><Frame className="h-4 w-4" /><span>Mediengalerie öffnen</span></button>
-          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "fileGallery", title: "Dateigalerie" })}><Frame className="h-4 w-4" /><span>Dateigalerie öffnen</span></button>
-          <button type="button" role="menuitem" onClick={() => { setContextMenu(null); setCommandOpen(true); }}><Search className="h-4 w-4" /><span>Alle Aktionen</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "note", title: "Neue Textfläche" })}><NoteIcon className="h-4 w-4" /><span>Neue Textfläche</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "todo", title: "To-do-Liste" })}><TodoIcon className="h-4 w-4" /><span>Neue To-do-Liste</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Terminal", toolType: "terminal" })}><CommandIcon className="h-4 w-4" /><span>Neues Terminal</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "Codex", toolType: "codex" })}><CommandIcon className="h-4 w-4" /><span>Codex öffnen</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "tool", title: "OpenCode", toolType: "opencode" })}><CommandIcon className="h-4 w-4" /><span>OpenCode öffnen</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "frame", title: "Neuer Bereich" })}><FrameIcon className="h-4 w-4" /><span>Neuer Bereich</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "Einzel-Preview", layout: "1" })}><FrameIcon className="h-4 w-4" /><span>Einzel-Preview</span></button>
+          <button type="button" role="menuitem" onClick={() => addFromContext({ type: "previewGroup", title: "3er-Preview-Gruppe", layout: "3" })}><FrameIcon className="h-4 w-4" /><span>3er-Preview-Gruppe</span></button>
+          <button type="button" role="menuitem" onClick={() => { setContextMenu(null); navigate("/files"); }}><FinderIcon className="h-4 w-4" /><span>Dateimanager öffnen</span></button>
+          <button type="button" role="menuitem" onClick={() => { setContextMenu(null); setCommandOpen(true); }}><SearchIcon className="h-4 w-4" /><span>Alle Aktionen</span></button>
         </div>}
       </div> : null}
       <OrbitInspector projects={projects} expanded={inspectorOpen} onExpand={() => setInspectorOpen(true)} onCollapse={() => setInspectorOpen(false)} />
 
-      {commandOpen ? <div className="orbit-command-backdrop" onPointerDown={() => setCommandOpen(false)}><div className="orbit-command" role="dialog" aria-modal="true" aria-label="Orbit-Befehl" onPointerDown={(event) => event.stopPropagation()}><div className="orbit-command-mobile-head"><div><span>Orbit-Palette</span><strong>Knoten hinzufügen</strong></div><button type="button" onClick={() => setCommandOpen(false)} aria-label="Palette schließen"><X className="h-5 w-5" /></button></div><label><Search className="h-4 w-4" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { addPayload(commands[0].payload); setCommandOpen(false); } }} placeholder="Terminal, Notiz oder Projekt…" /><kbd>Esc</kbd></label><div className="orbit-command-results"><button type="button" className="orbit-command-project-browser" onClick={() => { setCommandOpen(false); setProjectBrowserOpen(true); }}><span>Server</span><strong><FolderSearch2 className="h-4 w-4" /> Projektordner durchsuchen</strong></button>{commands.map((item, index) => <button type="button" key={`${item.payload.type}-${item.payload.title}`} className={index === 0 ? "is-active" : ""} onClick={() => { addPayload(item.payload); setCommandOpen(false); }}><span>{item.payload.type === "tool" ? item.payload.toolType : typeLabels[item.payload.type]}</span><strong>{item.payload.title}</strong>{index === 0 ? <kbd>Enter</kbd> : null}</button>)}{commands.length === 0 ? <p>Kein passender Knoten gefunden.</p> : null}</div></div></div> : null}
+      {commandOpen ? <div className="orbit-command-backdrop" onPointerDown={() => setCommandOpen(false)}><div className="orbit-command" role="dialog" aria-modal="true" aria-label="Orbit-Befehl" onPointerDown={(event) => event.stopPropagation()}><div className="orbit-command-mobile-head"><div><span>Orbit-Palette</span><strong>Knoten hinzufügen</strong></div><button type="button" onClick={() => setCommandOpen(false)} aria-label="Palette schließen"><CloseIcon className="h-5 w-5" /></button></div><label><SearchIcon className="h-4 w-4" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { addPayload(commands[0].payload); setCommandOpen(false); } }} placeholder="Terminal, Notiz oder Projekt…" /><kbd>Esc</kbd></label><div className="orbit-command-results"><button type="button" className="orbit-command-project-browser" onClick={() => { setCommandOpen(false); setProjectBrowserOpen(true); }}><span>Server</span><strong><FolderSearchIcon className="h-4 w-4" /> Projektordner durchsuchen</strong></button>{commands.map((item, index) => <button type="button" key={`${item.payload.type}-${item.payload.title}`} className={index === 0 ? "is-active" : ""} onClick={() => { addPayload(item.payload); setCommandOpen(false); }}><span>{item.payload.type === "tool" ? item.payload.toolType : typeLabels[item.payload.type]}</span><strong>{item.payload.title}</strong>{index === 0 ? <kbd>Enter</kbd> : null}</button>)}{commands.length === 0 ? <p>Kein passender Knoten gefunden.</p> : null}</div></div></div> : null}
       <OrbitProjectBrowserDialog open={projectBrowserOpen} onClose={() => setProjectBrowserOpen(false)} />
       <div className="orbit-territory-readout">Gebiet {Math.round(board.worldBounds.maxX - board.worldBounds.minX)} × {Math.round(board.worldBounds.maxY - board.worldBounds.minY)}</div>
       <div className="sr-only" aria-live="polite">{syncLabel}</div>

@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { BaseEdge, EdgeLabelRenderer, useViewport, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, useStore, type EdgeProps } from "@xyflow/react";
 import type { OrbitEdge } from "@workbench/contracts";
 import { collisionFreeEdgeLabelPoint } from "../../lib/orbitEdgeLabel";
 import { useOrbitStore } from "../../stores/orbit";
@@ -92,7 +92,7 @@ function OrbitEdgeComponent({ id, sourceX, sourceY, targetX, targetY, selected, 
   const edge = payload?.orbit;
   const updateEdge = useOrbitStore((state) => state.updateEdge);
   const nodes = useOrbitStore((state) => state.document.boards.find((board) => board.id === state.document.activeBoardId)?.nodes ?? []);
-  const viewport = useViewport();
+  const viewportZoom = useStore((state) => state.transform[2]);
   const [dragPoints, setDragPoints] = useState<Point[] | null>(null);
   const dragRef = useRef<{ index: number; origin: Point; clientX: number; clientY: number } | null>(null);
   const pointsRef = useRef<Point[] | null>(null);
@@ -113,8 +113,8 @@ function OrbitEdgeComponent({ id, sourceX, sourceY, targetX, targetY, selected, 
       const current = pointsRef.current;
       if (!drag || !current) return;
       const next = current.map((point, index) => index === drag.index ? {
-        x: drag.origin.x + (event.clientX - drag.clientX) / viewport.zoom,
-        y: drag.origin.y + (event.clientY - drag.clientY) / viewport.zoom,
+        x: drag.origin.x + (event.clientX - drag.clientX) / viewportZoom,
+        y: drag.origin.y + (event.clientY - drag.clientY) / viewportZoom,
       } : point);
       pointsRef.current = next;
       setDragPoints(next);
@@ -129,7 +129,7 @@ function OrbitEdgeComponent({ id, sourceX, sourceY, targetX, targetY, selected, 
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, [id, updateEdge, viewport.zoom]);
+  }, [id, updateEdge, viewportZoom]);
 
   if (!edge) return null;
   return (

@@ -11,7 +11,7 @@ test.describe("Orbit project browser desktop", () => {
 
   test("navigates the server tree and opens a selected folder in Orbit", async ({ page }) => {
     test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench`);
+    await page.goto(`${workbench}/workbench/workbench`);
     await expect(page.locator(".orbit-page")).toBeVisible();
 
     await page.getByRole("button", { name: "Alle Projekte auswählen" }).click();
@@ -40,7 +40,7 @@ test.describe("Orbit project browser mobile", () => {
 
   test("opens as a safe-area fullscreen dialog from the command palette", async ({ page }) => {
     test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench`);
+    await page.goto(`${workbench}/workbench/workbench`);
     await page.getByRole("button", { name: "Befehl" }).click();
     await page.getByRole("button", { name: /Projektordner durchsuchen/ }).click();
 
