@@ -1,26 +1,29 @@
 [Unit]
-Description=Remote Workplace
-After=network-online.target tailscaled.service
+Description=Remote Workplace Workbench (user-managed, port 3010)
+After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=0
+StartLimitBurst=0
 
 [Service]
 Type=simple
-User=__USER__
-Group=__GROUP__
 WorkingDirectory=__REPO_ROOT__
 Environment=NODE_ENV=production
+Environment=HOME=__HOME__
+Environment=PATH=__PNPM_BIN_DIR__:__HOME__/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-__REPO_ROOT__/.env
 ExecStart=__PNPM_BIN__ --filter @workbench/server start
-Restart=on-failure
+Restart=always
 RestartSec=5s
 TimeoutStopSec=20s
 KillSignal=SIGTERM
 UMask=0077
 
+# Die Workbench schreibt bewusst in Repository, Datenverzeichnis, Browserprofile
+# und CLI-Homes des Benutzers. ProtectHome wäre daher sachlich falsch.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=read-only
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
@@ -29,4 +32,4 @@ LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

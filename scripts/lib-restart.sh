@@ -17,9 +17,12 @@ err()  { printf '\033[1;31m[fehler]\033[0m %s\n' "$*" >&2; }
 
 status_dir="$repo_root/data/restart-logs"
 status_file="$status_dir/last-status.json"
+lock_dir="${RESTART_LOCK_DIRECTORY:-$status_dir/restart.lock}"
 restart_target="${RESTART_TARGET:-unbekannt}"
 restart_started_at="$(date -Is)"
 restart_last_step="Start"
+restart_job_id="${RESTART_JOB_ID:-}"
+restart_handed_off=0
 
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
@@ -28,9 +31,12 @@ json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 # statt nur in einen Timeout zu laufen.
 write_status() {
   local phase="$1" exit_code="$2" message="$3"
+  local temporary
   mkdir -p "$status_dir" 2>/dev/null || return 0
-  cat > "$status_file" <<JSON
+  temporary="$status_file.$$.$RANDOM.tmp"
+  cat > "$temporary" <<JSON
 {
+  "jobId": "$(json_escape "$restart_job_id")",
   "target": "$(json_escape "$restart_target")",
   "phase": "$(json_escape "$phase")",
   "exitCode": ${exit_code},
@@ -41,26 +47,63 @@ write_status() {
   "logFile": "$(json_escape "${RESTART_LOG_FILE:-}")"
 }
 JSON
+  chmod 600 "$temporary" 2>/dev/null || true
+  mv -f "$temporary" "$status_file"
 }
 
-step() { restart_last_step="$*"; log "$*"; }
+step() {
+  restart_last_step="$*"
+  log "$*"
+  write_status "running" "null" "Läuft …"
+}
+
+release_restart_lock() {
+  rm -f "$lock_dir/owner" 2>/dev/null || true
+  rmdir "$lock_dir" 2>/dev/null || true
+}
 
 on_exit() {
   local code="$?"
+  if [[ "$restart_handed_off" -eq 1 && "$code" -eq 0 ]]; then
+    trap - EXIT
+    return 0
+  fi
   if [[ "$code" -eq 0 ]]; then
     write_status "succeeded" 0 "Neustart abgeschlossen."
   else
     write_status "failed" "$code" "Abbruch bei: ${restart_last_step} (Exit-Code ${code}). Details stehen im Log."
     err "Abbruch bei: ${restart_last_step} (Exit-Code ${code})"
   fi
+  release_restart_lock
 }
 
 # Muss von jedem Skript direkt nach dem `source` aufgerufen werden.
 restart_begin() {
   restart_target="$1"
+  mkdir -p "$status_dir"
+  if [[ "${RESTART_LOCK_HELD:-0}" != "1" ]]; then
+    if ! mkdir "$lock_dir" 2>/dev/null; then
+      err "Es läuft bereits ein Neustart."
+      exit 75
+    fi
+  fi
+  if [[ -z "$restart_job_id" ]]; then
+    restart_job_id="$(node -e 'console.log(crypto.randomUUID())')"
+  fi
+  printf '%s\n' "$restart_job_id" > "$lock_dir/owner"
+  chmod 600 "$lock_dir/owner" 2>/dev/null || true
   trap on_exit EXIT
   write_status "running" 0 "Läuft …"
+  if [[ -z "${RESTART_BASELINE_BOOT_ID:-}" ]]; then
+    RESTART_BASELINE_BOOT_ID="$(health_value bootId || true)"
+    export RESTART_BASELINE_BOOT_ID
+  fi
+  if [[ -z "${RESTART_BASELINE_WEB_BUILD_ID:-}" ]]; then
+    RESTART_BASELINE_WEB_BUILD_ID="$(health_value webBuildId || true)"
+    export RESTART_BASELINE_WEB_BUILD_ID
+  fi
   log "Ziel: $restart_target — Projekt: $repo_root"
+  find "$status_dir" -maxdepth 1 -type f -name 'restart-*.log' -mtime +30 -delete 2>/dev/null || true
 }
 
 # pnpm zuverlässig finden. Der Serverprozess startet diese Skripte mit dem PATH der
@@ -150,23 +193,62 @@ sync_t3_channel() {
 schedule_service_restart() {
   step "Plane Neustart von $SERVICE_UNIT ein …"
   if ! command -v systemctl >/dev/null 2>&1; then
-    warn "systemctl nicht verfügbar — bitte den Dienst manuell neu starten."
-    return 0
+    err "systemctl ist nicht verfügbar; der Backend-Neustart kann nicht verifiziert werden."
+    return 1
   fi
   if ! systemctl --user is-enabled "$SERVICE_UNIT" >/dev/null 2>&1; then
-    warn "$SERVICE_UNIT ist nicht als User-Dienst aktiv. Läuft die Workbench im Dev-Modus (pnpm dev),"
-    warn "startet tsx watch das Backend nach dem Build automatisch neu — dann ist kein Neustart nötig."
-    return 0
+    step "Warte auf den automatischen Development-Neustart …"
+    verify_backend_marker 60
+    return
   fi
-  # Der Lauf gilt ab hier als erfolgreich: gleich wird der Prozess, der dieses Skript
-  # gestartet hat, mit neu gestartet — danach käme niemand mehr zum Schreiben des Status.
-  write_status "succeeded" 0 "Build fertig, Dienst-Neustart eingeplant."
+  step "Dienst-Neustart eingeplant; warte anschließend auf Health-Nachweis …"
   if ! systemd-run --user --collect --quiet \
     --unit="workbench-restart-$(date +%s)" \
-    /bin/bash -c "sleep 1; systemctl --user restart $SERVICE_UNIT"; then
+    /bin/bash "$repo_root/scripts/verify-service-restart.sh" \
+      "$repo_root" "$SERVICE_UNIT" "$restart_target" "$restart_job_id" "$restart_started_at" \
+      "${RESTART_LOG_FILE:-}" "$lock_dir" "${RESTART_BASELINE_BOOT_ID:-}"; then
     err "systemd-run konnte den Neustart nicht einplanen."
     err "Fallback von Hand: XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR systemctl --user restart $SERVICE_UNIT"
     return 1
   fi
-  log "Neustart eingeplant. Der Dienst ist in wenigen Sekunden wieder erreichbar."
+  restart_handed_off=1
+  log "Neustart eingeplant. Der Job meldet erst nach erfolgreichem Health-Check Abschluss."
+}
+
+health_value() {
+  local key="$1" payload
+  # Der Health-Check läuft gegen den konfigurierten Port; das Backend setzt
+  # WORKBENCH_HEALTH_URL beim Spawn des Neustart-Skripts (F01-07/F03-4).
+  local health_url="${WORKBENCH_HEALTH_URL:-http://127.0.0.1:3010}"
+  payload="$(curl -fsS --max-time 2 "${health_url}/api/v1/health" 2>/dev/null)" || return 1
+  printf '%s' "$payload" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p"
+}
+
+verify_backend_marker() {
+  local timeout_seconds="$1" baseline="${RESTART_BASELINE_BOOT_ID:-}" current
+  local deadline=$((SECONDS + timeout_seconds))
+  while (( SECONDS < deadline )); do
+    current="$(health_value bootId || true)"
+    if [[ -n "$current" && ( -z "$baseline" || "$current" != "$baseline" ) ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  err "Der Backend-Build lief durch, aber ein neuer Serverprozess wurde nicht nachgewiesen."
+  return 1
+}
+
+verify_frontend_marker() {
+  local baseline="${RESTART_BASELINE_WEB_BUILD_ID:-}" current
+  local deadline=$((SECONDS + 30))
+  step "Prüfe den neuen Frontend-Build …"
+  while (( SECONDS < deadline )); do
+    current="$(health_value webBuildId || true)"
+    if [[ -n "$current" && ( -z "$baseline" || "$current" != "$baseline" ) ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  err "Der neue Frontend-Build wurde vom Server nicht nachgewiesen."
+  return 1
 }

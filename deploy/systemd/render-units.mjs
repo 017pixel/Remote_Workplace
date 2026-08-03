@@ -35,6 +35,11 @@ function which(binary, fallback) {
 const config = loadConfig();
 const user = process.env.SUDO_USER || userInfo().username;
 const home = config.system?.homeDirectory || process.env.HOME || `/home/${user}`;
+const hermesHome = config.hermes?.homeDirectory || process.env.HERMES_HOME || `${home}/.hermes`;
+const hermesCheckout = config.hermes?.checkoutDirectory || `${hermesHome}/hermes-agent`;
+const hermesPython = config.hermes?.pythonPath || `${hermesCheckout}/venv/bin/python`;
+const hermesHost = config.hermes?.host || "127.0.0.1";
+const hermesPort = config.hermes?.port || 9119;
 
 const t3Binary = config.t3?.cliPath || which("t3", `${home}/.npm-global/bin/t3`);
 const nodeBinary = which("node", "/usr/bin/node");
@@ -45,6 +50,7 @@ const tokens = {
   __HOME__: home,
   __REPO_ROOT__: repoRoot,
   __PNPM_BIN__: which("pnpm", "/usr/bin/pnpm"),
+  __PNPM_BIN_DIR__: dirname(which("pnpm", "/usr/bin/pnpm")),
   __CODEXBAR_BIN__: config.cli?.codexbar || which("codexbar", `${home}/.local/bin/codexbar`),
   __CODE_SERVER_BIN__: which("code-server", `${home}/.local/bin/code-server`),
   __T3_BIN__: t3Binary,
@@ -53,6 +59,13 @@ const tokens = {
   __T3_PORT__: String(config.t3?.port || 3773),
   __NODE_BIN_DIR__: dirname(nodeBinary),
   __PROJECTS_ROOT__: config.paths?.projectsRoot || `${home}/projects`,
+  __HERMES_HOST__: hermesHost,
+  __HERMES_PORT__: String(hermesPort),
+  __HERMES_HOME__: hermesHome,
+  __HERMES_CHECKOUT__: hermesCheckout,
+  __HERMES_PYTHON__: hermesPython,
+  __HERMES_UPDATE_TIME__: config.hermes?.updateTime || "04:15",
+  __HERMES_UPDATE_TZ__: config.hermes?.updateTimezone || "Europe/Berlin",
 };
 
 const templatesDir = join(here, "units");

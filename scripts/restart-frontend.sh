@@ -8,4 +8,5 @@ restart_begin frontend
 
 build_contracts
 build_frontend
+verify_frontend_marker
 log "Frontend neu gebaut. Lade die Seite neu, um die Änderungen zu sehen."

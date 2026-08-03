@@ -239,6 +239,20 @@ else
   if [[ "$current_channel" == "nightly" && "$configured_channel" == "stable" ]]; then
     warn "Downgrade Nightly → Stable: Beide Kanäle teilen sich ~/.t3/userdata/state.sqlite."
     warn "Hat Nightly das Schema angehoben, kann die Stable-Version damit Probleme bekommen."
+    # Automatisches Backup vor dem Schema-Downgrade (F01-06).
+    backup_dir="$HOME/.t3/backups"
+    state_db="$HOME/.t3/userdata/state.sqlite"
+    if [[ -f "$state_db" ]]; then
+      mkdir -p "$backup_dir"
+      backup_file="$backup_dir/state-$(date +%Y%m%dT%H%M%S).sqlite"
+      if cp "$state_db" "$backup_file"; then
+        log "state.sqlite vor dem Downgrade gesichert nach $backup_file"
+      else
+        warn "Sicherung von $state_db nach $backup_file fehlgeschlagen — Downgrade wird trotzdem fortgesetzt."
+      fi
+    else
+      warn "Keine state.sqlite unter ~/.t3/userdata gefunden — nichts zu sichern."
+    fi
   fi
 
   npm_bin="$(resolve_npm)" || fail "npm wurde nicht gefunden — der Kanal kann nicht gewechselt werden."
