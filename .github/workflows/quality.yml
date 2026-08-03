@@ -25,9 +25,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm exec eslint . --max-warnings=0
+      - run: pnpm build
       - run: pnpm test
       - run: pnpm test:coverage
-      - run: pnpm build
       - run: pnpm security:audit
 
   e2e:

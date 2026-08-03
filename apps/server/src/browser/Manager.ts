@@ -101,7 +101,7 @@ class CdpConnection {
   send(method: string, params: Record<string, unknown> = {}, sessionId?: string): Promise<Record<string, unknown>> {
     if (this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chromium ist nicht verbunden."));
     const id = ++this.sequence;
-    return new Promise((resolve, reject) => {
+    const promise = new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Chromium-Befehl ${method} hat das Zeitlimit überschritten.`));
@@ -116,6 +116,11 @@ class CdpConnection {
         reject(error);
       });
     });
+    // Hintergrund-Befehle (Captures, Cleanup nach Shutdown) erwarten die
+    // Antwort nicht mehr; ohne diesen Abfänger würden ihre Fehler als
+    // unhandled rejections den Testlauf kippen.
+    promise.catch(() => {});
+    return promise;
   }
 
   close() { this.socket.close(); }
