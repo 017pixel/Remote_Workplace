@@ -1,6 +1,6 @@
 import { chmodSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { dashboardConfigSchema, notificationPreferencesSchema, t3ChannelSchema, type NotificationPreferences, type T3Channel } from "@workbench/contracts";
+import { dashboardConfigSchema, notificationPreferencesSchema, t3ChannelSchema, usageMonitoringSchema, type NotificationPreferences, type T3Channel, type UsageMonitoring } from "@workbench/contracts";
 import { z } from "zod";
 
 const absolutePath = z.string().startsWith("/");
@@ -65,6 +65,11 @@ export const workbenchConfigSchema = z.object({
     t3MiniTaskSeconds: z.number().int().min(1).max(300).default(30),
     hermesCompletionMinimumSeconds: z.number().int().min(5).max(86_400).default(120),
     pushSubject: z.string().max(200).default("mailto:admin@localhost"),
+  }).prefault({}),
+  // Limitüberwachung je KI-Werkzeug. Die Werte werden über die Einstellungen
+  // gesetzt und gespeichert; die Feld-Defaults greifen, wenn der Abschnitt fehlt.
+  usage: z.object({
+    monitoring: usageMonitoringSchema.prefault({}),
   }).prefault({}),
   hermes: z.object({
     enabled: z.boolean().default(true),
@@ -251,6 +256,40 @@ export function persistNotificationPreferences(configDirectory: string, preferen
   }
   const previous = (base.notifications ?? {}) as Record<string, unknown>;
   const next = { ...base, notifications: { ...previous, preferences } };
+  workbenchConfigSchema.parse(next);
+  const temporaryPath = `${localPath}.tmp`;
+  writeFileSync(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  renameSync(temporaryPath, localPath);
+  chmodSync(localPath, 0o600);
+}
+
+/**
+ * Liest die eingestellte Limitüberwachung frisch von der Platte. Bewusst nicht aus
+ * `settings`, denn der Wert kann sich zur Laufzeit ändern (Einstellungen → Limitüberwachung),
+ * während `settings` beim Serverstart eingefroren wird.
+ */
+export function readUsageMonitoring(configDirectory: string): UsageMonitoring {
+  return loadWorkbenchConfig(configDirectory).usage.monitoring;
+}
+
+/**
+ * Schreibt die Limitüberwachung nach `workbench.local.json` — nur dieses eine Feld,
+ * alle übrigen Werte bleiben unverändert. Existiert noch keine lokale Datei, dient
+ * `workbench.example.json` als Grundlage. Geschrieben wird über eine temporäre Datei
+ * und `rename`, damit ein Abbruch keine halbe Konfiguration hinterlässt.
+ */
+export function persistUsageMonitoring(configDirectory: string, monitoring: UsageMonitoring): void {
+  const localPath = join(configDirectory, localConfigName);
+  let base: Record<string, unknown>;
+  try {
+    base = JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    base = JSON.parse(readFileSync(join(configDirectory, exampleConfigName), "utf8")) as Record<string, unknown>;
+  }
+  const previousUsage = (base.usage ?? {}) as Record<string, unknown>;
+  const next = { ...base, usage: { ...previousUsage, monitoring } };
+  // Erst prüfen, dann schreiben: eine ungültige Datei würde den nächsten Serverstart verhindern.
   workbenchConfigSchema.parse(next);
   const temporaryPath = `${localPath}.tmp`;
   writeFileSync(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });

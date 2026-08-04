@@ -19,6 +19,11 @@ const maxInjectedHtmlBytes = 4 * 1024 * 1024;
  * Präfix deshalb vor dem Router-Start aus der sichtbaren URL entfernt werden.
  * Der bisherige Bridge-Script wurde nur für `/t3` injiziert, nicht für
  * `/t3/:environmentId/:threadId`.
+ *
+ * Die Bridge meldet außerdem den aktuell geöffneten T3-Thread nach oben:
+ * Im iframe an die Workbench per `postMessage`, im eigenständigen Fenster
+ * direkt per `PUT /api/v1/notifications/presence`. So gelten Benachrichtigungen
+ * für einen Thread als gesehen, sobald der Nutzer genau diesen Chat öffnet.
  */
 export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
 (() => {
@@ -28,6 +33,27 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
     const nextPath = pathname.slice(prefix.length) || "/";
     window.history.replaceState(window.history.state, "", nextPath + window.location.search + window.location.hash);
   }
+  const presence = () => {
+    const segments = window.location.pathname.split("/").filter(Boolean);
+    return { source: "t3", threadId: segments.length >= 2 ? segments[1] : null };
+  };
+  const report = () => {
+    const path = window.location.pathname + window.location.search + window.location.hash;
+    if (window.parent === window) {
+      try {
+        fetch("/api/v1/notifications/presence", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(presence()) });
+      } catch { /* Presence ist Best Effort. */ }
+    } else {
+      window.parent.postMessage({ source: "remote-workplace-t3", version: 1, type: "route.changed", path }, window.location.origin);
+    }
+  };
+  for (const name of ["pushState", "replaceState"]) {
+    const original = history[name];
+    history[name] = function (...args) { const result = original.apply(this, args); report(); return result; };
+  }
+  addEventListener("popstate", report);
+  addEventListener("focus", report);
+  report();
 })();
 </script>`;
 

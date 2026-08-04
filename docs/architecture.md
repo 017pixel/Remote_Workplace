@@ -80,6 +80,52 @@ T3 Code und code-server bleiben bewusst in Iframes: Sie sind eigenständige Weba
 
 Nicht besuchte Routen werden als getrennte Vite-Chunks gebaut und bei Browser-Leerlauf vorab geladen. Der Build erzeugt Brotli- und Gzip-Dateien vorab, damit die Server-CPU sie nicht bei jedem ersten Abruf neu berechnen muss. Gehashte Assets erhalten immutable Browser-Caches; HTML und Service Worker bleiben revalidierbar, damit neue Releases sofort erkannt werden.
 
+## Dateimanager
+
+Der Dateimanager (`apps/server/src/filesystem/fileManagerService.ts`) arbeitet direkt auf dem
+Server-Dateisystem unter dem konfigurierten Projekt-Root. Jede Operation wird kanonisch gegen
+diese Wurzel geprüft (`contained`); Symlinks und Pfad-Escape-Versuche werden abgewiesen. Der
+drei-Pane-Zustand (aktueller Pfad, Verlauf, Favoriten) liegt revisioniert in SQLite und wird
+geräteübergreifend synchronisiert. Textvorschauen sind auf eine konfigurierbare Größe begrenzt
+und kennen eine MIME-Tabelle; die Suche ist auf Tiefe, Trefferzahl und Zeit begrenzt und
+überspringt Knoten- und Build-Ordner. Upload und Download streamen direkt über die Festplatte,
+alle Operationen (Umbenennen, Verschieben, Löschen, Ordner anlegen) laufen atomar über das
+Dateisystem. Aus dem Dateimanager lassen sich Ordner im Terminal oder Editor öffnen, als
+Projekt registrieren oder als Orbit-Knoten einbetten.
+
+## Benachrichtigungen und Inbox
+
+Das Benachrichtigungsmodul (`apps/server/src/notifications/`) sammelt Einträge aus T3 Code,
+Hermes, Codex, OpenCode, Claude Code und langen Terminal-Prozessen in einer eigenen SQLite-Tabelle.
+Eine Live-Verbindung liefert neue Einträge sofort aus, mit Polling-Fallback; Web-Push läuft über
+VAPID-Schlüssel, die einmalig auf dem Server erzeugt und mit Modus `0600` gespeichert werden.
+Quellen-Synchronisierer (`agent-session-sync`, `t3-status-sync`, `terminal-status-sync`) binden
+den Gelesen-/Erledigt-Zustand an den tatsächlichen Status der zugehörigen Aufgabe. Schwellen und
+Zustellwege sind pro Quelle zentral konfigurierbar; die Inbox im Browser bietet Chronologie,
+Deep-Links in die Sitzung beziehungsweise den T3-Thread, Swipe-Aktionen und kopierbare
+Fehlerberichte.
+
+## KI-Skills
+
+Das Skills-Werkzeug (`apps/server/src/skills/skillEditorService.ts`) liest die Skill-Ordner aus
+dem globalen Harness-Verzeichnis und stellt sie als Baum mit Frontmatter-Prüfung bereit. Neue
+Skills werden im offiziellen Format angelegt und per Symlink an weitere Harness-Ordner (Claude
+Code, Codex) verteilt. Der Editor speichert autosave nach kurzer Tipppause; parallele Änderungen
+von außen führen zu einer Rückfrage statt zu stillem Überschreiben. Umbenennen zieht Ordner,
+Verweise, Frontmatter und README-Zeilen mit; Löschen entfernt nur den Skill samt eigener Verweise.
+Der Git-Teil committet und pusht das Skills-Repository mit automatisch gebauter Commit-Nachricht.
+
+## Beobachtbarkeit und Diagnose
+
+Das Observability-Modul (`apps/server/src/observability/`) stellt zwei Bausteine bereit:
+`OperationalMetrics` sammelt pro Route Zähler, Fehlerquote und Dauer-Perzentile, misst die
+Event-Loop-Verzögerung über `monitorEventLoopDelay` und verwaltet einen aktiven-Request-Zähler.
+`OperationalAuditDatabase` schreibt eine append-only, hashverkettete Auditspur kritischer
+Workbench-Mutationen; Request-Bodies und Secrets werden nie übernommen. Das Dashboard verdichtet
+diese Werte mit Hostfakten und Laufwerken in einer Kennzahlenleiste samt Verlauf
+(`dashboardRuntime.ts` gruppiert lokale Ports und Terminal-Sessions pro Projekt) und führt im
+Bereich „Workbench-Diagnose" Bereitschaftsprüfungen, Betriebshinweise, Audit und Preview-Slots.
+
 ## Monorepo
 
 - `packages/contracts`: gemeinsame Zod-Schemas und TypeScript-Typen.
@@ -97,6 +143,8 @@ Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade.
 ## Sicherheitsgrenzen
 
 - Alle eigenen Dienste binden standardmäßig nur an Loopback.
+- Geschützte Präfixe (`/api/`, `/editor`, `/t3`, `/hermes`, Assets) verlangen eine erlaubte Tailscale-Identität; die Zuordnung läuft zentral über `workbench-identity` (`apps/server/src/security/`), mutierende Aktionen verlangen zusätzlich Same-Origin.
+- Ausgehende externe HTTP-Aufrufe durchlaufen den SSRF-Schutz (`public-http`): DNS wird aufgelöst und jede Antwortadresse gegen eine Blockliste privater, lokaler und reservierter Netze geprüft.
 - Terminalzugriff erfordert einen erlaubten Tailscale-Login und akzeptiert ausschließlich typisierte Protokollnachrichten.
 - Browserzugriff erfordert dieselbe erlaubte Tailscale-Identität und einen passenden Origin; DevTools und dauerhafte Profile sind nicht direkt über das Netzwerk erreichbar.
 - Projekt-CWDs müssen innerhalb der konfigurierten Wurzelverzeichnisse liegen; freie Shell-Pfade werden kanonisch geprüft.

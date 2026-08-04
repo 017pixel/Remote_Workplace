@@ -66,6 +66,18 @@ export function unavailableUsage(providerId: WorkbenchProvider, code: string, me
   return unavailableProvider(providerId, code, message);
 }
 
+export function disabledUsage(providerId: WorkbenchProvider): ProviderUsage {
+  const metadata = providerMetadata[providerId];
+  return {
+    providerId,
+    providerName: metadata.name,
+    status: "disabled",
+    updatedAt: null,
+    accounts: [],
+    error: { code: "MONITORING_DISABLED", message: "Die Limitüberwachung für diesen Anbieter ist in den Einstellungen deaktiviert." },
+  };
+}
+
 export function normalizeProviderUsage(providerId: WorkbenchProvider, payloads: CodexbarPayload[]): ProviderUsage {
   const metadata = providerMetadata[providerId];
   const matching = payloads.filter((payload) => payload.provider === metadata.codexbarProvider);

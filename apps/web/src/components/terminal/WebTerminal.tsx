@@ -689,7 +689,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       socketRef.current?.close(); terminal.dispose();
       socketRef.current = null; terminalRef.current = null; fitRef.current = null;
     };
-  }, [connect, receivePastedText, resize, scrollByLines, send]);
+  }, [connect, keepAlive, receivePastedText, resize, scrollByLines, send]);
 
   // Orbit-Knoten werden mit CSS transform skaliert. xterm muss seine Canvas-
   // Schrift daher mit dem Gegenfaktor zeichnen, sonst wird Blockgrafik beim

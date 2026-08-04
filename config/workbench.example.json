@@ -93,6 +93,13 @@
     "hermesCompletionMinimumSeconds": 120,
     "pushSubject": "mailto:admin@localhost"
   },
+  "usage": {
+    "monitoring": {
+      "codex": true,
+      "opencode": true,
+      "claude": true
+    }
+  },
   "hermes": {
     "enabled": true,
     "host": "127.0.0.1",

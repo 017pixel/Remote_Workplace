@@ -28,6 +28,15 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain('pathname.slice(prefix.length)');
   });
 
+  it("meldet den geöffneten T3-Thread an die Workbench beziehungsweise den Server", () => {
+    expect(t3RouteBridgeScript).toContain('source: "remote-workplace-t3"');
+    expect(t3RouteBridgeScript).toContain('type: "route.changed"');
+    expect(t3RouteBridgeScript).toContain("window.parent.postMessage");
+    expect(t3RouteBridgeScript).toContain("/api/v1/notifications/presence");
+    expect(t3RouteBridgeScript).toContain("segments.length >= 2 ? segments[1] : null");
+    expect(t3RouteBridgeScript).toContain('addEventListener("focus", report)');
+  });
+
   it("injiziert die Route-Bridge in T3-HTML auch bei Deep-Links", () => {
     const html = injectT3HtmlBridge("<!doctype html><html><head></head><body></body></html>");
     expect(html.indexOf('data-remote-workplace-t3-route="1"')).toBeGreaterThan(-1);

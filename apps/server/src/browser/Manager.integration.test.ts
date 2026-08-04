@@ -149,6 +149,8 @@ describe.skipIf(!chromium)("persistent BrowserManager profile", () => {
 
     expect(firstSession.id).not.toBe(secondSession.id);
     expect(source).toMatchObject({ type: "browser.source", source: expect.stringContaining("authenticated-session") });
+    await second.shutdown();
+    managers.splice(managers.indexOf(second), 1);
     database.close();
   }, 30_000);
 });

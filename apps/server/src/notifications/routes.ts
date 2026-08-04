@@ -3,6 +3,7 @@ import {
   notificationCategorySchema,
   notificationEventSchema,
   notificationPatchSchema,
+  notificationPresenceSchema,
   notificationPreferencesSchema,
   notificationSeveritySchema,
   notificationSourceSchema,
@@ -47,6 +48,10 @@ export async function registerNotificationRoutes(app: FastifyInstance, options: 
   };
   app.post("/notifications/mark-all-read", markAll);
   app.post("/notifications/read-all", markAll);
+  app.put("/notifications/presence", async (request) => {
+    const presence = notificationPresenceSchema.nullable().parse(request.body);
+    return { updated: database.setPresence(presence) };
+  });
   app.delete("/notifications", async (_request, reply) => {
     database.dismissAll();
     return reply.status(204).send();

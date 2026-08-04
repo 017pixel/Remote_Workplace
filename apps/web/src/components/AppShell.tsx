@@ -21,6 +21,7 @@ import type { ProjectsResponse } from "@workbench/contracts";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { NotificationCenter } from "./NotificationCenter";
 import { WorkbenchNotice } from "./WorkbenchNotice";
+import { useViewPresence } from "../lib/useViewPresence";
 
 const routeTitles = Object.fromEntries(navItems.map((item) => [item.to, item.label]));
 
@@ -69,6 +70,12 @@ function ContextProjectPicker() {
 }
 
 const standaloneToolPaths = new Set(["/terminal", "/opencode", "/codex", "/claude", "/files"]);
+
+/** Meldet die sichtbare Chat-Ansicht an den Server (siehe useViewPresence). */
+function ViewPresenceReporter() {
+  useViewPresence();
+  return null;
+}
 
 function StandaloneRouteActions() {
   const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
@@ -174,6 +181,7 @@ export function AppShell() {
       <TerminalWorkspaceSync />
       <TerminalSessionsSync />
       <NotificationCenter />
+      <ViewPresenceReporter />
       <WorkbenchNotice />
       {responsive.mode === "desktop" ? <Sidebar
         collapsed={sidebar.collapsed}

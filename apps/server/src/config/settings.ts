@@ -117,6 +117,7 @@ const settingsSchema = z.object({
   BROWSER_CAPTURE_EVERY_NTH_FRAME: boundedIntegerFromEnvironment(2, 1, 6),
   BROWSER_ALLOW_NO_SANDBOX: booleanFromEnvironment(false),
   DATABASE_PATH: z.string().default(wb.paths.databasePath),
+  DATA_DIR: z.string().startsWith("/").default(wb.paths.dataDir),
   USAGE_SNAPSHOT_INTERVAL_MS: integerFromEnvironment(300_000),
   ORBIT_SYNC_INTERVAL_MS: boundedIntegerFromEnvironment(5_000, 1_000, 60_000),
   ORBIT_DOCUMENT_MAX_BYTES: boundedIntegerFromEnvironment(4 * 1024 * 1024, 65_536, 8 * 1024 * 1024),
@@ -231,7 +232,7 @@ export const settings = Object.freeze({
   tailscaleHttpsPort: wb.tailscale.httpsPort,
   previewSlotPorts: wb.previews.slotPorts,
   previewPublicPorts: wb.previews.publicPorts,
-  dataDirectory: wb.paths.dataDir,
+  dataDirectory: environment.DATA_DIR,
   previews: {
     gatewayV2Enabled: environment.PREVIEW_GATEWAY_V2,
     bridgeEnabled: environment.PREVIEW_BRIDGE,

@@ -125,6 +125,9 @@ export class OperationalAuditDatabase {
 
 export function isAuditedMutation(method: string, url: string): boolean {
   if (!["DELETE", "PATCH", "POST", "PUT"].includes(method)) return false;
+  // Presence-Meldungen sind hochfrequente, nicht sicherheitsrelevante
+  // Statusupdates und würden das Audit-Log sonst mit jedem Ansichtswechsel füllen.
+  if (url === "/api/v1/notifications/presence") return false;
   return [
     "/api/v1/system/",
     "/api/v1/accounts",

@@ -1,6 +1,7 @@
-import type { UsageDashboardResponse, UsageForecast, UsageRange, UsageResponse } from "@workbench/contracts";
+import type { UsageDashboardResponse, UsageForecast, UsageMonitoring, UsageRange, UsageResponse } from "@workbench/contracts";
 import type { CodexbarClient } from "../adapters/codexbar/codexbar-client.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
+import type { CodexbarPayload } from "../adapters/codexbar/codexbar-schemas.js";
 import type { UsageDatabase } from "./database.js";
 
 export function enrichAndDeduplicateForecasts(forecasts: UsageForecast[], live: UsageResponse): UsageForecast[] {
@@ -28,7 +29,7 @@ export function enrichAndDeduplicateForecasts(forecasts: UsageForecast[], live: 
 export class UsageAnalyticsService {
   private timer?: NodeJS.Timeout;
   private syncing: Promise<void> | undefined;
-  constructor(private readonly options: { database: UsageDatabase; client: CodexbarClient; live: CodexbarUsageService; intervalMilliseconds: number }) {}
+  constructor(private readonly options: { database: UsageDatabase; client: CodexbarClient; live: CodexbarUsageService; intervalMilliseconds: number; monitoring: () => UsageMonitoring }) {}
 
   start() { void this.sync(); this.timer = setInterval(() => void this.sync(), this.options.intervalMilliseconds); this.timer.unref(); }
   async stop() { if (this.timer) clearInterval(this.timer); await this.syncing; }
@@ -39,14 +40,19 @@ export class UsageAnalyticsService {
   }
   private async runSync() {
     const capturedAt = new Date().toISOString();
+    const monitoring = this.options.monitoring();
+    // Für deaktivierte Anbieter werden keine Limitfenster mehr abgefragt oder gespeichert.
+    // Kosten und Token bleiben davon unberührt — das ist Nutzungsanalyse, keine Limitüberwachung.
     const [codexUsage, openCodeUsage, claudeUsage, codexCost, openCodeCost, claudeCost, codexProjectCost, claudeProjectCost] = await Promise.allSettled([
-      this.options.client.getUsage("codex"), this.options.client.getUsage("opencodego"), this.options.client.getUsage("claude"),
+      monitoring.codex ? this.options.client.getUsage("codex") : Promise.resolve<CodexbarPayload[]>([]),
+      monitoring.opencode ? this.options.client.getUsage("opencodego") : Promise.resolve<CodexbarPayload[]>([]),
+      monitoring.claude ? this.options.client.getUsage("claude") : Promise.resolve<CodexbarPayload[]>([]),
       this.options.client.getCost("codex"), this.options.client.getCost("opencodego"), this.options.client.getCost("claude"),
       this.options.client.getProjectCost("codex"), this.options.client.getProjectCost("claude"),
     ]);
-    if (codexUsage.status === "fulfilled") this.options.database.importUsage("codex", codexUsage.value, capturedAt);
-    if (openCodeUsage.status === "fulfilled") this.options.database.importUsage("opencode", openCodeUsage.value, capturedAt);
-    if (claudeUsage.status === "fulfilled") this.options.database.importUsage("claude", claudeUsage.value, capturedAt);
+    if (monitoring.codex && codexUsage.status === "fulfilled") this.options.database.importUsage("codex", codexUsage.value, capturedAt);
+    if (monitoring.opencode && openCodeUsage.status === "fulfilled") this.options.database.importUsage("opencode", openCodeUsage.value, capturedAt);
+    if (monitoring.claude && claudeUsage.status === "fulfilled") this.options.database.importUsage("claude", claudeUsage.value, capturedAt);
     if (codexCost.status === "fulfilled") this.options.database.importCost(codexCost.value, "daily");
     if (openCodeCost.status === "fulfilled") this.options.database.importCost(openCodeCost.value, "daily");
     if (claudeCost.status === "fulfilled") this.options.database.importCost(claudeCost.value, "daily");
@@ -54,8 +60,13 @@ export class UsageAnalyticsService {
     if (claudeProjectCost.status === "fulfilled") this.options.database.importCost(claudeProjectCost.value, "projects");
   }
   async dashboard(range: UsageRange): Promise<UsageDashboardResponse> {
-    const live: UsageResponse = await this.options.live.getUsage(); const history = this.options.database.dashboard(range);
-    const forecasts = enrichAndDeduplicateForecasts(this.options.database.forecasts(), live);
+    const live: UsageResponse = await this.options.live.getUsage();
+    const history = this.options.database.dashboard(range);
+    const monitoring = this.options.monitoring();
+    // Prognosen ausgelaufener Limitfenster gehören zur Limitüberwachung. Für pauschal
+    // deaktivierte Anbieter bleiben sie ausgeblendet, statt aus alten Messreihen weiterzulaufen.
+    const forecasts = enrichAndDeduplicateForecasts(this.options.database.forecasts(), live)
+      .filter((forecast) => monitoring[forecast.providerId]);
     return { live, range, ...history, forecasts, resetCredits: this.options.database.resetCredits() };
   }
 }

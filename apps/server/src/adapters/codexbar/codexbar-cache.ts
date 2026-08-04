@@ -1,15 +1,16 @@
-import type { ProviderUsage, UsageResponse } from "@workbench/contracts";
+import type { ProviderUsage, UsageMonitoring, UsageResponse } from "@workbench/contracts";
 import type { CodexbarClient } from "./codexbar-client.js";
 import { CodexbarError } from "./codexbar-errors.js";
 import { mergeCodexPrimaryWindows } from "./codex-oauth-primary-window.js";
 import type { CodexOAuthPrimaryWindowFallback } from "./codex-oauth-primary-window.js";
-import { normalizeProviderUsage, unavailableUsage } from "./normalize-usage.js";
+import { disabledUsage, normalizeProviderUsage, unavailableUsage } from "./normalize-usage.js";
 import type { CodexbarPayload } from "./codexbar-schemas.js";
 
 interface CodexbarCacheOptions {
   ttlMilliseconds: number;
   client: CodexbarClient;
   primaryWindowFallback?: CodexOAuthPrimaryWindowFallback;
+  monitoring?: () => UsageMonitoring;
 }
 
 export interface CodexbarUsageService {
@@ -18,7 +19,7 @@ export interface CodexbarUsageService {
 }
 
 function staleProvider(provider: ProviderUsage): ProviderUsage {
-  if (provider.status === "unavailable") return provider;
+  if (provider.status === "unavailable" || provider.status === "disabled") return provider;
   return {
     ...provider,
     status: "partial",
@@ -32,26 +33,29 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
   let pending: Promise<UsageResponse> | undefined;
 
   const refresh = async (): Promise<UsageResponse> => {
-    const [codex, opencode, claude] = await Promise.allSettled([
-      options.client.getUsage("codex"),
-      options.client.getUsage("opencodego"),
-      options.client.getUsage("claude"),
-    ]);
-    const codexPayloads = codex.status === "fulfilled"
-      ? await enrichCodexPrimaryWindow(codex.value, options.primaryWindowFallback)
-      : undefined;
-    const providers = [
-      codex.status === "fulfilled"
-        ? normalizeProviderUsage("codex", codexPayloads ?? codex.value)
-        : unavailableUsage("codex", errorCode(codex.reason), "CodexBar ist für Codex momentan nicht erreichbar."),
-      opencode.status === "fulfilled"
-        ? normalizeProviderUsage("opencode", opencode.value)
-        : unavailableUsage("opencode", errorCode(opencode.reason), "CodexBar ist für OpenCode Go momentan nicht erreichbar."),
-      claude.status === "fulfilled"
-        ? normalizeProviderUsage("claude", claude.value)
-        : unavailableUsage("claude", errorCode(claude.reason), "CodexBar ist für Claude Code momentan nicht erreichbar."),
-    ];
-    if (providers.every((provider) => provider.status === "unavailable")) {
+    const monitoring = options.monitoring?.() ?? { codex: true, opencode: true, claude: true };
+    // Deaktivierte Anbieter werden gar nicht erst abgefragt und als "disabled" gemeldet.
+    const codex = monitoring.codex
+      ? options.client.getUsage("codex")
+          .then(async (payloads) => enrichCodexPrimaryWindow(payloads, options.primaryWindowFallback))
+          .then((payloads) => normalizeProviderUsage("codex", payloads))
+          .catch((reason: unknown) => unavailableUsage("codex", errorCode(reason), "CodexBar ist für Codex momentan nicht erreichbar."))
+      : Promise.resolve(disabledUsage("codex"));
+    const opencode = monitoring.opencode
+      ? options.client.getUsage("opencodego")
+          .then((payloads) => normalizeProviderUsage("opencode", payloads))
+          .catch((reason: unknown) => unavailableUsage("opencode", errorCode(reason), "CodexBar ist für OpenCode Go momentan nicht erreichbar."))
+      : Promise.resolve(disabledUsage("opencode"));
+    const claude = monitoring.claude
+      ? options.client.getUsage("claude")
+          .then((payloads) => normalizeProviderUsage("claude", payloads))
+          .catch((reason: unknown) => unavailableUsage("claude", errorCode(reason), "CodexBar ist für Claude Code momentan nicht erreichbar."))
+      : Promise.resolve(disabledUsage("claude"));
+    const providers = await Promise.all([codex, opencode, claude]);
+    // Nur nicht-deaktivierte Anbieter zählen für den Ausfall. Sind alle drei bewusst
+    // deaktiviert, ist das kein CodexBar-Fehler.
+    const active = providers.filter((provider) => provider.status !== "disabled");
+    if (active.length > 0 && active.every((provider) => provider.status === "unavailable")) {
       throw new CodexbarError("CODEXBAR_UNAVAILABLE", "CodexBar ist momentan nicht erreichbar.");
     }
     const now = new Date().toISOString();
@@ -77,19 +81,19 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
           }
           const code = errorCode(error);
           const now = new Date().toISOString();
-          const unavailable: UsageResponse = {
-            providers: [
-              unavailableUsage("codex", code, "CodexBar ist momentan nicht erreichbar."),
-              unavailableUsage("opencode", code, "CodexBar ist momentan nicht erreichbar."),
-              unavailableUsage("claude", code, "CodexBar ist momentan nicht erreichbar."),
-            ],
+          const monitoring = options.monitoring?.() ?? { codex: true, opencode: true, claude: true };
+          const unavailable = (provider: "codex" | "opencode" | "claude") => monitoring[provider]
+            ? unavailableUsage(provider, code, "CodexBar ist momentan nicht erreichbar.")
+            : disabledUsage(provider);
+          const allUnavailable: UsageResponse = {
+            providers: [unavailable("codex"), unavailable("opencode"), unavailable("claude")],
             fetchedAt: now,
             lastSuccessfulFetchAt: null,
             cached: false,
           };
-          cached = unavailable;
+          cached = allUnavailable;
           expiresAt = Date.now() + options.ttlMilliseconds;
-          return unavailable;
+          return allUnavailable;
         })
         .finally(() => {
           pending = undefined;
