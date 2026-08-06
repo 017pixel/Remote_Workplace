@@ -54,6 +54,8 @@ export interface OpenPanelInput {
   projectId?: string | null;
   previewId?: string | null;
   browserUrl?: string | null;
+  // Tiefenlink für T3-Panels: Pfad hinter dem Proxy-Präfix `/t3`.
+  t3Path?: string | null;
   hermesSurface?: "chat" | "admin";
   hermesSessionId?: string | null;
   hermesAdminPath?: string;
@@ -81,6 +83,7 @@ interface WorkspaceActions {
   activateWorkspace(workspaceId: string): void;
   updateHermesPanel(panelId: string, patch: Partial<Pick<Panel, "hermesSurface" | "hermesSessionId" | "hermesAdminPath" | "hermesSidebarCollapsed">>): void;
   setPanelProject(panelId: string, projectId: string | null): void;
+  navigateT3Panel(panelId: string, t3Path: string): void;
   resetWorkspace(): void;
 }
 
@@ -94,6 +97,7 @@ function makePanel(input: OpenPanelInput): Panel {
     previewId: input.previewId ?? null,
     reloadKey: 0,
     ...(input.browserUrl ? { browserUrl: input.browserUrl } : {}),
+    ...(input.t3Path ? { t3Path: input.t3Path } : {}),
     ...(input.type === "hermes" ? {
       // Der Wert bleibt für alte Workspaces im Vertrag, zeigt aber nur noch
       // die offizielle Hermes-SPA an.
@@ -303,13 +307,21 @@ export function parseStoredWorkspace(value: unknown): Workspace {
 function withHermesPanelDefaults(workspace: Workspace): Workspace {
   return {
     ...workspace,
-    panels: workspace.panels.map((panel) => panel.type !== "hermes" ? panel : {
-      ...panel,
+    panels: workspace.panels.map((panel) => {
+      if (panel.type === "t3-code") {
+        // Ein Tiefenlink-Ziel aus einem früheren Lauf ist beim Neustart veraltet
+        // und gehört nicht in den gespeicherten Zustand zurück.
+        return { ...panel, t3Path: undefined };
+      }
+      if (panel.type !== "hermes") return panel;
       // Migriert alte Custom-Chat-Panels ohne Datenverlust auf die offizielle UI.
-      hermesSurface: "admin",
-      hermesSessionId: panel.hermesSessionId ?? null,
-      hermesAdminPath: panel.hermesAdminPath && panel.hermesAdminPath !== "/" ? panel.hermesAdminPath : "/chat",
-      hermesSidebarCollapsed: panel.hermesSidebarCollapsed ?? false,
+      return {
+        ...panel,
+        hermesSurface: "admin",
+        hermesSessionId: panel.hermesSessionId ?? null,
+        hermesAdminPath: panel.hermesAdminPath && panel.hermesAdminPath !== "/" ? panel.hermesAdminPath : "/chat",
+        hermesSidebarCollapsed: panel.hermesSidebarCollapsed ?? false,
+      };
     }),
   };
 }
@@ -339,15 +351,17 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         if (existing) {
           get().focusPanel(existing.id);
           const hasBrowserUrl = input.type === "browser" && input.browserUrl !== undefined;
+          const hasT3Path = input.type === "t3-code" && input.t3Path !== undefined;
           set({
             selectedProjectId: input.projectId ?? current.selectedProjectId,
             maximizedPanelId: null,
-            ...(hasBrowserUrl ? {
+            ...(hasBrowserUrl || hasT3Path ? {
               panels: current.panels.map((panel) => panel.id !== existing.id
                 ? panel
                 : {
                     ...panel,
-                    ...(input.browserUrl ? { browserUrl: input.browserUrl } : { browserUrl: undefined }),
+                    ...(hasBrowserUrl ? (input.browserUrl ? { browserUrl: input.browserUrl } : { browserUrl: undefined }) : {}),
+                    ...(hasT3Path ? { t3Path: input.t3Path ?? undefined } : {}),
                     reloadKey: panel.reloadKey + 1,
                   }),
             } : {}),
@@ -543,6 +557,11 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       })),
       setPanelProject: (panelId, projectId) => set((current) => ({
         panels: current.panels.map((panel) => panel.id === panelId && panel.type === "hermes" ? { ...panel, projectId } : panel),
+      })),
+      navigateT3Panel: (panelId, t3Path) => set((current) => ({
+        panels: current.panels.map((panel) => panel.id === panelId && panel.type === "t3-code"
+          ? { ...panel, t3Path, reloadKey: panel.reloadKey + 1 }
+          : panel),
       })),
       resetWorkspace: () => set(freshWorkspace()),
     }),
