@@ -27,7 +27,7 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, CommandIcon, CopyIcon, EditIcon, FinderIcon, FolderSearchIcon, FrameIcon, FullscreenIcon, HandIcon, LocateIcon, LockIcon, MinusIcon, NoteIcon, PlusIcon, PointerIcon, RedoIcon, SaveIcon, SearchIcon, SelectBoxIcon, TodoIcon, TrashIcon, UndoIcon } from "../components/icons";
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, CommandIcon, CopyIcon, EditIcon, ExternalLinkIcon, FinderIcon, FolderSearchIcon, FrameIcon, FullscreenIcon, HandIcon, LocateIcon, LockIcon, MinusIcon, NoteIcon, PlusIcon, PointerIcon, PreviewsIcon, RedoIcon, RefreshIcon, SaveIcon, SearchIcon, SelectBoxIcon, TodoIcon, TrashIcon, UndoIcon } from "../components/icons";
 import type { OrbitBoard, OrbitNode, Project } from "@workbench/contracts";
 import { OrbitNodeRuntimeProvider, OrbitNodeView } from "../components/orbit/OrbitNodeView";
 import { OrbitEdgeView } from "../components/orbit/OrbitEdgeView";
@@ -51,6 +51,7 @@ import { elementContainsEventTarget } from "../lib/domEvents";
 import { getActiveOrbitBoard, orbitDefaultNodeSize, previewGroupSize, previewSlotGeometry, useOrbitStore } from "../stores/orbit";
 import { useWorkspaceStore } from "../stores/workspace";
 import { createOrbitBoardIndex, type OrbitBoardIndex } from "../lib/orbitBoardIndex";
+import { openPreviewGroupWindow } from "../lib/previewWindow";
 
 const nodeTypes = { orbit: OrbitNodeView };
 const edgeTypes = { orbit: OrbitEdgeView };
@@ -80,6 +81,30 @@ const typeLabels: Record<OrbitNode["type"], string> = {
 
 type MobileCanvasMode = "navigate" | "interact";
 type CanvasInteraction = "node" | "pane";
+
+function PreviewContextIsland({ board, focusedNodeId, onOpenHub }: { board: OrbitBoard; focusedNodeId: string | null; onOpenHub: () => void }) {
+  const focused = board.nodes.find((node) => node.id === focusedNodeId);
+  const group = focused?.type === "previewGroup"
+    ? focused
+    : focused?.type === "previewSlot" && focused.parentId
+      ? board.nodes.find((node) => node.id === focused.parentId && node.type === "previewGroup")
+      : null;
+  if (!group) return null;
+  const slots = board.nodes.filter((node) => node.parentId === group.id && node.type === "previewSlot").sort((left, right) => left.zIndex - right.zIndex);
+  const activeCount = slots.filter((slot) => slot.previewTarget).length;
+  const visibleCount = Math.max(1, activeCount);
+  const layouts = visibleCount <= 1 ? ["1", "2"] as const : visibleCount === 2 ? ["2", "3"] as const : visibleCount === 3 ? ["3", "6"] as const : ["6"] as const;
+  return (
+    <div className="orbit-preview-context-island" role="toolbar" aria-label="Kontextaktionen für Previews">
+      <div><PreviewsIcon /><span>{activeCount || slots.length} {activeCount === 1 ? "Preview" : "Previews"}</span></div>
+      <span className="orbit-island-divider" />
+      <div className="orbit-preview-context-layouts" aria-label="Passende Layouts">{layouts.map((layout) => <button type="button" key={layout} className={group.previewLayout === layout ? "is-active" : ""} onClick={() => useOrbitStore.getState().setPreviewGroupLayout(group.id, layout)}>{layout === "6" ? "2×3" : layout}</button>)}</div>
+      <button type="button" aria-label="Alle Previews neu laden" title="Alle neu laden" onClick={() => slots.forEach((slot) => useOrbitStore.getState().updateNode(slot.id, { content: String(Number(slot.content || "0") + 1) }))}><RefreshIcon /></button>
+      <button type="button" aria-label="Preview-Gruppe extern öffnen" title="Externes Fenster" onClick={() => openPreviewGroupWindow(group.id, useOrbitStore.getState().document)}><ExternalLinkIcon /></button>
+      <button type="button" className="orbit-preview-context-hub" onClick={onOpenHub}><span>Preview Hub</span></button>
+    </div>
+  );
+}
 
 const MINIMAP_WIDTH = 144;
 const MINIMAP_HEIGHT = 94;
@@ -1239,6 +1264,7 @@ function OrbitCanvas() {
       </nav>
       {isMobile && toolbarOverflow.before ? <button type="button" className="orbit-toolbar-step is-before" onClick={() => scrollToolbar(-1)} aria-label="Steuerleiste zurückscrollen"><ChevronLeftIcon className="h-4 w-4" /></button> : null}
       {isMobile && toolbarOverflow.after ? <button type="button" className="orbit-toolbar-step is-after" onClick={() => scrollToolbar(1)} aria-label="Steuerleiste weiterscrollen"><ChevronRightIcon className="h-4 w-4" /></button> : null}
+      <PreviewContextIsland board={board} focusedNodeId={document.focusedNodeId} onOpenHub={() => navigate("/previews")} />
 
       <div className="orbit-quick-panel" aria-label="Canvas-Steuerung">
         <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><CommandIcon className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><SelectBoxIcon className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <><button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <HandIcon className="h-4 w-4" /> : <PointerIcon className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button></> : null}</div>

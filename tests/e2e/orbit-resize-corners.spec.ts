@@ -54,6 +54,8 @@ test("keeps every visible resize point centered on its window corner", async ({ 
       const key = ["top", "bottom", "left", "right"].filter((name) => control.classList.contains(name)).join(" ") as keyof typeof expected;
       return {
         key,
+        width: dot.width,
+        height: dot.height,
         deltaX: Math.abs(dot.left + dot.width / 2 - expected[key].x),
         deltaY: Math.abs(dot.top + dot.height / 2 - expected[key].y),
       };
@@ -61,6 +63,8 @@ test("keeps every visible resize point centered on its window corner", async ({ 
   });
   expect(result).toHaveLength(8);
   for (const corner of result) {
+    expect(corner.width, `${corner.key} width`).toBe(9);
+    expect(corner.height, `${corner.key} height`).toBe(9);
     expect(corner.deltaX, `${corner.key} x`).toBeLessThanOrEqual(1);
     expect(corner.deltaY, `${corner.key} y`).toBeLessThanOrEqual(1);
   }

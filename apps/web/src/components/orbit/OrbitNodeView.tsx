@@ -1,4 +1,5 @@
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { CloseIcon, CodeFileIcon, CopyIcon, DeviceRotateIcon, ExternalLinkIcon, FileIcon, FolderCodeIcon, FrameIcon, FullscreenIcon, MoreIcon, PlusIcon, RefreshIcon, SaveIcon, TodoIcon, TrashIcon } from "../icons";
@@ -412,12 +413,14 @@ function PreviewGroupNode({ id, selected }: { id: string; selected: boolean }) {
   const removeNode = useOrbitStore((state) => state.removeNode);
   const [menuOpen, setMenuOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const menuTriggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const layout = node.previewLayout ?? "1";
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: MouseEvent) => {
-      if (!elementContainsEventTarget(menuRef.current, event.target)) setMenuOpen(false);
+      if (!elementContainsEventTarget(menuTriggerRef.current, event.target) && !elementContainsEventTarget(menuRef.current, event.target)) setMenuOpen(false);
     };
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
     document.addEventListener("mousedown", close);
@@ -425,6 +428,21 @@ function PreviewGroupNode({ id, selected }: { id: string; selected: boolean }) {
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const position = () => {
+      const bounds = menuTriggerRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      setMenuStyle({ top: bounds.bottom + 4, right: Math.max(8, window.innerWidth - bounds.right) });
+    };
+    position();
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
     };
   }, [menuOpen]);
   useEffect(() => {
@@ -460,9 +478,9 @@ function PreviewGroupNode({ id, selected }: { id: string; selected: boolean }) {
           if (document.fullscreenElement) void document.exitFullscreen();
           else void event.currentTarget.closest(".react-flow")?.requestFullscreen?.();
         }}><FullscreenIcon className="h-3.5 w-3.5" /></button>
-        <div className="orbit-preview-menu-wrap nodrag" ref={menuRef}>
+        <div className="orbit-preview-menu-wrap nodrag" ref={menuTriggerRef}>
           <button type="button" onClick={() => setMenuOpen((open) => !open)} aria-label="Gruppenmenü" aria-expanded={menuOpen}><MoreIcon className="h-3.5 w-3.5" /></button>
-          {menuOpen ? <div className="orbit-preview-menu"><button type="button" onClick={() => { openPreviewGroupWindow(id, useOrbitStore.getState().document); setMenuOpen(false); }}><ExternalLinkIcon className="h-3.5 w-3.5" />Externes Fenster</button><button type="button" onClick={() => { duplicateNode(id); setMenuOpen(false); }}><CopyIcon className="h-3.5 w-3.5" />Duplizieren</button><button type="button" onClick={() => { updateNode(id, { previewLastUsedAt: new Date().toISOString() }); setMenuOpen(false); }}><SaveIcon className="h-3.5 w-3.5" />Als Vorlage merken</button></div> : null}
+          {menuOpen ? createPortal(<div ref={menuRef} className="orbit-preview-menu is-portal" style={menuStyle}><button type="button" onClick={() => { openPreviewGroupWindow(id, useOrbitStore.getState().document); setMenuOpen(false); }}><ExternalLinkIcon className="h-3.5 w-3.5" />Externes Fenster</button><button type="button" onClick={() => { duplicateNode(id); setMenuOpen(false); }}><CopyIcon className="h-3.5 w-3.5" />Duplizieren</button><button type="button" onClick={() => { updateNode(id, { previewLastUsedAt: new Date().toISOString() }); setMenuOpen(false); }}><SaveIcon className="h-3.5 w-3.5" />Als Vorlage merken</button></div>, document.fullscreenElement ?? document.body) : null}
         </div>
         <button type="button" className="nodrag is-danger" title="Gruppe schließen" aria-label="Gruppe schließen" onClick={close}><CloseIcon className="h-3.5 w-3.5" /></button>
       </header>
@@ -477,7 +495,6 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
   const updateNode = useOrbitStore((state) => state.updateNode);
   const focusNode = useOrbitStore((state) => state.focusNode);
   const [targetDraft, setTargetDraft] = useState(node.previewTarget ?? "");
-  const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const target = normalizePreviewTarget(node.previewTarget ?? "");
   const runtime = useOrbitNodeRuntime();
   const reachable = target?.kind === "external" || (target?.kind === "local" && runtime.localPorts?.ports.some((port) => port.port === target.port && port.protocol !== "unknown"));
@@ -507,7 +524,6 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
     if (release) void releasePreviewSlots([release]);
     updateNode(id, { previewTarget: null, previewSlotId: null });
     setTargetDraft("");
-    setPublicUrl(null);
   };
   const detach = () => {
     if (!node.parentId) return;
@@ -569,13 +585,12 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
             showControls
             projectId={node.projectId}
             sessionKey={`orbit-preview:${id}`}
-            onSlotAssigned={(slotId, url) => { if (slotId !== node.previewSlotId) updateNode(id, { previewSlotId: slotId }); setPublicUrl(url); }}
+            onSlotAssigned={(slotId) => { if (slotId !== node.previewSlotId) updateNode(id, { previewSlotId: slotId }); }}
             onOrientationChange={(next) => updateNode(id, { previewOrientation: next })}
             onFocus={() => focusNode(id)}
           />
         ) : <ExternalPreviewChoice url={target.url} />}
       </div>
-      {publicUrl ? <a className="orbit-preview-external nodrag" href={publicUrl} target="_blank" rel="noopener noreferrer" title="Slot extern öffnen"><FullscreenIcon className="h-3 w-3" /></a> : null}
       {!node.parentId ? <EdgeHandles /> : null}
     </div>
   );
