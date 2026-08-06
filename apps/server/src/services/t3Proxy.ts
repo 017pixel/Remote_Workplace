@@ -33,6 +33,9 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
     const nextPath = pathname.slice(prefix.length) || "/";
     window.history.replaceState(window.history.state, "", nextPath + window.location.search + window.location.hash);
   }
+  const historyIndexKey = "__remoteWorkplaceT3Index";
+  let historyIndex = Number.isInteger(window.history.state?.[historyIndexKey]) ? window.history.state[historyIndexKey] : 0;
+  window.history.replaceState({ ...window.history.state, [historyIndexKey]: historyIndex }, "", window.location.href);
   const presence = () => {
     const segments = window.location.pathname.split("/").filter(Boolean);
     return { source: "t3", threadId: segments.length >= 2 ? segments[1] : null };
@@ -47,11 +50,30 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
       window.parent.postMessage({ source: "remote-workplace-t3", version: 1, type: "route.changed", path }, window.location.origin);
     }
   };
-  for (const name of ["pushState", "replaceState"]) {
-    const original = history[name];
-    history[name] = function (...args) { const result = original.apply(this, args); report(); return result; };
-  }
-  addEventListener("popstate", report);
+  const originalPushState = history.pushState.bind(history);
+  const originalReplaceState = history.replaceState.bind(history);
+  const originalGo = history.go.bind(history);
+  history.pushState = function (state, title, url) {
+    historyIndex += 1;
+    const result = originalPushState({ ...state, [historyIndexKey]: historyIndex }, title, url);
+    report();
+    return result;
+  };
+  history.replaceState = function (state, title, url) {
+    const result = originalReplaceState({ ...state, [historyIndexKey]: historyIndex }, title, url);
+    report();
+    return result;
+  };
+  history.go = function (delta) {
+    if (window.parent !== window && typeof delta === "number" && delta < 0 && historyIndex + delta < 0) return;
+    originalGo(delta);
+  };
+  history.back = function () { history.go(-1); };
+  addEventListener("popstate", (event) => {
+    const nextIndex = event.state?.[historyIndexKey];
+    if (Number.isInteger(nextIndex)) historyIndex = nextIndex;
+    report();
+  });
   addEventListener("focus", report);
   report();
 })();
@@ -82,34 +104,53 @@ export const remoteBrowserFallbackScript = `<script>
   );
   const openBrowser = (button) => {
     if (!(button instanceof HTMLButtonElement)) return;
-    if (button.getAttribute(mark) === "true") {
-      button.disabled = false;
-      button.removeAttribute("aria-disabled");
+    if (!button.textContent?.trim().startsWith("Browser")) return;
+    if (button.getAttribute(mark) !== "true") {
+      button.setAttribute(mark, "true");
+      button.title = "Remote-Workplace-Browser öffnen";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        const url = targetUrl(button);
+        const message = { type: messageType, ...(url ? { url } : {}) };
+        if (window.parent === window) window.location.assign("/browser");
+        else window.parent.postMessage(message, window.location.origin);
+      }, true);
+    }
+    // Nur echte Zustandsänderungen schreiben. Der Observer sieht diese
+    // Attribute selbst; bedingungslose Schreibzugriffe erzeugen in Firefox
+    // sonst eine endlose MutationObserver-Kette und frieren das iframe ein.
+    if (button.disabled) button.disabled = false;
+    if (button.hasAttribute("aria-disabled")) button.removeAttribute("aria-disabled");
+    if (button.classList.contains("cursor-not-allowed") || button.classList.contains("opacity-40")) {
       button.classList.remove("cursor-not-allowed", "opacity-40");
-      return;
-    }
-    button.setAttribute(mark, "true");
-    button.disabled = false;
-    button.removeAttribute("aria-disabled");
-    button.classList.remove("cursor-not-allowed", "opacity-40");
-    button.title = "Remote-Workplace-Browser öffnen";
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      const url = targetUrl(button);
-      const message = { type: messageType, ...(url ? { url } : {}) };
-      if (window.parent === window) window.location.assign("/browser");
-      else window.parent.postMessage(message, window.location.origin);
-    }, true);
-  };
-  const scan = () => {
-    for (const button of document.querySelectorAll("button")) {
-      if (button.textContent?.trim().startsWith("Browser")) openBrowser(button);
     }
   };
-  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
-  scan();
+  const scan = (root) => {
+    if (!(root instanceof Element)) return;
+    if (root.matches("button")) openBrowser(root);
+    for (const button of root.querySelectorAll("button")) openBrowser(button);
+  };
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.type === "childList") {
+        for (const node of record.addedNodes) scan(node);
+      } else if (record.type === "attributes") {
+        openBrowser(record.target);
+      } else {
+        openBrowser(record.target.parentElement?.closest("button"));
+      }
+    }
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["disabled", "aria-disabled", "class"],
+    characterData: true,
+  });
+  scan(document.documentElement);
 })();
 </script>`;
 

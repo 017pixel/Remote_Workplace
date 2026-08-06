@@ -22,6 +22,15 @@ describe("T3-Proxy", () => {
     expect(remoteBrowserFallbackScript).toContain("url");
   });
 
+  it("verhindert eine selbstverstärkende MutationObserver-Schleife in Firefox", () => {
+    expect(remoteBrowserFallbackScript).toContain("if (button.disabled) button.disabled = false");
+    expect(remoteBrowserFallbackScript).toContain('if (button.hasAttribute("aria-disabled"))');
+    expect(remoteBrowserFallbackScript).toContain('button.classList.contains("cursor-not-allowed")');
+    expect(remoteBrowserFallbackScript).toContain('attributeFilter: ["disabled", "aria-disabled", "class"]');
+    expect(remoteBrowserFallbackScript).toContain("for (const node of record.addedNodes) scan(node)");
+    expect(remoteBrowserFallbackScript).not.toContain("new MutationObserver(scan)");
+  });
+
   it("normalisiert Deep-Links auf den T3-Thread vor dem Router-Start", () => {
     expect(t3RouteBridgeScript).toContain('pathname.startsWith(prefix + "/")');
     expect(t3RouteBridgeScript).toContain("history.replaceState");
@@ -35,6 +44,12 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain("/api/v1/notifications/presence");
     expect(t3RouteBridgeScript).toContain("segments.length >= 2 ? segments[1] : null");
     expect(t3RouteBridgeScript).toContain('addEventListener("focus", report)');
+  });
+
+  it("begrenzt den eingebetteten T3-Verlauf auf das iframe", () => {
+    expect(t3RouteBridgeScript).toContain("__remoteWorkplaceT3Index");
+    expect(t3RouteBridgeScript).toContain("history.back = function () { history.go(-1); }");
+    expect(t3RouteBridgeScript).toContain("historyIndex + delta < 0");
   });
 
   it("injiziert die Route-Bridge in T3-HTML auch bei Deep-Links", () => {
