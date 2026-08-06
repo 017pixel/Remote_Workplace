@@ -120,7 +120,7 @@ export class CodexbarClient {
     } catch (httpError) {
       if (!this.options.cliPath) throw httpError;
       return this.getFromCli(
-        ["cost", "--provider", provider, "--days", "365", "--format", "json"],
+        ["cost", "--provider", provider, "--days", "3650", "--format", "json"],
         codexbarCostResponseSchema,
         "CodexBar konnte die Kosten weder über den lokalen Dienst noch direkt über die CLI laden.",
       );
@@ -130,7 +130,7 @@ export class CodexbarClient {
   async getProjectCost(provider: CodexbarProvider): Promise<CodexbarCostPayload[]> {
     if (!this.options.cliPath) return [];
     try {
-      const result = await execa(this.options.cliPath, ["cost", "--provider", provider, "--group-by", "project", "--days", "365", "--format", "json"], { timeout: this.options.timeoutMilliseconds * 2, env: this.cliEnvironment(), reject: false });
+      const result = await execa(this.options.cliPath, ["cost", "--provider", provider, "--group-by", "project", "--days", "3650", "--format", "json"], { timeout: this.options.timeoutMilliseconds * 2, env: this.cliEnvironment(), reject: false });
       const parsed = codexbarCostResponseSchema.safeParse(JSON.parse(result.stdout));
       if (!parsed.success) throw new Error("invalid payload");
       return parsed.data;

@@ -5,7 +5,14 @@ import { DatabaseSync } from "node:sqlite";
 import type { ManagedAccount, ResetCredit, UsageBreakdown, UsageDailyPoint, UsageForecast, UsageProviderId, UsageRange } from "@workbench/contracts";
 import type { CodexbarCostPayload, CodexbarPayload } from "../adapters/codexbar/codexbar-schemas.js";
 
-const rangeDays: Record<UsageRange, number> = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 };
+const rangeDays: Record<Exclude<UsageRange, "all">, number> = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 };
+
+/** Normiert den Projekt-Schlüssel: Pfad-Einträge auf den Ordnernamen kürzen. */
+function projectKeyBasename(key: string): string {
+  const trimmed = key.trim();
+  const slash = trimmed.lastIndexOf("/");
+  return slash >= 0 ? trimmed.slice(slash + 1) || trimmed : trimmed;
+}
 
 export class UsageDatabase {
   private readonly db: DatabaseSync;
@@ -145,21 +152,11 @@ export class UsageDatabase {
       ON CONFLICT(provider,date,model) DO UPDATE SET total_tokens=excluded.total_tokens,total_cost=excluded.total_cost`);
     const project = this.db.prepare(`INSERT INTO project_usage VALUES (?, ?, ?, ?, ?, ?, 'exact')
       ON CONFLICT(provider,project_key) DO UPDATE SET label=excluded.label,total_tokens=excluded.total_tokens,total_cost=excluded.total_cost,updated_at=excluded.updated_at`);
-    const providers = [...new Set(payloads.map((payload) => payload.provider))];
+    // Bewusst kumulativ statt löschen und neu importieren: Die Quellen liefern
+    // nur begrenzte Fenster (CodexBar intern, OpenCode-Sessions). Ältere Tage,
+    // Modelle und Projekte bleiben deshalb erhalten und wachsen zur Gesamthistorie.
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      if (scope === "daily" || scope === "both") {
-        const deleteDaily = this.db.prepare("DELETE FROM daily_usage WHERE provider = ?");
-        const deleteModels = this.db.prepare("DELETE FROM model_usage WHERE provider = ?");
-        for (const provider of providers) {
-          deleteDaily.run(provider);
-          deleteModels.run(provider);
-        }
-      }
-      if (scope === "projects" || scope === "both") {
-        const deleteProjects = this.db.prepare("DELETE FROM project_usage WHERE provider = ?");
-        for (const provider of providers) deleteProjects.run(provider);
-      }
       for (const payload of payloads) {
         if (scope === "daily" || scope === "both") {
           for (const point of payload.daily) {
@@ -182,25 +179,53 @@ export class UsageDatabase {
   }
 
   dashboard(range: UsageRange) {
-    const days = rangeDays[range];
-    const cutoff = `-${days - 1} days`;
+    const days = range === "all" ? null : rangeDays[range];
+    const cutoff = days === null ? null : `-${days - 1} days`;
+    // „Gesamt" (all) wertet die komplette gesammelte Historie aus, ohne Datumsgrenze.
+    const dailyFilter = cutoff === null ? "" : "WHERE date >= date('now', ?) ";
     // Pro Tag liegt bis zu eine Zeile je Provider vor. Erst die Aggregation über
     // alle Provider macht die Tageswerte, „Tokens heute" und die 30-Tage-Projektion
     // korrekt — sonst zählt die Zeilenzahl statt der Tagesszahl (F03-1).
     const daily = this.db.prepare(`SELECT date, SUM(input_tokens) inputTokens, SUM(output_tokens) outputTokens,
       SUM(cache_read_tokens) cacheReadTokens, SUM(cache_creation_tokens) cacheCreationTokens,
       SUM(total_tokens) totalTokens, SUM(total_cost) totalCost FROM daily_usage
-      WHERE date >= date('now', ?) GROUP BY date ORDER BY date`).all(cutoff) as UsageDailyPoint[];
-    const projects = this.db.prepare(`SELECT project_key id, label, total_tokens totalTokens,
-      total_cost totalCost, quality FROM project_usage ORDER BY total_tokens DESC LIMIT 20`).all() as UsageBreakdown[];
+      ${dailyFilter}GROUP BY date ORDER BY date`).all(...(cutoff === null ? [] : [cutoff])) as UsageDailyPoint[];
+    const projects = this.db.prepare(`SELECT project_key id, provider, label, total_tokens totalTokens,
+      total_cost totalCost, quality FROM project_usage`).all() as Array<UsageBreakdown & { provider: string }>;
+    // CodexBar und die lokale OpenCode-Datenbank führen dasselbe Projekt als
+    // getrennte Zeilen je Provider. Für die Übersicht werden sie über den
+    // Projektnamen zusammengefasst: Der Schlüssel ist der Basisname des Pfads,
+    // falls der Eintrag einen Pfad trägt, sonst der Name selbst.
+    const projectsByName = new Map<string, { entry: UsageBreakdown; labelTokens: number }>();
+    for (const row of projects) {
+      const key = projectKeyBasename(row.id);
+      const existing = projectsByName.get(key);
+      if (!existing) {
+        projectsByName.set(key, { entry: { id: key, label: row.label, totalTokens: row.totalTokens, totalCost: row.totalCost, quality: row.quality }, labelTokens: row.totalTokens });
+        continue;
+      }
+      existing.entry.totalTokens += row.totalTokens;
+      existing.entry.totalCost += row.totalCost;
+      if (row.totalTokens > existing.labelTokens) {
+        existing.labelTokens = row.totalTokens;
+        existing.entry.label = row.label;
+      }
+      if (existing.entry.quality === "exact" && row.quality !== "exact") existing.entry.quality = "derived";
+    }
+    const aggregatedProjects = [...projectsByName.values()]
+      .map(({ entry }) => entry)
+      .sort((a, b) => b.totalTokens - a.totalTokens)
+      .slice(0, 20);
+    const modelsFilter = cutoff === null ? "" : "WHERE date >= date('now', ?) ";
     const models = this.db.prepare(`SELECT model id, model label, SUM(total_tokens) totalTokens,
-      SUM(total_cost) totalCost, 'exact' quality FROM model_usage WHERE date >= date('now', ?)
-      GROUP BY model ORDER BY totalTokens DESC`).all(cutoff) as UsageBreakdown[];
+      SUM(total_cost) totalCost, 'exact' quality FROM model_usage ${modelsFilter}
+      GROUP BY model ORDER BY totalTokens DESC`).all(...(cutoff === null ? [] : [cutoff])) as UsageBreakdown[];
     const totals = daily.reduce((sum, point) => ({ tokens: sum.tokens + point.totalTokens, cost: sum.cost + point.totalCost }), { tokens: 0, cost: 0 });
     const todayTokens = daily.find((point) => point.date === new Date().toISOString().slice(0, 10))?.totalTokens ?? 0;
     const observed = Math.max(1, daily.length);
+    const projectRange: "all" | "365d" = range === "all" ? "all" : "365d";
     return {
-      daily, projects, projectRange: "365d" as const, models,
+      daily, projects: aggregatedProjects, projectRange, models,
       totals: {
         totalTokens: totals.tokens, totalCost: totals.cost, todayTokens,
         projected30DayTokens: Math.round(totals.tokens / observed * 30),

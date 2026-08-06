@@ -6,13 +6,19 @@ import { workbenchQueries } from "../lib/queryOptions";
 import { Spinner, StateDot } from "./primitives";
 import { useOrbitStore } from "../stores/orbit";
 
-const panelTypeLabels: Record<string, string> = {
-  "t3-code": "T3 Code",
-  "code-server": "Editor",
-  preview: "Preview",
-  browser: "Browser",
-  terminal: "Terminal",
-};
+const statusBarProviderDefinitions = [
+  { providerId: "codex", label: "Codex", title: "Codex" },
+  { providerId: "opencode", label: "OpenCode", title: "OpenCode" },
+  { providerId: "claude", label: "Claude", title: "Claude Code" },
+] as const satisfies ReadonlyArray<{ providerId: ProviderUsage["providerId"]; label: string; title: string }>;
+
+export type StatusBarProviderState = Pick<ProviderUsage, "providerId" | "status">;
+
+/** Deaktivierte Provider gehören nicht in die kompakte Limitanzeige. */
+export function visibleStatusBarProviders(providers: readonly StatusBarProviderState[] | undefined) {
+  if (!providers) return statusBarProviderDefinitions;
+  return statusBarProviderDefinitions.filter((definition) => providers.find((provider) => provider.providerId === definition.providerId)?.status !== "disabled");
+}
 
 export function compactAccountIdentity(value: string): string {
   const separator = value.lastIndexOf("@");
@@ -42,21 +48,17 @@ export function StatusBar() {
   const orbitDirty = useOrbitStore((state) => state.dirty);
   const orbitSaving = useOrbitStore((state) => state.saving);
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const panels = useWorkspaceStore((state) => state.panels);
-  const focusedPanelId = useWorkspaceStore((state) => state.focusedPanelId);
-  const workspaces = useWorkspaceStore((state) => state.workspaces);
-  const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const health = useQuery(workbenchQueries.health());
   const projects = useQuery(workbenchQueries.projects());
   const usage = useQuery(workbenchQueries.usage());
   const selectedProject = projects.data?.projects.find((project) => project.id === selectedProjectId);
-  const focusedPanel = panels.find((panel) => panel.id === focusedPanelId);
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
   const activeOrbitBoard = orbitDocument.boards.find((board) => board.id === orbitDocument.activeBoardId);
   const isOrbit = location.pathname === "/workbench";
   const codex = usage.data?.providers.find((provider) => provider.providerId === "codex");
   const opencode = usage.data?.providers.find((provider) => provider.providerId === "opencode");
   const claude = usage.data?.providers.find((provider) => provider.providerId === "claude");
+  const providerById = { codex, opencode, claude } satisfies Record<ProviderUsage["providerId"], ProviderUsage | undefined>;
+  const visibleProviders = visibleStatusBarProviders(usage.data?.providers);
 
   return (
     <footer className="status-bar hidden md:flex">
@@ -66,22 +68,28 @@ export function StatusBar() {
         <span className="status-bar-value font-mono">v{health.data?.version ?? "—"}</span>
       </span>
       <span className="status-bar-divider" />
+      <span className="status-bar-context">
       {isOrbit ? <>
         <span className="status-bar-item min-w-0"><span>Orbit</span><span className="status-bar-value truncate">{activeOrbitBoard?.name ?? "Arbeitsfläche"}</span></span>
         <span className="status-bar-divider" />
         <span className="status-bar-item"><span>{activeOrbitBoard?.nodes.length ?? 0} Knoten</span><span>{activeOrbitBoard?.edges.length ?? 0} Verbindungen</span><span className="status-bar-value">{orbitSaving ? "speichert…" : orbitDirty ? "ungespeichert" : "synchron"}</span></span>
       </> : <>
         <span className="status-bar-item min-w-0"><span>Projekt</span><span className="status-bar-value truncate">{selectedProject?.name ?? "keines"}</span></span>
-        <span className="status-bar-divider" />
-        <span className="status-bar-item"><span>{activeWorkspace?.name ?? "Arbeitsfläche"}</span><span>{panels.length} {panels.length === 1 ? "Tool" : "Tools"}</span>{focusedPanel ? <span className="status-bar-value">{panelTypeLabels[focusedPanel.type]}</span> : null}</span>
       </>}
-      <Link to="/usage" className="status-limits" aria-label="Nutzung und Limits öffnen" title={`Codex: ${providerLimit(codex)}\nOpenCode: ${providerLimit(opencode)}\nClaude Code: ${providerLimit(claude)}`}>
-        <span><strong>Codex</strong> {usage.isLoading ? "lädt…" : providerLimit(codex, true)}</span>
-        <span className="status-bar-divider" />
-        <span><strong>OpenCode</strong> {usage.isLoading ? "lädt…" : providerLimit(opencode, true)}</span>
-        <span className="status-bar-divider" />
-        <span><strong>Claude</strong> {usage.isLoading ? "lädt…" : providerLimit(claude, true)}</span>
-      </Link>
+      </span>
+      {visibleProviders.length > 0 ? (
+        <Link
+          to="/usage"
+          className="status-limits"
+          aria-label="Nutzung und Limits öffnen"
+          title={visibleProviders.map((provider) => `${provider.title}: ${providerLimit(providerById[provider.providerId])}`).join("\n")}
+        >
+          {visibleProviders.flatMap((provider, index) => [
+            ...(index > 0 ? [<span key={`${provider.providerId}-divider`} className="status-bar-divider" aria-hidden="true" />] : []),
+            <span key={provider.providerId}><strong>{provider.label}</strong> {usage.isLoading ? "lädt…" : providerLimit(providerById[provider.providerId], true)}</span>,
+          ])}
+        </Link>
+      ) : null}
     </footer>
   );
 }

@@ -19,7 +19,7 @@ describe("usage history", () => {
     expect(dashboard.models).toMatchObject([{ label:"gpt-test", totalTokens:100 }]);
   });
 
-  it("replaces authoritative cost scopes atomically without deleting the other scope", () => {
+  it("führt Kosten kumulativ fort, ohne ältere Tage, Modelle oder Projekte zu löschen", () => {
     const database = new UsageDatabase(":memory:"); databases.push(database);
     database.importCost([{
       provider: "codex",
@@ -38,10 +38,29 @@ describe("usage history", () => {
       projects: [],
       daily: [{ date: "2026-07-16", inputTokens: 30, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 30, totalCost: 0.3, modelBreakdowns: [] }],
     }], "daily");
-    const dashboard = database.dashboard("365d");
-    expect(dashboard.daily).toHaveLength(1);
-    expect(dashboard.daily[0]).toMatchObject({ date: "2026-07-16", totalTokens: 30 });
+    const dashboard = database.dashboard("all");
+    expect(dashboard.daily).toHaveLength(3);
+    expect(dashboard.daily.at(-1)).toMatchObject({ date: "2026-07-16", totalTokens: 30 });
     expect(dashboard.projects).toContainEqual(expect.objectContaining({ label: "Alt" }));
+  });
+
+  it("zeigt bei „Gesamt“ auch Tage außerhalb der letzten 365 Tage", () => {
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    const oldDate = new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10);
+    database.importCost([{
+      provider: "codex",
+      source: "local",
+      updatedAt: "2026-07-15T10:00:00Z",
+      projects: [],
+      daily: [{ date: oldDate, inputTokens: 50, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 50, totalCost: 0.5, modelBreakdowns: [{ modelName: "altes-modell", totalTokens: 50, cost: 0.5 }] }],
+    }], "daily");
+    const year = database.dashboard("365d");
+    expect(year.daily).toHaveLength(0);
+    expect(year.models).toHaveLength(0);
+    const all = database.dashboard("all");
+    expect(all.daily).toHaveLength(1);
+    expect(all.models).toEqual([expect.objectContaining({ label: "altes-modell", totalTokens: 50 })]);
+    expect(all.projectRange).toBe("all");
   });
 
   it("aggregates mehrere Provider je Tag statt doppelte Tagespunkte zu liefern", () => {
@@ -56,6 +75,19 @@ describe("usage history", () => {
     expect(dashboard.daily[0]).toMatchObject({ totalTokens: 300, totalCost: 1.5 });
     expect(dashboard.totals.todayTokens).toBe(300);
     expect(dashboard.totals.totalTokens).toBe(300);
+  });
+
+  it("fasst dasselbe Projekt über mehrere Provider zu einer Zeile zusammen", () => {
+    const database = new UsageDatabase(":memory:"); databases.push(database);
+    database.importCost([
+      { provider: "codex", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Remote_Workplace", name: "Remote_Workplace", totalTokens: 1_000, totalCost: 5.0 }], daily: [] },
+      { provider: "opencode", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Remote_Workplace", name: "Remote_Workplace", totalTokens: 400, totalCost: 1.0 }], daily: [] },
+      { provider: "opencode", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/AnderesProjekt", name: "AnderesProjekt", totalTokens: 50, totalCost: 0.1 }], daily: [] },
+    ]);
+    const dashboard = database.dashboard("365d");
+    const remote = dashboard.projects.find((item) => item.label === "Remote_Workplace");
+    expect(remote).toMatchObject({ totalTokens: 1_400, totalCost: 6.0, quality: "exact" });
+    expect(dashboard.projects).toHaveLength(2);
   });
 
   it("forecasts a limit only after three snapshots", () => {

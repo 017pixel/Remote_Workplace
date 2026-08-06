@@ -3,6 +3,7 @@ import type { CodexbarClient } from "../adapters/codexbar/codexbar-client.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
 import type { CodexbarPayload } from "../adapters/codexbar/codexbar-schemas.js";
 import type { UsageDatabase } from "./database.js";
+import { readOpenCodeUsage } from "../adapters/opencode/opencode-usage.js";
 
 export function enrichAndDeduplicateForecasts(forecasts: UsageForecast[], live: UsageResponse): UsageForecast[] {
   const deduplicated = new Map<string, { forecast: UsageForecast; score: number }>();
@@ -29,7 +30,7 @@ export function enrichAndDeduplicateForecasts(forecasts: UsageForecast[], live: 
 export class UsageAnalyticsService {
   private timer?: NodeJS.Timeout;
   private syncing: Promise<void> | undefined;
-  constructor(private readonly options: { database: UsageDatabase; client: CodexbarClient; live: CodexbarUsageService; intervalMilliseconds: number; monitoring: () => UsageMonitoring }) {}
+  constructor(private readonly options: { database: UsageDatabase; client: CodexbarClient; live: CodexbarUsageService; intervalMilliseconds: number; monitoring: () => UsageMonitoring; opencodeUsagePath?: string }) {}
 
   start() { void this.sync(); this.timer = setInterval(() => void this.sync(), this.options.intervalMilliseconds); this.timer.unref(); }
   async stop() { if (this.timer) clearInterval(this.timer); await this.syncing; }
@@ -58,6 +59,13 @@ export class UsageAnalyticsService {
     if (claudeCost.status === "fulfilled") this.options.database.importCost(claudeCost.value, "daily");
     if (codexProjectCost.status === "fulfilled") this.options.database.importCost(codexProjectCost.value, "projects");
     if (claudeProjectCost.status === "fulfilled") this.options.database.importCost(claudeProjectCost.value, "projects");
+    // OpenCode Go liefert in CodexBar keine Kosten- und Projektstatistik. Die
+    // lokale OpenCode-Datenbank führt stattdessen Sessiondaten mit Modell,
+    // Tokens und Kosten; daraus wird die gleiche Aufschlüsselung gespeist.
+    if (this.options.opencodeUsagePath) {
+      const openCodeLocal = readOpenCodeUsage(this.options.opencodeUsagePath);
+      if (openCodeLocal) this.options.database.importCost([openCodeLocal], "both");
+    }
   }
   async dashboard(range: UsageRange): Promise<UsageDashboardResponse> {
     const live: UsageResponse = await this.options.live.getUsage();
