@@ -10,6 +10,8 @@ import type { ServerTerminalMessage, TerminalErrorCode, TerminalKind } from "./p
 import type { TmuxSupervisor } from "./TmuxSupervisor.js";
 
 export type TerminalStatus = "starting" | "running" | "exited" | "interrupted" | "closed";
+type TerminalClient = (message: ServerTerminalMessage) => void;
+interface TerminalClientViewport { cols: number; rows: number; }
 export interface TerminalSession {
   id: string;
   userId: string;
@@ -32,7 +34,9 @@ export interface TerminalSession {
   exitSignal: number | null;
   sequence: number;
   lastPersistedAt: number | undefined;
-  clients: Set<(message: ServerTerminalMessage) => void>;
+  clients: Map<string, TerminalClient>;
+  clientViewports: Map<string, TerminalClientViewport>;
+  primaryClientId: string | null;
   dataListener: { dispose(): void } | null;
   exitListener: { dispose(): void } | null;
 }
@@ -45,6 +49,7 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1_000;
 export class TerminalManager {
   private readonly sessions = new Map<string, TerminalSession>();
   private readonly creationLocks = new Map<string, Promise<TerminalSession>>();
+  private readonly cwdRefreshTimers = new Map<string, NodeJS.Timeout>();
   constructor(private readonly options: {
     allowedRoots: string[];
     defaultCwd: string;
@@ -78,6 +83,7 @@ export class TerminalManager {
     rows: number;
     mode?: "agent" | "login";
     accountId?: string;
+    clientId?: string;
   }): Promise<TerminalSession> {
     const lockKey = input.runtimeId ? `${userId}\u0000${input.runtimeId}` : randomUUID();
     const pending = this.creationLocks.get(lockKey);
@@ -96,6 +102,7 @@ export class TerminalManager {
     rows: number;
     mode?: "agent" | "login";
     accountId?: string;
+    clientId?: string;
   }): Promise<TerminalSession> {
     const runtimeId = input.runtimeId ?? randomUUID();
     const existing = this.findByRuntime(userId, runtimeId);
@@ -103,8 +110,16 @@ export class TerminalManager {
       if (existing.kind !== (input.kind ?? "shell") || existing.projectId !== (input.projectId ?? null)) {
         throw new TerminalFailure("SESSION_RUNTIME_CONFLICT", "Diese Werkzeuginstanz ist bereits an eine andere Session gebunden.");
       }
-      existing.cols = input.cols;
-      existing.rows = input.rows;
+      // Eine laufende gemeinsame Session hat genau eine PTY-Geometrie. Sobald
+      // ein Client verbunden ist oder ein Create-Aufruf bereits den Primary
+      // reserviert hat, darf ein zweites Gerät diese Größe nicht überschreiben.
+      const ownsInitialGeometry = existing.clients.size === 0
+        && (existing.primaryClientId === null || existing.primaryClientId === input.clientId);
+      if (ownsInitialGeometry) {
+        existing.cols = input.cols;
+        existing.rows = input.rows;
+        if (existing.primaryClientId === null && input.clientId) existing.primaryClientId = input.clientId;
+      }
       if (!existing.pty && this.options.supervisor && existing.supervisorName && this.options.supervisor.has(existing.supervisorName)) {
         existing.status = "starting";
         this.spawn(existing);
@@ -142,7 +157,8 @@ export class TerminalManager {
       id: randomUUID(), userId, runtimeId, kind, mode: input.mode ?? "agent", profilePath,
       projectId: input.projectId ?? null, supervisorName: null, pty: null, pid: 0, cwd, cols: input.cols, rows: input.rows,
       status: "starting", history: "", createdAt: now, updatedAt: now, exitCode: null, exitSignal: null, sequence: 0,
-      clients: new Set(), dataListener: null, exitListener: null, lastPersistedAt: undefined,
+      clients: new Map(), clientViewports: new Map(), primaryClientId: input.clientId ?? null,
+      dataListener: null, exitListener: null, lastPersistedAt: undefined,
     };
     this.sessions.set(session.id, session);
     this.persist(session);
@@ -150,11 +166,26 @@ export class TerminalManager {
     catch (error) { this.sessions.delete(session.id); this.options.database?.deleteSession(userId, session.id); throw error; }
   }
 
-  attachSession(userId: string, sessionId: string, client: (message: ServerTerminalMessage) => void): () => void {
+  attachSession(userId: string, sessionId: string, client: TerminalClient, clientId: string = randomUUID()): () => void {
     const session = this.owned(userId, sessionId);
-    session.clients.add(client);
+    session.clients.set(clientId, client);
+    session.clientViewports.set(clientId, { cols: session.cols, rows: session.rows });
+    if (session.primaryClientId === null) session.primaryClientId = clientId;
     client({ type: "terminal.snapshot", sessionId, runtimeId: session.runtimeId, kind: session.kind, status: session.status, projectId: session.projectId, cwd: session.cwd, history: session.history, sequence: session.sequence ?? 0 });
-    return () => { session.clients.delete(client); };
+    let attached = true;
+    return () => {
+      if (!attached) return;
+      attached = false;
+      this.detachClientFromSession(session, clientId);
+    };
+  }
+
+  /** Entfernt auch einen Client, der nach `create` vor `attach` getrennt wurde. */
+  detachClient(userId: string, clientId: string) {
+    for (const session of this.sessions.values()) {
+      if (session.userId !== userId) continue;
+      if (session.clients.has(clientId) || session.primaryClientId === clientId) this.detachClientFromSession(session, clientId);
+    }
   }
 
   writeToSession(userId: string, sessionId: string, data: string) {
@@ -164,10 +195,15 @@ export class TerminalManager {
     catch { throw new TerminalFailure("PTY_WRITE_FAILED", "Die Eingabe konnte nicht an das Terminal gesendet werden."); }
   }
 
-  resizeSession(userId: string, sessionId: string, cols: number, rows: number) {
+  resizeSession(userId: string, sessionId: string, cols: number, rows: number, clientId?: string) {
     const session = this.running(userId, sessionId);
     if (cols < 2 || cols > 500 || rows < 1 || rows > 300) throw new TerminalFailure("PTY_RESIZE_FAILED", "Die Terminalgröße ist ungültig.");
-    try { session.pty?.resize(cols, rows); session.cols = cols; session.rows = rows; session.updatedAt = Date.now(); this.persist(session); }
+    if (clientId) {
+      if (!session.clients.has(clientId)) return;
+      session.clientViewports.set(clientId, { cols, rows });
+      if (session.primaryClientId !== clientId) return;
+    }
+    try { this.applyResize(session, cols, rows); }
     catch { throw new TerminalFailure("PTY_RESIZE_FAILED", "Die Terminalgröße konnte nicht angepasst werden."); }
   }
 
@@ -205,11 +241,13 @@ export class TerminalManager {
   }
 
   shutdown() {
+    for (const timer of this.cwdRefreshTimers.values()) clearTimeout(timer);
+    this.cwdRefreshTimers.clear();
     for (const session of this.sessions.values()) {
       if (session.status === "closed") continue;
       this.stopProcess(session, false);
       session.status = this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName) ? "running" : "interrupted";
-      session.updatedAt = Date.now(); this.persist(session); session.clients.clear();
+      session.updatedAt = Date.now(); this.persist(session); session.clients.clear(); session.clientViewports.clear(); session.primaryClientId = null;
     }
     this.sessions.clear();
   }
@@ -254,7 +292,7 @@ export class TerminalManager {
   }
 
   private fromStored(stored: StoredTerminalSession): TerminalSession {
-    return { ...stored, pty: null, history: "", clients: new Set(), dataListener: null, exitListener: null, sequence: 0, lastPersistedAt: undefined };
+    return { ...stored, pty: null, history: "", clients: new Map(), clientViewports: new Map(), primaryClientId: null, dataListener: null, exitListener: null, sequence: 0, lastPersistedAt: undefined };
   }
 
   private persist(session: TerminalSession) {
@@ -313,6 +351,7 @@ export class TerminalManager {
       session.updatedAt = Date.now();
       this.persist(session);
       this.emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence });
+      this.scheduleCwdRefresh(session);
       this.options.onOutput?.(session, data);
     });
     session.exitListener = pty.onExit((event) => {
@@ -379,12 +418,48 @@ export class TerminalManager {
     return { file: this.options.cliPaths?.[kind] ?? kind, args: mode === "login" ? (kind === "codex" ? ["login", "--device-auth"] : ["auth", "login"]) : [] };
   }
   private kindLabel(kind: TerminalKind) { return kind === "codex" ? "Codex" : kind === "opencode" ? "OpenCode" : kind === "claude" ? "Claude Code" : "Terminal"; }
-  private environment(session: TerminalSession): Record<string, string> { const env = { TERM: "xterm-256color", COLORTERM: "truecolor", HOME: process.env.HOME ?? homedir(), USER: process.env.USER ?? userInfo().username, SHELL: "/bin/bash", PATH: process.env.PATH ?? "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: process.env.LANG ?? "C.UTF-8" }; if (session.profilePath && session.kind === "codex") return { ...env, CODEX_HOME: session.profilePath }; if (session.profilePath && session.kind === "opencode") return { ...env, XDG_DATA_HOME: session.profilePath }; if (session.profilePath && session.kind === "claude" && resolve(session.profilePath) !== resolve(homedir(), ".claude")) return { ...env, CLAUDE_CONFIG_DIR: session.profilePath }; return env; }
+  private scheduleCwdRefresh(session: TerminalSession) {
+    if (!this.options.supervisor || !session.supervisorName || session.kind !== "shell") return;
+    const pending = this.cwdRefreshTimers.get(session.id);
+    if (pending) clearTimeout(pending);
+    const timer = setTimeout(() => {
+      this.cwdRefreshTimers.delete(session.id);
+      if (!session.supervisorName) return;
+      const cwd = this.options.supervisor?.currentPath(session.supervisorName);
+      if (!cwd || cwd === session.cwd || !isAbsolute(cwd)) return;
+      session.cwd = cwd;
+      session.updatedAt = Date.now();
+      session.lastPersistedAt = undefined;
+      this.persist(session);
+      this.emit(session, { type: "terminal.cwd", sessionId: session.id, cwd });
+    }, 80);
+    timer.unref();
+    this.cwdRefreshTimers.set(session.id, timer);
+  }
+  private environment(session: TerminalSession): Record<string, string> { const env = { TERM: "xterm-256color", COLORTERM: "truecolor", HOME: process.env.HOME ?? homedir(), USER: process.env.USER ?? userInfo().username, SHELL: "/bin/bash", PATH: process.env.PATH ?? "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: process.env.LANG ?? "C.UTF-8", ...(session.kind === "shell" ? { PROMPT_COMMAND: `printf '\\e]7;file://%s%s\\e\\\\' "$HOSTNAME" "$PWD"` } : {}) }; if (session.profilePath && session.kind === "codex") return { ...env, CODEX_HOME: session.profilePath }; if (session.profilePath && session.kind === "opencode") return { ...env, XDG_DATA_HOME: session.profilePath }; if (session.profilePath && session.kind === "claude" && resolve(session.profilePath) !== resolve(homedir(), ".claude")) return { ...env, CLAUDE_CONFIG_DIR: session.profilePath }; return env; }
   private owned(userId: string, sessionId: string) { let session = this.sessions.get(sessionId); if (!session) { const stored = this.options.database?.findSessionById(userId, sessionId); if (stored) { session = this.fromStored(stored); this.sessions.set(session.id, session); } } if (!session) throw new TerminalFailure("SESSION_NOT_FOUND", "Die Terminalsitzung wurde nicht gefunden."); if (session.userId !== userId) throw new TerminalFailure("SESSION_NOT_OWNED", "Kein Zugriff auf diese Terminalsitzung."); return session; }
   private running(userId: string, sessionId: string) { const session = this.owned(userId, sessionId); if (session.status !== "running" || !session.pty) throw new TerminalFailure(session.status === "interrupted" ? "SESSION_INTERRUPTED" : "TERMINAL_NOT_RUNNING", "Das Terminal läuft nicht."); return session; }
-  private emit(session: TerminalSession, message: ServerTerminalMessage) { for (const client of session.clients) client(message); }
+  private emit(session: TerminalSession, message: ServerTerminalMessage) { for (const client of session.clients.values()) client(message); }
+  private detachClientFromSession(session: TerminalSession, clientId: string) {
+    const wasPrimary = session.primaryClientId === clientId;
+    session.clients.delete(clientId);
+    session.clientViewports.delete(clientId);
+    if (!wasPrimary) return;
+    const next = session.clients.keys().next().value as string | undefined;
+    session.primaryClientId = next ?? null;
+    const viewport = next ? session.clientViewports.get(next) : undefined;
+    if (!viewport || session.status !== "running" || !session.pty) return;
+    try { this.applyResize(session, viewport.cols, viewport.rows); } catch { /* Der neue Primary passt beim nächsten Resize erneut an. */ }
+  }
+  private applyResize(session: TerminalSession, cols: number, rows: number) {
+    session.pty?.resize(cols, rows);
+    session.cols = cols;
+    session.rows = rows;
+    session.updatedAt = Date.now();
+    this.persist(session);
+  }
   private limitHistory(history: string) { return history.length <= HISTORY_LIMIT ? history : history.slice(history.length - HISTORY_LIMIT).replace(/^[^\n]*\n/, ""); }
   private stopProcess(session: TerminalSession, terminateRuntime: boolean) { const pid = session.pid; session.dataListener?.dispose(); session.exitListener?.dispose(); session.dataListener = null; session.exitListener = null; try { session.pty?.kill("SIGTERM"); } catch { /* already exited */ } if (process.platform === "linux" && pid > 0) { try { kill(-pid, "SIGTERM"); } catch { /* process group already exited */ } const forceKill = setTimeout(() => { try { kill(-pid, "SIGKILL"); } catch { /* process group exited */ } }, 1_000); forceKill.unref(); } session.pty = null; if (terminateRuntime && this.options.supervisor && session.supervisorName) { this.options.supervisor.terminate(session.supervisorName); session.supervisorName = null; } }
   private async validateCwd(value: string) { let cwd: string; try { cwd = resolve(value); } catch { throw new TerminalFailure("INVALID_CWD", "Das Arbeitsverzeichnis ist ungültig."); } if (!this.options.allowedRoots.some((root) => { const pathFromRoot = relative(root, cwd); return pathFromRoot === "" || (!pathFromRoot.startsWith("..") && !isAbsolute(pathFromRoot)); })) throw new TerminalFailure("INVALID_CWD", "Das Arbeitsverzeichnis liegt außerhalb der erlaubten Bereiche."); let details; try { details = await stat(cwd); } catch { throw new TerminalFailure("CWD_NOT_FOUND", "Das Arbeitsverzeichnis wurde nicht gefunden."); } if (!details.isDirectory()) throw new TerminalFailure("CWD_NOT_DIRECTORY", "Der angegebene Pfad ist kein Verzeichnis."); return cwd; }
-  private close(session: TerminalSession) { if (session.status === "closed") return; session.status = "closed"; this.stopProcess(session, true); session.clients.clear(); this.options.database?.deleteSession(session.userId, session.id); this.sessions.delete(session.id); }
+  private close(session: TerminalSession) { if (session.status === "closed") return; session.status = "closed"; this.stopProcess(session, true); session.clients.clear(); session.clientViewports.clear(); session.primaryClientId = null; this.options.database?.deleteSession(session.userId, session.id); this.sessions.delete(session.id); }
 }

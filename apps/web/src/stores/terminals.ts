@@ -30,6 +30,7 @@ export interface TerminalAreaState {
 
 interface TerminalStore {
   areas: Record<string, TerminalAreaState>;
+  runtimeCwds: Record<string, string>;
   hydrated: boolean;
   revision: number;
   dirty: boolean;
@@ -46,11 +47,13 @@ interface TerminalStore {
   ensureArea(areaId: string, projectId?: string | null, kind?: TerminalKind): void;
   addTab(areaId: string, projectId?: string | null, kind?: TerminalKind): string | null;
   addExistingTab(areaId: string, tab: TerminalTabState): string | null;
+  activateProject(areaId: string, projectId: string | null, kind?: TerminalKind): string | null;
   activateTab(areaId: string, tabId: string): void;
   closeTab(areaId: string, tabId: string): void;
   splitTab(areaId: string, tabId: string, side: "left" | "right"): void;
   clearSplit(areaId: string): void;
   setSplitSizes(areaId: string, sizes: [number, number]): void;
+  setRuntimeCwd(runtimeId: string, cwd: string): void;
 }
 
 function newTab(projectId: string | null = null, kind: TerminalKind = "shell"): TerminalTabState {
@@ -66,6 +69,7 @@ export const useTerminalStore = create<TerminalStore>()(
   persist(
     (set, get) => ({
       areas: {},
+      runtimeCwds: {},
       hydrated: false,
       revision: 0,
       dirty: false,
@@ -143,6 +147,14 @@ export const useTerminalStore = create<TerminalStore>()(
         set((state) => ({ areas: { ...state.areas, [areaId]: { ...existing, tabs: [...existing.tabs, tab], activeTabId: tab.id } }, dirty: true }));
         return tab.id;
       },
+      activateProject: (areaId, projectId, kind) => {
+        const area = get().areas[areaId];
+        const tab = area?.tabs.find((candidate) => candidate.projectId === projectId && (kind === undefined || candidate.kind === kind));
+        if (!area || !tab) return null;
+        if (area.activeTabId === tab.id) return tab.id;
+        set((state) => ({ areas: { ...state.areas, [areaId]: { ...area, activeTabId: tab.id } }, dirty: true }));
+        return tab.id;
+      },
       activateTab: (areaId, tabId) => set((state) => {
         const area = state.areas[areaId];
         if (!area?.tabs.some((tab) => tab.id === tabId)) return state;
@@ -204,6 +216,9 @@ export const useTerminalStore = create<TerminalStore>()(
         if (!area || Math.abs(splitSizes[0] + splitSizes[1] - 100) > 0.5) return state;
         return { areas: { ...state.areas, [areaId]: { ...area, splitSizes } }, dirty: true };
       }),
+      setRuntimeCwd: (runtimeId, cwd) => set((state) => state.runtimeCwds[runtimeId] === cwd
+        ? state
+        : { runtimeCwds: { ...state.runtimeCwds, [runtimeId]: cwd } }),
     }),
     {
       name: TERMINAL_STORAGE_KEY,

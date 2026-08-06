@@ -33,6 +33,7 @@ describe.skipIf(!existsSync(executable))("TmuxSupervisor", () => {
 
     expect(supervisor.has(name)).toBe(true);
     expect(supervisor.capture(name)).toContain("workbench-tmux-ready");
+    expect(supervisor.currentPath(name)).toBe("/tmp");
     expect(supervisor.list()).toContainEqual(expect.objectContaining({
       name,
       runtimeId,

@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   mouseWheelSequence,
+  shouldForwardTerminalData,
   terminalFontSizeForRenderScale,
   terminalKeySequence,
   touchScrollLines,
   updateMouseEncoding,
   updateMouseReporting,
 } from "./WebTerminal";
+
+describe("Terminal-Snapshot", () => {
+  it("sendet automatische xterm-Antworten während der Wiedergabe nicht an die PTY", () => {
+    expect(shouldForwardTerminalData(true, "session-1")).toBe(false);
+  });
+
+  it("sendet echte Eingaben nur mit verbundener Sitzung", () => {
+    expect(shouldForwardTerminalData(false, "session-1")).toBe(true);
+    expect(shouldForwardTerminalData(false, null)).toBe(false);
+  });
+});
 
 describe("Terminal-Raster bei Orbit-Zoom", () => {
   it("verwendet ohne äußeren Zoom die Basisschriftgröße", () => {
@@ -18,11 +30,18 @@ describe("Terminal-Raster bei Orbit-Zoom", () => {
     expect(terminalFontSizeForRenderScale(0.8)).toBe(17.5);
   });
 
-  it("begrenzt extreme Zoomwerte und behandelt ungültige Werte sicher", () => {
-    expect(terminalFontSizeForRenderScale(0.1)).toBe(21.54);
-    expect(terminalFontSizeForRenderScale(2)).toBe(10);
+  it("hält die sichtbare Schrift im gesamten Orbit-Zoombereich konstant", () => {
+    expect(terminalFontSizeForRenderScale(0.1) * 0.1).toBeCloseTo(14);
+    expect(terminalFontSizeForRenderScale(2.2) * 2.2).toBeCloseTo(14, 1);
+    expect(terminalFontSizeForRenderScale(2)).toBe(7);
+  });
+
+  it("begrenzt Werte außerhalb des Orbit-Zoombereichs und behandelt ungültige Werte sicher", () => {
+    expect(terminalFontSizeForRenderScale(0.01)).toBe(140);
+    expect(terminalFontSizeForRenderScale(3)).toBeCloseTo(6.36);
     expect(terminalFontSizeForRenderScale(Number.NaN)).toBe(14);
   });
+
 });
 
 describe("Maus-Reporting-Verfolgung", () => {

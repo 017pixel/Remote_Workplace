@@ -80,6 +80,7 @@ export function TerminalArea({
   const splitTab = useTerminalStore((state) => state.splitTab);
   const clearSplit = useTerminalStore((state) => state.clearSplit);
   const setSplitSizes = useTerminalStore((state) => state.setSplitSizes);
+  const setRuntimeCwd = useTerminalStore((state) => state.setRuntimeCwd);
   const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
   const sessions = useQuery({ ...workbenchQueries.terminalSessions(), refetchInterval: false, enabled: routeActive });
   const handles = useRef(new Map<string, WebTerminalHandle>());
@@ -92,6 +93,8 @@ export function TerminalArea({
   const [keyboardRow, setKeyboardRow] = useState<"keys" | "actions">("keys");
   const [stickyCtrl, setStickyCtrl] = useState(false);
   const [stickyAlt, setStickyAlt] = useState(false);
+  const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId);
+  const activeMeta = activeTab ? meta[activeTab.id] : undefined;
 
   useEffect(() => ensureArea(areaId, initialProjectId, kind), [areaId, ensureArea, initialProjectId, kind]);
   useEffect(() => {
@@ -105,9 +108,9 @@ export function TerminalArea({
     if (singlePane && area?.splitTabId) clearSplit(areaId);
   }, [area?.splitTabId, areaId, clearSplit, singlePane]);
 
-  const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId);
-  const activeMeta = activeTab ? meta[activeTab.id] : undefined;
-  const projectName = (projectId: string | null) => projects.data?.projects.find((project) => project.id === projectId)?.name ?? "Standardpfad";
+  const projectName = (projectId: string | null, cwd?: string) => projects.data?.projects.find((project) => project.id === projectId)?.name
+    ?? (cwd ? projects.data?.projects.find((project) => project.path === cwd)?.name : undefined)
+    ?? "Standardpfad";
   const create = useCallback(
     (projectId: string | null = null) => addTab(areaId, projectId, kind),
     [addTab, areaId, kind],
@@ -227,7 +230,7 @@ export function TerminalArea({
                 }}
                 onPointerUp={() => { if (longPress.current) window.clearTimeout(longPress.current); }}
                 onPointerCancel={() => { if (longPress.current) window.clearTimeout(longPress.current); }}
-                title={`${kindLabels[tab.kind]} ${index + 1} · ${projectName(tab.projectId)}${currentMeta?.cwd ? ` · ${currentMeta.cwd}` : ""}`}
+                title={`${kindLabels[tab.kind]} ${index + 1} · ${projectName(tab.projectId, currentMeta?.cwd)}${currentMeta?.cwd ? ` · ${currentMeta.cwd}` : ""}`}
               >
                 <button type="button" role="tab" aria-selected={active} onClick={() => activateTab(areaId, tab.id)}>
                   <span className={`terminal-state is-${currentMeta?.status ?? "connecting"}`} />
@@ -304,6 +307,7 @@ export function TerminalArea({
                 keepAlive={visible}
                 renderScale={renderScale}
                 onMetaChange={(next) => setMeta((current) => {
+                  setRuntimeCwd(tab.id, next.cwd);
                   const previous = current[tab.id];
                   if (previous?.status === next.status && previous.cwd === next.cwd && previous.error === next.error && previous.cols === next.cols && previous.rows === next.rows) return current;
                   return { ...current, [tab.id]: next };
@@ -361,7 +365,7 @@ export function TerminalArea({
           <span className={`terminal-state is-${activeMeta?.status ?? "connecting"}`} aria-hidden />
           <span className="terminal-statusline-state">{activeMeta ? statusLabel[activeMeta.status] : statusLabel.connecting}</span>
           <span className="terminal-statusline-path" title={activeMeta?.cwd ?? ""}>{activeMeta?.cwd ?? "Pfad wird geladen…"}</span>
-          <span className="terminal-statusline-project">{projectName(activeTab.projectId)}</span>
+          <span className="terminal-statusline-project">{projectName(activeTab.projectId, activeMeta?.cwd)}</span>
           {activeMeta && activeMeta.cols > 0 ? <span className="terminal-statusline-size">{activeMeta.cols}×{activeMeta.rows}</span> : null}
         </div>
       ) : null}

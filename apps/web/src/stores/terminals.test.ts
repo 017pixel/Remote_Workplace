@@ -24,6 +24,17 @@ describe("terminal areas", () => {
     ]);
   });
 
+  it("activates an existing project tab instead of creating a duplicate", () => {
+    useTerminalStore.getState().ensureArea("standalone", "first-project", "shell");
+    const first = useTerminalStore.getState().areas.standalone!.activeTabId!;
+    const second = useTerminalStore.getState().addTab("standalone", "second-project", "shell");
+
+    expect(useTerminalStore.getState().activateProject("standalone", "first-project", "shell")).toBeTruthy();
+    expect(useTerminalStore.getState().areas.standalone!.activeTabId).toBe(first);
+    expect(useTerminalStore.getState().areas.standalone!.activeTabId).not.toBe(second);
+    expect(useTerminalStore.getState().areas.standalone!.tabs).toHaveLength(2);
+  });
+
   it("caps CLI areas at the server-abgestimmten Instanzgrenzen", () => {
     useTerminalStore.getState().ensureArea("opencode-standalone", null, "opencode");
     for (let index = 1; index < CLI_INSTANCE_LIMITS.opencode; index += 1) {

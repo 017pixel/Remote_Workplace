@@ -70,6 +70,11 @@ export class TmuxSupervisor {
     return result.status === 0 ? result.stdout : "";
   }
 
+  currentPath(name: string) {
+    const result = spawnSync(this.executable, ["display-message", "-p", "-t", `${name}:0.0`, "#{pane_current_path}"], { encoding: "utf8", timeout: 3_000 });
+    return result.status === 0 ? result.stdout.trim() : null;
+  }
+
   terminate(name: string) {
     if (this.has(name)) this.run(["kill-session", "-t", name]);
   }

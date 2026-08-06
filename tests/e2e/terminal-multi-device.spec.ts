@@ -2,31 +2,90 @@ import { expect, test } from "@playwright/test";
 
 const workbench = process.env.WORKBENCH_E2E_URL;
 
+const e2eUser = process.env.WORKBENCH_E2E_USER ?? "user@example.com";
+test.use({ extraHTTPHeaders: { "tailscale-user-login": e2eUser } });
+
 test("keeps a Workbench terminal running while another device resumes it", async ({ browser }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  const firstContext = await browser.newContext({ viewport: { width: 1_280, height: 800 } });
+  const authHeaders = { "tailscale-user-login": e2eUser };
+  const firstContext = await browser.newContext({
+    viewport: { width: 1_280, height: 800 },
+    extraHTTPHeaders: authHeaders,
+  });
   const firstPage = await firstContext.newPage();
   await firstPage.goto(`${workbench}/terminal`);
-  await expect(firstPage.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
+  await expect(firstPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
 
   const marker = `__MULTI_DEVICE_TERMINAL_${Date.now()}__`;
   const input = firstPage.locator(".xterm-helper-textarea");
   await input.fill("");
-  await input.type(`printf '${marker}\\n'; sleep 30`);
+  await input.type(`printf '${marker}\\n'`);
   await input.press("Enter");
   await expect.poll(() => firstPage.locator(".xterm-rows").textContent()).toContain(marker);
 
   await firstPage.reload();
-  await expect(firstPage.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
+  await expect(firstPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => firstPage.locator(".xterm-rows").textContent()).toContain(marker);
 
-  await firstContext.close();
-
-  const secondContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const secondContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    extraHTTPHeaders: authHeaders,
+  });
   const secondPage = await secondContext.newPage();
   await secondPage.goto(`${workbench}/terminal`);
-  await expect(secondPage.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
+  await expect(secondPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => secondPage.locator(".xterm-rows").textContent()).toContain(marker);
-  await secondPage.locator(".terminal-area").getByRole("button", { name: "Terminal schließen", exact: true }).click();
+
+  const measureTerminal = async (page: typeof firstPage) => page.locator(".terminal-session-pane.is-visible").evaluate((pane) => {
+    const viewport = pane.querySelector<HTMLElement>(".terminal-viewport");
+    const paneBox = pane.getBoundingClientRect();
+    const viewportBox = viewport?.getBoundingClientRect();
+    return {
+      paneWidth: paneBox.width,
+      paneHeight: paneBox.height,
+      viewportWidth: viewportBox?.width ?? 0,
+      viewportHeight: viewportBox?.height ?? 0,
+      viewportBottom: viewportBox?.bottom ?? 0,
+    };
+  });
+  const firstGeometry = await measureTerminal(firstPage);
+  const secondGeometry = await measureTerminal(secondPage);
+  expect(firstGeometry.paneWidth).toBeGreaterThan(0);
+  expect(firstGeometry.viewportHeight).toBeGreaterThan(0);
+  expect(secondGeometry.paneWidth).toBeGreaterThan(0);
+  expect(secondGeometry.viewportHeight).toBeGreaterThan(0);
+  expect(secondGeometry.viewportBottom).toBeLessThanOrEqual(844);
+
+  await secondPage.evaluate(() => {
+    document.documentElement.style.setProperty("--app-viewport-height", "420px");
+    // Simuliert die verkleinerte Visual Viewport-Höhe eines geöffneten
+    // Android-Keyboards. Der Wert darf nicht zusätzlich als Keybar-Abstand
+    // in das Layout eingehen.
+    document.documentElement.style.setProperty("--keyboard-inset", "424px");
+  });
+  await expect.poll(() => secondPage.locator(".terminal-keybar").evaluate((element) => {
+    const shell = element.closest(".app-shell")?.getBoundingClientRect();
+    const keybar = element.getBoundingClientRect();
+    const viewport = element.closest(".terminal-area")?.querySelector<HTMLElement>(".terminal-viewport")?.getBoundingClientRect();
+    return keybar.bottom <= (shell?.bottom ?? 0) + 1 && (viewport?.height ?? 0) > 100;
+  })).toBe(true);
+  const keyboardGeometry = await secondPage.locator(".terminal-keybar").evaluate((element) => {
+    const shell = element.closest(".app-shell")?.getBoundingClientRect();
+    const keybar = element.getBoundingClientRect();
+    const viewport = element.closest(".terminal-area")?.querySelector<HTMLElement>(".terminal-viewport")?.getBoundingClientRect();
+    return { shellBottom: shell?.bottom ?? 0, keybarBottom: keybar.bottom, viewportHeight: viewport?.height ?? 0 };
+  });
+  expect(keyboardGeometry.keybarBottom).toBeLessThanOrEqual(keyboardGeometry.shellBottom + 1);
+  expect(keyboardGeometry.viewportHeight).toBeGreaterThan(100);
+
+  const secondMarker = `__MULTI_DEVICE_INPUT_${Date.now()}__`;
+  const secondInput = secondPage.locator(".xterm-helper-textarea");
+  await secondInput.fill("");
+  await secondInput.type(`printf '${secondMarker}\\n'`);
+  await secondInput.press("Enter");
+  await expect.poll(() => firstPage.locator(".xterm-rows").textContent()).toContain(secondMarker);
+
+  await firstContext.close();
+  await expect.poll(() => secondPage.locator(".xterm-rows").textContent()).toContain(marker);
   await secondContext.close();
 });

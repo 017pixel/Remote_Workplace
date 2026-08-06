@@ -48,6 +48,36 @@ describe("terminal websocket route", () => {
     manager.shutdown();
   });
 
+  it("uses the configured development identity when the browser WebSocket has no proxy header", async () => {
+    const app = Fastify();
+    apps.push(app);
+    const manager = new TerminalManager({
+      allowedRoots: ["/tmp"],
+      defaultCwd: "/tmp",
+      maxSessions: 1,
+    });
+    await app.register(websocket, { options: { maxPayload: 65_536 } });
+    await app.register(registerTerminalRoutes, {
+      prefix: "/api/v1",
+      manager,
+      allowedUsers: ["terminal-dev@example.com"],
+      developmentUser: "terminal-dev@example.com",
+    });
+    await app.ready();
+
+    const socket = await app.injectWS("/api/v1/terminal", {
+      headers: { origin: "http://localhost", host: "localhost", "x-forwarded-proto": "http" },
+    });
+    const pong = new Promise<string>((resolve) => {
+      socket.once("message", (data: Buffer) => resolve(data.toString()));
+    });
+    socket.send(JSON.stringify({ type: "terminal.ping" }));
+
+    expect(JSON.parse(await pong)).toEqual({ type: "terminal.pong" });
+    socket.terminate();
+    manager.shutdown();
+  });
+
   it("resolves a project ID on the server before creating a session", async () => {
     const app = Fastify();
     apps.push(app);

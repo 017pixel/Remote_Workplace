@@ -11,9 +11,10 @@ interface ProjectPickerProps {
   onChange: (projectId: string) => void;
   compact?: boolean;
   label?: string;
+  allowEmptyValue?: boolean;
 }
 
-export function ProjectPicker({ projects, value, onChange, compact = false, label = "Projekt" }: ProjectPickerProps) {
+export function ProjectPicker({ projects, value, onChange, compact = false, label = "Projekt", allowEmptyValue = false }: ProjectPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
@@ -23,7 +24,7 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
   const searchRef = useRef<HTMLInputElement>(null);
   const menuId = useId();
   const menuStyle = useAnchoredOverlay(open, triggerRef, { width: 390, stretchBelowBreakpoint: 1180 });
-  const selected = projects.find((project) => project.id === value) ?? projects[0];
+  const selected = value === null && allowEmptyValue ? undefined : projects.find((project) => project.id === value) ?? projects[0];
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("de");
     return needle
@@ -80,7 +81,7 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
       >
         <span className="project-picker-label">{label}</span>
         <FolderCodeIcon className="project-picker-icon" aria-hidden />
-        <span className="project-picker-value">{selected?.name ?? "Auswählen"}</span>
+        <span className="project-picker-value">{selected?.name ?? (allowEmptyValue && value === null ? "Standardpfad" : "Auswählen")}</span>
         <ChevronDownIcon className={`project-picker-chevron ${open ? "is-open" : ""}`} aria-hidden />
       </button>
       {open ? createPortal(

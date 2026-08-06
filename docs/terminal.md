@@ -8,7 +8,20 @@ Jeder Terminal-Bereich verwaltet bis zu fünf nummerierte Tabs. Jeder Tab besitz
 
 Die Workbench führt eine laufende Session-Liste. Dort können Sessions auf einem anderen Gerät geöffnet, beendet oder bewusst neu gestartet werden. Mehrere Geräte dürfen dieselbe Session gleichzeitig verbinden; Output wird an alle Geräte verteilt und Eingaben werden gemeinsam an tmux weitergeleitet. Beim Backendstart gleicht die Registry ihre Einträge mit den real laufenden tmux-Sitzungen ab. Bei exakt einem erlaubten Tailscale-Benutzer werden auch bereits vorhandene tmux-Sitzungen erkannt und als Shell, Codex oder OpenCode angeboten. Unbeaufsichtigte Rohprozesse ohne PTY-Supervisor können technisch nicht nachträglich an ein neues interaktives Terminal gebunden werden; neue Workbench-Läufe sind deshalb standardmäßig immer beaufsichtigt.
 
+Eine PTY besitzt immer genau eine gemeinsame Spalten-/Zeilen-Geometrie. Das zuerst
+verbundene Gerät ist deshalb der Primary für Größenänderungen. Weitere Geräte sehen und
+bedienen dieselbe Ausgabe, ihre lokalen Größen werden nur vorgemerkt. Erst wenn der Primary
+trennt, übernimmt ein verbleibendes Gerät seine zuletzt gemeldete Größe. So bleibt eine
+TUI-Sitzung bei paralleler Nutzung stabil, statt bei jedem Resize zwischen zwei Viewports
+umzubrechen.
+
 Die Projektwahl sendet ausschließlich eine Projekt-ID. Der Server löst daraus den konfigurierten, verfügbaren Projektpfad auf und prüft ihn zusätzlich gegen `TERMINAL_ALLOWED_ROOTS`, bevor die neue Shell direkt im Projektordner startet. Laufende Sitzungen wechseln ihr Arbeitsverzeichnis nie ungefragt.
+
+Der Projekt-Picker im Terminal zeigt immer das Projekt des aktiven Terminal-Tabs. Beim
+Wechsel wird ein vorhandener Tab dieses Projekts wieder aktiviert; nur bei einem bislang
+nicht geöffneten Projekt entsteht ein neuer Tab. Dadurch können mehrere Projektordner
+parallel laufen, ohne dass eine bestehende Session stillschweigend ihr Arbeitsverzeichnis
+ändert.
 
 ## Aktivierung
 

@@ -67,14 +67,15 @@ export function ProjectCard({ project }: { project: Project }) {
           <T3CodeIcon className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
         </button>
         <details className="project-tools-menu">
-          <summary><span>Weitere Werkzeuge</span><span className="project-tools-count">{tools.length}</span><ChevronDownIcon className="h-4 w-4" /></summary>
-          <div>
+          <summary aria-label="Weitere Werkzeuge öffnen" title="Weitere Werkzeuge"><ChevronDownIcon className="h-4 w-4" /><span>Weitere</span><span className="project-tools-count">{tools.length}</span></summary>
+          <div role="menu">
             {tools.map((tool) => {
               const Icon = tool.icon;
               return (
                 <button
                   key={tool.id}
                   type="button"
+                  role="menuitem"
                   disabled={project.availability !== "available"}
                   onClick={() => {
                     openProjectToolInWorkbench(project, tool.type, tool.previewId);

@@ -17,6 +17,7 @@ class FakePty implements PtyProcess {
 class FakeSupervisor {
   readonly sessions = new Set<string>();
   readonly terminated: string[] = [];
+  path: string | null = null;
   sessionName(runtimeId: string) { return `workbench-${runtimeId.replaceAll("-", "")}`; }
   list() { return [...this.sessions].map((name) => ({ name })); }
   has(name: string) { return this.sessions.has(name); }
@@ -25,6 +26,7 @@ class FakeSupervisor {
   attachCommand(name: string) { return { file: "/usr/bin/tmux", args: ["attach-session", "-t", name] }; }
   respawn(name: string) { this.sessions.add(name); }
   sendLastCommandHint() {}
+  currentPath() { return this.path; }
   terminate(name: string) { this.terminated.push(name); this.sessions.delete(name); }
 }
 
@@ -56,17 +58,44 @@ describe("TerminalManager", () => {
 
   it("reuses a runtime identity and broadcasts output to multiple devices", async () => {
     const { pty, manager: terminal } = await setup();
-    const first = await terminal.createSession("owner", { runtimeId: "00000000-0000-4000-8000-000000000001", cols: 80, rows: 24 });
-    const second = await terminal.createSession("owner", { runtimeId: first.runtimeId, cols: 100, rows: 30 });
+    const first = await terminal.createSession("owner", { runtimeId: "00000000-0000-4000-8000-000000000001", cols: 80, rows: 24, clientId: "device-one" });
+    const second = await terminal.createSession("owner", { runtimeId: first.runtimeId, cols: 100, rows: 30, clientId: "device-two" });
     expect(second.id).toBe(first.id);
+    expect(terminal.getSessionMetadata("owner", first.id)).toMatchObject({ cols: 80, rows: 24 });
     const deviceOne: unknown[] = [];
     const deviceTwo: unknown[] = [];
-    const detachOne = terminal.attachSession("owner", first.id, (message) => deviceOne.push(message));
-    const detachTwo = terminal.attachSession("owner", first.id, (message) => deviceTwo.push(message));
+    const detachOne = terminal.attachSession("owner", first.id, (message) => deviceOne.push(message), "device-one");
+    const detachTwo = terminal.attachSession("owner", first.id, (message) => deviceTwo.push(message), "device-two");
+    terminal.resizeSession("owner", first.id, 120, 40, "device-one");
+    terminal.resizeSession("owner", first.id, 180, 50, "device-two");
+    expect(pty.resizes).toEqual([[120, 40]]);
     pty.output("shared-output\n");
     expect(deviceOne).toContainEqual(expect.objectContaining({ type: "terminal.output", data: "shared-output\n" }));
     expect(deviceTwo).toContainEqual(expect.objectContaining({ type: "terminal.output", data: "shared-output\n" }));
-    detachOne(); detachTwo();
+    detachOne();
+    expect(pty.resizes).toEqual([[120, 40], [180, 50]]);
+    detachTwo();
+  });
+
+  it("meldet Verzeichniswechsel aus einer laufenden tmux-Shell live", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-cwd-"));
+    const nested = join(root, "nested");
+    await mkdir(nested);
+    const supervisor = new FakeSupervisor();
+    const pty = new FakePty();
+    manager = new TerminalManager({
+      allowedRoots: [root], defaultCwd: root, maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => pty },
+    });
+    const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    const messages: unknown[] = [];
+    manager.attachSession("owner", session.id, (message) => messages.push(message));
+    supervisor.path = nested;
+    pty.output("prompt\r\n");
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(messages).toContainEqual({ type: "terminal.cwd", sessionId: session.id, cwd: nested });
+    expect(manager.getSessionMetadata("owner", session.id).cwd).toBe(nested);
   });
 
   it("keeps the supervised runtime alive across a server restart and reconnects its client", async () => {

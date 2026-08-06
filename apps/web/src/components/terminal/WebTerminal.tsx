@@ -20,6 +20,7 @@ type ServerMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
   | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
+  | { type: "terminal.cwd"; sessionId: string; cwd: string }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
   | { type: "terminal.restarting"; sessionId: string; reason: string; sequence: number }
   | { type: "terminal.cleared"; sessionId: string; sequence: number }
@@ -77,8 +78,8 @@ export interface WebTerminalProps {
 }
 
 const baseTerminalFontSize = 14;
-const minimumCompensatedRenderScale = 0.65;
-const maximumCompensatedRenderScale = 1.4;
+const minimumCompensatedRenderScale = 0.1;
+const maximumCompensatedRenderScale = 2.2;
 
 /**
  * xterm rendert Zeichen in einen Canvas. In einem gezoomten Orbit-Knoten wird
@@ -91,6 +92,10 @@ export function terminalFontSizeForRenderScale(renderScale = 1): number {
     ? Math.min(maximumCompensatedRenderScale, Math.max(minimumCompensatedRenderScale, renderScale))
     : 1;
   return Number((baseTerminalFontSize / scale).toFixed(2));
+}
+
+export function shouldForwardTerminalData(replayingSnapshot: boolean, sessionId: string | null): sessionId is string {
+  return !replayingSnapshot && sessionId !== null;
 }
 
 const mouseReportingModes = ["1000", "1002", "1003"];
@@ -207,6 +212,10 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   const outputFlushRef = useRef<number | null>(null);
   const sessionRef = useRef<string | null>(null);
   const sequenceRef = useRef(0);
+  // Ein Snapshot ist reine Anzeige. Während xterm ihn parst, kann es enthaltene
+  // Geräteabfragen automatisch über onData beantworten. Diese Antworten dürfen
+  // nie als neue Nutzereingabe in der PTY landen.
+  const snapshotReplayRef = useRef(false);
   const reconnectRef = useRef<number | null>(null);
   const resizeRef = useRef<number | null>(null);
   const themeRefreshRef = useRef<number | null>(null);
@@ -435,6 +444,8 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         autoRestartCountRef.current = 0;
         send({ type: "terminal.attach", sessionId: message.sessionId });
         resize();
+      } else if (message.type === "terminal.cwd") {
+        setCwd(message.cwd);
       } else if (message.type === "terminal.snapshot" && terminal) {
         flushOutput(true);
         sessionRef.current = message.sessionId;
@@ -444,9 +455,12 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         autoRestartCountRef.current = 0;
         mouseTrackingRef.current = updateMouseReporting(false, message.history);
         mouseEncodingRef.current = updateMouseEncoding(false, message.history);
+        snapshotReplayRef.current = true;
         terminal.write("\x1bc");
-        terminal.write(message.history);
-        resize();
+        terminal.write(message.history, () => {
+          snapshotReplayRef.current = false;
+          resize();
+        });
       } else if (message.type === "terminal.output" && message.sequence > sequenceRef.current) {
         sequenceRef.current = message.sequence;
         mouseTrackingRef.current = updateMouseReporting(mouseTrackingRef.current, message.data);
@@ -544,6 +558,13 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(mount);
+    const cwdHandler = terminal.parser.registerOscHandler(7, (value) => {
+      try {
+        const next = new URL(value).pathname;
+        if (next.startsWith("/")) setCwd(decodeURIComponent(next));
+      } catch { /* Ungültige OSC-7-Werte ignorieren. */ }
+      return true;
+    });
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.type !== "keydown") return true;
       const clipboardAction = terminalClipboardAction(event);
@@ -576,7 +597,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     fitRef.current = fit;
     const input = terminal.onData((data) => {
       const sessionId = sessionRef.current;
-      if (!sessionId) return;
+      if (!shouldForwardTerminalData(snapshotReplayRef.current, sessionId)) return;
       rememberTyping(data);
       for (const chunk of splitTerminalInput(data)) {
         if (!send({ type: "terminal.input", sessionId, data: chunk })) {
@@ -590,6 +611,13 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       resizeRef.current = window.setTimeout(resize, 75);
     });
     observer.observe(mount);
+    const viewport = window.visualViewport;
+    const onViewportChange = () => {
+      if (resizeRef.current) window.clearTimeout(resizeRef.current);
+      resizeRef.current = window.setTimeout(resize, 50);
+    };
+    viewport?.addEventListener("resize", onViewportChange);
+    viewport?.addEventListener("scroll", onViewportChange);
     const themes = new MutationObserver(() => {
       if (themeRefreshRef.current !== null) return;
       themeRefreshRef.current = window.setTimeout(() => {
@@ -673,7 +701,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     if (activeRef.current || (keepAlive && globalThis.document.visibilityState !== "hidden")) connect();
     return () => {
       disposedRef.current = true;
-      input.dispose(); observer.disconnect(); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true });
+      input.dispose(); cwdHandler.dispose(); observer.disconnect(); viewport?.removeEventListener("resize", onViewportChange); viewport?.removeEventListener("scroll", onViewportChange); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true });
       mount.removeEventListener("touchstart", onTouchStart);
       mount.removeEventListener("touchmove", onTouchMove);
       mount.removeEventListener("touchend", endTouch);
@@ -686,14 +714,15 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       if (outputFlushRef.current) window.clearTimeout(outputFlushRef.current);
       outputFlushRef.current = null;
       outputBufferRef.current = "";
+      snapshotReplayRef.current = false;
       socketRef.current?.close(); terminal.dispose();
       socketRef.current = null; terminalRef.current = null; fitRef.current = null;
     };
   }, [connect, keepAlive, receivePastedText, resize, scrollByLines, send]);
 
-  // Orbit-Knoten werden mit CSS transform skaliert. xterm muss seine Canvas-
-  // Schrift daher mit dem Gegenfaktor zeichnen, sonst wird Blockgrafik beim
-  // Herunterskalieren sichtbar in horizontale Rasterstücke zerlegt.
+  // Orbit-Knoten werden mit CSS transform skaliert. xterm zeichnet deshalb im
+  // gesamten erlaubten Zoombereich mit dem exakten Gegenfaktor. Sichtbar bleibt
+  // die Schrift so bei 14 px, statt an den früheren Grenzwerten mitzuzoomen.
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
@@ -807,7 +836,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       {restartBanner ? <div className="terminal-restart-banner" role="status"><span>{restartBanner.message}</span><button type="button" onClick={() => setRestartBanner(null)} aria-label="Banner schliessen"><CloseIcon className="h-3.5 w-3.5" /></button></div> : null}
       {/* Bei totem Terminal wandert der Fehlertext in das Banner darunter —
           sonst stünden zwei Meldungen mit derselben Aussage untereinander. */}
-      {error && !terminalIsDead ? <p className="terminal-error">{error}</p> : null}
+      {error && !terminalIsDead ? <div className="terminal-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(null)} aria-label="Fehlermeldung schließen" title="Schließen"><CloseIcon className="h-3.5 w-3.5" /></button></div> : null}
       {/* Nicht nur bei "exited": Auch ein Sitzungsfehler oder eine dauerhafte
           Trennung lässt das Terminal tot zurück (siehe terminalIsDead). */}
       {terminalIsDead ? (

@@ -39,6 +39,7 @@ export type ServerTerminalMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
   | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
+  | { type: "terminal.cwd"; sessionId: string; cwd: string }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
   | { type: "terminal.restarting"; sessionId: string; reason: string; sequence: number }
   | { type: "terminal.cleared"; sessionId: string; sequence: number }
