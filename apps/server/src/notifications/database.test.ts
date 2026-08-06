@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NotificationDatabase } from "./database.js";
 
 const temporaryDirectories: string[] = [];
@@ -127,5 +127,50 @@ describe("Benachrichtigungsdatenbank", () => {
     expect(database.setPresence({ source: "t3", threadId: null })).toBe(0);
     expect(database.get(thread.id)?.readAt).toBeNull();
     database.close();
+  });
+
+  it("meldet mehrere gleichzeitig sichtbare Chats und verwirft alte nach der TTL", () => {
+    vi.useFakeTimers();
+    try {
+      const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+      temporaryDirectories.push(directory);
+      const database = new NotificationDatabase(join(directory, "workbench.sqlite"), 48, 10_000);
+      database.setPresence([
+        { source: "t3", threadId: "thread-a" },
+        { source: "opencode", sessionId: "laufzeit-1" },
+      ]);
+      const t3 = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-a" } });
+      const opencode = database.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { sessionId: "laufzeit-1" } });
+      const fremd = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-b" } });
+      expect(t3.readAt).not.toBeNull();
+      expect(opencode.readAt).not.toBeNull();
+      expect(fremd.readAt).toBeNull();
+
+      database.setPresence([{ source: "t3", threadId: "thread-a" }]);
+      vi.advanceTimersByTime(20_000);
+      const stale = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Später", body: "fertig", meta: { threadId: "thread-a" } });
+      expect(stale.readAt).toBeNull();
+      expect(database.hasActiveWorkbench()).toBe(false);
+      database.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("zählt jeden Presence-Heartbeat als aktive Workbench, auch ohne Chat", () => {
+    vi.useFakeTimers();
+    try {
+      const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+      temporaryDirectories.push(directory);
+      const database = new NotificationDatabase(join(directory, "workbench.sqlite"), 48, 10_000);
+      expect(database.hasActiveWorkbench()).toBe(false);
+      database.setPresence([]);
+      expect(database.hasActiveWorkbench()).toBe(true);
+      vi.advanceTimersByTime(10_001);
+      expect(database.hasActiveWorkbench()).toBe(false);
+      database.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

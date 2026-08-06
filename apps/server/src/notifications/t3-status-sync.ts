@@ -5,7 +5,7 @@ import { redactText } from "../hermes/redaction.js";
 import type { NotificationDatabase } from "./database.js";
 
 interface ThreadRow {
-  threadId: string; title: string; projectId: string; updatedAt: string;
+  threadId: string; title: string; projectId: string; projectTitle: string | null; updatedAt: string;
   pendingApprovalCount: number; pendingUserInputCount: number; hasActionableProposedPlan: number;
   settledAt: string | null; sessionStatus: string | null; lastError: string | null;
   turnId: string | null; turnState: string | null; startedAt: string | null; completedAt: string | null;
@@ -49,13 +49,14 @@ export class T3StatusSync {
         ? (db.prepare("SELECT DISTINCT stream_id threadId FROM orchestration_events WHERE sequence > ? AND aggregate_kind = 'thread'").all(this.lastSequence) as unknown as Array<{ threadId: string }>).map((item) => item.threadId)
         : [];
       const filter = this.initialized ? (touched.length ? `AND t.thread_id IN (${touched.map(() => "?").join(",")})` : "AND 0") : "";
-      const rows = db.prepare(`SELECT t.thread_id threadId, t.title, t.project_id projectId, t.updated_at updatedAt,
+      const rows = db.prepare(`SELECT t.thread_id threadId, t.title, t.project_id projectId, p.title projectTitle, t.updated_at updatedAt,
         t.pending_approval_count pendingApprovalCount, t.pending_user_input_count pendingUserInputCount,
         t.has_actionable_proposed_plan hasActionableProposedPlan, t.settled_at settledAt,
         s.status sessionStatus, s.last_error lastError, v.turn_id turnId, v.state turnState,
         v.started_at startedAt, v.completed_at completedAt,
         (SELECT COUNT(*) FROM projection_thread_activities a WHERE a.thread_id=t.thread_id AND a.kind LIKE 'tool.%' AND (a.turn_id=v.turn_id OR v.turn_id IS NULL)) toolCount
         FROM projection_threads t
+        LEFT JOIN projection_projects p ON p.project_id = t.project_id
         LEFT JOIN projection_thread_sessions s ON s.thread_id=t.thread_id
         LEFT JOIN projection_turns v ON v.row_id=(SELECT MAX(v2.row_id) FROM projection_turns v2 WHERE v2.thread_id=t.thread_id)
         WHERE t.deleted_at IS NULL ${filter}`).all(...touched) as unknown as ThreadRow[];
@@ -86,16 +87,23 @@ export class T3StatusSync {
 
   private process(row: ThreadRow, environmentId: string, db: DatabaseSync, allowCompletion: boolean): void {
     const prefix = `thread:${row.threadId}:`;
-    const link = environmentId ? `/t3/${encodeURIComponent(environmentId)}/${encodeURIComponent(row.threadId)}` : "/t3";
+    // Tiefenlink in die Workbench-SPA: Sie öffnet das T3-Panel mit genau
+    // diesem Thread (Umgebung für eine zuverlässige Routenauflösung).
+    const query = new URLSearchParams({ thread: row.threadId });
+    if (environmentId) query.set("env", environmentId);
+    const link = `/workbench/t3-code?${query.toString()}`;
+    const body = row.projectTitle ? `${row.projectTitle} · ${row.title}` : row.title;
     if (row.pendingUserInputCount > 0) {
       const remoteId = this.options.notifications.activeRemoteId("t3", "agent.input-required", `${prefix}input`) ?? `${prefix}input:${row.updatedAt}`;
       this.options.notifications.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.input-required", severity: "warning",
-        title: "T3 Code braucht Input", body: row.title, link, remoteId, meta: { threadId: row.threadId, projectId: row.projectId } });
+        title: "T3 Code braucht Input", body, link, remoteId, meta: { threadId: row.threadId, projectId: row.projectId } });
     } else this.options.notifications.resolveMatching("t3", ["agent.input-required"], `${prefix}input`);
     if (row.pendingApprovalCount > 0 || row.hasActionableProposedPlan > 0) {
       const remoteId = this.options.notifications.activeRemoteId("t3", "agent.plan-ready", `${prefix}plan`) ?? `${prefix}plan:${row.updatedAt}`;
-      this.options.notifications.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.plan-ready", severity: "warning",
-        title: "T3-Plan ist bereit", body: row.title, link, remoteId, meta: { threadId: row.threadId, projectId: row.projectId } });
+      // Info statt Warning: Zwischenpläne ohne echte Freigabe sind normal und
+      // dürfen weder Push auslösen noch wie ein Fehler wirken.
+      this.options.notifications.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.plan-ready", severity: "info",
+        title: "T3-Plan ist bereit", body, link, remoteId, meta: { threadId: row.threadId, projectId: row.projectId } });
     } else this.options.notifications.resolveMatching("t3", ["agent.plan-ready"], `${prefix}plan`);
 
     if (!allowCompletion) return;
@@ -106,14 +114,14 @@ export class T3StatusSync {
     if (row.turnState === "completed") {
       if (duration < this.options.miniTaskSeconds || (duration < this.options.completionMinimumSeconds && !usedTools)) return;
       this.options.notifications.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success",
-        title: "T3-Aufgabe abgeschlossen", body: row.title, link, remoteId: `${prefix}complete:${row.turnId}`,
+        title: "T3-Aufgabe abgeschlossen", body, link, remoteId: `${prefix}complete:${row.turnId}`,
         meta: { threadId: row.threadId, projectId: row.projectId, durationSeconds: Math.round(duration), usedTools } });
       return;
     }
     const rawError = row.lastError || (row.turnState === "interrupted" ? "Die T3-Aufgabe wurde abgebrochen." : "Die T3-Aufgabe ist fehlgeschlagen.");
     const logs = (db.prepare("SELECT summary FROM projection_thread_activities WHERE thread_id=? ORDER BY created_at DESC LIMIT 20").all(row.threadId) as unknown as Array<{ summary: string }>).map((item) => redactText(item.summary, 1_000)).reverse();
     this.options.notifications.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.failed", severity: row.turnState === "error" ? "error" : "warning",
-      title: row.turnState === "error" ? "T3-Aufgabe fehlgeschlagen" : "T3-Aufgabe abgebrochen", body: row.title, link,
+      title: row.turnState === "error" ? "T3-Aufgabe fehlgeschlagen" : "T3-Aufgabe abgebrochen", body, link,
       remoteId: `${prefix}failed:${row.turnId}`, meta: { threadId: row.threadId, projectId: row.projectId, durationSeconds: Math.round(duration) },
       report: { message: redactText(rawError, 4_000), stack: null, context: { Quelle: "T3 Code", Aufgabe: row.title, Projekt: row.projectId, Thread: row.threadId }, logs, environment: {} } });
   }

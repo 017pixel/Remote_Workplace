@@ -1,5 +1,5 @@
 import { globSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { NotificationDatabase } from "./database.js";
 
@@ -19,6 +19,7 @@ function normalized(value: string | null): string {
 function sessionMarkerKey(title: string, directory: string | null): string {
   return `${normalized(directory)}\u0000${normalized(title)}`;
 }
+function projectLabel(directory: string): string { return basename(directory) || directory; }
 function isT3OpenCodeSession(session: OpenCodeSession, t3Sessions: ReadonlySet<string>): boolean {
   return /^t3 code(?:\s|$)/i.test(session.title.trim()) || t3Sessions.has(sessionMarkerKey(session.title, session.directory));
 }
@@ -73,7 +74,7 @@ export class AgentSessionSync {
         if (!error && !usedTool && durationSeconds < this.options.completionMinimumSeconds) continue;
         this.options.notifications.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode",
           kind: error ? "agent.failed" : "agent.completed", severity: error ? "error" : "success",
-          title: error ? "OpenCode fehlgeschlagen" : "OpenCode abgeschlossen", body: error ?? `${session.title} nach ${durationSeconds} Sekunden`,
+          title: error ? "OpenCode fehlgeschlagen" : "OpenCode abgeschlossen", body: error ?? `${projectLabel(session.directory)} nach ${durationSeconds} Sekunden`,
           link: `/workbench/opencode?session=${encodeURIComponent(session.id)}`, remoteId: `opencode:${messageId}`,
           meta: { sessionId: session.id, directory: session.directory, durationSeconds, usedTool },
           report: error ? { message: error, stack: null, context: { Quelle: "OpenCode", Sitzung: session.id, Arbeitsverzeichnis: session.directory }, logs: [], environment: {} } : null });
@@ -119,7 +120,7 @@ export class AgentSessionSync {
           const reason = text(nested(payload, "reason"));
           this.options.notifications.create({ source: "codex", category: "coding-agent", sourceIcon: "codex",
             kind: failed ? "agent.failed" : "agent.completed", severity: failed ? "error" : "success",
-            title: failed ? "Codex fehlgeschlagen" : "Codex abgeschlossen", body: failed ? reason ?? "Der Lauf wurde abgebrochen." : `Laufzeit ${durationSeconds} Sekunden`,
+            title: failed ? "Codex fehlgeschlagen" : "Codex abgeschlossen", body: failed ? reason ?? "Der Lauf wurde abgebrochen." : `${projectLabel(cwd)} nach ${durationSeconds} Sekunden`,
             link: `/workbench/codex?session=${encodeURIComponent(sessionId)}`, remoteId: `codex:${sessionId}:${turnId}`,
             meta: { sessionId, cwd, durationSeconds, usedTool }, report: failed ? { message: reason ?? "Codex-Lauf abgebrochen", stack: null, context: { Quelle: "Codex", Sitzung: sessionId, Arbeitsverzeichnis: cwd }, logs: [], environment: {} } : null });
         }

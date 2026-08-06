@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon, DeviceRotateIcon, ExternalLinkIcon, FullscreenIcon, RefreshIcon, RestoreIcon, WarningIcon } from "./icons";
 import type { Panel, Project, ServiceMode } from "@workbench/contracts";
@@ -18,6 +18,7 @@ import { apiClient } from "../lib/apiClient";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { normalizePreviewTarget } from "../lib/previewTargets";
 import { useRouteActivity } from "../lib/routeActivity";
+import { usePanelPresenceStore } from "../stores/panelPresence";
 
 const HermesShell = lazy(() => import("./hermes/HermesShell").then((module) => ({ default: module.HermesShell })));
 
@@ -145,6 +146,26 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       return raw ? Number(raw) : null;
     } catch { return null; }
   });
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (panel.type !== "t3-code") return;
+    // Die T3-Route-Bridge meldet Thread-Wechsel global per postMessage. Nur
+    // Meldungen aus dem eigenen iframe zählen, damit mehrere T3-Panels ihre
+    // Threads nicht vermischen (event.source-Vergleich).
+    const receive = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
+      if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
+      const segments = (data.path.split("?")[0] ?? "").split("/").filter(Boolean);
+      usePanelPresenceStore.getState().setT3Thread(panel.id, segments.length >= 2 ? segments[1] ?? null : null);
+    };
+    window.addEventListener("message", receive);
+    return () => {
+      window.removeEventListener("message", receive);
+      usePanelPresenceStore.getState().clearPanel(panel.id);
+    };
+  }, [panel.id, panel.type]);
 
   useEffect(() => {
     if (panel.type !== "t3-code") return;
@@ -184,9 +205,12 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
 
   const [loaded, setLoaded] = useState(false);
   const effectiveReloadKey = panel.reloadKey + standaloneReloadKey;
+  const panelSource = panel.type === "t3-code"
+    ? `${resolved?.proxyUrl ?? resolved?.url ?? ""}${panel.t3Path ?? ""}`
+    : resolved?.proxyUrl ?? resolved?.url ?? "";
   useEffect(() => {
     setLoaded(false);
-  }, [effectiveReloadKey, resolved?.url]);
+  }, [effectiveReloadKey, panelSource]);
 
   useEffect(() => {
     if (actionPlacement !== "topbar" || !routeActive) { setTopbarTarget(null); return; }
@@ -238,7 +262,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   };
   const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" && standalone ? (
     <ToolActionMenu
-      className={actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""}
+      className={actionPlacement === "topbar" ? "is-topbar" : ""}
       externalHref={resolved.proxyUrl ?? resolved.url ?? window.location.href}
       isFullscreen={isMaximized}
       onFullscreen={() => onMaximizedChange ? onMaximizedChange(!isMaximized) : standalone ? setStandaloneMaximized(!isMaximized) : restorePanels()}
@@ -287,7 +311,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         </div>
       </header> : null}
 
-      {panelActions ? actionPlacement === "topbar" && !isMaximized
+      {panelActions ? actionPlacement === "topbar"
         ? routeActive && topbarTarget ? createPortal(panelActions, topbarTarget) : null
         : panelActions : null}
 
@@ -367,7 +391,8 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
             >
               <iframe
                 key={effectiveReloadKey}
-                src={resolved.proxyUrl ?? resolved.url}
+                ref={iframeRef}
+                src={panelSource}
                 title={panelTitles[panel.type]}
                 onLoad={(event) => { setLoaded(true); relayCanvasPinch(event.currentTarget); }}
                 onPointerDown={(event) => {

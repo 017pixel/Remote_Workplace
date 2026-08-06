@@ -8,6 +8,7 @@ import { CrashReportDialog } from "./components/CrashReportDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { addBreadcrumb, installGlobalErrorHandlers, subscribeToCrash } from "./lib/crashReport";
 import { apiClient } from "./lib/apiClient";
+import { synchronizeExistingPushDevice } from "./lib/webPushDevice";
 import "./index.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
@@ -59,6 +60,12 @@ createRoot(root).render(
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   const base = import.meta.env.BASE_URL;
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register(`${base}sw.js`, { scope: base });
+    void navigator.serviceWorker.register(`${base}sw.js`, { scope: base, updateViaCache: "none" }).then(async (registration) => {
+      // Ein bereits fertig installiertes Update übernehmen. register() prüft
+      // sw.js ungecached; ein noch installierender Worker wird beim nächsten
+      // App-Start als waiting erkannt, ohne einen Reload zu blockieren.
+      registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+      await synchronizeExistingPushDevice();
+    }).catch(() => undefined);
   });
 }

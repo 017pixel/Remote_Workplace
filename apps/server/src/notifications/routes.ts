@@ -3,22 +3,20 @@ import {
   notificationCategorySchema,
   notificationEventSchema,
   notificationPatchSchema,
-  notificationPresenceSchema,
+  notificationPresenceInputSchema,
   notificationPreferencesSchema,
   notificationSeveritySchema,
   notificationSourceSchema,
-  pushSubscriptionSchema,
+  pushEndpointRequestSchema,
+  pushSubscriptionRegistrationSchema,
 } from "@workbench/contracts";
 import { z } from "zod";
 import { persistNotificationPreferences } from "../config/workbench-config.js";
 import { isSameOriginRequest } from "../security/same-origin.js";
+import { resolveWorkbenchUser, type WorkbenchIdentityOptions } from "../security/workbench-identity.js";
+import { AppError } from "../utils/errors.js";
 import type { NotificationDatabase } from "./database.js";
 import type { NotificationPushService } from "./push.js";
-
-function identity(request: FastifyRequest): string {
-  const raw = request.headers["tailscale-user-login"];
-  return (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? "";
-}
 
 function query(request: FastifyRequest) {
   const raw = request.query && typeof request.query === "object" ? request.query as Record<string, unknown> : {};
@@ -28,9 +26,19 @@ function query(request: FastifyRequest) {
 }
 
 export async function registerNotificationRoutes(app: FastifyInstance, options: {
-  database: NotificationDatabase; push: NotificationPushService; configDirectory: string;
+  database: NotificationDatabase;
+  push: NotificationPushService;
+  configDirectory: string;
+  identity: WorkbenchIdentityOptions;
 }) {
   const database = options.database;
+  const settingsResponse = (userId: string) => ({
+    preferences: options.push.getPreferences(),
+    pushSupported: true,
+    vapidPublicKey: options.push.publicKey(),
+    subscriptionCount: options.push.subscriptionCount(userId),
+    serverPushEnabled: options.push.getPreferences().pushEnabled,
+  });
   app.get("/notifications", async (request) => {
     const parsed = query(request);
     return database.list({ ...(parsed.cursor ? { cursor: parsed.cursor } : {}), unreadOnly: parsed.unreadOnly,
@@ -49,7 +57,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, options: 
   app.post("/notifications/mark-all-read", markAll);
   app.post("/notifications/read-all", markAll);
   app.put("/notifications/presence", async (request) => {
-    const presence = notificationPresenceSchema.nullable().parse(request.body);
+    const presence = notificationPresenceInputSchema.parse(request.body);
     return { updated: database.setPresence(presence) };
   });
   app.delete("/notifications", async (_request, reply) => {
@@ -76,22 +84,36 @@ export async function registerNotificationRoutes(app: FastifyInstance, options: 
     const notification = database.create({ source: "workbench", category: "terminal", sourceIcon: "workbench", kind: "workbench.crash", severity: "error", ...parsed });
     return reply.status(201).send(notification);
   });
-  app.get("/notifications/settings", async (request) => ({
-    preferences: options.push.getPreferences(), pushSupported: true, vapidPublicKey: options.push.publicKey(), subscribed: options.push.isSubscribed(identity(request)),
-  }));
+  app.get("/notifications/settings", async (request) => settingsResponse(resolveWorkbenchUser(request, options.identity)));
   app.put("/notifications/settings", async (request) => {
+    const userId = resolveWorkbenchUser(request, options.identity);
     const preferences = notificationPreferencesSchema.parse(request.body);
     persistNotificationPreferences(options.configDirectory, preferences);
     options.push.setPreferences(preferences);
-    return { preferences, pushSupported: true, vapidPublicKey: options.push.publicKey(), subscribed: options.push.isSubscribed(identity(request)) };
+    return settingsResponse(userId);
   });
   app.post("/notifications/push-subscription", async (request, reply) => {
-    options.push.subscribe(identity(request), pushSubscriptionSchema.parse(request.body));
-    return reply.status(201).send({ subscribed: true });
+    const userId = resolveWorkbenchUser(request, options.identity);
+    const result = options.push.register(userId, pushSubscriptionRegistrationSchema.parse(request.body));
+    if (!result.registered) throw new AppError(409, "PUSH_ENDPOINT_OWNED", "Diese Push-Subscription gehört bereits einer anderen Workbench-Identität.");
+    return reply.status(201).send(result);
   });
   app.delete("/notifications/push-subscription", async (request, reply) => {
-    const endpoint = z.object({ endpoint: z.string().url().optional() }).parse(request.body ?? {}).endpoint;
-    options.push.unsubscribeUser(identity(request), endpoint); return reply.status(204).send();
+    const userId = resolveWorkbenchUser(request, options.identity);
+    const { endpoint } = pushEndpointRequestSchema.parse(request.body);
+    if (!options.push.unregister(userId, endpoint)) throw new AppError(404, "PUSH_SUBSCRIPTION_NOT_FOUND", "Diese Push-Subscription wurde für das aktuelle Gerät nicht gefunden.");
+    return reply.status(204).send();
+  });
+  app.post("/notifications/push-test", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request) => {
+    const userId = resolveWorkbenchUser(request, options.identity);
+    const { endpoint } = pushEndpointRequestSchema.parse(request.body);
+    try {
+      if (!await options.push.sendTest(userId, endpoint)) throw new AppError(404, "PUSH_SUBSCRIPTION_NOT_FOUND", "Diese Push-Subscription gehört nicht zur aktuellen Workbench-Identität.");
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(502, "PUSH_TEST_FAILED", "Die Testbenachrichtigung konnte nicht an den Push-Dienst gesendet werden.");
+    }
+    return { sent: true };
   });
   app.get("/notifications/ws", { websocket: true }, (socket, request) => {
     if (!isSameOriginRequest(request)) { socket.close(1008, "FORBIDDEN"); return; }

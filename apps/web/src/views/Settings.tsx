@@ -13,6 +13,8 @@ import { ConfirmDialog } from "../components/ModalDialog";
 import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem, type PageRouteId } from "../stores/sidebarPreferences";
 import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } from "../stores/dashboardPreferences";
 import { useRouteActivity } from "../lib/routeActivity";
+import { useWebPushDevice } from "../lib/useWebPushDevice";
+import type { WebPushDeviceStatus } from "../lib/webPushDevice";
 
 export function Settings() {
   const routeActive = useRouteActivity();
@@ -158,11 +160,18 @@ const notificationSourceLabels: Record<NotificationSource, string> = {
   terminal: "Terminal", workbench: "Workbench", update: "Updates",
 };
 
-function base64UrlBytes(value: string): Uint8Array<ArrayBuffer> {
-  const padded = `${value}${"=".repeat((4 - value.length % 4) % 4)}`.replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(padded);
-  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
-}
+const pushDeviceStatus: Record<WebPushDeviceStatus, { label: string; tone: "default" | "ok" | "warn" | "bad" | "accent" }> = {
+  checking: { label: "Wird geprüft", tone: "default" },
+  unsupported: { label: "Nicht unterstützt", tone: "default" },
+  "ipad-install-required": { label: "Erst installieren", tone: "warn" },
+  "service-worker-error": { label: "Nicht bereit", tone: "warn" },
+  "permission-default": { label: "Nicht aktiviert", tone: "default" },
+  "permission-denied": { label: "Blockiert", tone: "bad" },
+  inactive: { label: "Nicht aktiviert", tone: "default" },
+  "inactive-server-error": { label: "Lokal deaktiviert", tone: "warn" },
+  "active-synced": { label: "Aktiv", tone: "ok" },
+  "active-unsynced": { label: "Nicht synchronisiert", tone: "warn" },
+};
 
 function NotificationSettings() {
   const queryClient = useQueryClient();
@@ -170,44 +179,34 @@ function NotificationSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const preferences = settings.data?.preferences;
+  const pushDevice = useWebPushDevice(settings.data);
   const save = async (next: NotificationPreferences) => {
     setSaving(true); setMessage("");
     try { const response = await apiClient.saveNotificationSettings(next); if (response) queryClient.setQueryData(["notifications", "settings"], response); }
     catch { setMessage("Die Benachrichtigungseinstellungen konnten nicht gespeichert werden."); }
     finally { setSaving(false); }
   };
-  const togglePush = async () => {
-    if (!preferences || !settings.data) return;
-    setSaving(true); setMessage("");
-    try {
-      if (!preferences.pushEnabled) {
-        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !settings.data.vapidPublicKey) throw new Error("Push wird von diesem Browser nicht unterstützt.");
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") throw new Error("System-Benachrichtigungen wurden nicht erlaubt.");
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlBytes(settings.data.vapidPublicKey) });
-        const json = subscription.toJSON();
-        if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("Das Push-Abo ist unvollständig.");
-        await apiClient.subscribePush({ endpoint: json.endpoint, expirationTime: json.expirationTime ?? null, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } });
-        await save({ ...preferences, pushEnabled: true });
-        setMessage("System-Benachrichtigungen sind aktiv.");
-      } else {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        if (subscription) { await apiClient.unsubscribePush(subscription.endpoint); await subscription.unsubscribe(); }
-        await save({ ...preferences, pushEnabled: false });
-        setMessage("System-Benachrichtigungen sind deaktiviert.");
-      }
-      void settings.refetch();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Push konnte nicht geändert werden."); setSaving(false); }
-  };
   if (!preferences) return <div className="settings-notification-skeleton"><span /><span /><span /></div>;
+  const deviceMeta = pushDeviceStatus[pushDevice.device.status];
+  const deviceActive = pushDevice.device.endpoint !== null;
+  const canActivate = !["checking", "unsupported", "ipad-install-required", "permission-denied", "service-worker-error", "active-synced"].includes(pushDevice.device.status);
   return <div className="notification-settings">
     <button type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...preferences, toastsEnabled: !preferences.toastsEnabled })}>
       <span><strong>Toasts</strong><small>Wichtige Ereignisse kurz oben rechts anzeigen</small></span><span className={`settings-toggle-switch ${preferences.toastsEnabled ? "is-on" : ""}`} role="switch" aria-checked={preferences.toastsEnabled}><span className="settings-toggle-thumb" /></span>
     </button>
-    <button type="button" className="settings-toggle-row" disabled={saving || !settings.data?.pushSupported} onClick={() => void togglePush()}>
-      <span><strong>Web-Push</strong><small>Warnungen auch bei geschlossener Workbench erhalten</small></span><span className={`settings-toggle-switch ${preferences.pushEnabled ? "is-on" : ""}`} role="switch" aria-checked={preferences.pushEnabled}><span className="settings-toggle-thumb" /></span>
+    <section className="push-device-settings" aria-labelledby="push-device-title">
+      <header><div><strong id="push-device-title">System-Benachrichtigungen auf diesem Gerät</strong><small>Lokales Abo, unabhängig von deinen anderen Geräten</small></div><Badge tone={deviceMeta.tone}>{deviceMeta.label}</Badge></header>
+      <p>{pushDevice.device.message}</p>
+      <div className="push-device-actions">
+        {canActivate ? <button type="button" className="quiet-button-primary" disabled={pushDevice.working} onClick={() => void pushDevice.activate().then(() => settings.refetch())}>Auf diesem Gerät aktivieren</button> : null}
+        {deviceActive ? <button type="button" className="quiet-button" disabled={pushDevice.working} onClick={() => void pushDevice.deactivate().then(() => settings.refetch())}>Auf diesem Gerät deaktivieren</button> : null}
+        <button type="button" className="quiet-button" disabled={pushDevice.working || pushDevice.device.status !== "active-synced"} onClick={() => void pushDevice.test()}>Testbenachrichtigung an dieses Gerät senden</button>
+      </div>
+      <small className="push-device-count">Für deine Workbench-Identität registriert: {settings.data?.subscriptionCount ?? 0} {settings.data?.subscriptionCount === 1 ? "Gerät" : "Geräte"}</small>
+      {pushDevice.actionMessage ? <p className="push-device-feedback" role="status">{pushDevice.actionMessage}</p> : null}
+    </section>
+    <button type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...preferences, pushEnabled: !preferences.pushEnabled })}>
+      <span><strong>Server-Push für wichtige Ereignisse</strong><small>Globaler Master-Schalter, verändert keine Geräte-Abos</small></span><span className={`settings-toggle-switch ${preferences.pushEnabled ? "is-on" : ""}`} role="switch" aria-checked={preferences.pushEnabled}><span className="settings-toggle-thumb" /></span>
     </button>
     <div className="notification-source-settings"><header><span>Quelle</span><span>Toast</span><span>Push</span></header>
       {(Object.keys(preferences.sources) as NotificationSource[]).map((source) => <div key={source}><strong>{notificationSourceLabels[source]}</strong>{(["toast", "push"] as const).map((channel) => <button key={channel} type="button" disabled={saving || (channel === "push" && !preferences.pushEnabled)} onClick={() => void save({ ...preferences, sources: { ...preferences.sources, [source]: { ...preferences.sources[source], [channel]: !preferences.sources[source][channel] } } })} aria-label={`${notificationSourceLabels[source]} ${channel}`}><span className={`settings-toggle-switch is-compact ${preferences.sources[source][channel] ? "is-on" : ""}`} role="switch" aria-checked={preferences.sources[source][channel]}><span className="settings-toggle-thumb" /></span></button>)}</div>)}

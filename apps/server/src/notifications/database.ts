@@ -7,7 +7,7 @@ import {
   type Notification,
   type NotificationCategory,
   type NotificationEvent,
-  type NotificationPresence,
+  type NotificationPresenceItem,
   type NotificationReport,
   type NotificationSeverity,
   type NotificationSource,
@@ -21,6 +21,10 @@ interface NotificationRow {
   title: string; body: string; link: string | null; remoteId: string | null; createdAt: string;
   readAt: string | null; acknowledgedAt: string | null; deletedAt: string | null; resolvedAt: string | null;
   metaJson: string; reportJson: string | null;
+}
+
+interface PresenceEntry extends NotificationPresenceItem {
+  lastSeenAt: number;
 }
 
 export interface NotificationInput {
@@ -55,11 +59,15 @@ export class NotificationDatabase {
   private readonly db: DatabaseSync;
   private readonly listeners = new Set<(event: NotificationEvent) => void>();
   private readonly retentionMilliseconds: number;
-  private presence: NotificationPresence | null = null;
+  private readonly presenceTtlMilliseconds: number;
+  private presence: PresenceEntry[] = [];
+  /** Letzter Presence-Heartbeat, auch mit leerer Chat-Liste. */
+  private lastActiveAt = 0;
 
-  constructor(path: string, retentionHours = 48) {
+  constructor(path: string, retentionHours = 48, presenceTtlMilliseconds = 90_000) {
     mkdirSync(dirname(path), { recursive: true });
     this.retentionMilliseconds = retentionHours * 3_600_000;
+    this.presenceTtlMilliseconds = presenceTtlMilliseconds;
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000");
     this.db.exec(`CREATE TABLE IF NOT EXISTS notifications (
@@ -180,22 +188,37 @@ export class NotificationDatabase {
 
   /**
    * Der Browser meldet hier, welche Quelle und welcher Chat gerade sichtbar
-   * sind (z. B. T3-Thread oder Codex-Sitzung). Passt eine aktive, ungelesene
-   * Benachrichtigung zu dieser Ansicht, gilt sie als gesehen und wird gelesen.
-   * Eine Ansicht ohne konkrete Referenz (threadId/sessionId) passt zu nichts.
+   * sind (z. B. T3-Thread oder Codex-Sitzung). Es zählt die aktive Route plus
+   * alle offenen Panels. Passt eine aktive, ungelesene Benachrichtigung zu
+   * dieser Ansicht, gilt sie als gesehen und wird gelesen. Ein Eintrag ohne
+   * konkrete Referenz (threadId/sessionId) passt zu nichts.
+   *
+   * Jede Meldung ist zugleich ein Aktiv-Heartbeat: Sie hält die Workbench als
+   * „aktiv genutzt" frisch, was den Push-Versand unterdrückt. Nach
+   * `presenceTtlMilliseconds` ohne Meldung gilt die Ansicht als verlassen.
    */
-  setPresence(presence: NotificationPresence | null): number {
-    this.presence = presence;
-    if (!presence) return 0;
+  setPresence(input: NotificationPresenceItem | NotificationPresenceItem[] | null): number {
+    const items = Array.isArray(input) ? input : input ? [input] : [];
+    this.presence = items.map((item) => ({ ...item, lastSeenAt: Date.now() }));
+    this.lastActiveAt = Date.now();
+    if (this.presence.length === 0) return 0;
     const at = new Date().toISOString();
-    const rows = this.db.prepare(`SELECT ${selection} FROM notifications WHERE state = 'active' AND read_at IS NULL AND source = ?`)
-      .all(presence.source) as unknown as NotificationRow[];
-    const ids = rows.filter((row) => this.presenceMatches(rowToNotification(row))).map((row) => row.id);
-    if (ids.length === 0) return 0;
-    const placeholders = ids.map(() => "?").join(",");
+    const ids = new Set<string>();
+    for (const entry of this.presence) {
+      const rows = this.db.prepare(`SELECT ${selection} FROM notifications WHERE state = 'active' AND read_at IS NULL AND source = ?`)
+        .all(entry.source) as unknown as NotificationRow[];
+      for (const row of rows) if (this.presenceMatches(rowToNotification(row))) ids.add(row.id);
+    }
+    if (ids.size === 0) return 0;
+    const placeholders = [...ids].map(() => "?").join(",");
     this.db.prepare(`UPDATE notifications SET read_at = ? WHERE id IN (${placeholders})`).run(at, ...ids);
     this.emit({ type: "notification.sync" });
-    return ids.length;
+    return ids.size;
+  }
+
+  /** Ist die Workbench in einem sichtbaren Browserfenster aktiv genutzt worden? */
+  hasActiveWorkbench(): boolean {
+    return Date.now() - this.lastActiveAt < this.presenceTtlMilliseconds;
   }
 
   dismiss(id: string): void {
@@ -259,12 +282,14 @@ export class NotificationDatabase {
     return row ? rowToNotification(row) : null;
   }
 
-  /** Passt eine Benachrichtigung zur gemeldeten Sicht (Quelle + Chat-Referenz)? */
+  /** Passt eine Benachrichtigung zu einer gemeldeten, noch frischen Sicht? */
   private presenceMatches(notification: Notification): boolean {
-    const presence = this.presence;
-    if (!presence || presence.source !== notification.source) return false;
-    if (presence.threadId && notification.meta.threadId === presence.threadId) return true;
-    if (presence.sessionId && (notification.meta.sessionId === presence.sessionId || notification.meta.runtimeId === presence.sessionId)) return true;
+    const cutoff = Date.now() - this.presenceTtlMilliseconds;
+    for (const entry of this.presence) {
+      if (entry.lastSeenAt < cutoff || entry.source !== notification.source) continue;
+      if (entry.threadId && notification.meta.threadId === entry.threadId) return true;
+      if (entry.sessionId && (notification.meta.sessionId === entry.sessionId || notification.meta.runtimeId === entry.sessionId)) return true;
+    }
     return false;
   }
 }

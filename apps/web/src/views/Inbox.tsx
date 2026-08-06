@@ -158,8 +158,8 @@ function ReportDialog({ notification, onClose }: { notification: Notification; o
   const copy = async () => { await writeClipboardText(text); setCopied(true); };
   const openT3 = async () => {
     await copy();
-    const match = notification.link?.match(/^\/t3\/([^/]+)/);
-    window.open(match ? `/t3/${match[1]}` : "/t3", "_blank", "noopener,noreferrer");
+    // In der Workbench-SPA öffnen, nicht im T3-Proxy-Vollbild.
+    window.open("/workbench/t3-code", "_blank", "noopener,noreferrer");
   };
   return <div className="notification-report-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="notification-report-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-report-title">
     <header><div><span>Diagnose</span><h2 id="notification-report-title">Fehlerbericht</h2></div><button type="button" onClick={onClose} aria-label="Dialog schließen"><CloseIcon className="h-4 w-4" /></button></header>
