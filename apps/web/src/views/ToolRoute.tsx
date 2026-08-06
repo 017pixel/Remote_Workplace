@@ -34,12 +34,13 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   const codeServerMode = services.data?.services.find((service) => service.id === "code-server")?.mode ?? "external";
   const previewId = type === "preview" && requestedPreviewId ? (project?.previews.find((preview) => preview.id === requestedPreviewId)?.id ?? null) : null;
   // Tiefenlink aus einer Benachrichtigung: `/t3-code?thread=…&env=…` öffnet
-  // das T3-Panel mit genau diesem Thread statt der Proxy-Vollseite.
+  // das T3-Panel mit genau diesem Thread statt der Proxy-Vollseite. Die
+  // T3-Thread-Route liegt unter dem `/_chat`-Layout.
   const t3Thread = type === "t3-code" ? searchParams.get("thread") : null;
   const t3Env = type === "t3-code" ? searchParams.get("env") : null;
   const t3Path = useMemo(() => {
-    if (type !== "t3-code" || !t3Thread) return undefined;
-    return `/${t3Env ? `${encodeURIComponent(t3Env)}/` : ""}${encodeURIComponent(t3Thread)}`;
+    if (type !== "t3-code" || !t3Thread || !t3Env) return undefined;
+    return `/_chat/${encodeURIComponent(t3Env)}/${encodeURIComponent(t3Thread)}`;
   }, [t3Env, t3Thread, type]);
 
   useEffect(() => {

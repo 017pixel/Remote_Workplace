@@ -38,7 +38,10 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
   window.history.replaceState({ ...window.history.state, [historyIndexKey]: historyIndex }, "", window.location.href);
   const presence = () => {
     const segments = window.location.pathname.split("/").filter(Boolean);
-    return { source: "t3", threadId: segments.length >= 2 ? segments[1] : null };
+    // Threads liegen unter dem _chat-Layout (/_chat/<environmentId>/<threadId>);
+    // aeltere Pfade ohne Layoutsegment gelten als <environmentId>/<threadId>.
+    const threadId = segments[0] === "_chat" ? segments[2] ?? null : segments.length >= 2 ? segments[1] ?? null : null;
+    return { source: "t3", threadId };
   };
   const report = () => {
     const path = window.location.pathname + window.location.search + window.location.hash;

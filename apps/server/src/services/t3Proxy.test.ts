@@ -42,7 +42,8 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain('type: "route.changed"');
     expect(t3RouteBridgeScript).toContain("window.parent.postMessage");
     expect(t3RouteBridgeScript).toContain("/api/v1/notifications/presence");
-    expect(t3RouteBridgeScript).toContain("segments.length >= 2 ? segments[1] : null");
+    // Threads liegen unter dem _chat-Layout: /_chat/<environmentId>/<threadId>
+    expect(t3RouteBridgeScript).toContain('segments[0] === "_chat" ? segments[2] ?? null : segments.length >= 2 ? segments[1] ?? null : null');
     expect(t3RouteBridgeScript).toContain('addEventListener("focus", report)');
   });
 

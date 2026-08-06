@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { LocalPort, Project } from "@workbench/contracts";
-import { PreviewDevServerManager } from "./DevServerManager.js";
+import { PreviewDevServerManager, sanitizeDevServerPath } from "./DevServerManager.js";
 import { PreviewDevServerDatabase } from "./devServerDatabase.js";
 
 const cleanup: Array<() => Promise<unknown> | unknown> = [];
@@ -59,9 +59,44 @@ describe("PreviewDevServerManager", () => {
     const { create, supervisor } = await harness();
     expect((await create().start("user@example.test", "projekt")).state).toBe("running");
     const command = supervisor.commands.find((args) => args[0] === "new-session");
-    expect(command?.at(-1)).toBe("'npm' 'run' 'dev'");
+    expect(command?.at(-1)).toContain("'npm' 'run' 'dev'");
     expect((await create().status("user@example.test", "projekt")).state).toBe("running");
     expect((await create().stop("user@example.test", "projekt")).state).toBe("stopped");
+  });
+
+  it("startet den Dev-Server mit explizitem PATH über env", async () => {
+    const { create, supervisor, project } = await harness();
+    await create().start("user@example.test", "projekt");
+    const command = supervisor.commands.find((args) => args[0] === "new-session");
+    const last = command?.at(-1) ?? "";
+    expect(last.startsWith("'/usr/bin/env'")).toBe(true);
+    expect(last).toContain(`PATH=${join(project.path, "node_modules", ".bin")}:`);
+    expect(last).toContain("'npm' 'run' 'dev'");
+    expect(command).not.toContain("-e");
+  });
+
+  it("entfernt fremde node_modules-Bins aus dem PATH, behält aber globale und System-Werkzeuge", () => {
+    const ambient = [
+      "/home/bbecker/projects/Remote_Workplace/apps/server/node_modules/.bin",
+      "/home/bbecker/.npm-global/lib/node_modules/pnpm/dist/node-gyp-bin",
+      "/home/bbecker/projects/Remote_Workplace/node_modules/.bin",
+      "/home/bbecker/.npm-global/bin",
+      "/home/bbecker/projects/anderes-projekt/node_modules/.bin",
+      "/usr/local/sbin",
+      "/usr/local/bin",
+      "/usr/sbin",
+      "/usr/bin",
+      "/sbin",
+      "/bin",
+    ].join(":");
+    const result = sanitizeDevServerPath("/home/bbecker/projects/projekt", ambient);
+    expect(result).toContain("/home/bbecker/projects/projekt/node_modules/.bin");
+    expect(result).toContain("/home/bbecker/.npm-global/bin");
+    expect(result).toContain("/usr/bin");
+    expect(result).not.toContain("Remote_Workplace");
+    expect(result).not.toContain("node-gyp-bin");
+    expect(result).not.toContain("anderes-projekt");
+    expect(result).not.toMatch(/(^|:)node_modules\/\.bin(:|$)/);
   });
 
   it("speichert nur einen Port, der zum Projekt gehört", async () => {

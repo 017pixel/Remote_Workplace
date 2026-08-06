@@ -20,4 +20,11 @@ describe("Workbench-Identität", () => {
   it("überlässt den T3-WebSocket der eigenen Authentifizierung", () => {
     expect(isProtectedWorkbenchRequest(request("/ws"))).toBe(false);
   });
+
+  it("lässt den lokalen Preview-Doctor ohne Tailscale-Identität durch", () => {
+    // Die Doctor-Routen schützen sich selbst über Loopback und Capability-Token.
+    expect(isProtectedWorkbenchRequest(request("/api/v1/previews/doctor/status"))).toBe(false);
+    expect(isProtectedWorkbenchRequest(request("/api/v1/previews/doctor/logs"))).toBe(false);
+    expect(isProtectedWorkbenchRequest(request("/api/v1/previews/doctor/probe"))).toBe(false);
+  });
 });

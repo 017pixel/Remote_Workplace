@@ -14,6 +14,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Behoben
 
+- T3-Tiefenlinks nutzen die echte Thread-Route (`/_chat/<environmentId>/<threadId>`); ohne das Layoutsegment brach T3 mit „fetch-session-state (HTTP 500)" ab
 - Presence verfällt jetzt nach 90 Sekunden ohne Heartbeat; geschlossene Tabs und gekillte PWAs markieren nichts mehr dauerhaft als gelesen
 - Offene Panels (z. B. T3 in der Workbench) melden ihren Chat als sichtbar; Inbox-Einträge für offene Chats unterbleiben
 - „Braucht Input"-Erkennung im Terminal meldet erst nach einer Schreibpause und erkennt mehr Warte-Muster, Zwischenschritt-Fehlalarme entfallen

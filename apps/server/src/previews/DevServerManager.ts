@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import type {
   LocalPort,
   PreviewDevServerLogs,
@@ -54,6 +55,27 @@ function cleanOutput(value: string): string {
 
 function shellQuote(value: string): string { return `'${value.replaceAll("'", `'\\''`)}'`; }
 
+/**
+ * Arbeitsumgebung für Preview-Dev-Server: Die Workbench startet ihre tmux-Sitzung
+ * mit ihrem eigenen node_modules im PATH. Ohne Filterung würde `npm run dev` eines
+ * Projekts ohne lokale Abhängigkeiten fremde Werkzeuge aus dem Workbench-Repo
+ * auflösen — und deren Einträge verschwinden beim nächsten pnpm-Install
+ * (MODULE_NOT_FOUND mit stale Store-Pfad). Es bleiben nur das eigene
+ * node_modules/.bin des Projekts sowie globale und System-Werkzeuge.
+ */
+export function sanitizeDevServerPath(projectPath: string, ambientPath: string): string {
+  const ownBin = join(projectPath, "node_modules", ".bin");
+  const kept = ambientPath.split(":").filter((entry) => {
+    const normalized = entry.replace(/\/+$/, "");
+    if (normalized === "" || normalized === ownBin) return false;
+    if (normalized.endsWith("/node_modules/.bin")) return false;
+    if (normalized.includes("/.pnpm/")) return false;
+    if (normalized.endsWith("/node-gyp-bin")) return false;
+    return true;
+  });
+  return [ownBin, ...kept].join(":");
+}
+
 export class PreviewDevServerManager {
   private readonly run: CommandRunner;
 
@@ -101,7 +123,19 @@ export class PreviewDevServerManager {
     if (existing && !existing.dead) return this.status(userId, projectId);
     if (existing) this.execute(["kill-session", "-t", name]);
 
-    const command = [this.options.npmExecutable, "run", "dev"].map(shellQuote).join(" ");
+    // Der PATH wird explizit über `env` gesetzt, nicht über tmux-`-e`: Panes
+    // erben die Umgebung des tmux-Servers, und dessen globale PATH kann durch
+    // die pnpm-Skriptumgebung der Workbench verunreinigt sein (z. B. ein
+    // veralteter .bin-Eintrag im eigenen node_modules). `env` ersetzt den PATH
+    // für den npm-Prozess unabhängig davon, was die Pane geerbt hat.
+    const previewPath = sanitizeDevServerPath(project.path, process.env.PATH ?? "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+    const command = [
+      "/usr/bin/env",
+      `PATH=${previewPath}`,
+      this.options.npmExecutable,
+      "run",
+      "dev",
+    ].map(shellQuote).join(" ");
     const created = this.run(["new-session", "-d", "-s", name, "-c", project.path, command], this.options.startTimeoutMilliseconds);
     if (created.status !== 0) {
       throw new AppError(500, "DEV_SERVER_START_FAILED", cleanOutput(created.stderr).trim() || "Der Dev-Server konnte nicht gestartet werden.");

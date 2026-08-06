@@ -18,6 +18,7 @@ import { apiClient } from "../lib/apiClient";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { normalizePreviewTarget } from "../lib/previewTargets";
 import { useRouteActivity } from "../lib/routeActivity";
+import { t3ThreadIdFromPath } from "../lib/t3Thread";
 import { usePanelPresenceStore } from "../stores/panelPresence";
 
 const HermesShell = lazy(() => import("./hermes/HermesShell").then((module) => ({ default: module.HermesShell })));
@@ -157,8 +158,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       if (event.source !== iframeRef.current?.contentWindow) return;
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
       if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
-      const segments = (data.path.split("?")[0] ?? "").split("/").filter(Boolean);
-      usePanelPresenceStore.getState().setT3Thread(panel.id, segments.length >= 2 ? segments[1] ?? null : null);
+      usePanelPresenceStore.getState().setT3Thread(panel.id, t3ThreadIdFromPath(data.path));
     };
     window.addEventListener("message", receive);
     return () => {

@@ -17,6 +17,10 @@ const protectedPrefixes = [
   "/api/auth/",
 ];
 
+// Der Preview-Doctor authentifiziert sich selbst über Loopback-Verbindung und
+// Capability-Token; eine Tailscale-Identität darf ihn nicht vorab blockieren.
+const unprotectedApiPrefixes = ["/api/v1/previews/doctor/"];
+
 // T3 authenticates its root WebSocket with its own session cookie or ticket.
 // Browser WebSocket upgrades do not reliably carry the Tailscale identity
 // header, so the upstream T3 service must receive and validate this request.
@@ -60,6 +64,7 @@ export function resolveWorkbenchUser(
 export function isProtectedWorkbenchRequest(request: FastifyRequest): boolean {
   const pathname = new URL(request.raw.url ?? request.url, "http://workbench.local").pathname;
   if (pathname === "/api/v1/health") return false;
+  if (unprotectedApiPrefixes.some((prefix) => pathname.startsWith(prefix))) return false;
   return protectedExactPaths.has(pathname) ||
     protectedPrefixes.some((prefix) => pathname === prefix.slice(0, -1) || pathname.startsWith(prefix));
 }
