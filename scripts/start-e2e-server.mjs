@@ -10,6 +10,9 @@ if (process.env.WORKBENCH_E2E_EXTERNAL === "true") {
 }
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const fixturePorts = JSON.parse(
+  await readFile(join(repositoryRoot, "tests/fixtures/preview-apps/ports.json"), "utf8"),
+);
 const e2ePort = Number(process.env.WORKBENCH_E2E_PORT ?? 3010);
 if (!Number.isInteger(e2ePort) || e2ePort < 1 || e2ePort + 130 > 65_535) {
   throw new Error("WORKBENCH_E2E_PORT muss eine gültige TCP-Portnummer sein.");
@@ -17,15 +20,16 @@ if (!Number.isInteger(e2ePort) || e2ePort < 1 || e2ePort + 130 > 65_535) {
 const temporaryRoot = await mkdtemp(join(tmpdir(), "remote-workplace-e2e-"));
 const configDirectory = join(temporaryRoot, "config");
 const dataDirectory = join(temporaryRoot, "data");
+const e2eIdentity = process.env.WORKBENCH_E2E_USER?.trim() || "user@example.com";
 await Promise.all([mkdir(configDirectory, { recursive: true }), mkdir(dataDirectory, { recursive: true })]);
 
 const config = JSON.parse(await readFile(join(repositoryRoot, "config/workbench.example.json"), "utf8"));
 config.system = { user: "e2e", homeDirectory: temporaryRoot };
 // Der isolierte E2E-Server bindet nur an Loopback (HOST-Default 127.0.0.1) und
-// läuft mit eigener Temp-Konfiguration. Die Test-Specs senden unterschiedliche
-// Beispiel-Identitäten (user@example.com, file-manager@example.com, …), deshalb
-// wird hier nicht gefiltert — die reine Anwesenheit einer Identität reicht.
-config.tailscale.allowedUsers = [];
+// läuft mit eigener Temp-Konfiguration. Die Terminal-Route verlangt eine
+// explizit erlaubte Identität; sie wird für den Lauf aus WORKBENCH_E2E_USER
+// übernommen und bleibt auf den isolierten Server begrenzt.
+config.tailscale.allowedUsers = [e2eIdentity];
 // Alle vom isolierten Server reservierten Listener werden aus dem E2E-Port
 // abgeleitet. Dadurch kollidiert ein lokaler Lauf nicht mit der laufenden
 // Workbench oder einem anderen Testprozess.
@@ -73,7 +77,18 @@ const projects = {
       path: repositoryRoot,
       enabled: true,
       sortOrder: 1,
-      previews: [],
+      previews: [
+        {
+          id: "e2e-spa",
+          name: "E2E SPA",
+          url: null,
+          targetPort: fixturePorts.spa,
+          path: "/",
+          mode: "hybrid",
+          runtime: "iframe",
+          dependencies: [],
+        },
+      ],
     },
     {
       id: "chappie",
@@ -117,13 +132,13 @@ const child = spawn(process.execPath, ["apps/server/dist/index.js"], {
     TERMINAL_ALLOWED_ROOTS: `${repositoryRoot},${temporaryRoot}`,
     TERMINAL_DEFAULT_CWD: temporaryRoot,
     // Die .env des Repos setzt TERMINAL_ALLOWED_USERS für die Produktion; der
-    // isolierte Testserver darf sie nicht erben, sonst sind alle Test-Identitäten
-    // aus den Specs gesperrt. Leer ⇒ Filterung über die lokale Config (leer).
-    TERMINAL_ALLOWED_USERS: "",
+    // isolierte Testserver nutzt stattdessen ausschließlich seine Testidentität.
+    TERMINAL_ALLOWED_USERS: e2eIdentity,
     // Die .env erbt ORBIT_DESTRUCTIVE_DROP_PERCENT=50 als Produktionsschutz;
     // die Tests ersetzen Orbit-Dokumente jedoch komplett (eigene Arbeitsflächen).
     ORBIT_DESTRUCTIVE_DROP_PERCENT: "100",
-    WORKBENCH_DEV_TAILSCALE_USER: "e2e@workbench.invalid",
+    WORKBENCH_DEV_TAILSCALE_USER: e2eIdentity,
+    PREVIEW_PUBLIC_ORIGIN_MODE: "loopback-http",
     MISTRAL_API_KEY: "",
     PORT: String(e2ePort),
   },
