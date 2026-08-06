@@ -38,22 +38,6 @@ export function ToolActionMenu({ externalHref, isFullscreen, onFullscreen, onRel
     void Promise.resolve(action()).catch(() => undefined);
   };
 
-  if (isFullscreen) {
-    return (
-      <div ref={rootRef} className={`tool-actions-menu ${className}`.trim()}>
-        <button
-          type="button"
-          className="icon-button tool-actions-trigger"
-          aria-label="Wiederherstellen"
-          title="Wiederherstellen"
-          onClick={() => run(onFullscreen)}
-        >
-          <RestoreIcon className="h-4 w-4" />
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div ref={rootRef} className={`tool-actions-menu ${className}`.trim()}>
       <button

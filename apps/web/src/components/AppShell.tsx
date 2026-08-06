@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRightIcon, MenuIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
@@ -17,7 +17,7 @@ import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell, useVisualViewportVariables } from "../lib/useResponsiveShell";
 import { navItems } from "../routes/navigation";
 import { addBreadcrumb } from "../lib/crashReport";
-import type { ProjectsResponse } from "@workbench/contracts";
+import type { ProjectsResponse, TerminalKind } from "@workbench/contracts";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { NotificationCenter } from "./NotificationCenter";
 import { WorkbenchNotice } from "./WorkbenchNotice";
@@ -27,9 +27,11 @@ const routeTitles = Object.fromEntries(navItems.map((item) => [item.to, item.lab
 
 function ContextProjectPicker() {
   const location = useLocation();
+  const [search] = useSearchParams();
   const selectProject = useWorkspaceStore((state) => state.selectProject);
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
   const addTerminalTab = useTerminalStore((state) => state.addTab);
+  const activateProject = useTerminalStore((state) => state.activateProject);
   const { data } = useQuery(workbenchQueries.projects());
   const context = location.pathname === "/code-editor" ? "editor"
     : location.pathname === "/previews" ? "preview"
@@ -38,34 +40,58 @@ function ContextProjectPicker() {
     : location.pathname === "/opencode" ? "opencode"
     : location.pathname === "/claude" ? "claude"
     : null;
-  const projects = (data?.projects ?? []).filter((project) =>
+  const terminalKind: TerminalKind | null = context === "terminal"
+    ? search.get("kind") === "claude" ? "claude" : "shell"
+    : context === "codex" || context === "opencode" || context === "claude" ? context : null;
+  const terminalAreaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
+  const terminalArea = useTerminalStore((state) => terminalAreaId ? state.areas[terminalAreaId] : undefined);
+  const activeTerminalTab = terminalArea?.tabs.find((tab) => tab.id === terminalArea.activeTabId);
+  const activeRuntimeCwd = useTerminalStore((state) => activeTerminalTab ? state.runtimeCwds[activeTerminalTab.id] : undefined);
+  const terminalSessions = useQuery({ ...workbenchQueries.terminalSessions(), enabled: terminalKind !== null });
+  const baseProjects = (data?.projects ?? []).filter((project) =>
     context === "editor" ? project.links.codeServer !== null
       : project.availability === "available",
   );
-  const availableProjects = projects;
-  const project = projects.find((candidate) => candidate.id === selectedProjectId) ?? availableProjects[0];
+  const activeTerminalSession = activeTerminalTab && terminalSessions.data?.sessions.find((session) => session.runtimeId === activeTerminalTab.id);
+  const activeTerminalProject = activeRuntimeCwd
+    ? data?.projects.find((candidate) => candidate.path === activeRuntimeCwd)
+    : activeTerminalSession?.projectId
+      ? data?.projects.find((candidate) => candidate.id === activeTerminalSession.projectId)
+      : activeTerminalSession?.cwd
+      ? data?.projects.find((candidate) => candidate.path === activeTerminalSession.cwd)
+      : activeTerminalTab?.projectId
+        ? data?.projects.find((candidate) => candidate.id === activeTerminalTab.projectId)
+        : undefined;
+  const terminalProjectId = activeTerminalProject?.id ?? activeTerminalTab?.projectId ?? null;
+  const pickerProjects = activeTerminalProject && !baseProjects.some((candidate) => candidate.id === activeTerminalProject.id)
+    ? [activeTerminalProject, ...baseProjects]
+    : baseProjects;
+  const contextProjectId = terminalKind !== null && activeTerminalTab ? terminalProjectId : selectedProjectId;
+  const project = pickerProjects.find((candidate) => candidate.id === contextProjectId) ?? pickerProjects[0];
 
   useEffect(() => {
-    if (context && selectedProjectId === null && project) selectProject(project.id);
-  }, [context, project, selectProject, selectedProjectId]);
+    if (!context || !project) return;
+    if (terminalKind !== null && activeTerminalTab) {
+      if (selectedProjectId !== terminalProjectId) selectProject(terminalProjectId);
+      return;
+    }
+    if (selectedProjectId === null) selectProject(project.id);
+  }, [activeTerminalTab, context, project, selectProject, selectedProjectId, terminalKind, terminalProjectId]);
 
-  if (!context || availableProjects.length === 0) return null;
+  if (!context || pickerProjects.length === 0) return null;
 
   const change = (projectId: string) => {
     selectProject(projectId);
-    const terminalKind = context === "terminal"
-      ? "shell"
-      : context === "codex" || context === "opencode" || context === "claude"
-        ? context
-        : null;
     if (terminalKind) {
       const areaId = terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
+      if (projectId === contextProjectId && activeTerminalTab) return;
+      if (activateProject(areaId, projectId, terminalKind)) return;
       addTerminalTab(areaId, projectId, terminalKind);
     }
   };
 
   return (
-    <ProjectPicker projects={availableProjects} value={project?.id ?? null} onChange={change} compact />
+    <ProjectPicker projects={pickerProjects} value={contextProjectId} onChange={change} allowEmptyValue={terminalKind !== null} compact />
   );
 }
 
@@ -109,6 +135,7 @@ export function AppShell() {
   const isOrbit = location.pathname === "/workbench";
   const isNews = location.pathname === "/tech-tldrs";
   const isStandaloneT3 = location.pathname === "/t3-code";
+  const isTerminalRoute = ["/terminal", "/codex", "/opencode", "/claude"].includes(location.pathname);
   const hasStandaloneToolMenu = standaloneToolPaths.has(location.pathname);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
@@ -165,6 +192,7 @@ export function AppShell() {
       data-input-mode={responsive.inputMode}
       data-orientation={responsive.orientation}
       data-short-height={responsive.shortHeight ? "true" : "false"}
+      data-terminal-shell={isTerminalRoute ? "true" : undefined}
       data-navigation-open={mobileNavigationOpen ? "true" : "false"}
       onPointerDown={(event) => {
         if (responsive.isTouchShell && event.clientX <= 24 && event.isPrimary) navigationSwipeStart.current = { x: event.clientX, y: event.clientY };

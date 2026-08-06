@@ -62,8 +62,10 @@ describe("standalone T3 Code actions", () => {
     await waitFor(() => expect(screen.getByTitle("T3 Code")).not.toBe(firstFrame));
     fireEvent.click(within(target).getByRole("button", { name: "Werkzeugaktionen" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Vollbild" }));
-    expect(target.querySelector(".tool-actions-menu")).toBeNull();
-    expect(document.querySelector(".tool-surface-maximized .tool-actions-menu")).not.toBeNull();
+    expect(target.querySelector(".tool-actions-menu.is-topbar")).not.toBeNull();
+    expect(document.querySelector(".tool-surface-maximized .tool-actions-menu")).toBeNull();
+    fireEvent.click(within(target).getByRole("button", { name: "Werkzeugaktionen" }));
+    expect(screen.getByRole("menuitem", { name: "Vollbild verlassen" })).not.toBeNull();
     target.remove();
   });
 

@@ -37,8 +37,8 @@ export function MetricBar({ value, tone = "accent" }: { value: number; tone?: "a
     bad: "bg-bad",
   };
   return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-ink-800">
-      <div className={`h-full rounded-full ${tones[tone]}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-1 w-full overflow-hidden rounded-sm bg-ink-800">
+      <div className={`h-full rounded-sm ${tones[tone]}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
     </div>
   );
 }
