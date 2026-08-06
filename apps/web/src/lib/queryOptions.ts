@@ -62,6 +62,28 @@ export const workbenchQueries = {
       queryFn: ({ signal }) => apiClient.previewDevicePreference(signal),
       staleTime: 60_000,
     }),
+  previewHubPreference: () =>
+    queryOptions({
+      queryKey: ["preview-hub-preference"],
+      queryFn: ({ signal }) => apiClient.previewHubPreference(signal),
+      staleTime: 60_000,
+    }),
+  previewDevServer: (projectId: string | null, refetchInterval = 2_000) =>
+    queryOptions({
+      queryKey: ["preview-dev-server", projectId],
+      queryFn: ({ signal }) => apiClient.previewDevServer(projectId!, signal),
+      enabled: projectId !== null,
+      refetchInterval,
+      staleTime: 1_000,
+    }),
+  previewDevServerLogs: (projectId: string | null, refetchInterval = 1_500) =>
+    queryOptions({
+      queryKey: ["preview-dev-server", projectId, "logs"],
+      queryFn: ({ signal }) => apiClient.previewDevServerLogs(projectId!, signal),
+      enabled: projectId !== null,
+      refetchInterval,
+      staleTime: 500,
+    }),
   previewServiceCandidates: (projectId: string | null) =>
     queryOptions({
       queryKey: ["preview-service-candidates", projectId],
