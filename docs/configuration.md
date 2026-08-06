@@ -84,10 +84,29 @@ Intervall. Die Mindestlaufzeiten liegen zentral in `terminalMinimumSeconds`,
 verworfene und normale gelesene Einträge werden nach `pruneAfterHours` entfernt.
 
 Unter `notifications.preferences` lassen sich Toasts und Web-Push global sowie pro Quelle
-schalten. Das VAPID-Schlüsselpaar wird beim ersten Start mit Dateirechten `0600` unter
-`<paths.dataDir>/notifications/vapid.json` erzeugt. Push-Abos liegen in der externen
-Workbench-SQLite-Datenbank. Private Schlüssel und Browser-Abos werden nie an das Frontend
-ausgeliefert; dort ist ausschließlich der öffentliche VAPID-Schlüssel sichtbar.
+schalten. `pushEnabled` ist ausschließlich der globale Server-Master-Schalter. Ob das gerade
+verwendete Gerät abonniert ist, entscheidet dessen lokale Push-Subscription und nicht dieser
+Konfigurationswert. Geräte werden in den Einstellungen unabhängig aktiviert, getestet und
+deaktiviert; das Entfernen eines Endpoints verändert keine anderen Geräte.
+
+Web-Push benötigt den privaten HTTPS-Origin und einen aktiven Service Worker unter
+`/workbench/`. Die Berechtigung wird ausschließlich nach einem Klick auf „Auf diesem Gerät
+aktivieren“ angefragt. Android unterstützt denselben Standard sowohl im geeigneten Browser als
+auch in der installierten PWA. Auf iPadOS funktioniert Web-Push nur, wenn die PWA vorher über
+„Teilen → Zum Home-Bildschirm“ installiert und anschließend vom Home-Bildschirm gestartet wurde.
+
+Das VAPID-Schlüsselpaar wird beim ersten Start mit Dateirechten `0600` unter
+`<paths.dataDir>/notifications/vapid.json` erzeugt und bei jedem weiteren Start wiederverwendet.
+Diese Datei gehört zusammen mit der externen Workbench-SQLite-Datenbank in die Datensicherung.
+Wird sie ersetzt, erkennt der Browser den Schlüsselwechsel und erneuert ein bereits erlaubtes
+Abo. Der private Schlüssel bleibt ausschließlich im Fastify-Server; das Frontend erhält nur den
+öffentlichen VAPID-Schlüssel.
+
+Push-Abos liegen selbst gehostet in der externen Workbench-SQLite-Datenbank. Es gibt keinen
+externen Backend- oder Push-Datenbankdienst. Die standardisierte Push API nutzt dennoch den vom
+Browser vorgegebenen Zustelldienst. Deshalb muss der Server ausgehende HTTPS-Verbindungen zu den
+Subscription-Endpoints erlauben. Für Apple-Geräte darf insbesondere `*.push.apple.com` nicht
+durch DNS-, Proxy- oder Firewallregeln blockiert sein.
 
 ## Umgebungsvariablen (`.env`)
 
@@ -142,6 +161,12 @@ Der Projektpfad wird zentral konfiguriert:
 Manuell ausgewählte Ordner werden in der lokalen `DATABASE_PATH`-SQLite-Datei gespeichert. Ihre stabilen Projekt-IDs bleiben über Browser- und Serverneustarts erhalten. Die erlaubte Browser-Root muss absolut sein; die Seitengröße liegt zwischen 1 und 500.
 
 Projekt-Previews können entweder eine öffentliche `url` oder einen lokalen `targetPort` plus optionalen Root-Pfad enthalten. Lokale Ziele laufen immer direkt im iframe über einen freien Preview-Slot am Root. Das ältere Feld `runtime` wird aus Kompatibilitätsgründen weiterhin akzeptiert, beeinflusst die Preview-Laufzeit aber nicht mehr. Vite benötigt weder `base` noch einen gepflegten `allowedHosts`-Eintrag, weil der Proxy den Host-Header auf `127.0.0.1:PORT` umschreibt.
+
+Der Preview Hub startet den Dev-Server des gewählten Projekts ausschließlich mit `npm run dev`.
+Der Prozess läuft in einer benutzer- und projektgebundenen tmux-Sitzung und bleibt deshalb bei
+einem Backend-Neustart aktiv. Hauptport und Öffnungsmodus werden pro Benutzer in der zentralen
+SQLite-Datenbank gespeichert. Als Hauptport kann nur ein erkannter Port des Projekts oder ein
+fest konfigurierter `targetPort` gewählt werden.
 
 Die Arrays `previews.slotPorts` und `previews.publicPorts` müssen gleich lang und jeweils eindeutig sein. Nach einer Änderung muss `deploy/proxy/configure-tailscale-serve.sh` einmal mit sudo ausgeführt werden. Die voreingestellten zwölf Paare sind `3901–3912` intern und `8451–8462` öffentlich. Bestätigte Begleitdienste eines Projekts erhalten eigene HTTPS-Slots; die Haupt-Preview schreibt lokale HTTP-, Fetch-, XHR-, EventSource- und WebSocket-Ziele auf diese Tailscale-Adressen um. Web Storage ist portgetrennt; Cookies kennen keine Ports und bleiben auf demselben Host geteilt.
 
@@ -227,6 +252,9 @@ lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren
 ```json
 {
   "previews": {
+    "npmExecutable": "npm",
+    "devServerLogBytes": 131072,
+    "devServerStartTimeoutMs": 15000,
     "slotPorts": [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],
     "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462],
     "gatewayV2Enabled": false,
@@ -255,12 +283,19 @@ lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren
   auch dann bleiben sie pro Preview standardmäßig aus.
 - `slotResetEnabled` — erlaubt den verifizierten Storage-Reset einer Slot-Origin. Ohne
   bestandene Verifikation bleibt der Slot in Quarantäne.
+- `npmExecutable` — vertrauenswürdiger npm-Pfad oder Programmname; Argumente bleiben fest
+  auf `run dev` begrenzt und sind nicht über die Oberfläche änderbar.
+- `devServerLogBytes` — maximale Größe des aus dem tmux-Pane gelesenen Log-Ausschnitts.
+- `devServerStartTimeoutMs` — Zeitfenster, in dem der Manager nach dem Start auf Prozesszustand
+  und erkannte Projektports wartet.
 
 Jeder Wert lässt sich per Umgebungsvariable überschreiben (`PREVIEW_GATEWAY_V2`,
 `PREVIEW_BRIDGE`, `PREVIEW_DIAGNOSTICS`, `PREVIEW_STORAGE_SYNC_MODE`, `PREVIEW_SLOT_RESET`,
 `PREVIEW_MAX_INJECTABLE_HTML_BYTES`, `PREVIEW_DIAGNOSTIC_RETENTION_DAYS`,
 `PREVIEW_DIAGNOSTIC_MAX_EVENT_BYTES`, `PREVIEW_DIAGNOSTIC_MAX_BATCH_BYTES`,
-`PREVIEW_LOCAL_STORAGE_MAX_BYTES`, `PREVIEW_LOCAL_STORAGE_MAX_KEYS`).
+`PREVIEW_LOCAL_STORAGE_MAX_BYTES`, `PREVIEW_LOCAL_STORAGE_MAX_KEYS`,
+`PREVIEW_DEV_SERVER_LOG_BYTES`,
+`PREVIEW_DEV_SERVER_START_TIMEOUT_MS`).
 
 Zwei Werte sind ausschließlich für Entwicklung und Tests gedacht:
 

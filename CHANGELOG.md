@@ -2,6 +2,73 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [0.42.0] - 2026-08-06
+
+### Verändert
+
+- Benachrichtigungen: Push geht nur noch raus, wenn die Workbench nicht aktiv genutzt wird; fokussierte und offene Chats liefern stattdessen Toast und Inbox-Eintrag
+- T3-Benachrichtigungen öffnen den passenden Thread direkt in der Workbench (SPA-Tiefenlink statt Proxy-Vollseite), auch aus Push-Meldungen und der Inbox
+- T3 „Plan ist bereit" erscheint als Info statt Warnung, damit autonome Zwischenpläne weder Push noch Fehler-Optik auslösen
+- Textinhalte der Benachrichtigungen nennen das Projekt (T3, Codex, OpenCode, Terminal)
+- Push auf Apple-Geräten funktioniert wieder: VAPID-Subject mit gültiger Domain und APNs ohne Topic-Header
+
+### Behoben
+
+- Presence verfällt jetzt nach 90 Sekunden ohne Heartbeat; geschlossene Tabs und gekillte PWAs markieren nichts mehr dauerhaft als gelesen
+- Offene Panels (z. B. T3 in der Workbench) melden ihren Chat als sichtbar; Inbox-Einträge für offene Chats unterbleiben
+- „Braucht Input"-Erkennung im Terminal meldet erst nach einer Schreibpause und erkennt mehr Warte-Muster, Zwischenschritt-Fehlalarme entfallen
+- Beim Push-Klick wird das zuletzt sichtbare Workbench-Fenster verwendet statt des ersten
+
+---
+
+## [0.41.0] - 2026-08-06
+
+### Erstellt
+
+- Einheitliche, terminalnahe Designsprache über die gesamte Workbench: große Flächen 4 px, Buttons und Kleinteile 2 px
+- Alle Pillen, Zähler und Toggles eckig, Monospace für Pfade, Status und Abschnitts-Kicker
+- OpenCode-Modelle und -Projekte aus der lokalen OpenCode-Datenbank in der Nutzungsanalyse
+- Projektaufschlüsselung mit den meistbearbeiteten Projekten der letzten 365 Tage
+- Account-Verwaltung nach Werkzeug gruppiert mit luftigeren Profilkarten
+
+### Verändert
+
+- Tech TLDRs, Dashboard, Inbox, Workbench und alle Werkzeuge auf die eckige Kantensprache umgestellt, Blur bleibt erhalten
+- Werkzeug-Auswahl der Projektkarten als kompaktes Dropdown neben dem Öffnen-Button
+- Deaktivierte Primäraktionen bleiben auf dem blauen Akzent lesbar statt grau zu verblassen
+- Nutzung zeigt OpenCode-Go-Modelle mit Tokens und Kosten aus den lokalen Sessiondaten
+- Gerätecode-Anmeldung und Account-Karten im Bereich Nutzung besser erkennbar
+
+---
+
+## [0.40.0] - 2026-08-03
+
+### Erstellt
+
+- Unabhängige Push-Abos für mehrere Android- und iPadOS-Geräte derselben Workbench-Identität
+- Gerätebezogener Aktivieren-, Deaktivieren- und serverseitiger Testablauf in den Einstellungen
+- Automatische Reparatur verlorener Servereinträge und Erneuerung nach einem VAPID-Schlüsselwechsel
+- Versionierte Push-Payloads mit sicheren Deep-Links, ereignisabhängiger TTL und stabilem Tag
+- Automatisierte Mehrgeräte-, Policy-, Fehler-, VAPID- und Browserclient-Tests samt realer Abnahmecheckliste
+
+### Verändert
+
+- Globale Server-Push-Policy und lokale Subscription des aktuellen Geräts sind klar getrennt
+- Warnungen, Fehler, relevante Agentenabschlüsse, Rückfragen und Pläne folgen einer zentralen Push-Policy
+- Der Push-Versand arbeitet begrenzt parallel und protokolliert permanente sowie temporäre Fehler strukturiert
+- Der Service Worker fokussiert bestehende PWA-Fenster, öffnet sichere Ziele und markiert Einträge bestmöglich gelesen
+- iPadOS erklärt die notwendige Home-Screen-Installation, ohne außerhalb der PWA eine Permission anzufragen
+
+### Gelöscht
+
+- Globales Entfernen aller Geräte durch den normalen Geräte-Schalter
+- Irreführender `subscribed`-Status, der irgendein statt das aktuelle Geräte-Abo beschrieb
+- Starre Fünf-Minuten-TTL für zeitweise offline befindliche Mobilgeräte
+- Fest verdrahteter Inbox-Link für jede Push-Nachricht
+- Stilles Verschlucken von Push-Fehlern und unkontrollierter Versand an alle Endpoints gleichzeitig
+
+---
+
 ## [0.39.1] - 2026-08-02
 
 ### Verändert
@@ -80,6 +147,11 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Erstellt
 
+- Preview Hub als zentrale Projektsteuerung mit neustartfestem Dev-Server, Status, Logs, Hauptport und Tailscale-URL
+- Eigenständige Xcode-artige Geräteansicht für externe Preview-Fenster mit Ausrichtungswechsel
+- Persistenter Öffnungsmodus für ein eigenes Browserfenster oder einen neuen Tab
+- Kontextuelle Workbench-Aktionsinsel mit zur Panelanzahl passenden Preview-Rastern
+- Verträge, Datenbanktabellen und Tests für Prozesssteuerung, Ports, Logs und Hub-Einstellungen
 - Hermes-Flächenleiste: Chat, Sessions, System, Cron, Auswertung, Logs, Modelle direkt sichtbar, der Rest unter „Mehr"
 - Dauerhafte Hermes-Statusanzeige im Kopf mit Chat-, Dashboard-, Gateway-, Modell- und Versionszustand
 - Routen-Brücke vom Workbench-Iframe in die Hermes-SPA: Seitenwechsel in Millisekunden statt komplettem Neuaufbau
@@ -121,6 +193,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Repariert
 
+- Sicherheitsupdates für `undici`, `fast-uri` und `brace-expansion` schließen die aktuellen High-Severity-Befunde
 - Hermes-Dashboard-Theme war unlesbar: `palette.midground` ist bei Hermes die helle Schriftfarbe, stand aber auf `#111111` — schwarze Schrift auf schwarzem Grund
 - Die Sessionliste verdeckte auf dem Smartphone Kopfzeile und Flächenleiste; sie ist jetzt ein Drawer im Chatbereich und startet eingeklappt
 - Textvorschau lehnt UTF-8-Dateien nicht mehr ab, wenn die Kürzungsgrenze ein Zeichen zerschneidet

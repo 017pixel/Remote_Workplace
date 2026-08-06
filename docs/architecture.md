@@ -52,7 +52,18 @@ Das Browser-Werkzeug übernimmt die schnelle Preview-Logik für lokale Ziele: L�
 
 Die Preview-Startansicht verwendet die lokale Portübersicht. Konfigurierte und lokal erkannte Previews laufen immer direkt im Client-iframe über einen der getrennten HTTPS-Slot-Origins. Root-Proxying erhält absolute Assets, Client-Router und Vite-HMR ohne `base`-Anpassung. Verschiedene Ports trennen localStorage und IndexedDB; Cookies sind hostweit und deshalb nicht port-isoliert. Der Server-Chromium bleibt ausschließlich dem Browser-Werkzeug vorbehalten.
 
+Das eigenständige Preview-Werkzeug ist die Kommandozentrale für ein Projekt. Es verwaltet den
+festen Befehl `npm run dev` in einer tmux-Sitzung, zeigt dessen Zustand und redigierten Log-Ausschnitt,
+speichert den gewählten Hauptport und baut daraus die Tailscale-Slot-URL. Da tmux den Prozess
+besitzt, übernimmt ein neuer Backendprozess dieselbe Sitzung, statt den Dev-Server neu zu starten.
+Das Standardziel ist ein eigenes Browserfenster; ein persistierter Tab-Modus ist optional. Die
+Route `/previews/live` zeigt dieselbe lokale Preview als Xcode-artige Gerätefläche ohne App-Shell.
+
 Slot-Zuordnungen liegen in SQLite und überleben Backend-Neustarts. Die API `/api/v1/previews/slots` weist freie Slots atomar zu, kann ein Ziel bewusst teilen und gibt Slots wieder frei. Orbit-Preview-Gruppen verwenden dasselbe System für Layouts mit einem, zwei, drei oder sechs Slots. Neue Slots starten mit iPhone-13-Maßen; ein Layoutwechsel behält die Slot-Größe bei und lässt die Gruppe zur freien Seite wachsen. Ziel, Label, Gerätewahl, Isolation und Laufzeit liegen im Orbit-Dokument. Die Route `/previews/gruppe/:id` rendert dieselbe Gruppe ohne Canvas, `/previews/fenster/:id` zusätzlich ohne Workbench-Navigation für ein eigenes Browserfenster; beide folgen dem Orbit-Dokument und übernehmen Gerät, Ausrichtung und Laufzeit jedes Slots.
+
+In Orbit erscheint bei fokussierten Preview-Gruppen eine kontextuelle Aktionsinsel. Sie bietet
+nur die zur Anzahl aktiver Panels passenden Raster, gemeinsamen Reload, externes Öffnen und den
+Sprung in den Preview Hub; bei anderen Werkzeugen bleibt sie vollständig verborgen.
 
 ## Projekte und Workspace
 
@@ -97,8 +108,29 @@ Projekt registrieren oder als Orbit-Knoten einbetten.
 
 Das Benachrichtigungsmodul (`apps/server/src/notifications/`) sammelt Einträge aus T3 Code,
 Hermes, Codex, OpenCode, Claude Code und langen Terminal-Prozessen in einer eigenen SQLite-Tabelle.
-Eine Live-Verbindung liefert neue Einträge sofort aus, mit Polling-Fallback; Web-Push läuft über
-VAPID-Schlüssel, die einmalig auf dem Server erzeugt und mit Modus `0600` gespeichert werden.
+Die Inbox ist bewusst ein globaler Workbench-Verlauf: Jede erlaubte Workbench-Identität sieht
+dieselben Einträge. Push-Abos sind dagegen einer konkreten Tailscale-/Workbench-Identität
+zugeordnet. `user_id` begrenzt Registrierung, Entfernen und Testversand, während ein neues globales
+Inbox-Ereignis an alle registrierten Geräte mit aktivierter Quellen-Policy zugestellt wird.
+
+Eine Live-Verbindung liefert neue Einträge sofort aus, mit Polling-Fallback. Web-Push folgt dem
+vorhandenen Ereignisweg `NotificationDatabase.create` → `notification.created` →
+`NotificationPushService`. Der globale Master-Schalter und die Quellen-Policy entscheiden, ob
+ein wichtiges Ereignis Push auslösen darf. Der Gerätezustand wird davon getrennt im Browser aus
+der tatsächlichen `PushSubscription` des aktiven Service Workers ermittelt.
+
+Jeder Endpoint ist in SQLite eindeutig und speichert Eigentümer, validierte Subscription,
+Erstellungs- und Aktualisierungszeit. Wiederholte Registrierung ist idempotent. Entfernen und
+Testversand gelten nur für genau den angegebenen Endpoint der aktuellen Identität. Abgelaufene
+Endpoints werden nach HTTP 404 oder 410 gelöscht; Fehler eines Geräts blockieren andere Geräte
+nicht. Der Versand ist begrenzt parallelisiert und verwendet ereignisabhängige TTLs von einer
+Stunde für Abschlüsse bis zu 24 Stunden für Rückfragen, Pläne und Fehler.
+
+Das VAPID-Schlüsselpaar wird einmalig unter
+`<paths.dataDir>/notifications/vapid.json` erzeugt und mit Modus `0600` gespeichert. Nur der
+öffentliche Schlüssel erreicht den Browser. Kleine versionierte Payloads übernehmen ausschließlich
+erlaubte relative Workbench-Deep-Links. Der Service Worker zeigt jeden empfangenen Push sichtbar,
+markiert den Eintrag beim Klick nach Möglichkeit als gelesen und fokussiert oder öffnet die PWA.
 Quellen-Synchronisierer (`agent-session-sync`, `t3-status-sync`, `terminal-status-sync`) binden
 den Gelesen-/Erledigt-Zustand an den tatsächlichen Status der zugehörigen Aufgabe. Schwellen und
 Zustellwege sind pro Quelle zentral konfigurierbar; die Inbox im Browser bietet Chronologie,

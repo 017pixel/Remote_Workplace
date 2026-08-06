@@ -1,5 +1,39 @@
 # Troubleshooting
 
+## Web-Push kommt nicht an
+
+- Die Workbench muss über ihren privaten HTTPS-Origin geöffnet sein. `http://` auf einer
+  Tailscale-IP ist kein sicherer Kontext und unterstützt Push sowie Service Worker nicht zuverlässig.
+- Auf iPadOS die Seite in Safari über „Teilen → Zum Home-Bildschirm“ installieren und danach nur
+  über das neue Home-Screen-Symbol öffnen. In einem normalen Safari-Tab fordert die Workbench
+  absichtlich keine Berechtigung an.
+- Der Status „Nicht aktiviert“ bedeutet, dass dieses Gerät noch keine lokale Subscription besitzt.
+  In den Einstellungen „Auf diesem Gerät aktivieren“ wählen. Die Permission wird nie beim Laden
+  der App angefragt.
+- Bei „Blockiert“ die Benachrichtigungsberechtigung in den Browser- oder Systemeinstellungen
+  freigeben. JavaScript darf eine verweigerte Permission nicht selbst zurücksetzen.
+- „Lokal aktiv, Server-Synchronisierung fehlgeschlagen“ bedeutet, dass das Browser-Abo besteht,
+  sein idempotenter Server-Upsert aber fehlgeschlagen ist. Netzwerk und Workbench-Identität prüfen
+  und die Benachrichtigungseinstellungen erneut öffnen oder „Erneut aktivieren“ wählen.
+- Der Knopf „Testbenachrichtigung an dieses Gerät senden“ prüft die vollständige Serverkette,
+  verschmutzt die Inbox aber nicht. Er ist nur bei einem lokal und serverseitig synchronisierten
+  Endpoint aktiv und auf fünf Versuche pro Minute begrenzt.
+- HTTP 404 und 410 des Browser-Push-Dienstes entfernen einen abgelaufenen Endpoint automatisch.
+  Das betreffende Gerät muss danach erneut aktiviert werden. HTTP 401 oder 403 weist auf VAPID-
+  oder Provider-Konfiguration hin; HTTP 429 und 5xx bleiben als temporäre Zustellfehler erhalten.
+- Nach Verlust oder bewusstem Wechsel von `<paths.dataDir>/notifications/vapid.json` erneuert die
+  PWA bestehende Subscriptions mit dem neuen öffentlichen Schlüssel. Die Datei möglichst aus der
+  Sicherung wiederherstellen, wenn laufende Geräte-Abos unverändert bleiben sollen.
+- Nach einem PWA-Update die App vollständig schließen und erneut öffnen. `sw.js` bleibt
+  revalidierbar, übernimmt Clients nach der Aktivierung und entfernt alte Shell-Caches.
+- Für Apple Push müssen DNS und ausgehendes HTTPS zu `*.push.apple.com` erlaubt sein. Ein schneller
+  Servercheck ist `curl -I --max-time 10 https://web.push.apple.com`; eine HTTP-Fehlermeldung ist
+  dabei in Ordnung, ein DNS- oder Verbindungsfehler nicht.
+
+Die aktuelle Gerätezahl in den Einstellungen gilt für die aktive Workbench-Identität. Die Inbox
+selbst ist global, deshalb wird ein wichtiges neues Ereignis an jedes registrierte Gerät aller
+erlaubten Identitäten geschickt. Das Deaktivieren eines Geräts löscht nur dessen Endpoint.
+
 ## Orbit-Daten und Sicherungen
 
 Der produktive Datenbestand liegt unter `/home/your-user/.local/share/remote-workplace/workbench.sqlite` und damit außerhalb des Repositorys. Builds, Quellcodewechsel und Deployments dürfen diese Datei nicht ersetzen. Jede bestätigte Orbit-Revision wird zusätzlich unter `/home/your-user/.local/share/remote-workplace/orbit-backups/` abgelegt; `current.json` enthält die letzte Revision mit SHA-256-Prüfsumme, die nummerierten Dateien bleiben unverändert erhalten.
@@ -47,6 +81,14 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - Nach externem Öffnen bleibt das eingebettete Iframe gemountet. Bei einer alten Version Hard-Reload ausführen und danach den neuen Build deployen.
 - Meldet Firefox für `.ts`, `.tsx` oder Vite-Abhängigkeiten den MIME-Typ `application/json`, den Response-Status und Body prüfen. Eine JSON-Antwort mit `RATE_LIMITED` stammt von einer alten globalen Limitierung; `/editor/**` darf keine `x-ratelimit-*`-Header mehr tragen.
 - Wenn der primäre HMR-Socket unter `wss://HOST:8443/editor/absproxy/...` scheitert und Vite anschließend localhost versucht, zuerst Workbench-Logs auf 429- oder WebSocket-Payload-Fehler prüfen. Der localhost-Versuch ist nur Vites Fallback.
+
+## Dev-Server im Preview Hub startet nicht
+
+- Im Projekt muss eine `package.json` mit einem `scripts.dev`-Eintrag liegen; ausgeführt wird immer `npm run dev` im Projektordner.
+- `tmux has-session -t <Sitzungsname>` und der Log-Bereich im Preview Hub zeigen, ob die Sitzung noch läuft oder der Prozess beendet wurde.
+- Fehlt ein Port, den Dev-Server auf Loopback starten lassen und kurz warten, bis die lokale Porterkennung ihn dem Projekt zugeordnet hat.
+- Nach einem Backend-Neustart darf der Prozess nicht neu gestartet werden: Der Hub verbindet sich wieder mit der vorhandenen tmux-Sitzung.
+- Lässt der Browser kein Popup zu, wird einmalig auf einen neuen Tab zurückgefallen; alternativ den Öffnungsmodus dauerhaft auf „Neuer Tab“ stellen.
 
 ## Preview-Slot steht in Quarantäne
 

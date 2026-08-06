@@ -55,7 +55,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Native `node-pty`-/xterm.js-Terminals mit Tailscale-Identität, tmux-Supervisor, serverseitiger Session-Registry, geräteübergreifender Wiederaufnahme, Resize, Verlauf und Reconnect.
 - Eigenständige Codex- und OpenCode-Seiten mit automatisch gestarteten CLIs, Projektbindung und bis zu vier persistenten Bento-Instanzen je Werkzeug.
 - Hermes-Agent als eigenständige Fläche: nativer ACP-Chat mit Freigaben im Verlauf, Sessionliste, Betriebszustandsanzeige und die vollständige offizielle Hermes-Verwaltung (System, Cron, Logs, Modelle, Skills, MCP u. a.) im eingebetteten Dashboard.
-- Zentrale Inbox für Hermes, T3 Code, Codex, OpenCode, Claude Code und lange Terminal-Prozesse mit Live-Zustellung, Deep-Links, Swipe-Aktionen, Fehlerberichten und optionalem Web-Push.
+- Zentrale Inbox für Hermes, T3 Code, Codex, OpenCode, Claude Code und lange Terminal-Prozesse mit Live-Zustellung, sicheren Deep-Links, Swipe-Aktionen, Fehlerberichten und geräteübergreifendem Web-Push für Android und installierte iPadOS-PWAs. Jedes Gerät besitzt ein unabhängiges Abo und lässt sich einzeln testen oder deaktivieren.
 - Werkzeug „KI-Skills": globale Agenten-Regeln und alle Skills des Harness-Ordners im Browser bearbeiten, mit Autosave ohne Speichern-Knopf, Konflikterkennung, Skill-Gerüst im offiziellen Format, automatischer Verteilung per Symlink und Commit/Push ins Skills-Repository.
 - Dateimanager „Finder" als eigene Seite und Workbench-Werkzeug: Drei-Pane-Ansicht mit Verzeichnisbaum, Liste/Raster und Vorschau-Panel, serverseitig synchronisierter Zustand über Geräte hinweg, Quick Look per Leertaste (Code, Bilder, Video, Audio, PDF, HTML, Markdown) und Dateiaktionen im Server-Dateisystem (Umbenennen, Verschieben, Löschen, Upload, Download).
 - Dashboard als Betriebszentrale: Gesamtaussage im Kopf, Kennzahlenleiste mit CPU, Arbeitsspeicher, Datenträger, Event-Loop, Anfragen und Fehlerquote samt Verlauf sowie eigener Bereich „Workbench-Diagnose" mit Bereitschaftsprüfungen, Audit und Orbit-/Preview-Status.
@@ -63,6 +63,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Großer Orbit-Serverbrowser zeigt den vollständigen Dateibaum unter dem konfigurierten Home-Verzeichnis, springt direkt zu eingegebenen Pfaden und registriert beliebige Unterordner dauerhaft als Projekt-Hubs.
 - code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Workbench-HTTPS-Origin bereitgestellt.
 - Development-Previews laufen direkt und ohne Bildstream über getrennte HTTPS-Slot-Origins; localStorage und IndexedDB sind pro Slot getrennt und Vite-HMR bleibt am Root erhalten. Cookies gelten weiterhin hostweit, und externe Websites laufen nie über diesen Gateway.
+- Der Preview Hub startet pro Projekt den festen Befehl `npm run dev` neustartfest in tmux, zeigt Status und Logs, verwaltet den Hauptport und öffnet die Tailscale-Preview wahlweise in einem eigenen Fenster oder neuen Tab.
 - Canvas, Sidebar, Vollbildroute und Browser-Panel teilen sich dieselbe lokale Preview-Laufzeit: eine Session-Lease je Fläche, Slot-Affinität pro Storage-Profil und ein fail-closed Quarantänezustand, falls ein Slot-Reset nicht verifizierbar ist.
 - Optionale Best-Effort-Diagnose (Console, Fehler, Netzwerk, Routing) mit gekennzeichneter Quelle und Vollständigkeit, redigierten Logs für höchstens sieben Tage und einem Doctor ohne `sudo`.
 - Opt-in-Snapshots des localStorage je Preview, AES-256-GCM verschlüsselt und konfliktbewusst. IndexedDB, Cache Storage, Service Worker, sessionStorage und Cookies werden ausdrücklich **nicht** synchronisiert.
@@ -71,7 +72,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Workbench und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
 - Besuchte Hauptansichten, Iframes, xterm-Instanzen und WebSockets bleiben während der Browser-Session gemountet und wechseln ohne Neustart.
 - Alle Live-Werkzeuge lassen sich frei positionieren und skalieren; stabile Laufzeit-IDs erhalten Terminal- und Agent-Sitzungen über Canvas-Interaktionen hinweg.
-- Preview-Island mit Slot-Anzeige, Reload, externem Tab, Vollbild, direkter iframe-Laufzeit, Geräteauswahl und Portrait-/Landscape-Wechsel.
+- Kontextuelle Preview-Island mit automatisch gefilterten Rastern, Reload, externem Fenster, Hub-Sprung, direkter iframe-Laufzeit und Xcode-artiger Geräteauswahl.
 - Lazy geladene Routen, Idle-Prefetch, Brotli/Gzip und langfristig gecachte Build-Assets reduzieren Start- und Wechselzeiten.
 - Desktop-Sidebar, echte Breadcrumbs, mobile Gruppenansicht und Statuszeile mit Codex-, OpenCode- und Claude-Code-Limits.
 - SQLite-gestützte Token-, Kosten-, Projekt- und Modellhistorie aus CodexBar mit Diagrammen und Limitprognosen.
@@ -153,6 +154,7 @@ Ausführlich: [docs/configuration.md](docs/configuration.md).
 - Agent-Setup: [docs/agent-setup.md](docs/agent-setup.md)
 - Terminal: [docs/terminal.md](docs/terminal.md)
 - Fehlerbehebung: [docs/troubleshooting.md](docs/troubleshooting.md)
+- Web-Push-Abnahme: [docs/web-push-acceptance.md](docs/web-push-acceptance.md)
 - Einbettungstest: [docs/embedding-test.md](docs/embedding-test.md)
 
 ## Danksagungen

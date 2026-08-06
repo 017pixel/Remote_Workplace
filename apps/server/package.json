@@ -1,6 +1,6 @@
 {
   "name": "@workbench/server",
-  "version": "0.39.1",
+  "version": "0.42.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,7 +28,7 @@
     "node-pty": "^1.1.0",
     "parse5": "8.0.1",
     "systeminformation": "5.31.17",
-    "undici": "7.28.0",
+    "undici": "7.29.0",
     "web-push": "^3.6.7",
     "ws": "8.21.1",
     "zod": "4.4.3"
