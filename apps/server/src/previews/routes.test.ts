@@ -7,6 +7,7 @@ import { apiErrorSchema } from "@workbench/contracts";
 import { AppError } from "../utils/errors.js";
 import { PreviewSlotDatabase } from "./database.js";
 import { PreviewDiagnosticsService } from "./diagnostics.js";
+import type { PreviewDevServerManager } from "./DevServerManager.js";
 import { PreviewSecrets } from "./keys.js";
 import { PreviewRepairService } from "./repair.js";
 import { registerPreviewRoutes } from "./routes.js";
@@ -45,6 +46,16 @@ async function harness() {
   cleanup.push(() => diagnostics.close());
   const storage = new PreviewStorageService({ database, secrets, mode: "opt-in", maxBytes: 262_144, maxKeys: 1_000 });
   const repair = new PreviewRepairService({ database, slots, scanCandidates: async () => [] });
+  const devServers = {
+    preference: () => ({ externalOpenMode: "window" as const, updatedAt: null }),
+    savePreference: (_userId: string, externalOpenMode: "window" | "tab") => ({ externalOpenMode, updatedAt: new Date().toISOString() }),
+    status: async (_userId: string, projectId: string) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort: null, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    logs: async (_userId: string, projectId: string) => ({ projectId, output: "", truncated: false, capturedAt: new Date().toISOString() }),
+    start: async (_userId: string, projectId: string) => ({ projectId, state: "running" as const, command: "npm run dev" as const, mainPort: null, pid: 1, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    stop: async (_userId: string, projectId: string) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort: null, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    restart: async (_userId: string, projectId: string) => ({ projectId, state: "running" as const, command: "npm run dev" as const, mainPort: null, pid: 1, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    saveMainPort: async (_userId: string, projectId: string, mainPort: number | null) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+  } as unknown as PreviewDevServerManager;
   const app = Fastify({ logger: false });
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
@@ -73,6 +84,7 @@ async function harness() {
     diagnosticsEnabled: true,
     diagnosticMaxBatchBytes: 262_144,
     diagnosticRetentionDays: 7,
+    devServers,
   });
   cleanup.push(() => app.close());
   return { app, database, secrets, slots, storage };
@@ -93,6 +105,42 @@ describe("Preview-API", () => {
       payload: { deviceId: "iphone-15", orientation: "portrait" },
     });
     expect(crossOrigin.statusCode).toBe(403);
+  });
+
+  it("schützt und validiert die Dev-Server-Steuerung", async () => {
+    const { app } = await harness();
+    expect((await app.inject({ method: "GET", url: "/api/v1/previews/dev-servers/projekt" })).statusCode).toBe(401);
+
+    const status = await app.inject({
+      method: "GET",
+      url: "/api/v1/previews/dev-servers/projekt",
+      headers: { "tailscale-user-login": user },
+    });
+    expect(status.statusCode).toBe(200);
+    expect(status.json()).toMatchObject({ projectId: "projekt", command: "npm run dev", state: "stopped" });
+
+    const crossOrigin = await app.inject({
+      method: "POST",
+      url: "/api/v1/previews/dev-servers/projekt/start",
+      headers: { "tailscale-user-login": user, origin: "https://boese.example", host: "workbench.test" },
+    });
+    expect(crossOrigin.statusCode).toBe(403);
+
+    const invalidProject = await app.inject({
+      method: "POST",
+      url: "/api/v1/previews/dev-servers/../start",
+      headers: { "tailscale-user-login": user, ...sameOrigin },
+    });
+    expect(invalidProject.statusCode).not.toBe(200);
+
+    const port = await app.inject({
+      method: "PUT",
+      url: "/api/v1/previews/dev-servers/projekt/main-port",
+      headers: { "tailscale-user-login": user, ...sameOrigin },
+      payload: { mainPort: 5173 },
+    });
+    expect(port.statusCode).toBe(200);
+    expect(port.json()).toMatchObject({ projectId: "projekt", mainPort: 5173 });
   });
 
   it("speichert Gerätepräferenzen benutzerbezogen", async () => {

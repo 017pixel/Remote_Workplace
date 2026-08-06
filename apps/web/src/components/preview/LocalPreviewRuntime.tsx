@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIcon, ChevronLeftIcon, ChevronRightIcon, DeviceRotateIcon, MinusIcon, NetworkIcon, PlusIcon, RefreshIcon, WarningIcon } from "../icons";
+import { ActivityIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, CopyIcon, DeviceRotateIcon, ExternalLinkIcon, MinusIcon, NetworkIcon, PlusIcon, RefreshIcon, WarningIcon } from "../icons";
 import type {
   PreviewDiagnosticEvent,
   PreviewLocalStorageEntry,
@@ -19,6 +19,7 @@ import type { DeviceOrientation } from "../../config/devicePresets";
 import { changeDevicePreviewScaleFactor, DevicePreviewFrame, devicePreviewScaleFactorMax, devicePreviewScaleFactorMin } from "../DevicePreviewFrame";
 import { PreviewDiagnosticsSheet } from "./PreviewDiagnosticsSheet";
 import { useRouteActivity } from "../../lib/routeActivity";
+import { writeClipboardText } from "../../lib/clipboard";
 
 export interface LocalPreviewRuntimeProps {
   targetPort: number;
@@ -118,6 +119,7 @@ export function LocalPreviewRuntime({
   const [storageConflict, setStorageConflict] = useState<string | null>(null);
   const [graphSaving, setGraphSaving] = useState(false);
   const [previewScaleFactor, setPreviewScaleFactor] = useState(1);
+  const [urlCopied, setUrlCopied] = useState(false);
   const eventBufferRef = useRef<PreviewDiagnosticEvent[]>([]);
   const eventDroppedRef = useRef(0);
   const eventFlushRef = useRef<number | null>(null);
@@ -225,10 +227,22 @@ export function LocalPreviewRuntime({
       idempotencyKey,
       ...(slotId === null ? {} : { requestedSlotId: slotId }),
     });
-    void open(requestedSlotId).catch((reason: unknown) => {
-      if (requestedSlotId !== null && reason instanceof ApiClientError && reason.code === "PREVIEW_SLOT_CHANGED") return open(null);
-      throw reason;
-    }).then((response) => {
+    const openWithRecovery = async () => {
+      try {
+        return await open(requestedSlotId);
+      } catch (reason) {
+        if (requestedSlotId !== null && reason instanceof ApiClientError && reason.code === "PREVIEW_SLOT_CHANGED") return open(null);
+        if (!(reason instanceof ApiClientError) || reason.code !== "PREVIEW_SLOTS_EXHAUSTED") throw reason;
+        const started = await apiClient.reclaimPreviewSlot();
+        if (!started) throw reason;
+        const report = await runSlotReset(started.resetUrl, started.nonce);
+        if (!report) throw new Error("Der freie Preview-Slot konnte nicht verifiziert zurückgesetzt werden.");
+        const verified = await apiClient.verifyPreviewSlotReset(started.slotId, report);
+        if (!verified || verified.state !== "free") throw new Error(verified?.message ?? "Der Preview-Slot bleibt gesperrt.");
+        return open(null);
+      }
+    };
+    void openWithRecovery().then((response) => {
       if (!active || !response) return;
       const primary = response.bindings.find((candidate) => candidate.role === "primary");
       if (!primary) throw new Error("Der zugewiesene Hauptdienst fehlt in der Serverantwort.");
@@ -256,6 +270,18 @@ export function LocalPreviewRuntime({
     }, 10 * 60_000);
     return () => window.clearInterval(renew);
   }, [session]);
+
+  useEffect(() => {
+    if (routeActive) return;
+    const own = sessionRef.current;
+    if (!own) return;
+    sessionRef.current = null;
+    assignmentRef.current = null;
+    setSession(null);
+    setUrl(null);
+    setLoaded(false);
+    void apiClient.closePreviewSession(own.id).catch(() => { /* Die Lease läuft notfalls ab. */ });
+  }, [routeActive]);
 
   useEffect(() => () => {
     const own = sessionRef.current;
@@ -499,6 +525,25 @@ export function LocalPreviewRuntime({
               <DeviceRotateIcon className="h-4 w-4" />
             </button>
           ) : null}
+          <button
+            type="button"
+            className={urlCopied ? "is-copied" : undefined}
+            aria-label={urlCopied ? "Preview-URL kopiert" : "Preview-URL kopieren"}
+            title={urlCopied ? "Kopiert" : "Tailscale-URL kopieren"}
+            disabled={!url}
+            onClick={() => {
+              if (!url) return;
+              void writeClipboardText(url).then(() => {
+                setUrlCopied(true);
+                window.setTimeout(() => setUrlCopied(false), 1_800);
+              }).catch(() => setUrlCopied(false));
+            }}
+          >{urlCopied ? <CheckIcon className="preview-runtime-copy-icon h-4 w-4" /> : <CopyIcon className="preview-runtime-copy-icon h-4 w-4" />}</button>
+          {url ? (
+            <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Preview extern öffnen" title="Preview extern öffnen">
+              <ExternalLinkIcon className="h-4 w-4" />
+            </a>
+          ) : null}
           <button type="button" aria-label="Diagnose öffnen" title="Diagnose" aria-expanded={diagnosticsOpen} onClick={() => setDiagnosticsOpen((open) => !open)}>
             <ActivityIcon className="h-4 w-4" />
             {events.some((event) => event.severity === "error") ? <i className="preview-runtime-alert" aria-hidden /> : null}
@@ -543,7 +588,7 @@ export function LocalPreviewRuntime({
           }}
           onResetSlot={async () => {
             const slotId = assignmentRef.current?.slotId;
-            if (!slotId || !storageProfileId || !session) return;
+            if (!slotId || !session) return;
             const started = await apiClient.beginPreviewSlotReset(slotId, {
               expectedGeneration: session.slotGeneration,
               storageProfileId,

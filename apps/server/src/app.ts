@@ -55,6 +55,8 @@ import { PreviewSecrets } from "./previews/keys.js";
 import { PreviewDiagnosticsService } from "./previews/diagnostics.js";
 import { PreviewStorageService } from "./previews/storage.js";
 import { PreviewRepairService } from "./previews/repair.js";
+import { PreviewDevServerDatabase } from "./previews/devServerDatabase.js";
+import { PreviewDevServerManager } from "./previews/DevServerManager.js";
 import { scanServiceCandidates } from "./previews/services.js";
 import {
   isProtectedWorkbenchRequest,
@@ -102,6 +104,12 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     loadServicesConfig(),
     loadCommandsConfig(),
   ]);
+  const identityOptions = {
+    allowedUsers: settings.terminalAllowedUsers,
+    ...(settings.developmentTailscaleUser
+      ? { developmentUser: settings.developmentTailscaleUser }
+      : {}),
+  };
 
   const frameSources = new Set<string>(["'self'"]);
   for (const service of servicesConfig.services) {
@@ -115,6 +123,12 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   for (const publicPort of settings.previewPublicPorts) {
     frameSources.add(`https://${settings.tailscaleHostname}:${publicPort}`);
   }
+  if (settings.previews.publicOriginMode === "loopback-http") {
+    for (const slotPort of settings.previewSlotPorts) {
+      frameSources.add(`http://127.0.0.1:${slotPort}`);
+      frameSources.add(`http://localhost:${slotPort}`);
+    }
+  }
   const proxyOrigins = [...frameSources].filter((origin) => origin !== "'self'");
   const usageDatabase = new UsageDatabase(settings.databasePath);
   const operationalAudit = new OperationalAuditDatabase(settings.databasePath, settings.auditVerifyCacheMilliseconds);
@@ -123,6 +137,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const projectRegistryDatabase = new ProjectRegistryDatabase(settings.databasePath);
   const browserDatabase = new BrowserDatabase(settings.databasePath);
   const previewSlotDatabase = new PreviewSlotDatabase(settings.databasePath);
+  const previewDevServerDatabase = new PreviewDevServerDatabase(settings.databasePath);
   const previewSecrets = new PreviewSecrets(settings.dataDirectory);
   // Beim ersten Start anlegen, damit der lokale Doctor sofort arbeiten kann.
   previewSecrets.capabilityToken();
@@ -198,6 +213,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     subject: settings.notifications.pushSubject,
     preferences: settings.notifications.preferences,
     notifications: notificationDatabase,
+    logger: app.log,
   });
   const t3StatusSync = new T3StatusSync({
     databasePath: join(settings.systemHomeDirectory, ".t3/userdata/state.sqlite"),
@@ -214,6 +230,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     pollSeconds: settings.notifications.pollSeconds,
     terminalMinimumSeconds: settings.notifications.terminalMinimumSeconds,
     agentMinimumSeconds: settings.notifications.agentMinimumSeconds,
+    inputIdleMilliseconds: settings.notifications.terminalInputIdleMilliseconds,
   });
   const agentSessionSync = new AgentSessionSync({
     opencodeDatabasePath: join(settings.systemHomeDirectory, ".local/share/opencode/opencode.db"),
@@ -244,7 +261,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     monitoring: () => usageMonitoringService.get(),
     ...(settings.codexOauthPrimaryFallbackEnabled ? { primaryWindowFallback: new CodexOAuthPrimaryWindowFallback({ profileHomes: settings.codexOauthProfileHomes, configPath: settings.codexbarConfigPath, timeoutMilliseconds: settings.codexOauthTimeoutMilliseconds }) } : {}),
   });
-  const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get() });
+  const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get(), opencodeUsagePath: join(settings.sharedHomes.opencode.sharedHome, "opencode.db") });
   const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
@@ -258,6 +275,15 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       ...settings.previewPublicPorts,
     ],
     projects: async () => projects.listReferences(),
+  });
+  const previewDevServers = new PreviewDevServerManager({
+    database: previewDevServerDatabase,
+    tmuxExecutable: settings.tmuxPath,
+    npmExecutable: settings.previews.npmExecutable,
+    logBytes: settings.previews.devServerLogBytes,
+    startTimeoutMilliseconds: settings.previews.devServerStartTimeoutMilliseconds,
+    project: async (projectId) => (await projects.get(projectId)).project,
+    localPorts: async () => (await localPorts.list()).ports,
   });
 
   await app.register(compress, {
@@ -376,12 +402,6 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     }
   });
 
-  const identityOptions = {
-    allowedUsers: settings.terminalAllowedUsers,
-    ...(settings.developmentTailscaleUser
-      ? { developmentUser: settings.developmentTailscaleUser }
-      : {}),
-  };
   app.addHook("onRequest", async (request) => {
     operationalMetrics.start(request);
   });
@@ -460,6 +480,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     diagnosticsEnabled: settings.previews.diagnosticsEnabled,
     diagnosticMaxBatchBytes: settings.previews.diagnosticMaxBatchBytes,
     diagnosticRetentionDays: settings.previews.diagnosticRetentionDays,
+    devServers: previewDevServers,
   });
   await app.register(registerNewsRoutes, { prefix: "/api/v1", news, newsDatabase });
   await app.register(registerHermesRoutes, {
@@ -475,7 +496,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       return project.path;
     },
   });
-  await app.register(registerNotificationRoutes, { prefix: "/api/v1", database: notificationDatabase, push: notificationPush, configDirectory: settings.configDirectory });
+  await app.register(registerNotificationRoutes, { prefix: "/api/v1", database: notificationDatabase, push: notificationPush, configDirectory: settings.configDirectory, identity: identityOptions });
   const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
   const terminals = new TerminalManager({
     allowedRoots: settings.terminalAllowedRoots,
@@ -490,8 +511,9 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     cliPaths: { codex: settings.codexCliPath, opencode: settings.opencodeCliPath, claude: settings.claudeCliPath },
     database: terminalDatabase,
     onOutput: (session, data) => {
-      if (session.kind === "shell" || Date.now() - session.createdAt < 10_000) return;
-      if (/\b(?:approval required|needs? (?:your )?input|do you want to|permission required|press enter|continue\?)\b/i.test(data)) terminalStatusSync.noteWaiting(session);
+      // Shell-Ausgabe interessiert nicht; bei Agenten entscheidet die
+      // Pause-Heuristik im Sync, ob der Nutzer wirklich gebraucht wird.
+      terminalStatusSync.noteOutput(session, data);
     },
     onInput: (session) => terminalStatusSync.resolveWaiting(session.kind, session.id),
     ...(terminalSupervisor ? { supervisor: terminalSupervisor } : {}),
@@ -521,6 +543,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     manager: terminals,
     database: terminalDatabase,
     allowedUsers: settings.terminalAllowedUsers,
+    ...(settings.developmentTailscaleUser ? { developmentUser: settings.developmentTailscaleUser } : {}),
     resolveProjectPath: async (projectId) => {
       try {
         const { project } = await projects.get(projectId);
@@ -557,7 +580,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       void previewDiagnostics.rotate().catch((error) => app.log.error({ err: error }, "Initiale Preview-Logrotation fehlgeschlagen"));
     }
   }
-  app.addHook("onClose", async () => { await news.stop(); await analytics.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewSlotDatabase.close(); terminalDatabase.close(); notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
+  app.addHook("onClose", async () => { await news.stop(); await analytics.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);

@@ -5,6 +5,9 @@ import {
   previewCaptureSessionRequestSchema,
   previewCaptureSessionSchema,
   previewDependenciesResponseSchema,
+  previewDevServerLogsSchema,
+  previewDevServerMainPortRequestSchema,
+  previewDevServerStatusSchema,
   previewDevicePreferenceRequestSchema,
   previewDevicePreferenceSchema,
   previewDiagnosticBatchSchema,
@@ -14,6 +17,8 @@ import {
   previewLocalStorageRestoreResponseSchema,
   previewLocalStorageSnapshotRequestSchema,
   previewLocalStorageStateSchema,
+  previewHubPreferenceRequestSchema,
+  previewHubPreferenceSchema,
   previewRepairJobSchema,
   previewRepairRequestSchema,
   previewServiceCandidatesResponseSchema,
@@ -33,6 +38,7 @@ import { AppError } from "../utils/errors.js";
 import { PREVIEW_RESET_ROUTE } from "./bridge.js";
 import type { PreviewSlotDatabase } from "./database.js";
 import type { PreviewDiagnosticsService } from "./diagnostics.js";
+import type { PreviewDevServerManager } from "./DevServerManager.js";
 import { requireSameOrigin, resolvePreviewUser, type PreviewIdentityOptions } from "./identity.js";
 import type { PreviewSecrets } from "./keys.js";
 import type { PreviewRepairService } from "./repair.js";
@@ -51,6 +57,7 @@ export interface PreviewRouteOptions {
   diagnosticsEnabled: boolean;
   diagnosticMaxBatchBytes: number;
   diagnosticRetentionDays: number;
+  devServers: PreviewDevServerManager;
 }
 
 const slotParamsSchema = z.object({ slotId: z.coerce.number().int().min(1).max(32) });
@@ -60,6 +67,7 @@ const graphParamsSchema = z.object({
   projectId: z.string().min(1).max(160),
   primaryServiceId: z.string().min(1).max(120),
 });
+const projectParamsSchema = z.object({ projectId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) });
 
 function isLoopbackConnection(request: FastifyRequest): boolean {
   const address = request.socket.remoteAddress ?? "";
@@ -98,6 +106,41 @@ export async function registerPreviewRoutes(app: FastifyInstance, options: Previ
     const userId = mutating(request);
     const input = previewDevicePreferenceRequestSchema.parse(request.body);
     return previewDevicePreferenceSchema.parse(options.database.saveDevicePreference(userId, input.deviceId, input.orientation));
+  });
+
+  // ── Preview Hub und restartfeste Dev-Server ───────────────────────────────
+  app.get("/previews/hub-preference", async (request) =>
+    previewHubPreferenceSchema.parse(options.devServers.preference(user(request))),
+  );
+  app.put("/previews/hub-preference", async (request) => {
+    const userId = mutating(request);
+    const input = previewHubPreferenceRequestSchema.parse(request.body);
+    return previewHubPreferenceSchema.parse(options.devServers.savePreference(userId, input.externalOpenMode));
+  });
+  app.get("/previews/dev-servers/:projectId", async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewDevServerStatusSchema.parse(await options.devServers.status(user(request), projectId));
+  });
+  app.get("/previews/dev-servers/:projectId/logs", async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewDevServerLogsSchema.parse(await options.devServers.logs(user(request), projectId));
+  });
+  app.post("/previews/dev-servers/:projectId/start", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewDevServerStatusSchema.parse(await options.devServers.start(mutating(request), projectId));
+  });
+  app.post("/previews/dev-servers/:projectId/stop", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewDevServerStatusSchema.parse(await options.devServers.stop(mutating(request), projectId));
+  });
+  app.post("/previews/dev-servers/:projectId/restart", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewDevServerStatusSchema.parse(await options.devServers.restart(mutating(request), projectId));
+  });
+  app.put("/previews/dev-servers/:projectId/main-port", async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    const { mainPort } = previewDevServerMainPortRequestSchema.parse(request.body);
+    return previewDevServerStatusSchema.parse(await options.devServers.saveMainPort(mutating(request), projectId, mainPort));
   });
 
   // ── Slots und Sessions ─────────────────────────────────────────────────────
@@ -147,6 +190,18 @@ export async function registerPreviewRoutes(app: FastifyInstance, options: Previ
   });
 
   // ── Slot-Reset ─────────────────────────────────────────────────────────────
+  app.post("/previews/slots/reclaim", async (request) => {
+    mutating(request);
+    const { slotId, nonce, affinity } = options.slots.beginReclaim();
+    return previewSlotResetResponseSchema.parse({
+      slotId,
+      nonce,
+      state: affinity.state,
+      slotGeneration: affinity.generation,
+      resetUrl: new URL(PREVIEW_RESET_ROUTE, options.slots.publicUrl(slotId)).toString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+  });
   app.post("/previews/slots/:slotId/reset", async (request) => {
     const userId = mutating(request);
     const { slotId } = slotParamsSchema.parse(request.params);
@@ -166,7 +221,7 @@ export async function registerPreviewRoutes(app: FastifyInstance, options: Previ
   app.post("/previews/slots/:slotId/reset/verify", async (request) => {
     const userId = mutating(request);
     const { slotId } = slotParamsSchema.parse(request.params);
-    options.slots.assertSlotOwned(userId, slotId);
+    options.slots.assertResetVerificationAllowed(userId, slotId);
     const report = previewSlotResetReportSchema.parse(request.body);
     const result = options.slots.reset.verify(slotId, report);
     options.slots.publish();

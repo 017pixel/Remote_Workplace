@@ -4,6 +4,7 @@
  * hinterlegten Benutzer überspringen sich die Tests, statt an `401` zu scheitern.
  */
 const identity = process.env.WORKBENCH_E2E_USER ?? process.env.WORKBENCH_DEV_TAILSCALE_USER ?? "";
+const localOrigin = `http://127.0.0.1:${process.env.WORKBENCH_E2E_PORT ?? "3010"}`;
 
 export const previewsEnabled = identity.length > 0;
 
@@ -13,5 +14,5 @@ export const previewsReason =
 export const previewIdentity: Record<string, string> = {
   "tailscale-user-login": identity,
   // Mutierende Endpunkte verlangen eine gültige Same-Origin-Anfrage.
-  origin: process.env.WORKBENCH_E2E_URL?.replace(/\/workbench$/, "") ?? "http://127.0.0.1:3010",
+  origin: process.env.WORKBENCH_E2E_URL?.replace(/\/workbench$/, "") ?? localOrigin,
 };

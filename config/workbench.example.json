@@ -124,6 +124,9 @@
     "resultPollSeconds": 20
   },
   "previews": {
+    "npmExecutable": "npm",
+    "devServerLogBytes": 131072,
+    "devServerStartTimeoutMs": 15000,
     "slotPorts": [3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912],
     "publicPorts": [8451, 8452, 8453, 8454, 8455, 8456, 8457, 8458, 8459, 8460, 8461, 8462],
     "gatewayV2Enabled": false,

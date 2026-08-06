@@ -149,6 +149,31 @@ describe("Preview-Slots", () => {
     expect(reused.bindings[0]!.slotId).toBe(1);
   });
 
+  it("stellt einen freien Slot mit alter Affinität nach verifiziertem Reset wieder bereit", async () => {
+    const { service: slots } = await service({ slotPorts: [3901], flags: { slotResetEnabled: true } });
+    const first = slots.openSession(user, { sessionKey: "a", projectId: "alt", primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    slots.closeSessionById(user, first.id);
+
+    expect(() => slots.openSession(user, { sessionKey: "b", projectId: "neu", primaryPort: 4173, primaryProtocol: "http", isolate: true, storageProfileId: null }))
+      .toThrowError(/nicht genügend Preview-Slots/);
+
+    const reclaim = slots.beginReclaim();
+    expect(reclaim.slotId).toBe(1);
+    const verified = slots.reset.verify(1, {
+      nonce: reclaim.nonce,
+      serviceWorkers: 0,
+      cacheStorages: 0,
+      localStorageKeys: 0,
+      sessionStorageKeys: 0,
+      indexedDatabases: 0,
+      verifiable: true,
+    });
+    expect(verified.affinity.state).toBe("free");
+
+    const reused = slots.openSession(user, { sessionKey: "b", projectId: "neu", primaryPort: 4173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    expect(reused.bindings[0]!.slotId).toBe(1);
+  });
+
   it("meldet fehlende Kapazität, statt einen Graphen teilweise zu aktivieren", async () => {
     const { service: slots } = await service({ slotPorts: [3901, 3902] });
     const capacity = slots.capacity({

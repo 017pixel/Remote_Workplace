@@ -58,6 +58,7 @@ const routeLoaders = {
   techTldrs: () => import("../views/TechTldrs"),
   fileManager: () => import("../views/FileManagerView"),
   previewGroup: () => import("../views/PreviewGroupRoute"),
+  previewLive: () => import("../views/PreviewLiveWindow"),
   skillEditor: () => import("../views/SkillEditor"),
 } as const;
 
@@ -74,6 +75,7 @@ export const loadCliTerminal = routeLoaders.cliTerminal;
 export const loadTechTldrs = routeLoaders.techTldrs;
 export const loadFileManager = routeLoaders.fileManager;
 export const loadPreviewGroup = routeLoaders.previewGroup;
+export const loadPreviewLive = routeLoaders.previewLive;
 export const loadSkillEditor = routeLoaders.skillEditor;
 
 const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
@@ -95,6 +97,7 @@ const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
   ["/code-editor", loadToolRoute],
   ["/previews/gruppe/", loadPreviewGroup],
   ["/previews/fenster/", loadPreviewGroup],
+  ["/previews/live", loadPreviewLive],
   ["/previews", loadToolRoute],
   ["/browser", loadToolRoute],
 ];

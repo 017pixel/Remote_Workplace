@@ -373,14 +373,13 @@ export class PreviewGateway {
       reply
         .type("text/html; charset=utf-8")
         .header("cache-control", "no-store")
-        .header("clear-site-data", "\"cache\", \"storage\", \"executionContexts\"")
         .send(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Preview-Slot zurücksetzen</title>`
           + `<script src="${PREVIEW_BRIDGE_ROUTE}" ${"data-workbench-preview-bridge"}></script></head><body></body></html>`),
     );
     listener.post(PREVIEW_RESET_ROUTE, { config: { rateLimit: false } }, async (_request, reply) =>
-      // Bewusst ohne "cookies": Cookies gehören dem Host und beträfen andere Slots.
+      // Die Bridge löscht und inventarisiert die isolierten Speicherbereiche selbst.
+      // Clear-Site-Data würde den laufenden Kontext vor seinem Prüfbericht verlieren.
       reply
-        .header("clear-site-data", "\"cache\", \"storage\", \"executionContexts\"")
         .header("cache-control", "no-store")
         .status(204)
         .send(),

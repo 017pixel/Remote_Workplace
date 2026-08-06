@@ -56,7 +56,7 @@ const settingsSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("127.0.0.1"),
   PORT: integerFromEnvironment(3010),
-  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.39.1"),
+  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.41.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   CONFIG_DIR: z.string().default("./config"),
   WEB_DIST_DIR: z.string().default("./apps/web/dist"),
@@ -182,6 +182,8 @@ const settingsSchema = z.object({
   PREVIEW_DIAGNOSTIC_MAX_TOTAL_BYTES: boundedIntegerFromEnvironment(wb.previews.diagnosticMaxTotalBytes, 1_048_576, 2_147_483_648),
   PREVIEW_LOCAL_STORAGE_MAX_BYTES: boundedIntegerFromEnvironment(wb.previews.localStorageMaxBytes, 1_024, 1_048_576),
   PREVIEW_LOCAL_STORAGE_MAX_KEYS: boundedIntegerFromEnvironment(wb.previews.localStorageMaxKeys, 1, 10_000),
+  PREVIEW_DEV_SERVER_LOG_BYTES: boundedIntegerFromEnvironment(wb.previews.devServerLogBytes, 16_384, 262_144),
+  PREVIEW_DEV_SERVER_START_TIMEOUT_MS: boundedIntegerFromEnvironment(wb.previews.devServerStartTimeoutMs, 1_000, 60_000),
   // Nur für automatisierte Tests: Slot-Origins als http://127.0.0.1:<internalPort>
   // ausgeben. Produktion bleibt HTTPS über Tailscale.
   PREVIEW_PUBLIC_ORIGIN_MODE: z.enum(["tailscale-https", "loopback-http"]).default("tailscale-https"),
@@ -247,9 +249,12 @@ export const settings = Object.freeze({
     diagnosticMaxTotalBytes: environment.PREVIEW_DIAGNOSTIC_MAX_TOTAL_BYTES,
     localStorageMaxBytes: environment.PREVIEW_LOCAL_STORAGE_MAX_BYTES,
     localStorageMaxKeys: environment.PREVIEW_LOCAL_STORAGE_MAX_KEYS,
+    npmExecutable: wb.previews.npmExecutable,
+    devServerLogBytes: environment.PREVIEW_DEV_SERVER_LOG_BYTES,
+    devServerStartTimeoutMilliseconds: environment.PREVIEW_DEV_SERVER_START_TIMEOUT_MS,
     publicOriginMode: environment.PREVIEW_PUBLIC_ORIGIN_MODE,
   },
-  developmentTailscaleUser: environment.NODE_ENV === "development"
+  developmentTailscaleUser: environment.NODE_ENV === "development" || environment.NODE_ENV === "test"
     ? environment.WORKBENCH_DEV_TAILSCALE_USER.trim().toLowerCase()
     : "",
   webDistDirectory: resolve(projectRoot, environment.WEB_DIST_DIR),

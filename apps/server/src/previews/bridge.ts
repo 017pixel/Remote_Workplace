@@ -454,8 +454,8 @@ function __workbenchPreviewBridge(config) {
       }).catch(function () { }));
     }
     return Promise.all(steps).then(function () {
-      // Die reservierte Netzwerkroute ergänzt Clear-Site-Data; Cookies bleiben ausgenommen.
-      return fetch(config.resetRoute || "/__workbench/preview-reset", { method: "POST", credentials: "omit" }).catch(function () { });
+      // Die reservierte Netzwerkroute bestätigt den Abschluss; Cookies bleiben ausgenommen.
+      return fetch(config.resetRoute || "/__workbench/preview-reset", { method: "POST", credentials: "same-origin" }).catch(function () { });
     }).then(inventory);
   }
 
@@ -495,13 +495,13 @@ function __workbenchPreviewBridge(config) {
     }
     if (message.type === "workbench.preview.reset") {
       purge().then(function (report) {
-        post({ type: "workbench.preview.reset.report", bridgeSessionId: bridgeSessionId, nonce: message.nonce, report: report });
+        post({ type: "workbench.preview.reset.report", bridgeSessionId: bridgeSessionId, epoch: epoch, nonce: message.nonce, report: report });
       });
       return;
     }
     if (message.type === "workbench.preview.inventory") {
       inventory().then(function (report) {
-        post({ type: "workbench.preview.inventory.report", bridgeSessionId: bridgeSessionId, report: report });
+        post({ type: "workbench.preview.inventory.report", bridgeSessionId: bridgeSessionId, epoch: epoch, report: report });
       });
     }
   });

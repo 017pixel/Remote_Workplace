@@ -18,6 +18,7 @@ import {
   loadTechTldrs,
   loadFileManager,
   loadPreviewGroup,
+  loadPreviewLive,
   loadSkillEditor,
   loadRouteWithRecovery,
 } from "./lib/routeModules";
@@ -41,6 +42,7 @@ const TechTldrs = lazy(() => loadRouteWithRecovery(loadTechTldrs).then((module) 
 const FileManagerView = lazy(() => loadRouteWithRecovery(loadFileManager).then((module) => ({ default: module.FileManagerView })));
 const PreviewGroupRoute = lazy(() => loadRouteWithRecovery(loadPreviewGroup).then((module) => ({ default: module.PreviewGroupRoute })));
 const PreviewGroupWindowRoute = lazy(() => loadRouteWithRecovery(loadPreviewGroup).then((module) => ({ default: module.PreviewGroupWindowRoute })));
+const PreviewLiveWindowRoute = lazy(() => loadRouteWithRecovery(loadPreviewLive).then((module) => ({ default: module.PreviewLiveWindowRoute })));
 const SkillEditor = lazy(() => loadRouteWithRecovery(loadSkillEditor).then((module) => ({ default: module.SkillEditor })));
 
 function RouteFallback() {
@@ -84,6 +86,7 @@ export function App() {
         <Routes>
           {/* Eigenes Browserfenster: bewusst ohne Workbench-Navigation. */}
           <Route path="previews/fenster/:groupId" element={<DeferredRoute><PreviewGroupWindowRoute /></DeferredRoute>} />
+          <Route path="previews/live" element={<DeferredRoute><PreviewLiveWindowRoute /></DeferredRoute>} />
           <Route element={<AppShell />}>
             <Route index element={<DeferredRoute><Dashboard /></DeferredRoute>} />
             <Route path="workbench" element={<DeferredRoute><Workbench /></DeferredRoute>} />

@@ -31,10 +31,17 @@ test.describe("Lokale Previews", () => {
     expect(session.limitations).toContain("cookies-share-host");
     expect(session.limitations).toContain("no-indexeddb-sync");
 
-    const slots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as { slots: Array<{ id: number; targetPort: number | null; affinityStatus: string }> };
+    const slots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as { slots: Array<{ id: number; internalPort: number; publicPort: number; targetPort: number | null; publicUrl: string; affinityStatus: string }> };
     const bound = slots.slots.find((slot) => slot.id === session.bindings[0]!.slotId)!;
     expect(bound.targetPort).toBe(fixturePorts.spa);
     expect(bound.affinityStatus).toBe("own");
+    expect(session.bindings[0]!.publicUrl).toBe(bound.publicUrl);
+    const publicPort = new URL(session.bindings[0]!.publicUrl).hostname === "127.0.0.1" ? bound.internalPort : bound.publicPort;
+    expect(new URL(session.bindings[0]!.publicUrl).port).toBe(String(publicPort));
+
+    const preview = await request.get(`http://127.0.0.1:${bound.internalPort}/`);
+    expect(preview.ok()).toBeTruthy();
+    expect(await preview.text()).toContain("SPA bereit");
 
     const closed = await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
     expect(closed.status()).toBe(204);
@@ -134,7 +141,53 @@ test.describe("Lokale Previews", () => {
   });
 
   test("verweigert Preview-Zugriff ohne Identität", async ({ request }) => {
+    test.skip(!process.env.WORKBENCH_E2E_URL, "Die isolierte Testinstanz nutzt bewusst eine Entwicklungsidentität.");
     const response = await request.get("/api/v1/previews/slots");
     expect(response.status()).toBe(401);
+  });
+
+  test("recycelt belegte Slot-Origins und öffnet die Hub-Preview direkt in einem neuen Tab und Fenster", async ({ page, request }) => {
+    const initialSlots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as {
+      slots: Array<{ affinityStatus: "none" | "own" | "foreign" | "quarantined" }>;
+    };
+    const unusedSlotCount = initialSlots.slots.filter((slot) => slot.affinityStatus === "none").length;
+    for (let index = 0; index < unusedSlotCount; index += 1) {
+      const opened = await request.post("/api/v1/previews/sessions", {
+        headers: previewIdentity,
+        data: { sessionKey: `e2e-alt-${index}`, projectId: `altes-projekt-${index}`, primaryPort: fixturePorts.spa, primaryProtocol: "http", isolate: true, storageProfileId: null },
+      });
+      expect(opened.ok()).toBeTruthy();
+      const session = await opened.json() as { id: string };
+      await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+    }
+
+    const saved = await request.put("/api/v1/previews/dev-servers/remote-workplace/main-port", {
+      headers: previewIdentity,
+      data: { mainPort: fixturePorts.spa },
+    });
+    expect(saved.ok()).toBeTruthy();
+
+    await page.goto("/workbench/previews");
+    await expect(page.getByRole("heading", { name: "Preview Übersicht" })).toHaveCount(0);
+    await expect(page.locator(".topbar").getByRole("button", { name: /Projekt\s+Remote Workplace/ })).toBeVisible();
+
+    const publicUrl = page.locator(".preview-hub-urlbar code");
+    await expect(publicUrl).toHaveText(/^https?:\/\/[^/]+:\d+\/$/);
+    const expectedUrl = await publicUrl.textContent();
+    expect(expectedUrl).not.toBeNull();
+
+    const tabPromise = page.waitForEvent("popup");
+    await page.getByRole("link", { name: "Im neuen Tab" }).click();
+    const tab = await tabPromise;
+    await expect(tab).toHaveURL(expectedUrl!);
+    await expect(tab.getByText("SPA bereit")).toBeVisible();
+    await tab.close();
+
+    const windowPromise = page.waitForEvent("popup");
+    await page.getByRole("button", { name: "Im neuen Fenster" }).click();
+    const previewWindow = await windowPromise;
+    await expect(previewWindow).toHaveURL(expectedUrl!);
+    await expect(previewWindow.getByText("SPA bereit")).toBeVisible();
+    await previewWindow.close();
   });
 });

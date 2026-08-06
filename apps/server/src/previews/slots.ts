@@ -545,12 +545,37 @@ export class PreviewSlotService {
     return session;
   }
 
-  assertSlotOwned(userId: string, slotId: number, storageProfileId?: string): SessionRow {
+  assertSlotOwned(userId: string, slotId: number, storageProfileId?: string | null): SessionRow {
     const session = this.database.sessionsForSlot(slotId).find((candidate) => candidate.userId === userId);
     if (!session || (storageProfileId !== undefined && session.storageProfileId !== storageProfileId)) {
       throw new AppError(404, "PREVIEW_SLOT_NOT_FOUND", "Dieser Preview-Slot gehört nicht zu deinem Benutzer oder Storage-Profil.");
     }
     return session;
+  }
+
+  beginReclaim(): { slotId: number; nonce: string; affinity: ReturnType<PreviewResetService["affinity"]> } {
+    const result = this.database.transaction(() => {
+      this.releaseUnusedSlots(this.database.deleteExpiredSessions(new Date().toISOString()));
+      const persisted = new Map(this.database.list().map((slot) => [slot.slotId, slot]));
+      for (const definition of this.definitions) {
+        const affinity = this.reset.affinity(definition.id);
+        const targetPort = persisted.get(definition.id)?.targetPort ?? null;
+        if (targetPort !== null || this.database.bindingCount(definition.id) > 0) continue;
+        if (affinity.state !== "free" || affinity.storageOwnerKey === null) continue;
+        const started = this.reset.begin(definition.id, affinity.generation, affinity.storageProfileId);
+        return { slotId: definition.id, ...started };
+      }
+      throw new AppError(409, "PREVIEW_SLOTS_EXHAUSTED", "Es ist kein freier Preview-Slot verfügbar, der sicher zurückgesetzt werden kann.");
+    });
+    this.publish();
+    return result;
+  }
+
+  assertResetVerificationAllowed(userId: string, slotId: number): void {
+    if (this.database.sessionsForSlot(slotId).some((session) => session.userId === userId)) return;
+    const affinity = this.database.affinity(slotId);
+    if (this.database.bindingCount(slotId) === 0 && affinity?.state === "resetting") return;
+    throw new AppError(404, "PREVIEW_SLOT_NOT_FOUND", "Dieser Preview-Slot gehört nicht zu deinem Benutzer oder einem laufenden Rücksetzvorgang.");
   }
 
   private sessionResponse(session: SessionRow, bindings: BindingRow[]): PreviewSessionResponse {

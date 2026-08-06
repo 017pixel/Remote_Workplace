@@ -61,6 +61,7 @@ export const workbenchConfigSchema = z.object({
     pruneAfterHours: z.number().int().min(1).max(720).default(48),
     terminalMinimumSeconds: z.number().int().min(5).max(86_400).default(180),
     agentMinimumSeconds: z.number().int().min(5).max(86_400).default(180),
+    terminalInputIdleMilliseconds: z.number().int().min(1_000).max(120_000).default(8_000),
     t3CompletionMinimumSeconds: z.number().int().min(5).max(86_400).default(120),
     t3MiniTaskSeconds: z.number().int().min(1).max(300).default(30),
     hermesCompletionMinimumSeconds: z.number().int().min(5).max(86_400).default(120),
@@ -115,6 +116,11 @@ export const workbenchConfigSchema = z.object({
     diagnosticMaxTotalBytes: z.number().int().min(1_048_576).max(2_147_483_648).default(134_217_728),
     localStorageMaxBytes: z.number().int().min(1_024).max(1_048_576).default(262_144),
     localStorageMaxKeys: z.number().int().min(1).max(10_000).default(1_000),
+    // Preview Hub: festes Programm, begrenzte Logansicht und Startwartezeit.
+    // Das eigentliche Kommando bleibt unveränderlich `npm run dev`.
+    npmExecutable: z.string().min(1).default("npm"),
+    devServerLogBytes: z.number().int().min(16_384).max(262_144).default(131_072),
+    devServerStartTimeoutMs: z.number().int().min(1_000).max(60_000).default(15_000),
   }).prefault({}),
   // Werkzeug „KI-Skills": bearbeitet den globalen Harness-Ordner (AGENTS.md + Skills).
   // Alle Pfade sind optional; ohne Angabe werden sie aus `system.homeDirectory` abgeleitet.
