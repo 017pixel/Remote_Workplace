@@ -261,13 +261,24 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     else closePanel(panel.id);
   };
   const panelActions = resolved !== null && !minimal && actionPlacement !== "hidden" && standalone ? (
-    <ToolActionMenu
-      className={actionPlacement === "topbar" ? "is-topbar" : ""}
-      externalHref={resolved.proxyUrl ?? resolved.url ?? window.location.href}
-      isFullscreen={isMaximized}
-      onFullscreen={() => onMaximizedChange ? onMaximizedChange(!isMaximized) : standalone ? setStandaloneMaximized(!isMaximized) : restorePanels()}
-      onReload={reload}
-    />
+    <>
+      {isMaximized ? (
+        <button
+          type="button"
+          title="Wiederherstellen"
+          aria-label="Wiederherstellen"
+          onClick={() => onMaximizedChange ? onMaximizedChange(false) : setStandaloneMaximized(false)}
+          className="icon-button"
+        ><RestoreIcon className="h-4 w-4" /></button>
+      ) : null}
+      <ToolActionMenu
+        className={actionPlacement === "topbar" ? "is-topbar" : ""}
+        externalHref={resolved.proxyUrl ?? resolved.url ?? window.location.href}
+        isFullscreen={isMaximized}
+        onFullscreen={() => onMaximizedChange ? onMaximizedChange(!isMaximized) : standalone ? setStandaloneMaximized(!isMaximized) : restorePanels()}
+        onReload={reload}
+      />
+    </>
   ) : resolved !== null && !minimal && actionPlacement !== "hidden" ? (
     <div className={`panel-island ${actionPlacement === "topbar" && !isMaximized ? "is-topbar" : ""} ${actionPlacement === "topbar" && panel.type === "code-server" ? "is-flat-toolbar" : ""} ${isMaximized ? "is-maximized-actions" : ""}`}>
       {panel.type === "preview" ? <DevicePickerButton deviceId={deviceId} onChange={setDeviceId} /> : null}
