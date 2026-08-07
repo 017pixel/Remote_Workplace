@@ -459,7 +459,9 @@ class BrowserSession {
 
   private scheduleStateRefresh() {
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => { void this.refreshState(); }, 60);
+    // Nach der Verbindungsfreigabe können letzte Navigationsevents den Refresh
+    // auslösen; die Ablehnung wird niemandem mehr gemeldet, deshalb hier abfangen.
+    this.refreshTimer = setTimeout(() => { void this.refreshState().catch(() => undefined); }, 60);
   }
 
   private async refreshState() {
