@@ -35,6 +35,9 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain('pathname.startsWith(prefix + "/")');
     expect(t3RouteBridgeScript).toContain("history.replaceState");
     expect(t3RouteBridgeScript).toContain('pathname.slice(prefix.length)');
+    // Alte Tiefenlinks ohne _chat-Layout werden auf die Thread-Route umgeschrieben
+    expect(t3RouteBridgeScript).toContain('"/_chat" + nextPath');
+    expect(t3RouteBridgeScript).toContain("[0-9a-fA-F-]{36}$");
   });
 
   it("meldet den geöffneten T3-Thread an die Workbench beziehungsweise den Server", () => {

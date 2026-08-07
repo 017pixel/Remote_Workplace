@@ -31,7 +31,15 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
   const pathname = window.location.pathname;
   if (pathname === prefix || pathname.startsWith(prefix + "/")) {
     const nextPath = pathname.slice(prefix.length) || "/";
-    window.history.replaceState(window.history.state, "", nextPath + window.location.search + window.location.hash);
+    // Ältere Tiefenlinks ohne _chat-Layout (altes /<environmentId>/<threadId>
+    // Format aus älteren Push- und Inbox-Einträgen) auf die Thread-Route
+    // umschreiben, bevor der T3-Router startet. UUID-Paare sind eindeutig.
+    const segments = nextPath.split("/").filter(Boolean);
+    const looksLikeThread = segments.length >= 2
+      && /^[0-9a-fA-F-]{36}$/.test(segments[0] ?? "")
+      && /^[0-9a-fA-F-]{36}$/.test(segments[1] ?? "");
+    const normalized = looksLikeThread ? "/_chat" + nextPath : nextPath;
+    window.history.replaceState(window.history.state, "", normalized + window.location.search + window.location.hash);
   }
   const historyIndexKey = "__remoteWorkplaceT3Index";
   let historyIndex = Number.isInteger(window.history.state?.[historyIndexKey]) ? window.history.state[historyIndexKey] : 0;
