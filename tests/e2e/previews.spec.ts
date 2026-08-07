@@ -191,5 +191,10 @@ test.describe("Lokale Previews", () => {
     await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
     await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
     await previewWindow.close();
+    // Live-Fenster und Live-Tab teilen eine Session über denselben Session-
+    // Schlüssel. Sie wird beim Schließen des Tabs nicht mehr automatisch
+    // freigegeben (Sessions bleiben stabil), deshalb hier explizit aufräumen,
+    // damit der Firefox-Lauf wieder freie Slots vorfindet.
+    await request.delete("/api/v1/previews/sessions/by-key/preview-live:remote-workplace:47101", { headers: previewIdentity });
   });
 });
