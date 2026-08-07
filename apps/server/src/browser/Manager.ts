@@ -99,7 +99,14 @@ class CdpConnection {
   }
 
   send(method: string, params: Record<string, unknown> = {}, sessionId?: string): Promise<Record<string, unknown>> {
-    if (this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chromium ist nicht verbunden."));
+    if (this.socket.readyState !== WebSocket.OPEN) {
+      // Hintergrund-Befehle (Captures, Cleanup nach Shutdown) erwarten die
+      // Antwort nicht mehr; ohne Abfänger würden ihre Fehler als unhandled
+      // rejections den Testlauf kippen.
+      const closed = Promise.reject(new Error("Chromium ist nicht verbunden."));
+      closed.catch(() => {});
+      return closed;
+    }
     const id = ++this.sequence;
     const promise = new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
