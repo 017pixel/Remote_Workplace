@@ -29,7 +29,7 @@ config.system = { user: "e2e", homeDirectory: temporaryRoot };
 // läuft mit eigener Temp-Konfiguration. Die Terminal-Route verlangt eine
 // explizit erlaubte Identität; sie wird für den Lauf aus WORKBENCH_E2E_USER
 // übernommen und bleibt auf den isolierten Server begrenzt.
-config.tailscale.allowedUsers = [e2eIdentity];
+config.tailscale.allowedUsers = ["user@example.com", e2eIdentity].filter((identity, index, all) => all.indexOf(identity) === index);
 // Alle vom isolierten Server reservierten Listener werden aus dem E2E-Port
 // abgeleitet. Dadurch kollidiert ein lokaler Lauf nicht mit der laufenden
 // Workbench oder einem anderen Testprozess.
