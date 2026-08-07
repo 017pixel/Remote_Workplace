@@ -152,5 +152,9 @@ describe.skipIf(!chromium)("persistent BrowserManager profile", () => {
     await second.shutdown();
     managers.splice(managers.indexOf(second), 1);
     database.close();
+    // Nachlaufende CDP-Antworten (z. B. „Not attached to an active page" nach
+    // dem Prozessende) treffen sonst nach Testende ein und kippen den Lauf als
+    // unhandled rejection. Kurz warten, bis die Verbindung zur Ruhe kommt.
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }, 30_000);
 });

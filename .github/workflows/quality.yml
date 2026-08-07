@@ -34,6 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      # Der e2e-Server erwartet WORKBENCH_E2E_USER (Fallback user@example.com);
+      # WORKBENCH_DEV_TAILSCALE_USER aktiviert nur die Preview-Test-Szenarien.
+      WORKBENCH_E2E_USER: e2e@workbench.invalid
       WORKBENCH_DEV_TAILSCALE_USER: e2e@workbench.invalid
       NODE_ENV: development
     steps:
