@@ -395,7 +395,11 @@ class BrowserSession {
         this.screencastStarted = false;
         await this.startScreencast(metrics);
       }
-    });
+      // Läuft ein Größenwechsel nach der Verbindungsfreigabe (z. B. ein letzter
+      // Screencast-Frame während des Shutdowns), schlägt der CDP-Befehl fehl.
+      // Die Kette darf nicht als unhandled rejection enden, weil niemand mehr
+      // auf sie wartet.
+    }).catch(() => undefined);
     return this.resizeQueue;
   }
 
