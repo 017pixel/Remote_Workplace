@@ -132,8 +132,10 @@ const child = spawn(process.execPath, ["apps/server/dist/index.js"], {
     TERMINAL_ALLOWED_ROOTS: `${repositoryRoot},${temporaryRoot}`,
     TERMINAL_DEFAULT_CWD: temporaryRoot,
     // Die .env des Repos setzt TERMINAL_ALLOWED_USERS für die Produktion; der
-    // isolierte Testserver nutzt stattdessen ausschließlich seine Testidentität.
-    TERMINAL_ALLOWED_USERS: e2eIdentity,
+    // isolierte Testserver nutzt stattdessen seine Testidentitäten.
+    // api.spec und die Shell-Tests melden sich als user@example.com an, die
+    // Preview-Szenarien als e2eIdentity.
+    TERMINAL_ALLOWED_USERS: ["user@example.com", e2eIdentity].filter((identity, index, all) => all.indexOf(identity) === index).join(","),
     // Die .env erbt ORBIT_DESTRUCTIVE_DROP_PERCENT=50 als Produktionsschutz;
     // die Tests ersetzen Orbit-Dokumente jedoch komplett (eigene Arbeitsflächen).
     ORBIT_DESTRUCTIVE_DROP_PERCENT: "100",
