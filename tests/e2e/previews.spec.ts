@@ -176,18 +176,20 @@ test.describe("Lokale Previews", () => {
     const expectedUrl = await publicUrl.textContent();
     expect(expectedUrl).not.toBeNull();
 
+    // Die externen Öffner führen über die Live-Route auf die Slot-Origin, damit
+    // der neue Tab eine eigene Session mit Lease erhält statt einer nackten URL.
     const tabPromise = page.waitForEvent("popup");
-    await page.getByRole("link", { name: "Im neuen Tab" }).click();
+    await page.getByRole("button", { name: "Im neuen Tab" }).click();
     const tab = await tabPromise;
-    await expect(tab).toHaveURL(expectedUrl!);
-    await expect(tab.getByText("SPA bereit")).toBeVisible();
+    await expect(tab).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+    await expect(tab.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
     await tab.close();
 
     const windowPromise = page.waitForEvent("popup");
     await page.getByRole("button", { name: "Im neuen Fenster" }).click();
     const previewWindow = await windowPromise;
-    await expect(previewWindow).toHaveURL(expectedUrl!);
-    await expect(previewWindow.getByText("SPA bereit")).toBeVisible();
+    await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+    await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
     await previewWindow.close();
   });
 });
