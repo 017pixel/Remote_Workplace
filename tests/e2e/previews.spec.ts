@@ -196,5 +196,18 @@ test.describe("Lokale Previews", () => {
     // freigegeben (Sessions bleiben stabil), deshalb hier explizit aufräumen,
     // damit der Firefox-Lauf wieder freie Slots vorfindet.
     await request.delete("/api/v1/previews/sessions/by-key/preview-live:remote-workplace:47101", { headers: previewIdentity });
+
+    // Die belegten Slot-Origins hinterlassen fremde Storage-Affinitäten; ohne
+    // verifizierten Reset bleiben sie für spätere Läufe gesperrt. Deshalb jede
+    // Affinität über den Reclaim-Zyklus nachweislich leeren.
+    for (let index = 0; index < 12; index += 1) {
+      const startedResponse = await request.post("/api/v1/previews/slots/reclaim", { headers: previewIdentity });
+      if (!startedResponse.ok()) break;
+      const started = await startedResponse.json() as { slotId: number; nonce: string };
+      await request.post(`/api/v1/previews/slots/${started.slotId}/reset/verify`, {
+        headers: previewIdentity,
+        data: { nonce: started.nonce, serviceWorkers: 0, cacheStorages: 0, localStorageKeys: 0, sessionStorageKeys: 0, indexedDatabases: 0, verifiable: true },
+      });
+    }
   });
 });
