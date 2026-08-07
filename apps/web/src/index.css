@@ -2253,12 +2253,12 @@ a:hover .app-icon,
   .mobile-nav-trigger:hover, .mobile-nav-trigger:active { background: var(--color-ink-800); color: var(--color-text); }
   .mobile-navigation-page { position: fixed; inset: 0; z-index: 250; isolation: isolate; display: flex; flex-direction: column; overflow: auto; background: var(--color-ink-950); }
   .mobile-navigation-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: calc(32px + env(safe-area-inset-top)) 20px 28px; border-bottom: 1px solid var(--color-line); }
-  .mobile-navigation-kicker { margin: 0 0 8px; color: var(--color-faint); font-size: 11px; font-weight: 500; }
+  .mobile-navigation-kicker { margin: 0 0 6px; color: var(--color-faint); font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
   .mobile-navigation-header h2 { margin: 0; color: var(--color-text); font-size: 28px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.2; }
   .mobile-navigation-header p:not(.mobile-navigation-kicker) { margin: 8px 0 0; color: var(--color-muted); font-size: 14px; }
   .mobile-navigation-list { padding: 12px 0 calc(32px + env(safe-area-inset-bottom)); }
   .mobile-navigation-section { padding-top: 8px; }
-  .mobile-navigation-section-kicker { margin: 0; padding: 6px 20px 6px; color: var(--color-faint); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .mobile-navigation-section-kicker { margin: 0; padding: 6px 20px 6px; color: var(--color-faint); font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
   .mobile-navigation-item { display: flex; min-height: 76px; align-items: center; gap: 14px; padding: 14px 20px; color: var(--color-muted); transition: background 150ms ease-out, color 150ms ease-out; }
   .mobile-navigation-item:hover, .mobile-navigation-item:active { background: var(--color-ink-900); color: var(--color-text); }
   .mobile-navigation-item.is-active { background: var(--color-ink-800); color: var(--color-text); }
@@ -3305,9 +3305,10 @@ a:hover .app-icon,
     margin: 0;
     padding: 8px max(20px, env(safe-area-inset-right)) 5px max(20px, env(safe-area-inset-left));
     color: var(--color-faint);
+    font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .08em;
+    font-weight: 500;
+    letter-spacing: .04em;
     text-transform: uppercase;
   }
   .app-shell .mobile-navigation-grid { display: block; }
