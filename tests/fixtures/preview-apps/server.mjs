@@ -12,6 +12,10 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Die Ports stehen in `ports.json` und liegen bewusst unterhalb der
+// ephemeral-Range (32768+), die Browser und Betriebssystem zufällig für
+// eigene Verbindungen vergeben. Höhere feste Ports (47100er) kollidierten
+// auf CI-Runnern sporadisch mit Playwright-Browser-Transports.
 export const fixturePorts = JSON.parse(readFileSync(join(here, "ports.json"), "utf8"));
 
 const html = (title, body) => `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>${title}</title></head><body>${body}</body></html>`;
