@@ -47,6 +47,33 @@ Jedes Ereignis nennt seine Quelle und seine Vollständigkeit:
 `completeness` ist `complete`, `partial` oder `inferred`. Requests aus Workern,
 Service Workern und Browser-internen Mechanismen erscheinen **nicht**.
 
+## Arbeiten mit aktiven Previews
+
+Preview-Sessions, Slots und Devserver gehören dem Nutzer und laufen oft über Stunden. Diese
+Regeln gelten für Coding-Agenten, die neben aktiven Previews arbeiten.
+
+- Laufende Preview-Devserver sind tmux-Sessions mit Namen `workbench-preview-<hash>` und dem
+  Marker `@workbench_kind=preview-dev-server`. Sie werden **niemals** gestoppt, neu gestartet
+  oder gekillt — weder über tmux, `kill`/`pkill`/`fuser` noch über die Devserver-API
+  (`POST /api/v1/previews/dev-servers/:projectId/stop|restart`). Stirbt ein Devserver,
+  startet ihn die Workbench selbst wieder (Auto-Restart mit Backoff).
+- Eigene Testserver nur auf freien Ports starten. Vorher prüfen, ob der gewünschte Port von
+  einem aktiven Preview genutzt wird: lokale Portübersicht in der Workbench (Dashboard →
+  „Lokale Ports") oder `GET /api/v1/services/ports`. Ein Port, auf dem ein Preview-Devserver
+  lauscht, ist tabu.
+- Preview-Sessions des Nutzers werden nicht geschlossen (`DELETE /api/v1/previews/sessions/...`
+  und `/previews/sessions/by-key/...`), und direkte Slot-Zuweisungen werden nicht geändert
+  (`PUT /api/v1/previews/slots`). Slots gibt der Nutzer über die Oberfläche frei; abgelaufene
+  Sessions räumt das System nur bei Slot-Knappheit ab.
+- Der Doctor (`bash scripts/preview-doctor.sh`) ist reine Diagnose. `--probe` erneuert nur
+  Vorschläge; er schließt keine Session, bestätigt keinen Reset und ändert keine Zuweisung.
+- Zeigt ein Preview beim Neuladen „Preview nicht aktiv" (503) oder „nicht erreichbar" (502),
+  wird **nichts neu konfiguriert**. Stattdessen: Devserver-Status abfragen
+  (`curl -s http://127.0.0.1:3010/api/v1/previews/dev-servers/<projekt-id>`), bei Bedarf den
+  Hub-Status (`/api/v1/previews/doctor/status`) lesen und das Ergebnis dem Nutzer melden.
+  Der Slot erholt sich von selbst, sobald der Devserver wieder läuft; die 502-Seite lädt sich
+  dann automatisch neu.
+
 ## Zugriff auf Preview-Logs (max. sieben Tage)
 
 **Verbindliche Regeln:**
