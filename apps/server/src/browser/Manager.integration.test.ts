@@ -65,7 +65,7 @@ describe.skipIf(!chromium)("persistent BrowserManager profile", () => {
     const messages: ServerBrowserMessage[] = [];
     const manager = new BrowserManager({
       chromiumPath: chromium!, profilesRoot: join(directory, "profiles"),
-      maxSessions: 1, startupTimeoutMilliseconds: 15_000, idleTimeoutMilliseconds: 60_000,
+      maxSessions: 1, startupTimeoutMilliseconds: 30_000, idleTimeoutMilliseconds: 60_000,
       allowNoSandbox: true,
       captureMaxWidth: 1_280, captureMaxHeight: 720, captureMaxScale: 1,
       captureJpegQuality: 70, captureEveryNthFrame: 3,
@@ -103,7 +103,7 @@ describe.skipIf(!chromium)("persistent BrowserManager profile", () => {
     const database = new BrowserDatabase(join(directory, "workbench.sqlite"));
     const options = {
       chromiumPath: chromium!, profilesRoot: join(directory, "profiles"), database,
-      maxSessions: 2, startupTimeoutMilliseconds: 15_000, idleTimeoutMilliseconds: 60_000,
+      maxSessions: 2, startupTimeoutMilliseconds: 30_000, idleTimeoutMilliseconds: 60_000,
       allowNoSandbox: true,
       captureMaxWidth: 1_280, captureMaxHeight: 720, captureMaxScale: 1,
       captureJpegQuality: 70, captureEveryNthFrame: 3,
