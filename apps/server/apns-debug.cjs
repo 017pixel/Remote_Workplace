@@ -1,3 +1,4 @@
+/* eslint-disable no-undef, @typescript-eslint/no-require-imports */
 const webpush = require("web-push");
 const { DatabaseSync } = require("node:sqlite");
 const fs = require("node:fs");
