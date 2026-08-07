@@ -10,7 +10,7 @@ import { footerNavItems, primaryNavItems, toolRouteItems, type NavItem } from ".
 import { isOrbitItemVisibleIn, isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
 import { useOrbitStore } from "../stores/orbit";
 import { PromptDialog } from "./ModalDialog";
-import { previewSlotsReleasedWithNode, releasePreviewSlots } from "../lib/previewSlotLifecycle";
+import { previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePreviewSessions, releasePreviewSlots } from "../lib/previewSlotLifecycle";
 import { openPreviewGroupWindow } from "../lib/previewWindow";
 import { requestOrbitNode, type OrbitPalettePayload } from "../lib/orbitPalette";
 
@@ -156,7 +156,10 @@ function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {
     };
   }, [menuId]);
   const deleteGroup = (group: OrbitNode) => {
-    if (board) void releasePreviewSlots(previewSlotsReleasedWithNode(board, group.id));
+    if (board) {
+      void releasePreviewSlots(previewSlotsReleasedWithNode(board, group.id));
+      void releasePreviewSessions(previewSessionKeysWithNode(board, group.id));
+    }
     removeNode(group.id);
     setMenuId(null);
   };

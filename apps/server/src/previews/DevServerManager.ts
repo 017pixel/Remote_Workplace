@@ -30,6 +30,14 @@ export interface PreviewDevServerManagerOptions {
   project: (projectId: string) => Promise<Project>;
   localPorts: () => Promise<LocalPort[]>;
   runner?: CommandRunner;
+  /** Intervall des Auto-Restart-Wachhunds in Millisekunden (Standard: 10 Sekunden). */
+  watchdogIntervalMilliseconds?: number;
+  /** Höchstzahl automatischer Neustartversuche innerhalb eines Zeitfensters. */
+  watchdogMaxAttemptsPerWindow?: number;
+  /** Zeitfenster für die Neustartversuche (Standard: 5 Minuten). */
+  watchdogWindowMilliseconds?: number;
+  /** Empfängt Warnungen des Wachhunds, damit sie in den Server-Logs landen. */
+  logger?: (message: string) => void;
 }
 
 interface PaneState {
@@ -78,12 +86,21 @@ export function sanitizeDevServerPath(projectPath: string, ambientPath: string):
 
 export class PreviewDevServerManager {
   private readonly run: CommandRunner;
+  private readonly watchdogIntervalMilliseconds: number;
+  private readonly watchdogMaxAttemptsPerWindow: number;
+  private readonly watchdogWindowMilliseconds: number;
+  private readonly restartHistory = new Map<string, number[]>();
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
+  private tickRunning = false;
 
   constructor(private readonly options: PreviewDevServerManagerOptions) {
     this.run = options.runner ?? ((args, timeoutMilliseconds) => {
       const result = spawnSync(options.tmuxExecutable, args, { encoding: "utf8", timeout: timeoutMilliseconds });
       return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
     });
+    this.watchdogIntervalMilliseconds = options.watchdogIntervalMilliseconds ?? 10_000;
+    this.watchdogMaxAttemptsPerWindow = options.watchdogMaxAttemptsPerWindow ?? 3;
+    this.watchdogWindowMilliseconds = options.watchdogWindowMilliseconds ?? 5 * 60_000;
   }
 
   async status(userId: string, projectId: string): Promise<PreviewDevServerStatus> {
@@ -145,6 +162,9 @@ export class PreviewDevServerManager {
     this.execute(["set-option", "-t", name, "@workbench_kind", "preview-dev-server"]);
     this.execute(["set-option", "-t", name, "@workbench_project_id", projectId]);
     this.execute(["set-option", "-t", name, "@workbench_owner_hash", this.ownerHash(userId)]);
+    // Die rohe User-ID liegt nur lokal im tmux-Server; der Wachhund braucht sie,
+    // um die Session nach einem Backend-Neustart wieder starten zu können.
+    this.execute(["set-option", "-t", name, "@workbench_user_id", userId]);
     return this.status(userId, projectId);
   }
 
@@ -235,5 +255,76 @@ export class PreviewDevServerManager {
   private sessionName(userId: string, projectId: string): string {
     const key = createHash("sha256").update(`${userId}\u0000${projectId}`).digest("hex").slice(0, 24);
     return `workbench-preview-${key}`;
+  }
+
+  // ── Auto-Restart-Wachhund ─────────────────────────────────────────────────
+
+  /**
+   * Startet den Wachhund, der tote Preview-Devserver automatisch wieder hochholt.
+   * Er reagiert nur auf existierende, abgestürzte tmux-Sessions: Ein expliziter
+   * Stop entfernt die Session und startet deshalb nichts neu.
+   */
+  startWatchdog() {
+    if (this.watchdogTimer !== null) return;
+    this.watchdogTimer = setInterval(() => { void this.tick(); }, this.watchdogIntervalMilliseconds);
+  }
+
+  stopWatchdog() {
+    if (this.watchdogTimer === null) return;
+    clearInterval(this.watchdogTimer);
+    this.watchdogTimer = null;
+  }
+
+  /** Einmalige Prüfung aller Preview-Sessions. Öffentlich für Tests. */
+  async tick() {
+    if (this.tickRunning) return;
+    this.tickRunning = true;
+    try {
+      const sessions = this.run(["list-sessions", "-F", "#{session_name}"], 4_000);
+      if (sessions.status !== 0) return;
+      const names = sessions.stdout.split("\n").map((name) => name.trim()).filter(Boolean);
+      for (const name of names) {
+        if (!name.startsWith("workbench-preview-")) continue;
+        const pane = this.pane(name);
+        if (!pane || !pane.dead || pane.exitCode === 0) continue;
+        const projectId = this.sessionOption(name, "@workbench_project_id");
+        const userId = this.sessionOption(name, "@workbench_user_id");
+        if (!projectId || !userId) continue;
+        await this.autoRestart(name, userId, projectId);
+      }
+    } finally {
+      this.tickRunning = false;
+    }
+  }
+
+  private async autoRestart(sessionName: string, userId: string, projectId: string) {
+    const now = Date.now();
+    const windowStart = now - this.watchdogWindowMilliseconds;
+    const attempts = (this.restartHistory.get(sessionName) ?? []).filter((at) => at >= windowStart);
+    if (attempts.length >= this.watchdogMaxAttemptsPerWindow) {
+      this.options.logger?.(
+        `Preview-Devserver ${projectId} läuft nach ${attempts.length} automatischen Neustarts weiterhin nicht; `
+        + `nächster Versuch nach dem Backoff-Zeitfenster.`,
+      );
+      this.restartHistory.set(sessionName, attempts);
+      return;
+    }
+    attempts.push(now);
+    this.restartHistory.set(sessionName, attempts);
+    const exitCode = this.pane(sessionName)?.exitCode;
+    this.options.logger?.(
+      `Preview-Devserver ${projectId} wurde beendet (Exit-Code ${exitCode ?? "unbekannt"}) und wird automatisch neu gestartet.`,
+    );
+    try {
+      await this.start(userId, projectId);
+    } catch (error) {
+      this.options.logger?.(`Der automatische Neustart von ${projectId} ist fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private sessionOption(name: string, option: string): string | null {
+    const result = this.run(["show-options", "-t", name, "-v", option], 4_000);
+    if (result.status !== 0) return null;
+    return result.stdout.trim() || null;
   }
 }

@@ -284,6 +284,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     startTimeoutMilliseconds: settings.previews.devServerStartTimeoutMilliseconds,
     project: async (projectId) => (await projects.get(projectId)).project,
     localPorts: async () => (await localPorts.list()).ports,
+    logger: (message) => app.log.warn({ component: "preview-dev-server-watchdog" }, message),
   });
 
   await app.register(compress, {
@@ -571,6 +572,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     terminalStatusSync.start();
     agentSessionSync.start();
     await previewSlots.startListeners();
+    previewDevServers.startWatchdog();
     if (settings.previews.diagnosticsEnabled) {
       // Tageswechsel: abgeschlossene Tage komprimieren, alte Tage entfernen.
       previewLogRotation = setInterval(() => {
@@ -580,7 +582,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       void previewDiagnostics.rotate().catch((error) => app.log.error({ err: error }, "Initiale Preview-Logrotation fehlgeschlagen"));
     }
   }
-  app.addHook("onClose", async () => { await news.stop(); await analytics.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
+  app.addHook("onClose", async () => { previewDevServers.stopWatchdog(); await news.stop(); await analytics.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);
