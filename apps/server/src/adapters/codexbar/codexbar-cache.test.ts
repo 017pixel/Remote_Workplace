@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UsageMonitoring, UsageResponse } from "@workbench/contracts";
 import { createCodexbarUsageService } from "./codexbar-cache.js";
 import type { CodexbarClient } from "./codexbar-client.js";
@@ -61,5 +61,59 @@ describe("CodexbarUsageService mit Limitüberwachung", () => {
     const response = await service.getUsage();
     expect(called.sort()).toEqual(["claude", "codex", "opencodego"]);
     expect(summarize(response)).toEqual({ codex: "available", opencode: "available", claude: "available" });
+  });
+});
+
+describe("CodexbarUsageService stale-while-revalidate", () => {
+  const NOW = new Date("2026-07-29T10:00:00Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("liefert einen frischen Cache ohne erneute CodexBar-Abfrage", async () => {
+    const called: string[] = [];
+    const service = createCodexbarUsageService({ ttlMilliseconds: 60_000, client: client(called) });
+    await service.getUsage();
+    const first = called.length;
+
+    const again = await service.getUsage();
+    expect(called.length).toBe(first);
+    expect(again.cached).toBe(true);
+  });
+
+  it("liefert nach Ablauf sofort den alten Stand und lädt im Hintergrund nach", async () => {
+    const called: string[] = [];
+    const service = createCodexbarUsageService({ ttlMilliseconds: 60_000, client: client(called) });
+    await service.getUsage();
+    const first = called.length;
+
+    await vi.advanceTimersByTimeAsync(61_000);
+    const stale = await service.getUsage();
+    // Sofortige Antwort mit dem bisherigen Stand, statt auf CodexBar zu warten.
+    expect(stale.cached).toBe(true);
+    // Der Hintergrund-Refresh läuft und ersetzt den Cache.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(called.length).toBe(first + 3);
+    const fresh = await service.getUsage();
+    expect(summarize(fresh)).toEqual({ codex: "available", opencode: "available", claude: "available" });
+  });
+
+  it("invalidate startet einen Hintergrund-Refresh, während getUsage weiter den alten Stand liefert", async () => {
+    const called: string[] = [];
+    const service = createCodexbarUsageService({ ttlMilliseconds: 60_000, client: client(called) });
+    await service.getUsage();
+    const first = called.length;
+
+    service.invalidate();
+    const still = await service.getUsage();
+    expect(still.cached).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(called.length).toBe(first + 3);
   });
 });

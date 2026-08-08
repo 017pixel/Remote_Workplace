@@ -264,7 +264,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   });
   const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get(), opencodeUsagePath: join(settings.sharedHomes.opencode.sharedHome, "opencode.db") });
   const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
-  const usageTimeline = new UsageTimelineService({ accounts, client: codexbarClient, live: liveUsage, database: usageDatabase });
+  const usageTimeline = new UsageTimelineService({ accounts, client: codexbarClient, live: liveUsage, database: usageDatabase, ttlMilliseconds: settings.codexbarCacheMilliseconds });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
     cacheMilliseconds: settings.localPortCacheMilliseconds,
@@ -569,6 +569,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   let previewLogRotation: NodeJS.Timeout | null = null;
   if (options.startBackgroundServices !== false) {
     analytics.start();
+    usageTimeline.start();
     news.start();
     hermesResultSync.start();
     t3StatusSync.start();
@@ -585,7 +586,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       void previewDiagnostics.rotate().catch((error) => app.log.error({ err: error }, "Initiale Preview-Logrotation fehlgeschlagen"));
     }
   }
-  app.addHook("onClose", async () => { previewDevServers.stopWatchdog(); await news.stop(); await analytics.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
+  app.addHook("onClose", async () => { previewDevServers.stopWatchdog(); await news.stop(); await analytics.stop(); await usageTimeline.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);

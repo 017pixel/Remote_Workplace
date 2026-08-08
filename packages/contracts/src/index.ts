@@ -1066,6 +1066,12 @@ export const usageTimelineResponseSchema = z.object({
   lastSuccessfulFetchAt: isoDateSchema.nullable(),
 });
 
+export const usageSyncStatusSchema = z.object({
+  running: z.boolean(),
+  lastCompletedAt: isoDateSchema.nullable(),
+});
+export type UsageSyncStatus = z.infer<typeof usageSyncStatusSchema>;
+
 export const WORKBENCH_LIMITS = {
   maxResidentTools: 10,
   maxVisibleGroups: 4,

@@ -32,6 +32,41 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
   let cached: UsageResponse | undefined;
   let pending: Promise<UsageResponse> | undefined;
 
+  const startRefresh = (): Promise<UsageResponse> => {
+    pending = refresh()
+      .then((fresh) => {
+        cached = fresh;
+        expiresAt = Date.now() + options.ttlMilliseconds;
+        return fresh;
+      })
+      .catch((error: unknown) => {
+        if (cached) {
+          // Fehler bei vorhandenen Daten: letzten erfolgreichen Stand mit
+          // stale-Markierung liefern, statt den Cache zu verwerfen.
+          return { ...cached, providers: cached.providers.map(staleProvider), cached: true };
+        }
+        const code = errorCode(error);
+        const now = new Date().toISOString();
+        const monitoring = options.monitoring?.() ?? { codex: true, opencode: true, claude: true };
+        const unavailable = (provider: "codex" | "opencode" | "claude") => monitoring[provider]
+          ? unavailableUsage(provider, code, "CodexBar ist momentan nicht erreichbar.")
+          : disabledUsage(provider);
+        const allUnavailable: UsageResponse = {
+          providers: [unavailable("codex"), unavailable("opencode"), unavailable("claude")],
+          fetchedAt: now,
+          lastSuccessfulFetchAt: null,
+          cached: false,
+        };
+        cached = allUnavailable;
+        expiresAt = Date.now() + options.ttlMilliseconds;
+        return allUnavailable;
+      })
+      .finally(() => {
+        pending = undefined;
+      });
+    return pending;
+  };
+
   const refresh = async (): Promise<UsageResponse> => {
     const monitoring = options.monitoring?.() ?? { codex: true, opencode: true, claude: true };
     // Deaktivierte Anbieter werden gar nicht erst abgefragt und als "disabled" gemeldet.
@@ -64,41 +99,21 @@ export function createCodexbarUsageService(options: CodexbarCacheOptions): Codex
 
   return {
     invalidate() {
+      // Cache als abgelaufen markieren und sofort im Hintergrund aktualisieren.
+      // Vorhandene Daten bleiben erhalten, damit kein aufrufender Request wartet.
       expiresAt = 0;
+      if (cached && !pending) void startRefresh();
     },
     async getUsage() {
-      if (cached && Date.now() < expiresAt) return { ...cached, cached: true };
+      // Stale-while-revalidate: Liegt ein Cache vor, wird er sofort geliefert.
+      // Ein abgelaufener Cache stößt den Refresh im Hintergrund an, statt den
+      // Request zu blockieren. Nur ohne jede Vorgeschichte wird einmal geladen.
+      if (cached) {
+        if (Date.now() >= expiresAt && !pending) void startRefresh();
+        return { ...cached, cached: true };
+      }
       if (pending) return pending;
-      pending = refresh()
-        .then((fresh) => {
-          cached = fresh;
-          expiresAt = Date.now() + options.ttlMilliseconds;
-          return fresh;
-        })
-        .catch((error: unknown) => {
-          if (cached) {
-            return { ...cached, providers: cached.providers.map(staleProvider), cached: true };
-          }
-          const code = errorCode(error);
-          const now = new Date().toISOString();
-          const monitoring = options.monitoring?.() ?? { codex: true, opencode: true, claude: true };
-          const unavailable = (provider: "codex" | "opencode" | "claude") => monitoring[provider]
-            ? unavailableUsage(provider, code, "CodexBar ist momentan nicht erreichbar.")
-            : disabledUsage(provider);
-          const allUnavailable: UsageResponse = {
-            providers: [unavailable("codex"), unavailable("opencode"), unavailable("claude")],
-            fetchedAt: now,
-            lastSuccessfulFetchAt: null,
-            cached: false,
-          };
-          cached = allUnavailable;
-          expiresAt = Date.now() + options.ttlMilliseconds;
-          return allUnavailable;
-        })
-        .finally(() => {
-          pending = undefined;
-        });
-      return pending;
+      return startRefresh();
     },
   };
 }

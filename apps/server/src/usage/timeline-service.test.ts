@@ -53,6 +53,7 @@ function createService(options: {
   client?: Partial<CodexbarClient>;
   live?: CodexbarUsageService;
   database?: Partial<UsageDatabase>;
+  ttlMilliseconds?: number;
 }) {
   const accounts = {
     list: () => [],
@@ -66,7 +67,7 @@ function createService(options: {
   } as CodexbarClient;
   const live = options.live ?? ({ getUsage: vi.fn().mockResolvedValue(liveResponse()), invalidate: vi.fn() } as CodexbarUsageService);
   const database = { resetCredits: () => ({}), ...options.database } as UsageDatabase;
-  return new UsageTimelineService({ accounts, client, live, database });
+  return new UsageTimelineService({ accounts, client, live, database, ...(options.ttlMilliseconds ? { ttlMilliseconds: options.ttlMilliseconds } : {}) });
 }
 
 describe("UsageTimelineService", () => {
@@ -286,6 +287,42 @@ describe("UsageTimelineService", () => {
     const result = await service.get();
     expect(result.lastSuccessfulFetchAt).toBe(NOW.toISOString());
     expect(result.lanes).toEqual([]);
+  });
+
+  it("liefert beim zweiten get() den Cache, ohne erneut abzufragen", async () => {
+    const listWithState = vi.fn().mockResolvedValue([]);
+    const service = createService({ accounts: { listWithState } });
+    await service.get();
+    const first = listWithState.mock.calls.length;
+
+    const again = await service.get();
+    expect(again.lanes).toEqual([]);
+    expect(listWithState.mock.calls.length).toBe(first);
+  });
+
+  it("liefert nach TTL-Ablauf sofort den letzten Stand und lädt im Hintergrund nach", async () => {
+    const listWithState = vi.fn().mockResolvedValue([]);
+    const service = createService({ accounts: { listWithState }, ttlMilliseconds: 60_000 });
+    await service.get();
+    const first = listWithState.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(60_001);
+    const stale = await service.get();
+    expect(stale.lanes).toEqual([]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(listWithState.mock.calls.length).toBeGreaterThan(first);
+  });
+
+  it("start() wärmt den Cache im Hintergrund, ohne dass get() noch einmal lädt", async () => {
+    const listWithState = vi.fn().mockResolvedValue([]);
+    const service = createService({ accounts: { listWithState } });
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(listWithState).toHaveBeenCalled();
+
+    const result = await service.get();
+    expect(result.lanes).toEqual([]);
+    expect(listWithState.mock.calls.length).toBe(1);
   });
 });
 

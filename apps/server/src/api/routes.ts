@@ -12,6 +12,7 @@ import {
   usageDashboardResponseSchema,
   usageRangeSchema,
   usageTimelineResponseSchema,
+  usageSyncStatusSchema,
   accountsResponseSchema,
   discoveredAccountsResponseSchema,
   createAccountRequestSchema,
@@ -408,7 +409,27 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
     const range = usageRangeSchema.parse((request.query as {range?:unknown}).range ?? "30d");
     return usageDashboardResponseSchema.parse(await services.analytics.dashboard(range));
   });
-  app.post("/usage/sync", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => { services.usage.invalidate(); await services.analytics.sync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
+  let usageSyncRunning = false;
+  let lastUsageSyncCompletedAt: string | null = null;
+  const startUsageSync = () => {
+    if (usageSyncRunning) return;
+    usageSyncRunning = true;
+    void (async () => {
+      try {
+        services.usage.invalidate();
+        await Promise.allSettled([services.analytics.sync(), services.usageTimeline.refresh()]);
+      } finally {
+        usageSyncRunning = false;
+        lastUsageSyncCompletedAt = new Date().toISOString();
+      }
+    })();
+  };
+  // Status für die Oberfläche, damit sie nach einem Klick automatisch nachlädt,
+  // sobald der Hintergrund-Sync abgeschlossen ist.
+  app.get("/usage/sync/status", async () => usageSyncStatusSchema.parse({ running: usageSyncRunning, lastCompletedAt: lastUsageSyncCompletedAt }));
+  // Der Sync läuft im Hintergrund; die Antwort kommt sofort mit dem aktuellsten
+  // Stand, statt auf CodexBar zu warten.
+  app.post("/usage/sync", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => { startUsageSync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
   app.get("/accounts", async () => accountsResponseSchema.parse({ accounts: await services.accounts.listWithState() }));
   app.get("/accounts/discover", async () => discoveredAccountsResponseSchema.parse({ accounts: await services.accounts.discover() }));
   app.post("/accounts", async (request, reply) => {

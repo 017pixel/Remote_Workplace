@@ -19,6 +19,9 @@ import type { UsageDatabase } from "./database.js";
 
 export const STALE_AFTER_MILLISECONDS = 90 * 60 * 1_000;
 
+/** Standardlaufzeit des Ergebnis-Caches, bevor im Hintergrund nachgeladen wird. */
+export const TIMELINE_CACHE_TTL_MILLISECONDS = 60 * 1_000;
+
 type WorkbenchProvider = "codex" | "claude" | "opencode";
 
 function deterministicAccountId(provider: WorkbenchProvider, source: string): string {
@@ -121,15 +124,67 @@ export function buildTimelineLane(input: LaneInput): UsageTimelineLane {
 }
 
 export class UsageTimelineService {
+  private cached: UsageTimelineResponse | undefined;
+  private cachedAt = 0;
+  private pending: Promise<UsageTimelineResponse> | undefined;
+
   constructor(private readonly options: {
     accounts: AccountService;
     client: CodexbarClient;
     live: CodexbarUsageService;
     database: UsageDatabase;
     claudeProfileConcurrency?: number;
+    ttlMilliseconds?: number;
   }) {}
 
+  /** Wärmt den Cache beim Serverstart im Hintergrund, ohne einen Request zu blockieren. */
+  start() {
+    void this.refresh();
+  }
+
+  async stop() {
+    await this.pending;
+  }
+
+  /** Ersetzt den Cache im Hintergrund. Läuft ein Refresh bereits, wird er abgewartet. */
+  async refresh(): Promise<void> {
+    await this.load();
+  }
+
+  /** Markiert den Cache als zu aktualisieren und startet einen Hintergrund-Refresh. */
+  invalidate(): void {
+    if (this.cached && !this.pending) void this.refresh();
+  }
+
   async get(): Promise<UsageTimelineResponse> {
+    if (this.cached) {
+      // Stale-while-revalidate: Der letzte Stand wird sofort geliefert; ein
+      // abgelaufener Cache lädt im Hintergrund nach, statt den Request zu blockieren.
+      if (Date.now() - this.cachedAt >= this.cacheTtlMilliseconds && !this.pending) void this.refresh();
+      return this.cached;
+    }
+    return this.load();
+  }
+
+  private get cacheTtlMilliseconds(): number {
+    return this.options.ttlMilliseconds ?? TIMELINE_CACHE_TTL_MILLISECONDS;
+  }
+
+  private load(): Promise<UsageTimelineResponse> {
+    if (this.pending) return this.pending;
+    this.pending = this.build()
+      .then((response) => {
+        this.cached = response;
+        this.cachedAt = Date.now();
+        return response;
+      })
+      .finally(() => {
+        this.pending = undefined;
+      });
+    return this.pending;
+  }
+
+  private async build(): Promise<UsageTimelineResponse> {
     const now = Date.now();
     const live = await this.options.live.getUsage();
     // Bevorzugt die Identitätsauflösung (E-Mail, Plan, aktiver Account); als
