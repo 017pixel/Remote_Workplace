@@ -197,6 +197,44 @@ describe("UsageOverview", () => {
     expect(within(summary30).getByText("2")).toBeTruthy();
   });
 
+  it("blendet deaktivierte Anbieter und Accounts komplett aus", () => {
+    const disabled = timelineData({
+      lanes: [
+        ...timelineData().lanes,
+        {
+          providerId: "claude",
+          accountId: "claude-disabled",
+          accountLabel: "Claude Arbeit",
+          email: "claude@example.com",
+          plan: "pro",
+          active: false,
+          windows: [{ id: "primary", label: "5-Stunden-Limit", usedPercent: 30, remainingPercent: 70, windowMinutes: 300, resetsAt: "2026-07-29T17:00:00Z" }],
+          resetCredits: [],
+          status: "disabled",
+          error: { code: "MONITORING_DISABLED", message: "Die Limitüberwachung für diesen Anbieter ist in den Einstellungen deaktiviert." },
+          updatedAt: null,
+        },
+      ],
+    });
+    render(<UsageOverview timeline={disabled} now={now} />);
+    // Weder in der Statuszeile noch in der Tabelle oder Timeline taucht der Eintrag auf.
+    const summary = screen.getByLabelText("Zusammenfassung der Limits");
+    expect(within(summary).getByText("4")).toBeTruthy();
+    expect(within(summary).queryByText("5")).toBeNull();
+    const table = screen.getByRole("table", { name: "Aktuelle Limits je Account" });
+    expect(within(table).queryByText("Claude Arbeit")).toBeNull();
+    expect(screen.queryByText("Claude Arbeit")).toBeNull();
+  });
+
+  it("zeigt bei komplett deaktivierten Accounts eine Meldung ohne Filter-Reset", () => {
+    const allDisabled = timelineData({
+      lanes: timelineData().lanes.map((lane) => ({ ...lane, status: "disabled" as const, error: { code: "ACCOUNT_DISABLED", message: "Der Account ist in den Einstellungen deaktiviert." }, windows: [] })),
+    });
+    render(<UsageOverview timeline={allDisabled} now={now} />);
+    expect(screen.getByText("Keine überwachten Accounts vorhanden.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Filter zurücksetzen" })).toBeNull();
+  });
+
   it("klappt Details einer Account-Row auf (Fenster; E-Mail nur bei aktivierter Option)", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
     const row = screen.getByRole("button", { name: "Arbeit Details" });

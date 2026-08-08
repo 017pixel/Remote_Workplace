@@ -75,7 +75,7 @@ function NoAccounts({ hasActiveFilters, onReset }: { hasActiveFilters: boolean; 
   return (
     <div className="usage-empty-filtered" role="status">
       <WarningIcon className="h-4 w-4" />
-      <span>Keine Accounts entsprechen den gewählten Filtern.</span>
+      <span>{hasActiveFilters ? "Keine Accounts entsprechen den gewählten Filtern." : "Keine überwachten Accounts vorhanden."}</span>
       {hasActiveFilters ? <button type="button" className="quiet-button" onClick={onReset}>Filter zurücksetzen</button> : null}
     </div>
   );
@@ -86,8 +86,17 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
   const tick = useNow();
   const now = nowProp ?? tick;
 
-  const baseLanes = useMemo(() => timeline.lanes.map((lane) => buildTimelineLane(lane)), [timeline.lanes]);
-  const apiLaneById = useMemo(() => new Map(timeline.lanes.map((lane) => [lane.accountId, lane])), [timeline.lanes]);
+  // Deaktivierte Anbieter („Limitüberwachung aus") und einzelne Accounts
+  // („nicht überwacht") erscheinen in der Übersicht nicht — nur aktiv
+  // getrackte Einträge werden angezeigt. Summary, Tabelle und Timeline
+  // bekommen dafür dieselbe gefilterte Response.
+  const trackedTimeline = useMemo<UsageTimelineResponse>(
+    () => ({ ...timeline, lanes: timeline.lanes.filter((lane) => lane.status !== "disabled") }),
+    [timeline],
+  );
+
+  const baseLanes = useMemo(() => trackedTimeline.lanes.map((lane) => buildTimelineLane(lane)), [trackedTimeline.lanes]);
+  const apiLaneById = useMemo(() => new Map(trackedTimeline.lanes.map((lane) => [lane.accountId, lane])), [trackedTimeline.lanes]);
   const filterState = useMemo<UsageFilterState>(() => ({
     providerFilter: prefs.providerFilter,
     onlyActive: prefs.onlyActive,
@@ -116,7 +125,7 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
 
   return (
     <div className="usage-overview">
-      {prefs.showLimitSummary ? <LimitSummary data={timeline} warningThreshold={prefs.warningThreshold} now={now} /> : null}
+      {prefs.showLimitSummary ? <LimitSummary data={trackedTimeline} warningThreshold={prefs.warningThreshold} now={now} /> : null}
       <div className="usage-overview-toolbar">
         <UsageFilters lanes={baseLanes} prefs={prefs} />
         <div className="usage-overview-actions"><UsageViewSettings prefs={prefs} /></div>
@@ -162,7 +171,7 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
 
       {showTimeline ? (
         <QuotaTimeline
-          data={timeline}
+          data={trackedTimeline}
           now={now}
           prefs={prefs}
           {...timelineProps}
