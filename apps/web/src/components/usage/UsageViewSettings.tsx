@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { EinstellungenIcon } from "../icons";
+import { CloseIcon, EinstellungenIcon } from "../icons";
 import { useUsagePreferences, type UsagePreferences, type UsagePreset } from "../../stores/usagePreferences";
 
 /**
@@ -101,8 +101,9 @@ export function UsageViewSettings({ prefs }: { prefs: UsagePreferences }) {
         <span>Ansicht</span>
       </button>
 
-      {open ? (
-        <div className="uvs-panel" role="dialog" aria-label="Ansichtseinstellungen">
+      {open ? (<><div className="uvs-backdrop" onPointerDown={() => setOpen(false)} />
+        <div className="uvs-panel" role="dialog" aria-modal="true" aria-label="Ansichtseinstellungen">
+          <header className="uvs-head"><strong>Ansicht</strong><button type="button" className="icon-button" aria-label="Ansicht schließen" onClick={() => { setOpen(false); triggerRef.current?.focus(); }}><CloseIcon className="h-4 w-4" /></button></header>
           <Section title="Preset">
             <div className="uvs-presets">
               {presets.map((preset) => (
@@ -167,7 +168,7 @@ export function UsageViewSettings({ prefs }: { prefs: UsagePreferences }) {
               <button type="button" onClick={() => store.resetAll()}>Standard wiederherstellen</button>
             </div>
           </Section>
-        </div>
+        </div></>
       ) : null}
     </div>
   );

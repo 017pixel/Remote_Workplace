@@ -131,6 +131,23 @@ describe("UsageOverview", () => {
     expect(screen.getByRole("heading", { name: "Quota-Timeline" })).toBeTruthy();
   });
 
+  it("wechselt direkt zwischen Liste, Timeline und Beides", () => {
+    render(<UsageOverview timeline={timelineData()} now={now} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Timeline$/ }));
+    expect(screen.queryByRole("table", { name: "Aktuelle Limits je Account" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Quota-Timeline" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Beides$/ }));
+    expect(screen.getByRole("table", { name: "Aktuelle Limits je Account" })).toBeTruthy();
+  });
+
+  it("öffnet Filter als zugänglichen Dialog und schließt ihn mit Escape", () => {
+    render(<UsageOverview timeline={timelineData()} now={now} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Filter$/ }));
+    expect(screen.getByRole("dialog", { name: "Filter und Sortierung" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Filter und Sortierung" })).toBeNull();
+  });
+
   it("filtert nach Provider über die Filterleiste", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
     const select = screen.getByLabelText(/Provider/);

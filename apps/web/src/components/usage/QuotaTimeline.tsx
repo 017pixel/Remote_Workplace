@@ -75,6 +75,7 @@ export interface QuotaTimelineProps {
 export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", initialOffset = 0, prefs }: QuotaTimelineProps) {
   const [mode, setMode] = useState<TimelineMode>(initialMode);
   const [offset, setOffset] = useState(initialOffset);
+  const [viewport, setViewport] = useState<"fit" | "detail">("fit");
   // Ein geteilter Minuten-Tick für alle Lanes — keine eigene Uhr pro Balken.
   const tick = useNow(nowProp);
   const now = nowProp ?? tick;
@@ -137,7 +138,7 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
   const filteredCells = showWeekends ? cells : cells;
 
   return (
-    <section className="quota-timeline" data-density={prefs.density} data-column={prefs.accountColumn}>
+    <section className="quota-timeline" data-density={prefs.density} data-column={prefs.accountColumn} data-viewport={viewport}>
       <header className="qt-head">
         <div className="qt-heading">
           <p className="usage-provider-kicker">Zeitliche Analyse</p>
@@ -176,11 +177,14 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
               </button>
             ))}
           </div>
+          <div className="qt-viewport" role="group" aria-label="Timeline-Breite">
+            {(["fit", "detail"] as const).map((value) => <button key={value} type="button" aria-pressed={viewport === value} onClick={() => setViewport(value)}>{value === "fit" ? "Einpassen" : "Detail"}</button>)}
+          </div>
         </div>
       </header>
 
       <div className="qt-scroll">
-        <div className={`qt-chart ${compactColumn ? "is-compact" : ""}`} style={{ "--qt-track-width": mode === "session" ? "840px" : "1100px" } as CSSProperties}>
+        <div className={`qt-chart ${compactColumn ? "is-compact" : ""}`} style={{ "--qt-detail-width": mode === "session" ? "840px" : "1100px", "--qt-track-width": mode === "session" ? "840px" : "1100px" } as CSSProperties}>
           <div className="qt-axis qt-axis-head">
             <span className="qt-axis-label">Account</span>
           </div>
@@ -296,7 +300,7 @@ function LaneRow({ lane, span, now, mode, cells, nowPercent, showPast, showProje
         <div className="qt-lane-limits">
           {lane.limits.slice(0, 3).map((limit) => (
             <span key={limit.label} className="qt-lane-limit">
-              <b>{Math.round(limit.remaining)}%</b>
+              <small>{limit.label.includes("5") ? "5h" : limit.label.includes("Woche") ? "7d" : limit.label.includes("Monat") ? "30d" : limit.label}</small><b>{Math.round(limit.remaining)}%</b>
             </span>
           ))}
         </div>
@@ -357,7 +361,7 @@ function LaneRow({ lane, span, now, mode, cells, nowPercent, showPast, showProje
 
 function WindowBar({ lane, window, mode, showLabel }: { lane: TimelineLane; window: TimelineWindow; mode: TimelineMode; showLabel: boolean }) {
   const canShowLabel = window.widthPercent > (mode === "session" ? 4.5 : 9);
-  const endText = mode === "session" ? formatTime(window.endMs) : `${formatDay(window.endMs)} ${formatTime(window.endMs)}`;
+  const endText = mode === "session" ? `Reset ${formatTime(window.endMs)}` : `Reset ${formatDay(window.endMs)} ${formatTime(window.endMs)}`;
   const remainingText = window.remaining !== null ? `${Math.round(window.remaining)} % verbleibend · ${formatUsageReset(new Date(window.endMs).toISOString())}` : null;
 
   return (
@@ -379,9 +383,7 @@ function WindowBar({ lane, window, mode, showLabel }: { lane: TimelineLane; wind
       )}
       {showLabel && canShowLabel && (
         <span className="qt-window-label">
-          {window.remaining !== null ? `${Math.round(window.remaining)}% · ` : ""}
-          {endText}
-          {window.state === "next" ? " (Projektion)" : ""}
+          {window.remaining !== null ? <><strong>{Math.round(window.remaining)}%</strong><small>{endText}</small></> : window.state === "next" ? "(Projektion)" : endText}
         </span>
       )}
     </div>

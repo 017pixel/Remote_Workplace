@@ -19,8 +19,8 @@ import { QuotaTimeline, type QuotaTimelineProps } from "./QuotaTimeline";
 import { UsageAccountTable } from "./UsageAccountTable";
 import { UsageFilters } from "./UsageFilters";
 import { UsageViewSettings } from "./UsageViewSettings";
-import { Badge } from "../primitives";
 import { WarningIcon } from "../icons";
+import { UsageViewSwitcher } from "./UsageViewSwitcher";
 
 const providerName: Record<"codex" | "claude" | "opencode", string> = {
   codex: "Codex",
@@ -41,7 +41,7 @@ function LimitSummary({ data, warningThreshold, now }: { data: UsageTimelineResp
   const best = useMemo(() => bestAvailableAccount(lanes), [lanes]);
 
   return (
-    <div className="usage-limit-summary" aria-label="Zusammenfassung der Limits">
+    <div className="usage-limit-summary" aria-label="Zusammenfassung der Limits" data-has-best={best !== null ? "true" : "false"}>
       <p className="usage-limit-summary-line">
         <strong>{summary.accounts}</strong> Accounts
         {" · "}
@@ -63,11 +63,7 @@ function LimitSummary({ data, warningThreshold, now }: { data: UsageTimelineResp
           <span className="usage-summary-best-label">Beste verfügbare Kapazität</span>
           <strong>{best.accountLabel}</strong>
           {" · "}{providerName[best.providerId]}
-          {best.limits.map((limit) => (
-            <span key={limit.label} className="usage-summary-best-limit">
-              {shortWindowLabel(limit.label)} {Math.round(limit.remaining)} %
-            </span>
-          ))}
+          {best.limits.length ? <span className="usage-summary-best-limit">{shortWindowLabel(best.limits.reduce((a, b) => a.remaining < b.remaining ? a : b).label)} {Math.round(Math.min(...best.limits.map((limit) => limit.remaining)))} %</span> : null}
         </p>
       ) : null}
     </div>
@@ -120,13 +116,12 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
 
   return (
     <div className="usage-overview">
+      {prefs.showLimitSummary ? <LimitSummary data={timeline} warningThreshold={prefs.warningThreshold} now={now} /> : null}
       <div className="usage-overview-toolbar">
-        {prefs.showLimitSummary ? <LimitSummary data={timeline} warningThreshold={prefs.warningThreshold} now={now} /> : null}
-        <div className="usage-overview-actions">
-          <UsageFilters lanes={baseLanes} prefs={prefs} />
-          <UsageViewSettings prefs={prefs} />
-        </div>
+        <UsageFilters lanes={baseLanes} prefs={prefs} />
+        <div className="usage-overview-actions"><UsageViewSettings prefs={prefs} /></div>
       </div>
+      <div className="usage-view-switcher-row"><UsageViewSwitcher value={prefs.limitsView} /></div>
 
       {showTable ? (
         <section className="usage-accounts-now">
@@ -135,7 +130,6 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
               <p className="usage-provider-kicker">Sofortübersicht</p>
               <h2>Limits jetzt</h2>
             </div>
-            {prefs.showLimitSummary && sortedLanes.some((lane) => lane.active) ? <Badge tone="ok">Aktiv</Badge> : null}
           </header>
           {sortedLanes.length === 0 ? (
             <NoAccounts hasActiveFilters={hasActiveFilters} onReset={resetFilters} />
@@ -174,6 +168,7 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
           {...timelineProps}
         />
       ) : null}
+
 
     </div>
   );
