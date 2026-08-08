@@ -11,6 +11,7 @@ import {
   usageResponseSchema,
   usageDashboardResponseSchema,
   usageRangeSchema,
+  usageTimelineResponseSchema,
   accountsResponseSchema,
   discoveredAccountsResponseSchema,
   createAccountRequestSchema,
@@ -71,6 +72,7 @@ import { createProxyHandler } from "./proxy.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
 import type { UsageAnalyticsService } from "../usage/usage-service.js";
 import type { AccountService } from "../usage/account-service.js";
+import type { UsageTimelineService } from "../usage/timeline-service.js";
 import type { OrbitDatabase } from "../orbit/database.js";
 import type { createProjectFileService } from "../services/projectFileService.js";
 import type { createLocalPortService } from "../services/localPortService.js";
@@ -88,6 +90,7 @@ interface RouteServices {
   usage: CodexbarUsageService;
   analytics: UsageAnalyticsService;
   accounts: AccountService;
+  usageTimeline: UsageTimelineService;
   orbit: OrbitDatabase;
   projectFiles: ReturnType<typeof createProjectFileService>;
   localPorts: ReturnType<typeof createLocalPortService>;
@@ -400,6 +403,7 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   });
   app.get("/commands", async () => commandsResponseSchema.parse(await services.commands.list()));
   app.get("/usage", async () => usageResponseSchema.parse(await services.usage.getUsage()));
+  app.get("/usage/timeline", async () => usageTimelineResponseSchema.parse(await services.usageTimeline.get()));
   app.get("/usage/dashboard", async (request) => {
     const range = usageRangeSchema.parse((request.query as {range?:unknown}).range ?? "30d");
     return usageDashboardResponseSchema.parse(await services.analytics.dashboard(range));

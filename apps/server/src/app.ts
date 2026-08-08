@@ -31,6 +31,7 @@ import { registerTerminalRoutes } from "./terminal/routes.js";
 import { UsageDatabase } from "./usage/database.js";
 import { UsageAnalyticsService } from "./usage/usage-service.js";
 import { AccountService } from "./usage/account-service.js";
+import { UsageTimelineService } from "./usage/timeline-service.js";
 import { OrbitDatabase } from "./orbit/database.js";
 import { OrbitAssetRepository } from "./orbit/assets.js";
 import { createProjectFileService } from "./services/projectFileService.js";
@@ -263,6 +264,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   });
   const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get(), opencodeUsagePath: join(settings.sharedHomes.opencode.sharedHome, "opencode.db") });
   const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
+  const usageTimeline = new UsageTimelineService({ accounts, client: codexbarClient, live: liveUsage, database: usageDatabase });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
     cacheMilliseconds: settings.localPortCacheMilliseconds,
@@ -420,6 +422,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     usage: liveUsage,
     analytics,
     accounts,
+    usageTimeline,
     orbit: orbitDatabase,
     orbitAssets,
     fileGallery,

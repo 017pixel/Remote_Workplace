@@ -2557,6 +2557,89 @@ a:hover .app-icon,
   .managed-account-actions .account-remove-button:hover:not(:disabled){background:var(--color-bad-soft);color:var(--color-bad)}
   .account-login-overlay{position:fixed;z-index:120;inset:0;display:grid;place-items:center;background:rgb(0 0 0/.72);padding:20px}.account-login-sheet{display:flex;width:min(920px,100%);height:min(720px,calc(100dvh - 40px));flex-direction:column;border:1px solid var(--color-line);border-radius:16px;background:var(--color-ink-900);padding:20px;box-shadow:0 20px 60px rgb(0 0 0/.45)}.account-login-sheet>header{display:flex;justify-content:space-between}.account-login-terminal{min-height:280px;flex:1;overflow:hidden;border:1px solid var(--color-line);border-radius:8px}
 
+  /* --- Quota-Timeline (Multi-Account-Limitübersicht) -----------------------
+     Eine Karte pro Fenster, Lanes für alle Accounts nebeneinander. Die
+     Farbquellen sind ausschließlich die vorhandenen Theme-Tokens; Provider
+     unterscheiden sich zusätzlich immer über den Text im Lane-Kopf. */
+  .quota-timeline { margin-top: 16px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 20px; }
+  .qt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .qt-heading h2 { margin: 0; color: var(--color-text); font-size: 17px; font-weight: 600; }
+  .qt-range { margin: 4px 0 0; color: var(--color-faint); font-size: 11px; line-height: 16px; }
+  .qt-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
+  .qt-nav { display: flex; align-items: center; gap: 2px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); padding: 2px; }
+  .qt-nav .icon-button { width: 36px; min-height: 36px; }
+  .qt-nav .icon-button svg { width: 15px; height: 15px; }
+  .qt-today { min-height: 36px; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0 12px; color: var(--color-faint); font-size: 12px; }
+  .qt-today:hover:not(:disabled) { background: var(--color-ink-800); color: var(--color-text); }
+  .qt-today:disabled { color: var(--color-text); font-weight: 600; cursor: default; }
+  .qt-modes { display: flex; gap: 2px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); padding: 2px; }
+  .qt-modes button { min-height: 36px; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0 12px; color: var(--color-faint); font-size: 11px; }
+  .qt-modes button[aria-pressed="true"] { background: var(--color-ink-700); color: var(--color-text); }
+  .qt-modes button:hover:not([aria-pressed="true"]) { background: var(--color-ink-800); color: var(--color-text); }
+  .qt-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 1.6fr 1.6fr; gap: 10px; margin-top: 16px; }
+  .qt-summary-item { display: grid; min-width: 0; gap: 3px; border: 1px solid var(--color-line-soft); border-radius: var(--radius-sm); background: var(--color-ink-950); padding: 9px 12px; }
+  .qt-summary-item span { overflow: hidden; color: var(--color-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .qt-summary-item strong { color: var(--color-text); font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.02em; }
+  .qt-summary-provider::before { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: var(--radius-pill); content: ""; vertical-align: 1px; }
+  .qt-summary-low { color: var(--color-warn) !important; }
+  .qt-summary-wide strong { font-size: 12px; letter-spacing: 0; }
+  .qt-provider-codex::before { background: var(--color-info); }
+  .qt-provider-claude::before { background: var(--color-warn); }
+  .qt-provider-opencode::before { background: var(--color-ok); }
+  .qt-scroll { overflow-x: auto; margin-top: 16px; border: 1px solid var(--color-line-soft); border-radius: var(--radius-sm); background: var(--color-ink-950); scrollbar-width: thin; }
+  .qt-chart { display: grid; min-width: 1100px; grid-template-columns: 230px 1fr; }
+  .qt-chart[style*="--qt-track-width"] { grid-template-columns: 230px var(--qt-track-width); }
+  .qt-axis { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: relative; border-bottom: 1px solid var(--color-line-soft); background: var(--color-ink-950); }
+  .qt-axis-head { display: flex; align-items: flex-end; border-right: 1px solid var(--color-line-soft); padding: 8px 12px 6px; }
+  .qt-axis-label { color: var(--color-faint); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .qt-axis-cell { display: flex; min-width: 0; align-items: flex-end; justify-content: center; gap: 3px; flex-direction: column; border-left: 1px solid var(--color-line-soft); padding: 8px 6px 6px; }
+  .qt-axis-cell[data-weekend="1"] { background: var(--color-ink-900); }
+  .qt-axis-cell[data-today="1"] { background: color-mix(in oklab, var(--color-accent) 10%, transparent); }
+  .qt-axis-weekday { color: var(--color-faint); font-size: 9px; }
+  .qt-axis-date { color: var(--color-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .qt-lane { display: contents; }
+  .qt-lane-head { display: flex; min-width: 0; align-items: flex-start; gap: 9px; border-right: 1px solid var(--color-line-soft); border-bottom: 1px solid var(--color-line-soft); padding: 10px 12px; }
+  .qt-provider-dot { width: 8px; height: 8px; flex: 0 0 8px; margin-top: 5px; border-radius: var(--radius-pill); }
+  .qt-provider-dot.qt-provider-codex { background: var(--color-info); }
+  .qt-provider-dot.qt-provider-claude { background: var(--color-warn); }
+  .qt-provider-dot.qt-provider-opencode { background: var(--color-ok); }
+  .qt-lane-identity { min-width: 0; flex: 1; }
+  .qt-lane-name { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .qt-lane-name strong { overflow: hidden; color: var(--color-text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .qt-lane-meta { overflow: hidden; margin-top: 2px; color: var(--color-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .qt-lane-window-info { overflow: hidden; margin-top: 4px; color: var(--color-accent); font-size: 10px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .qt-lane-limits { display: flex; flex: 0 0 auto; align-items: flex-end; gap: 3px; flex-direction: column; }
+  .qt-lane-limit { color: var(--color-faint); font-size: 9px; white-space: nowrap; }
+  .qt-lane-limit b { color: var(--color-text); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .qt-track { position: relative; min-width: 0; overflow: hidden; border-bottom: 1px solid var(--color-line-soft); }
+  .qt-track-grid { position: absolute; inset: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; pointer-events: none; }
+  .qt-track-grid span { border-left: 1px solid var(--color-line-soft); }
+  .qt-track-grid span[data-weekend="1"] { background: var(--color-ink-900); }
+  .qt-now-line { position: absolute; top: 0; bottom: 0; width: 1px; z-index: 3; background: var(--color-accent); pointer-events: none; }
+  .qt-now-line::after { position: absolute; top: 0; left: -3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--color-accent); content: ""; }
+  .qt-window { position: absolute; top: 6px; bottom: 6px; min-width: 0; overflow: hidden; border-radius: 3px; }
+  .qt-window-live { border: 1px solid color-mix(in oklab, var(--qt-accent, var(--color-accent)) 55%, transparent); background: color-mix(in oklab, var(--qt-accent, var(--color-accent)) 14%, transparent); }
+  .qt-window-past { border: 1px solid var(--color-line); background: var(--color-ink-800); opacity: .45; }
+  .qt-window-next { border: 1px dashed var(--color-line); background: transparent; opacity: .8; }
+  .qt-window-fill { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 2px; background: color-mix(in oklab, var(--qt-accent, var(--color-accent)) 42%, transparent); }
+  .qt-window-label { position: absolute; z-index: 2; inset: 0; display: flex; align-items: center; overflow: hidden; padding: 0 7px; color: var(--color-text); font-size: 9px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .qt-window-next .qt-window-label { color: var(--color-muted); }
+  .qt-window-past .qt-window-label { color: var(--color-faint); }
+  .qt-lane-idle { display: flex; min-height: 100%; align-items: center; padding: 0 12px; color: var(--color-faint); font-size: 10px; }
+  .qt-lane-error { display: flex; align-items: center; gap: 5px; margin-top: 5px; margin-left: 12px; color: var(--color-bad); font-size: 10px; }
+  .qt-lane-error svg { flex: none; }
+  .qt-credit-tick { position: absolute; top: -2px; z-index: 2; display: grid; width: 16px; height: 16px; place-items: center; border: 1px solid var(--color-warn-line, color-mix(in oklab, var(--color-warn) 45%, transparent)); border-radius: var(--radius-pill); background: var(--color-ink-900); color: var(--color-warn); transform: translateX(-50%); }
+  .qt-credit-tick svg { width: 10px; height: 10px; }
+  .qt-empty { display: grid; min-height: 120px; grid-column: 1 / -1; place-items: center; color: var(--color-faint); font-size: 12px; }
+  .qt-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 14px; color: var(--color-faint); font-size: 10px; }
+  .qt-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .qt-legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; }
+  .qt-legend-live { border: 1px solid color-mix(in oklab, var(--color-accent) 55%, transparent); background: color-mix(in oklab, var(--color-accent) 14%, transparent); }
+  .qt-legend-next { border: 1px dashed var(--color-line); }
+  .qt-legend-past { background: var(--color-ink-800); opacity: .45; }
+  .qt-legend-credit { width: 8px; height: 8px; border: 1px solid color-mix(in oklab, var(--color-warn) 45%, transparent); border-radius: var(--radius-pill); background: var(--color-ink-900); }
+  .qt-legend-note { flex-basis: 100%; color: var(--color-faint); font-size: 10px; }
+
   @media (max-width: 1180px) {
     body { font-size: 16px; }
     .topbar { min-height: calc(67px + env(safe-area-inset-top)); gap: 8px; padding: env(safe-area-inset-top) 12px; }
@@ -2606,6 +2689,7 @@ a:hover .app-icon,
     .usage-window-value strong { font-size: 22px; }
     .usage-meter { margin-top: 16px; }
     .usage-toolbar{align-items:stretch;flex-direction:column}.usage-toolbar>div:first-child{min-height:32px}.usage-range{align-self:stretch}.usage-range button{flex:1;min-height:40px}.usage-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-breakdown-grid,.managed-account-grid{grid-template-columns:minmax(0,1fr)}.account-form{grid-template-columns:minmax(0,1fr)}.account-form input,.account-form select{width:100%;min-width:0}.account-path,.account-form-actions{grid-column:auto}.account-form-actions{flex-direction:column}.account-form-actions button{width:100%}.account-discovery .usage-section-heading{align-items:stretch;flex-direction:column}.account-discovery .usage-section-heading>button{align-self:flex-start}.managed-account header{align-items:flex-start;flex-wrap:wrap}.managed-account header>div:nth-child(2){flex-basis:calc(100% - 50px)}.managed-account-badges{width:100%;align-items:flex-start;flex-direction:row;padding-left:50px}.account-login-overlay{align-items:end;padding:0}.account-login-sheet{height:92dvh;border-radius:0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}.usage-projection{flex-direction:column}.usage-kpis article{min-height:112px}
+    .quota-timeline{padding:16px}.qt-head{align-items:stretch;flex-direction:column;gap:12px}.qt-controls{justify-content:space-between}.qt-nav .icon-button,.qt-today,.qt-modes button{min-height:44px}.qt-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.qt-summary-wide{grid-column:span 1}.qt-chart{grid-template-columns:200px var(--qt-track-width, 1000px)}.qt-chart[style*="--qt-track-width"]{grid-template-columns:200px var(--qt-track-width)}.qt-lane-head{flex-direction:column;gap:4px}.qt-lane-limits{align-items:flex-start;flex-direction:row;flex-wrap:wrap}.qt-lane-window-info{font-size:9px}.qt-legend{gap:10px}
   }
 }
 
