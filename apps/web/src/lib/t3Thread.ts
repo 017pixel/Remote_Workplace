@@ -1,7 +1,7 @@
 /**
  * Extrahiert die T3-Thread-ID aus einem T3-Routenpfad. Die Thread-Route liegt
- * unter dem `/_chat`-Layout (`/_chat/<environmentId>/<threadId>`); ältere
- * Pfade ohne Layoutsegment werden als `<environmentId>/<threadId>` gelesen.
+ * am Root (`/$environmentId/$threadId`); ältere Pfade unter dem `/_chat`-Layout
+ * (`/_chat/<environmentId>/<threadId>`) werden weiterhin gelesen.
  */
 export function t3ThreadIdFromPath(path: string): string | null {
   const segments = (path.split("?")[0] ?? "").split("/").filter(Boolean);

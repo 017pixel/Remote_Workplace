@@ -15,10 +15,10 @@ const maxInjectedHtmlBytes = 4 * 1024 * 1024;
 
 /**
  * T3 Code läuft hinter dem Workbench-Präfix `/t3`, seine Browser-Routen liegen
- * aber am Root (`/:environmentId/:threadId`). Bei einem Deep-Link muss das
+ * aber am Root (`/$environmentId/$threadId`). Bei einem Deep-Link muss das
  * Präfix deshalb vor dem Router-Start aus der sichtbaren URL entfernt werden.
- * Der bisherige Bridge-Script wurde nur für `/t3` injiziert, nicht für
- * `/t3/:environmentId/:threadId`.
+ * Frühere Workbench-Versionen erzeugten Tiefenlinks unter dem `/_chat`-Layout;
+ * diese werden zusätzlich auf die Root-Thread-Route umgeschrieben.
  *
  * Die Bridge meldet außerdem den aktuell geöffneten T3-Thread nach oben:
  * Im iframe an die Workbench per `postMessage`, im eigenständigen Fenster
@@ -31,14 +31,16 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
   const pathname = window.location.pathname;
   if (pathname === prefix || pathname.startsWith(prefix + "/")) {
     const nextPath = pathname.slice(prefix.length) || "/";
-    // Ältere Tiefenlinks ohne _chat-Layout (altes /<environmentId>/<threadId>
-    // Format aus älteren Push- und Inbox-Einträgen) auf die Thread-Route
-    // umschreiben, bevor der T3-Router startet. UUID-Paare sind eindeutig.
+    // Die T3-Thread-Route liegt am Root (/$environmentId/$threadId). Alte
+    // Tiefenlinks unter dem /_chat-Layout (/_chat/<environmentId>/<threadId>
+    // aus früheren Workbench-Versionen) werden vor dem Router-Start auf die
+    // korrekte Form umgeschrieben. UUID-Paare sind eindeutig.
     const segments = nextPath.split("/").filter(Boolean);
-    const looksLikeThread = segments.length >= 2
-      && /^[0-9a-fA-F-]{36}$/.test(segments[0] ?? "")
-      && /^[0-9a-fA-F-]{36}$/.test(segments[1] ?? "");
-    const normalized = looksLikeThread ? "/_chat" + nextPath : nextPath;
+    const legacyChatThread = segments.length >= 3
+      && segments[0] === "_chat"
+      && /^[0-9a-fA-F-]{36}$/.test(segments[1] ?? "")
+      && /^[0-9a-fA-F-]{36}$/.test(segments[2] ?? "");
+    const normalized = legacyChatThread ? "/" + segments.slice(1).join("/") : nextPath;
     window.history.replaceState(window.history.state, "", normalized + window.location.search + window.location.hash);
   }
   const historyIndexKey = "__remoteWorkplaceT3Index";
@@ -46,8 +48,8 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
   window.history.replaceState({ ...window.history.state, [historyIndexKey]: historyIndex }, "", window.location.href);
   const presence = () => {
     const segments = window.location.pathname.split("/").filter(Boolean);
-    // Threads liegen unter dem _chat-Layout (/_chat/<environmentId>/<threadId>);
-    // aeltere Pfade ohne Layoutsegment gelten als <environmentId>/<threadId>.
+    // Threads liegen am Root (/$environmentId/$threadId); ältere Pfade unter
+    // dem _chat-Layout gelten als /_chat/<environmentId>/<threadId>.
     const threadId = segments[0] === "_chat" ? segments[2] ?? null : segments.length >= 2 ? segments[1] ?? null : null;
     return { source: "t3", threadId };
   };

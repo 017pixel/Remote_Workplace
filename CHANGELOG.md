@@ -2,6 +2,15 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [Unreleased]
+
+### Behoben
+
+- T3-Benachrichtigungen öffnen jetzt den richtigen Thread: Die T3-Thread-Route liegt am Root (`/$environmentId/$threadId`), nicht unter dem `/_chat`-Layout — vorher zeigte das Chat-Panel „Not Found" statt der Session aus der Benachrichtigung
+- Alte T3-Tiefenlinks mit `/_chat`-Präfix werden beim Öffnen auf die Root-Thread-Route normalisiert
+
+---
+
 ## [0.42.0] - 2026-08-06
 
 ### Verändert

@@ -35,8 +35,8 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain('pathname.startsWith(prefix + "/")');
     expect(t3RouteBridgeScript).toContain("history.replaceState");
     expect(t3RouteBridgeScript).toContain('pathname.slice(prefix.length)');
-    // Alte Tiefenlinks ohne _chat-Layout werden auf die Thread-Route umgeschrieben
-    expect(t3RouteBridgeScript).toContain('"/_chat" + nextPath');
+    // Alte Tiefenlinks unter dem _chat-Layout werden auf die Root-Thread-Route umgeschrieben
+    expect(t3RouteBridgeScript).toContain('segments[0] === "_chat"');
     expect(t3RouteBridgeScript).toContain("[0-9a-fA-F-]{36}$");
   });
 
@@ -45,7 +45,7 @@ describe("T3-Proxy", () => {
     expect(t3RouteBridgeScript).toContain('type: "route.changed"');
     expect(t3RouteBridgeScript).toContain("window.parent.postMessage");
     expect(t3RouteBridgeScript).toContain("/api/v1/notifications/presence");
-    // Threads liegen unter dem _chat-Layout: /_chat/<environmentId>/<threadId>
+    // Threads liegen am Root: /$environmentId/$threadId (ältere _chat-Pfade werden mitgelesen)
     expect(t3RouteBridgeScript).toContain('segments[0] === "_chat" ? segments[2] ?? null : segments.length >= 2 ? segments[1] ?? null : null');
     expect(t3RouteBridgeScript).toContain('addEventListener("focus", report)');
   });
