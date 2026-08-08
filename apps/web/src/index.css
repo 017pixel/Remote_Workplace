@@ -2234,7 +2234,7 @@ a:hover .app-icon,
   .status-bar-item { display: inline-flex; min-width: 0; align-items: center; gap: 7px; white-space: nowrap; }
   .status-bar-value { color: var(--color-text); font-weight: 500; }
   .status-bar-divider { width: 1px; height: 16px; flex: none; background: var(--color-line); }
-  .status-limits { display: inline-flex; min-width: 0; max-width: 64%; align-items: center; gap: 12px; margin-left: auto; border-radius: var(--radius-sm); padding: 6px 8px; color: var(--color-muted); font-family: var(--font-mono); font-size: 10px; transition: background var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard); }
+  .status-limits { display: inline-flex; min-width: 0; max-width: 64%; align-items: center; gap: 12px; margin-left: auto; border-radius: var(--radius-sm); padding: 6px 8px; color: var(--color-muted); font-family: var(--font-mono); font-size: 12px; transition: background var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard); }
   .status-limits > span:not(.status-bar-divider) { min-width: 0; max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status-limits:hover { background: var(--color-ink-800); color: var(--color-text); }
   .status-limits strong { color: var(--color-text); font-weight: 600; }
