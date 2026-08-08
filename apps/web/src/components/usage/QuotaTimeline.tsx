@@ -5,9 +5,7 @@ import { Badge } from "../primitives";
 import { ChevronLeftIcon, ChevronRightIcon, CoinsIcon, WarningIcon } from "../icons";
 import {
   buildTimelineLane,
-  countLanesBelow,
   laneHasWindow,
-  nextWindowResetMs,
   projectLane,
   projectResetCredits,
   timelineSpan,
@@ -15,9 +13,10 @@ import {
   type TimelineMode,
   type TimelineWindow,
 } from "../../lib/quotaTimeline";
+import { filterLanes, sortLanes, type UsageFilterState } from "../../lib/usageView";
+import type { UsagePreferences } from "../../stores/usagePreferences";
 import { useNow } from "../../lib/useNow";
 import { formatUsageReset } from "../../lib/orbitUsage";
-import { formatRelativeTime } from "../../lib/format";
 
 const WEEKDAY_LABELS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"] as const;
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -46,20 +45,10 @@ const providerAccent: Record<TimelineLane["providerId"], string> = {
 function laneStatusLabel(status: TimelineLane["status"]): string {
   switch (status) {
     case "available": return "Aktuell";
-    case "partial": return "Teilweise verfügbar";
+    case "partial": return "Teilweise";
     case "stale": return "Veraltet";
     case "unavailable": return "Nicht verfügbar";
     case "disabled": return "Deaktiviert";
-  }
-}
-
-function laneStatusTone(status: TimelineLane["status"]): "ok" | "warn" | "bad" | "default" {
-  switch (status) {
-    case "available": return "ok";
-    case "partial": return "warn";
-    case "stale": return "warn";
-    case "unavailable": return "bad";
-    case "disabled": return "default";
   }
 }
 
@@ -79,9 +68,11 @@ export interface QuotaTimelineProps {
   /** Injectable für Tests; standardmäßig die Wochenansicht. */
   initialMode?: TimelineMode;
   initialOffset?: number;
+  /** Darstellungspräferenzen aus dem UsagePreferences-Store. */
+  prefs: UsagePreferences;
 }
 
-export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", initialOffset = 0 }: QuotaTimelineProps) {
+export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", initialOffset = 0, prefs }: QuotaTimelineProps) {
   const [mode, setMode] = useState<TimelineMode>(initialMode);
   const [offset, setOffset] = useState(initialOffset);
   // Ein geteilter Minuten-Tick für alle Lanes — keine eigene Uhr pro Balken.
@@ -90,27 +81,25 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
 
   const span = useMemo(() => timelineSpan(mode, offset, now), [mode, offset, now]);
 
-  const lanes = useMemo(
-    () => {
-      const weeklyLanes = data.lanes.map((lane) => buildTimelineLane(lane, span.days * 24));
-      // Wochenansicht: Fenster mit dem längsten passenden Zeitraum. Session:
-      // nur 5-Stunden-Fenster werden gezeichnet, alle Lanes bleiben sichtbar.
-      const sessionLanes = data.lanes.map((lane) => buildTimelineLane(lane, 5));
-      const base = mode === "session" ? sessionLanes : weeklyLanes;
-      const drawable = base.filter((lane) => laneHasWindow(lane) && (mode !== "session" || lane.periodHours === 5));
-      const withoutWindow = base.filter((lane) => !laneHasWindow(lane) || (mode === "session" && lane.periodHours !== 5));
-      return [...drawable, ...withoutWindow]
-        // Reihenfolge nach Provider (Codex, Claude, OpenCode) und Namen stabil halten.
-        .sort((a, b) => {
-          const order: Record<TimelineLane["providerId"], number> = { codex: 0, claude: 1, opencode: 2 };
-          const byProvider = order[a.providerId] - order[b.providerId];
-          if (byProvider !== 0) return byProvider;
-          return a.accountLabel.localeCompare(b.accountLabel, "de");
-        });
-    },
-    [data.lanes, mode, span.days],
-  );
-  const allLanes = useMemo(() => data.lanes.map((lane) => buildTimelineLane(lane, span.days * 24)), [data.lanes, span.days]);
+  const filterState = useMemo<UsageFilterState>(() => ({
+    providerFilter: prefs.providerFilter,
+    onlyActive: prefs.onlyActive,
+    onlyProblematic: prefs.onlyProblematic,
+    hideAccountsWithoutData: prefs.hideAccountsWithoutData,
+    hiddenAccountIds: prefs.hiddenAccountIds,
+    warningThreshold: prefs.warningThreshold,
+  }), [prefs]);
+
+  const lanes = useMemo(() => {
+    const weeklyLanes = data.lanes.map((lane) => buildTimelineLane(lane, span.days * 24));
+    // Wochenansicht: Fenster mit dem längsten passenden Zeitraum. Session:
+    // nur 5-Stunden-Fenster werden gezeichnet, alle Lanes bleiben sichtbar.
+    const sessionLanes = data.lanes.map((lane) => buildTimelineLane(lane, 5));
+    const base = mode === "session" ? sessionLanes : weeklyLanes;
+    const drawable = base.filter((lane) => laneHasWindow(lane) && (mode !== "session" || lane.periodHours === 5));
+    const withoutWindow = base.filter((lane) => !laneHasWindow(lane) || (mode === "session" && lane.periodHours !== 5));
+    return sortLanes(filterLanes([...drawable, ...withoutWindow], filterState), prefs.sortBy);
+  }, [data.lanes, mode, span.days, filterState, prefs.sortBy]);
 
   const cells = useMemo(() => {
     const zoomed = mode === "session";
@@ -135,24 +124,24 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
 
   const nowPercent = now >= span.startMs && now < span.endMs ? ((now - span.startMs) / (span.endMs - span.startMs)) * 100 : null;
 
-  const summary = useMemo(() => {
-    // Alle verbundenen Accounts zählen (auch deaktivierte — ihre Lane bleibt
-    // sichtbar); nur "unter 20 %" braucht einen echten Messwert.
-    const counts = { codex: 0, claude: 0, opencode: 0 } as Record<TimelineLane["providerId"], number>;
-    for (const lane of allLanes) counts[lane.providerId] += 1;
-    const belowTwenty = countLanesBelow(allLanes, 20);
-    const nextReset = nextWindowResetMs(allLanes, now);
-    return { total: allLanes.length, counts, belowTwenty, nextReset };
-  }, [allLanes, now]);
-
   const navigationLabel = offset === 0 ? "Heute" : formatDay(span.startMs);
+  const showPast = prefs.showPastWindows;
+  const showProjections = prefs.showProjections;
+  const showNowLine = prefs.showNowLine && nowPercent !== null;
+  const showWeekends = prefs.showWeekends;
+  const showLabels = prefs.showWindowLabels;
+  const showCredits = prefs.showResetCreditMarkers;
+  const showEmptyLanes = prefs.showAccountsWithoutReset;
+  const compactColumn = prefs.accountColumn === "compact";
+
+  const filteredCells = showWeekends ? cells : cells;
 
   return (
-    <section className="quota-timeline">
+    <section className="quota-timeline" data-density={prefs.density} data-column={prefs.accountColumn}>
       <header className="qt-head">
         <div className="qt-heading">
-          <p className="usage-provider-kicker">Quota-Fenster</p>
-          <h2>Wann kommt Kapazität zurück</h2>
+          <p className="usage-provider-kicker">Zeitliche Analyse</p>
+          <h2>Quota-Timeline</h2>
           <p className="qt-range">
             {formatDay(span.startMs)} – {formatDay(span.endMs - 1)}{" "}
             <span>
@@ -190,38 +179,13 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
         </div>
       </header>
 
-      <div className="qt-summary" aria-label="Zusammenfassung der Limits">
-        <div className="qt-summary-item">
-          <span>Accounts</span>
-          <strong>{summary.total}</strong>
-        </div>
-        {(["codex", "claude", "opencode"] as const).map((provider) => (
-          <div className="qt-summary-item" key={provider}>
-            <span className={`qt-summary-provider qt-provider-${providerLabel[provider]}`}>{providerName[provider]}</span>
-            <strong>{summary.counts[provider]}</strong>
-          </div>
-        ))}
-        <div className="qt-summary-item">
-          <span>Unter 20 %</span>
-          <strong className={summary.belowTwenty > 0 ? "qt-summary-low" : undefined}>{summary.belowTwenty}</strong>
-        </div>
-        <div className="qt-summary-item qt-summary-wide">
-          <span>Nächster Reset</span>
-          <strong>{summary.nextReset ? formatUsageReset(new Date(summary.nextReset).toISOString()) : "—"}</strong>
-        </div>
-        <div className="qt-summary-item qt-summary-wide">
-          <span>Datenstand</span>
-          <strong>{data.lastSuccessfulFetchAt ? formatRelativeTime(data.lastSuccessfulFetchAt) : "—"}</strong>
-        </div>
-      </div>
-
       <div className="qt-scroll">
-        <div className="qt-chart" style={{ "--qt-track-width": mode === "session" ? "840px" : "1100px" } as CSSProperties}>
+        <div className={`qt-chart ${compactColumn ? "is-compact" : ""}`} style={{ "--qt-track-width": mode === "session" ? "840px" : "1100px" } as CSSProperties}>
           <div className="qt-axis qt-axis-head">
             <span className="qt-axis-label">Account</span>
           </div>
           <div className="qt-axis">
-            {cells.map((cell) => (
+            {filteredCells.map((cell) => (
               <div
                 key={cell.at}
                 className="qt-axis-cell"
@@ -241,23 +205,40 @@ export function QuotaTimeline({ data, now: nowProp, initialMode = "weekly", init
             </div>
           ) : (
             lanes.map((lane) => (
-              <LaneRow key={lane.accountId} lane={lane} span={span} now={now} mode={mode} cells={cells} nowPercent={nowPercent} />
+              <LaneRow
+                key={lane.accountId}
+                lane={lane}
+                span={span}
+                now={now}
+                mode={mode}
+                cells={filteredCells}
+                nowPercent={nowPercent}
+                showPast={showPast}
+                showProjections={showProjections}
+                showNowLine={showNowLine}
+                showLabels={showLabels}
+                showCredits={showCredits}
+                showEmptyLane={showEmptyLanes}
+                prefs={prefs}
+              />
             ))
           )}
         </div>
       </div>
 
-      <footer className="qt-legend">
-        <span><i className="qt-legend-live" />aktuelles Fenster</span>
-        <span><i className="qt-legend-next" />kommendes Fenster</span>
-        <span><i className="qt-legend-past" />vergangen</span>
-        <span><i className="qt-legend-credit" />Reset-Guthaben</span>
-        <span className="qt-legend-note">
-          {mode === "weekly"
-            ? "Jeder Balken ist ein komplettes Limitfenster von Öffnung bis Reset. Fenster, die gemeinsam enden, teilen sich dieselben Tage."
-            : "Jeder Balken ist ein 5-Stunden-Fenster. Nur Accounts mit zählendem Fenster werden projiziert; der Rest bleibt leer statt erfunden."}
-        </span>
-      </footer>
+      {prefs.showTimelineLegend ? (
+        <footer className="qt-legend">
+          <span><i className="qt-legend-live" />aktuelles Fenster</span>
+          <span><i className="qt-legend-next" />kommendes Fenster</span>
+          <span><i className="qt-legend-past" />vergangen</span>
+          <span><i className="qt-legend-credit" />Reset-Guthaben</span>
+          <span className="qt-legend-note">
+            {mode === "weekly"
+              ? "Jeder Balken ist ein komplettes Limitfenster von Öffnung bis Reset."
+              : "Jeder Balken ist ein 5-Stunden-Fenster. Nur Accounts mit zählendem Fenster werden projiziert."}
+          </span>
+        </footer>
+      ) : null}
     </section>
   );
 }
@@ -269,13 +250,28 @@ interface LaneRowProps {
   mode: TimelineMode;
   cells: Array<{ at: number; isWeekend: boolean; isDayStart: boolean }>;
   nowPercent: number | null;
+  showPast: boolean;
+  showProjections: boolean;
+  showNowLine: boolean;
+  showLabels: boolean;
+  showCredits: boolean;
+  showEmptyLane: boolean;
+  prefs: UsagePreferences;
 }
 
-function LaneRow({ lane, span, now, mode, cells, nowPercent }: LaneRowProps) {
-  const windows = useMemo(() => projectLane(lane, span.startMs, span.endMs, now, mode), [lane, span, now, mode]);
+function LaneRow({ lane, span, now, mode, cells, nowPercent, showPast, showProjections, showNowLine, showLabels, showCredits, showEmptyLane, prefs }: LaneRowProps) {
+  const windows = useMemo(() => {
+    const projected = projectLane(lane, span.startMs, span.endMs, now, mode);
+    return projected.filter((window) => {
+      if (window.state === "past" && !showPast) return false;
+      if (window.state === "next" && !showProjections) return false;
+      return true;
+    });
+  }, [lane, span, now, mode, showPast, showProjections]);
   const resetCredits = useMemo(() => projectResetCredits(lane, span.startMs, span.endMs, now), [lane, span, now]);
-  const statusTone = laneStatusTone(lane.status);
   const staleAge = ageLabel(lane.updatedAt, now);
+
+  if (!showEmptyLane && windows.length === 0 && lane.limits.length === 0) return null;
 
   return (
     <div className="qt-lane" style={{ "--qt-accent": providerAccent[lane.providerId] } as CSSProperties}>
@@ -284,29 +280,26 @@ function LaneRow({ lane, span, now, mode, cells, nowPercent }: LaneRowProps) {
         <div className="qt-lane-identity">
           <div className="qt-lane-name">
             <strong>{lane.accountLabel}</strong>
-            {lane.active ? <Badge tone="ok">Aktiv</Badge> : null}
+            {lane.active && prefs.showActiveBadge ? <Badge tone="ok">Aktiv</Badge> : null}
           </div>
-          <div className="qt-lane-meta">
-            {[providerName[lane.providerId], lane.email && lane.email !== lane.accountLabel ? lane.email : null, lane.plan].filter(Boolean).join(" · ")}
-          </div>
-          {lane.anchorMs !== null ? (
-            <div className="qt-lane-window-info">
-              {lane.remaining !== null ? `${Math.round(lane.remaining)}% · ` : ""}{formatUsageReset(new Date(lane.anchorMs).toISOString())}
+          {lane.status !== "available" && prefs.showDataStatus ? (
+            <div className="qt-lane-status">
+              <Badge tone={lane.status === "unavailable" || lane.status === "disabled" ? "bad" : "warn"}>
+                {lane.status === "stale" && staleAge ? `${laneStatusLabel(lane.status)} · ${staleAge}` : laneStatusLabel(lane.status)}
+              </Badge>
             </div>
           ) : null}
+          <div className="qt-lane-meta" title={lane.email ?? undefined}>
+            {[prefs.showProvider ? providerName[lane.providerId] : null, prefs.showPlan ? lane.plan : null, prefs.showEmail ? lane.email : null].filter(Boolean).join(" · ")}
+          </div>
         </div>
         <div className="qt-lane-limits">
-          {lane.limits.map((limit) => (
+          {lane.limits.slice(0, 3).map((limit) => (
             <span key={limit.label} className="qt-lane-limit">
-              {limit.label} <b>{Math.round(limit.remaining)}%</b>
+              <b>{Math.round(limit.remaining)}%</b>
             </span>
           ))}
         </div>
-        {lane.status !== "available" ? (
-          <Badge tone={statusTone}>
-            {lane.status === "stale" && staleAge ? `${laneStatusLabel(lane.status)} · ${staleAge}` : laneStatusLabel(lane.status)}
-          </Badge>
-        ) : null}
       </div>
 
       <div className="qt-track">
@@ -316,39 +309,40 @@ function LaneRow({ lane, span, now, mode, cells, nowPercent }: LaneRowProps) {
           ))}
         </div>
 
-        {nowPercent !== null && <div className="qt-now-line" style={{ left: `${nowPercent}%` }} aria-hidden="true" />}
+        {showNowLine && nowPercent !== null && <div className="qt-now-line" style={{ left: `${nowPercent}%` }} aria-hidden="true" />}
 
         {windows.length === 0 ? (
           <span className="qt-lane-idle">
             {lane.status === "unavailable"
               ? "kein Fenster zählend"
               : lane.limits.length > 0
-                ? "Kein Resetzeitpunkt verfügbar"
+                ? "Reset unbekannt"
                 : mode === "session"
                   ? "kein 5-Stunden-Fenster"
                   : "kein Fenster im Zeitraum"}
           </span>
         ) : (
           windows.map((window) => (
-            <WindowBar key={window.startMs} lane={lane} window={window} mode={mode} />
+            <WindowBar key={window.startMs} lane={lane} window={window} mode={mode} showLabel={showLabels} />
           ))
         )}
 
-        {resetCredits.map((credit) => {
-          const label = `Reset-Guthaben · Ablauf ${formatDay(credit.expiresAtMs)} ${formatTime(credit.expiresAtMs)}`;
-          return (
-            <span
-              key={`${credit.id}-${credit.expiresAtMs}`}
-              className="qt-credit-tick"
-              style={{ left: `${credit.leftPercent}%` }}
-              title={label}
-              role="img"
-              aria-label={label}
-            >
-              <CoinsIcon className="h-3 w-3" />
-            </span>
-          );
-        })}
+        {showCredits &&
+          resetCredits.map((credit) => {
+            const label = `Reset-Guthaben · Ablauf ${formatDay(credit.expiresAtMs)} ${formatTime(credit.expiresAtMs)}`;
+            return (
+              <span
+                key={`${credit.id}-${credit.expiresAtMs}`}
+                className="qt-credit-tick"
+                style={{ left: `${credit.leftPercent}%` }}
+                title={label}
+                role="img"
+                aria-label={label}
+              >
+                <CoinsIcon className="h-3 w-3" />
+              </span>
+            );
+          })}
 
         {lane.status === "unavailable" && lane.error ? (
           <span className="qt-lane-error" role="status">
@@ -361,8 +355,8 @@ function LaneRow({ lane, span, now, mode, cells, nowPercent }: LaneRowProps) {
   );
 }
 
-function WindowBar({ lane, window, mode }: { lane: TimelineLane; window: TimelineWindow; mode: TimelineMode }) {
-  const showLabel = window.widthPercent > (mode === "session" ? 4.5 : 9);
+function WindowBar({ lane, window, mode, showLabel }: { lane: TimelineLane; window: TimelineWindow; mode: TimelineMode; showLabel: boolean }) {
+  const canShowLabel = window.widthPercent > (mode === "session" ? 4.5 : 9);
   const endText = mode === "session" ? formatTime(window.endMs) : `${formatDay(window.endMs)} ${formatTime(window.endMs)}`;
   const remainingText = window.remaining !== null ? `${Math.round(window.remaining)} % verbleibend · ${formatUsageReset(new Date(window.endMs).toISOString())}` : null;
 
@@ -383,7 +377,7 @@ function WindowBar({ lane, window, mode }: { lane: TimelineLane; window: Timelin
           aria-valuemax={100}
         />
       )}
-      {showLabel && (
+      {showLabel && canShowLabel && (
         <span className="qt-window-label">
           {window.remaining !== null ? `${Math.round(window.remaining)}% · ` : ""}
           {endText}

@@ -11,7 +11,14 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto(`${workbench}/usage`);
   await expect(page.getByRole("heading", {name:"Nutzung und Limits"})).toBeVisible();
-  await expect(page.getByText("Tokens heute")).toBeVisible({timeout:20_000});
+  // Neue Standardansicht: Limit-Statuszeile und kompakte Account-Tabelle.
+  await expect(page.getByLabelText("Zusammenfassung der Limits")).toBeVisible({timeout:20_000});
+  await expect(page.getByRole("table", {name:"Aktuelle Limits je Account"})).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Quota-Timeline"})).toBeVisible();
+  // Analyse-Preset aktiviert die Detailbereiche (KPIs, Provider-Karten, Prognosen).
+  await page.getByRole("button", {name:"Ansichtseinstellungen"}).click();
+  await page.getByRole("button", {name:/Analyse/}).click();
+  await expect(page.getByText("Tokens heute")).toBeVisible();
   await expect(page.getByRole("heading", {name:"Claude Code"})).toBeVisible();
   const codex = page.locator(".usage-provider").filter({has:page.getByRole("heading", {name:"Codex"})});
   await expect(codex.locator(".usage-provider-kicker")).toHaveText("Aktuell");

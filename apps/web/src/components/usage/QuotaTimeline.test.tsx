@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { UsageTimelineResponse } from "@workbench/contracts";
+import type { UsagePreferences } from "../../stores/usagePreferences";
 import { QuotaTimeline } from "./QuotaTimeline";
+import { defaultUsagePreferences } from "../../stores/usagePreferences";
+
+function prefs(over: Partial<ReturnType<typeof defaultUsagePreferences>> = {}): UsagePreferences {
+  const defaults = defaultUsagePreferences();
+  return { ...defaults, ...over, resetAll: () => undefined, applyPreset: () => undefined, set: () => undefined };
+}
 
 afterEach(cleanup);
 
@@ -62,7 +69,7 @@ function timelineData(over: Partial<UsageTimelineResponse> = {}): UsageTimelineR
 
 describe("QuotaTimeline", () => {
   it("zeigt alle drei Provider gleichzeitig in eigenen Lanes", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     expect(screen.getByText("Privat")).toBeTruthy();
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getAllByText("OpenCode Go").length).toBeGreaterThan(0);
@@ -71,13 +78,13 @@ describe("QuotaTimeline", () => {
   });
 
   it("markiert den serverweit aktiven Account mit einem Aktiv-Badge", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     const badges = screen.getAllByText("Aktiv");
     expect(badges).toHaveLength(1);
   });
 
   it("zeigt den verbleibenden Prozentsatz als Fenster-Label (Remaining-Semantik)", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     // Wochenfenster von Privat: 40 % verbleibend, Reset 01.08.
     const windowLabels = screen.getAllByText(/40%/);
     expect(windowLabels.length).toBeGreaterThan(0);
@@ -88,21 +95,11 @@ describe("QuotaTimeline", () => {
     expect(privatFill.getAttribute("aria-valuenow")).toBe("40");
   });
 
-  it("zeigt die Zusammenfassung mit Accounts je Provider und nächstem Reset", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
-    const summary = screen.getByLabelText("Zusammenfassung der Limits");
-    expect(within(summary).getByText("3")).toBeTruthy();
-    expect(within(summary).getByText("Nächster Reset")).toBeTruthy();
-    expect(within(summary).getByText("Unter 20 %")).toBeTruthy();
-    // Genau eine Lane (OpenCode Go, 10 %) liegt unter 20 %.
-    const below = within(summary).getAllByText("1");
-    expect(below.length).toBeGreaterThan(0);
-  });
-
-  it("kennzeichnet veraltete Daten mit Badge und Alter", () => {
+  it("kennzeichnet veraltete Daten mit Badge und Alter, wenn Datenstatus aktiviert ist", () => {
     render(
       <QuotaTimeline
         now={now}
+        prefs={prefs({ showDataStatus: true })}
         data={timelineData({ lanes: [{ ...timelineData().lanes[0]!, status: "stale", error: { code: "STALE_DATA", message: "Diese Limits sind älter als 90 Minuten." } }] })}
       />,
     );
@@ -114,6 +111,7 @@ describe("QuotaTimeline", () => {
     render(
       <QuotaTimeline
         now={now}
+        prefs={prefs()}
         data={timelineData({
           lanes: [
             ...timelineData().lanes.slice(0, 2),
@@ -136,6 +134,7 @@ describe("QuotaTimeline", () => {
     render(
       <QuotaTimeline
         now={now}
+        prefs={prefs()}
         data={timelineData({
           lanes: [{
             providerId: "claude",
@@ -157,7 +156,7 @@ describe("QuotaTimeline", () => {
   });
 
   it("setzt für zukünftige projizierte Fenster keinen erfundenen Remaining-Wert", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     // Projektionen sind als solche beschriftet, ohne Prozentwert.
     const projections = screen.getAllByText(/\(Projektion\)/);
     expect(projections.length).toBeGreaterThan(0);
@@ -167,7 +166,7 @@ describe("QuotaTimeline", () => {
   });
 
   it("wechselt per Tastatur zwischen Wochen- und 5-Stunden-Ansicht", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     const sessionButton = screen.getByRole("button", { name: "5 Std." });
     expect(sessionButton.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(sessionButton);
@@ -178,7 +177,7 @@ describe("QuotaTimeline", () => {
   });
 
   it("navigiert zwischen Zeiträumen und springt zurück zu heute", () => {
-    render(<QuotaTimeline data={timelineData()} now={now} />);
+    render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     const today = screen.getByRole("button", { name: "Heute" });
     expect((today as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Vorheriger Zeitraum" }));
@@ -188,7 +187,7 @@ describe("QuotaTimeline", () => {
   });
 
   it("hält die Timeline in einem horizontal scrollbaren Container (Mobile)", () => {
-    const { container } = render(<QuotaTimeline data={timelineData()} now={now} />);
+    const { container } = render(<QuotaTimeline data={timelineData()} now={now} prefs={prefs()} />);
     const scroll = container.querySelector(".qt-scroll");
     expect(scroll).not.toBeNull();
     // Der Chart trägt eine feste Track-Breite als Inline-Variable; der
