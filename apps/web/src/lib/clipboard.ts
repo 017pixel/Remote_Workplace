@@ -12,6 +12,12 @@ export function isApplePlatform(platform = globalThis.navigator?.platform ?? "")
   return /Mac|iPhone|iPad|iPod/i.test(platform);
 }
 
+/**
+ * Terminal-Oberflächen verwenden bewusst den klassischen Terminal-Shortcut:
+ * Ctrl+Shift+C/V unter Windows/Linux. Ctrl+C muss frei bleiben, damit TUI- und
+ * Shell-Anwendungen weiterhin SIGINT erhalten. Auf Apple-Plattformen bleibt
+ * Cmd+C/V der native Shortcut.
+ */
 export function terminalClipboardAction(
   event: ClipboardShortcutEvent,
   applePlatform = isApplePlatform(),
@@ -25,6 +31,12 @@ export function terminalClipboardAction(
   return key === "c" ? "copy" : "paste";
 }
 
+/**
+ * Browserartige und eingebettete Oberflächen folgen den normalen Desktop-
+ * Shortcuts: Ctrl+C/V unter Windows/Linux beziehungsweise Cmd+C/V auf Apple.
+ * Shift-Kombinationen werden nicht als Clipboard-Aktion abgefangen, damit die
+ * jeweilige Anwendung eigene Ctrl/Cmd+Shift-Shortcuts verwenden kann.
+ */
 export function browserClipboardAction(
   event: ClipboardShortcutEvent,
   applePlatform = isApplePlatform(),
@@ -33,8 +45,8 @@ export function browserClipboardAction(
   const key = event.key.toLowerCase();
   if (key !== "c" && key !== "v") return null;
   if (applePlatform) {
-    if (!event.metaKey || event.ctrlKey) return null;
-  } else if (!event.ctrlKey || event.metaKey) return null;
+    if (!event.metaKey || event.ctrlKey || event.shiftKey) return null;
+  } else if (!event.ctrlKey || event.metaKey || event.shiftKey) return null;
   return key === "c" ? "copy" : "paste";
 }
 
