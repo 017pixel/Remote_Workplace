@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardIcon, CloseIcon, ColumnsIcon, EraserIcon, ListIcon, MonitorOffIcon, PlayIcon, PlusIcon, RetryIcon, SendIcon, SplitIcon } from "../icons";
+import { ChevronDownIcon, ClipboardIcon, CloseIcon, ColumnsIcon, EraserIcon, ListIcon, MonitorOffIcon, PlayIcon, PlusIcon, RetryIcon, SendIcon, SplitIcon } from "../icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { TerminalKind, TerminalSession } from "@workbench/contracts";
@@ -86,8 +86,12 @@ export function TerminalArea({
   const handles = useRef(new Map<string, WebTerminalHandle>());
   const longPress = useRef<number | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
   const [meta, setMeta] = useState<Record<string, TerminalMeta>>({});
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
+  // Die Aktionen in der Toolbar liegen hinter einem Aufklappmenü, damit die
+  // Werkzeugleiste ruhig bleibt. Das Menü schließt bei Außenklick und Escape.
+  const [actionsOpen, setActionsOpen] = useState(false);
   // Die Bedienleiste auf dem Handy zeigt entweder die Sondertasten oder die
   // Sitzungsaktionen. Strg und Alt rasten für genau einen Tastendruck ein.
   const [keyboardRow, setKeyboardRow] = useState<"keys" | "actions">("keys");
@@ -97,6 +101,21 @@ export function TerminalArea({
   const activeMeta = activeTab ? meta[activeTab.id] : undefined;
 
   useEffect(() => ensureArea(areaId, initialProjectId, kind), [areaId, ensureArea, initialProjectId, kind]);
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!actionMenuRef.current?.contains(event.target as Node)) setActionsOpen(false);
+    };
+    const closeOnKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActionsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnKeyDown);
+    };
+  }, [actionsOpen]);
   useEffect(() => {
     if (!requestedSessionId || !sessions.data || !area) return;
     const session = sessions.data.sessions.find((candidate) => candidate.id === requestedSessionId || candidate.runtimeId === requestedSessionId);
@@ -115,6 +134,10 @@ export function TerminalArea({
     (projectId: string | null = null) => addTab(areaId, projectId, kind),
     [addTab, areaId, kind],
   );
+  const runAction = (action: () => void) => {
+    setActionsOpen(false);
+    action();
+  };
   const nextProjectId = bento ? initialProjectId : (activeTab?.projectId ?? initialProjectId);
 
   const close = (tabId: string) => {
@@ -256,18 +279,28 @@ export function TerminalArea({
         </div>
 
         {/* Auf dem Handy sitzen die Aktionen unten in der Bedienleiste, hier
-            bleibt nur die Sitzungsauswahl. */}
+            bleiben sie hinter dem Aktionen-Menü verborgen. */}
         <div className="terminal-actions terminal-action-bar" aria-label="Terminalaktionen" hidden={isMobile}>
-          <button type="button" onClick={() => create(nextProjectId)} disabled={area.tabs.length >= maxTabs} aria-label={`${kindLabels[kind]}-Instanz öffnen`} title={`${kindLabels[kind]} öffnen`}><PlusIcon className="h-4 w-4" /><span>Neu</span></button>
-          <button type="button" onClick={() => activeTab && handles.current.get(activeTab.id)?.restart()} disabled={!activeTab} aria-label="Terminal neu starten" title="Neu starten"><RetryIcon className="h-4 w-4" /><span>Neustart</span></button>
-          <button type="button" onClick={() => activeTab && handles.current.get(activeTab.id)?.clear()} disabled={!activeTab} aria-label="Terminal leeren" title="Leeren"><EraserIcon className="h-4 w-4" /><span>Leeren</span></button>
-          {!bento && !singlePane && area.tabs.length > 1 ? (
-            area.splitTabId ?
-              <button type="button" onClick={() => clearSplit(areaId)} aria-label="Split schließen" title="Split schließen"><ColumnsIcon className="h-4 w-4" /><span>Einzeln</span></button> :
-              <button type="button" onClick={() => activeTab && splitTab(areaId, activeTab.id, "left")} aria-label="Terminal teilen" title="Terminal teilen"><SplitIcon className="h-4 w-4" /><span>Split</span></button>
-          ) : null}
-          {sessionPicker}
-          <button type="button" className="danger" onClick={() => activeTab && close(activeTab.id)} disabled={!activeTab} aria-label="Terminal schließen" title="Schließen"><MonitorOffIcon className="h-4 w-4" /><span>Schließen</span></button>
+          <div className="terminal-action-menu" ref={actionMenuRef}>
+            <button type="button" className="terminal-action-trigger" aria-haspopup="menu" aria-expanded={actionsOpen} onClick={() => setActionsOpen((open) => !open)} aria-label="Terminalaktionen">
+              <ChevronDownIcon className={`h-4 w-4 ${actionsOpen ? "is-open" : ""}`} aria-hidden />
+              <span>Aktionen</span>
+            </button>
+            {actionsOpen ? (
+              <div className="terminal-action-popover" role="menu" aria-label="Terminalaktionen">
+                <button type="button" role="menuitem" onClick={() => runAction(() => create(nextProjectId))} disabled={area.tabs.length >= maxTabs} aria-label={`${kindLabels[kind]}-Instanz öffnen`}><PlusIcon className="h-4 w-4" aria-hidden /><span>Neu</span></button>
+                <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && handles.current.get(activeTab.id)?.restart())} disabled={!activeTab} aria-label="Terminal neu starten"><RetryIcon className="h-4 w-4" aria-hidden /><span>Neustart</span></button>
+                <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && handles.current.get(activeTab.id)?.clear())} disabled={!activeTab} aria-label="Terminal leeren"><EraserIcon className="h-4 w-4" aria-hidden /><span>Leeren</span></button>
+                {!bento && !singlePane && area.tabs.length > 1 ? (
+                  area.splitTabId ?
+                    <button type="button" role="menuitem" onClick={() => runAction(() => clearSplit(areaId))} aria-label="Split schließen"><ColumnsIcon className="h-4 w-4" aria-hidden /><span>Einzeln</span></button> :
+                    <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && splitTab(areaId, activeTab.id, "left"))} disabled={!activeTab} aria-label="Terminal teilen"><SplitIcon className="h-4 w-4" aria-hidden /><span>Split</span></button>
+                ) : null}
+                <button type="button" role="menuitem" className="danger" onClick={() => runAction(() => activeTab && close(activeTab.id))} disabled={!activeTab} aria-label="Terminal schließen"><MonitorOffIcon className="h-4 w-4" aria-hidden /><span>Schließen</span></button>
+                {sessionPicker}
+              </div>
+            ) : null}
+          </div>
         </div>
       </header> : null}
 
@@ -357,16 +390,6 @@ export function TerminalArea({
             <button type="button" role="tab" aria-selected={keyboardRow === "keys"} className={keyboardRow === "keys" ? "is-active" : ""} onClick={() => setKeyboardRow("keys")}>Tasten</button>
             <button type="button" role="tab" aria-selected={keyboardRow === "actions"} className={keyboardRow === "actions" ? "is-active" : ""} onClick={() => setKeyboardRow("actions")}>Aktionen</button>
           </div>
-        </div>
-      ) : null}
-
-      {!minimal && !isMobile && activeTab ? (
-        <div className="terminal-statusline" aria-live="off">
-          <span className={`terminal-state is-${activeMeta?.status ?? "connecting"}`} aria-hidden />
-          <span className="terminal-statusline-state">{activeMeta ? statusLabel[activeMeta.status] : statusLabel.connecting}</span>
-          <span className="terminal-statusline-path" title={activeMeta?.cwd ?? ""}>{activeMeta?.cwd ?? "Pfad wird geladen…"}</span>
-          <span className="terminal-statusline-project">{projectName(activeTab.projectId, activeMeta?.cwd)}</span>
-          {activeMeta && activeMeta.cols > 0 ? <span className="terminal-statusline-size">{activeMeta.cols}×{activeMeta.rows}</span> : null}
         </div>
       ) : null}
     </section>

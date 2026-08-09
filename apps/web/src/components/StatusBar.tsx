@@ -54,6 +54,9 @@ export function StatusBar() {
   const selectedProject = projects.data?.projects.find((project) => project.id === selectedProjectId);
   const activeOrbitBoard = orbitDocument.boards.find((board) => board.id === orbitDocument.activeBoardId);
   const isOrbit = location.pathname === "/workbench";
+  // Auf der Standalone-T3-Seite entfällt der Projektbereich: T3 Code zeigt
+  // seinen eigenen Kontext (Projekt, Branch, Thread) bereits im Panel.
+  const isStandaloneT3 = location.pathname === "/t3-code";
   const codex = usage.data?.providers.find((provider) => provider.providerId === "codex");
   const opencode = usage.data?.providers.find((provider) => provider.providerId === "opencode");
   const claude = usage.data?.providers.find((provider) => provider.providerId === "claude");
@@ -73,9 +76,9 @@ export function StatusBar() {
         <span className="status-bar-item min-w-0"><span>Orbit</span><span className="status-bar-value truncate">{activeOrbitBoard?.name ?? "Arbeitsfläche"}</span></span>
         <span className="status-bar-divider" />
         <span className="status-bar-item"><span>{activeOrbitBoard?.nodes.length ?? 0} Knoten</span><span>{activeOrbitBoard?.edges.length ?? 0} Verbindungen</span><span className="status-bar-value">{orbitSaving ? "speichert…" : orbitDirty ? "ungespeichert" : "synchron"}</span></span>
-      </> : <>
+      </> : !isStandaloneT3 ? <>
         <span className="status-bar-item min-w-0"><span>Projekt</span><span className="status-bar-value truncate">{selectedProject?.name ?? "keines"}</span></span>
-      </>}
+      </> : null}
       </span>
       {visibleProviders.length > 0 ? (
         <Link

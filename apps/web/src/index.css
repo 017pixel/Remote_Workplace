@@ -2,6 +2,8 @@
 @import "@fontsource-variable/dm-sans";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
 
 /* --- Palette: T3 Code Nightly (dark) ----------------------------------------
    Übernommen aus dem Design von T3 Code Nightly (0.0.29-nightly). Die Token-
@@ -48,7 +50,9 @@
   --color-info: oklch(70.7% .165 254.624);
 
   --font-sans: "DM Sans Variable", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "SF Mono", "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  /* JetBrains Mono zuerst: Es ist selbst gehostet geladen und auf 1080p
+     deutlich lesbarer als der System-Fallback. SF Mono bleibt für macOS. */
+  --font-mono: "JetBrains Mono", "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
   /* --- Design foundations -------------------------------------------------
      Token-Fundament (Plan Punkte 1–7). Bestehende Hardcodes werden gezielt
@@ -170,6 +174,25 @@
   --ansi-bright-white: #fafafa;
   --ansi-selection: rgb(54 111 251 / .3);
 }
+
+/* Desktop-Lesbarkeit (ab 1024 px): Die Typo-Skala wird um 2 px angehoben,
+   damit kleine Texte und Zahlen auf 1080p-Displays klar erkennbar bleiben.
+   Mobile und Tablet behalten die kompakte Skala. */
+@media (min-width: 1024px) {
+  :root {
+    --text-2xs: 12px;
+    --text-xs: 13px;
+    --text-sm: 14px;
+    --text-base: 15px;
+    --text-md: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: clamp(28px, 1rem + 1.8vw, 34px);
+    --text-hero: clamp(33px, 1.3rem + 2.6vw, 44px);
+  }
+}
+
 @layer components {
 .app-icon {
   display: block;
@@ -872,16 +895,22 @@ a:hover .app-icon,
   }
 }
 
-/* 10. Tabellarische Ziffern für Kennzahlen/Metriken (Statusbar, KPIs, Usage). */
+/* 10. Tabellarische Ziffern für Kennzahlen/Metriken (Statusbar, KPIs, Usage).
+   Kompakte Werte laufen mit 500 statt 400: Auf 1080p bleiben so kleine
+   Mono-Ziffern auch in reduzierten Größen klar erkennbar. */
 @layer base {
   .status-bar-value,
   .status-limits,
+  .dash-vital-value,
+  .dash-facts dd {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    font-weight: 500;
+  }
   .usage-window-value strong,
   .usage-kpis strong,
   .usage-chart text,
   .usage-projection strong,
-  .dash-vital-value,
-  .dash-facts dd,
   .font-mono,
   .tabular {
     font-variant-numeric: tabular-nums;
@@ -2234,7 +2263,7 @@ a:hover .app-icon,
   .status-bar-item { display: inline-flex; min-width: 0; align-items: center; gap: 7px; white-space: nowrap; }
   .status-bar-value { color: var(--color-text); font-weight: 500; }
   .status-bar-divider { width: 1px; height: 16px; flex: none; background: var(--color-line); }
-  .status-limits { display: inline-flex; min-width: 0; max-width: 64%; align-items: center; gap: 12px; margin-left: auto; border-radius: var(--radius-sm); padding: 6px 8px; color: var(--color-muted); font-family: var(--font-mono); font-size: 12px; transition: background var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard); }
+  .status-limits { display: inline-flex; min-width: 0; max-width: 64%; align-items: center; gap: 12px; margin-left: auto; border-radius: var(--radius-sm); padding: 6px 8px; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-sm); transition: background var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard); }
   .status-limits > span:not(.status-bar-divider) { min-width: 0; max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status-limits:hover { background: var(--color-ink-800); color: var(--color-text); }
   .status-limits strong { color: var(--color-text); font-weight: 600; }
@@ -2337,6 +2366,9 @@ a:hover .app-icon,
   .tool-actions-popover button, .tool-actions-popover a { display: flex; min-height: 38px; align-items: center; gap: 9px; border-radius: var(--radius-sm); padding: 0 10px; color: var(--color-muted); font-size: var(--text-xs); text-align: left; text-decoration: none; }
   .tool-actions-popover button:hover, .tool-actions-popover a:hover, .tool-actions-popover button:focus-visible, .tool-actions-popover a:focus-visible { background: var(--color-ink-800); color: var(--color-text); outline: none; }
   .topbar > .tool-actions-menu.is-topbar { margin-left: auto; }
+  /* Direkt nebeneinander: Das Aktionen-Menü sitzt links neben dem
+     Projekt-Picker am rechten Rand, statt den Platz mit ihm zu teilen. */
+  .tool-actions-menu.is-topbar + .project-picker { margin-left: 0; }
   .topbar-tool-actions .tool-actions-trigger { width: 36px; min-height: 36px; }
   .panel-device-picker-wrapper { position: relative; }
   .panel-device-picker { display: flex; height: 32px; min-width: 0; max-width: 180px; align-items: center; gap: 5px; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0 8px; color: var(--color-muted); font-size: 12px; cursor: pointer; }
@@ -3048,12 +3080,12 @@ a:hover .app-icon,
 
 @layer components {
   .project-picker { position: relative; z-index: 45; flex: none; margin-left: auto; }
-  .project-picker-trigger { display: grid; grid-template-columns: auto auto minmax(0, auto) auto; min-height: 36px; max-width: min(360px, 46vw); align-items: center; gap: 7px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 4px 8px; color: var(--color-text); transition: border-color 150ms ease-out, background 150ms ease-out; }
+  .project-picker-trigger { display: flex; min-height: 36px; max-width: min(360px, 46vw); align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 4px 8px; color: var(--color-text); transition: border-color 150ms ease-out, background 150ms ease-out; }
   .project-picker-trigger:hover, .project-picker-trigger[aria-expanded="true"] { border-color: var(--color-ink-600); background: var(--color-ink-850); }
-  .project-picker-label { color: var(--color-faint); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-  .project-picker-icon { display: none; width: 15px; height: 15px; color: var(--color-faint); }
+  .project-picker-label { flex: none; color: var(--color-faint); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .project-picker-icon { display: none; width: 15px; height: 15px; flex: none; color: var(--color-faint); }
   .project-picker-value { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-  .project-picker-chevron { width: 14px; height: 14px; color: var(--color-faint); transition: transform 150ms ease-out; }
+  .project-picker-chevron { width: 14px; height: 14px; flex: none; color: var(--color-faint); transition: transform 150ms ease-out; }
   .project-picker-chevron.is-open { transform: rotate(180deg); }
   .project-picker-popover { position: absolute; top: calc(100% + 8px); right: 0; width: min(390px, calc(100vw - 24px)); overflow: hidden; border: 1px solid var(--color-ink-600); border-radius: var(--radius-lg); background: rgb(17 17 17 / .98); box-shadow: var(--shadow-overlay); backdrop-filter: blur(22px); animation: subtle-fade 140ms ease-out; }
   .project-picker-popover.is-portal { z-index: 280; right: auto; display: flex; flex-direction: column; }
@@ -3113,12 +3145,26 @@ a:hover .app-icon,
   .terminal-tab-add:hover { background: var(--color-ink-800); color: var(--color-text); }
   .terminal-tab-add:disabled { opacity: .35; }
   .terminal-action-bar { flex: none; flex-wrap: nowrap; align-items: center; gap: 2px; }
-  .terminal-action-bar > button { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: var(--terminal-radius); background: transparent; padding: 0 9px; color: var(--color-muted); font-size: var(--text-xs); }
-  .terminal-action-bar > button:hover { background: var(--color-ink-700); color: var(--color-text); }
-  .terminal-action-bar > button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
-  .terminal-action-bar > button:active { transform: scale(.97); }
-  .terminal-action-bar > button:disabled { opacity: .32; }
-  .terminal-action-bar > button.danger:hover { background: var(--color-bad-soft); color: var(--color-bad); }
+  .terminal-action-bar > button, .terminal-action-trigger { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: var(--terminal-radius); background: transparent; padding: 0 9px; color: var(--color-muted); font-size: var(--text-xs); }
+  .terminal-action-bar > button:hover, .terminal-action-trigger:hover, .terminal-action-trigger[aria-expanded="true"] { background: var(--color-ink-700); color: var(--color-text); }
+  .terminal-action-bar > button:focus-visible, .terminal-action-trigger:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+  .terminal-action-bar > button:active, .terminal-action-trigger:active { transform: scale(.97); }
+  .terminal-action-bar > button:disabled, .terminal-action-trigger:disabled { opacity: .32; }
+  .terminal-action-bar > button.danger:hover, .terminal-action-trigger.danger:hover { background: var(--color-bad-soft); color: var(--color-bad); }
+  /* Aktionen-Menü: Die Toolbar-Aktionen liegen hinter einem Aufklappmenü. */
+  .terminal-action-menu { position: relative; }
+  .terminal-action-trigger { padding-inline: 16px; }
+  .terminal-action-trigger .is-open { transform: rotate(180deg); }
+  .terminal-action-popover { position: absolute; z-index: 60; top: calc(100% + 6px); right: 0; display: flex; max-height: min(560px, 70dvh); flex-direction: column; gap: 2px; overflow-y: auto; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: rgb(17 17 17 / .98); padding: 5px; box-shadow: 0 16px 50px rgb(0 0 0 / .42); }
+  .terminal-action-popover > button, .terminal-action-popover .terminal-session-picker summary { display: flex; min-height: 34px; flex: none; align-items: center; gap: 8px; border: 0; border-radius: var(--terminal-radius); background: transparent; padding: 0 10px; color: var(--color-muted); font-size: var(--text-xs); text-align: left; }
+  .terminal-action-popover > button:hover, .terminal-action-popover > button:focus-visible, .terminal-action-popover .terminal-session-picker summary:hover, .terminal-action-popover .terminal-session-picker[open] summary { background: var(--color-ink-800); color: var(--color-text); }
+  .terminal-action-popover > button:active { transform: scale(.97); }
+  .terminal-action-popover > button:disabled { opacity: .32; }
+  .terminal-action-popover > button.danger:hover { background: var(--color-bad-soft); color: var(--color-bad); }
+  .terminal-action-popover > button svg, .terminal-action-popover .terminal-session-picker summary svg { flex: none; color: var(--color-faint); }
+  /* Die Sitzungsauswahl klappt innerhalb des Menüs auf statt als eigenes
+     Popover, damit nichts über den Menürand ragt. */
+  .terminal-action-popover .terminal-session-picker-menu { position: static; width: auto; max-height: none; overflow: visible; border: 0; border-top: 1px solid var(--color-line-soft); border-radius: 0; background: transparent; box-shadow: none; padding: 2px 0 4px; }
   .terminal-session-picker { position: relative; }
   .terminal-session-picker summary { display: flex; min-height: 28px; align-items: center; gap: 6px; border: 0; border-radius: var(--terminal-radius, 2px); background: transparent; padding: 0 8px; color: var(--color-muted); cursor: pointer; font-size: var(--text-xs); list-style: none; }
   .terminal-session-picker summary::-webkit-details-marker { display: none; }
@@ -3144,21 +3190,6 @@ a:hover .app-icon,
   .terminal-split-handle:hover::after { background: var(--color-accent); }
   .terminal-drop-zones { position: absolute; z-index: 20; inset: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: none; }
   .terminal-drop-zones button { border: 1px dashed var(--color-accent); border-radius: var(--radius-sm); background: rgb(37 48 59 / .76); color: var(--color-text); font-size: 12px; pointer-events: auto; backdrop-filter: blur(8px); }
-  /* Statuszeile: der Zustand der Sitzung dauerhaft sichtbar, statt hinter
-     einem Info-Knopf versteckt. */
-  .terminal-statusline {
-    display: flex; min-height: 26px; flex: none; align-items: center; gap: var(--space-3);
-    border-top: 1px solid var(--color-line); background: var(--color-ink-900);
-    padding: 0 var(--space-3); color: var(--color-faint);
-    font-family: var(--font-mono); font-size: var(--text-2xs);
-  }
-  .terminal-statusline-state { flex: none; color: var(--color-muted); }
-  .terminal-statusline-path { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
-  .terminal-statusline-project, .terminal-statusline-size { flex: none; }
-  .terminal-statusline-size { color: var(--color-muted); }
-  @container (max-width: 620px) {
-    .terminal-statusline-project { display: none; }
-  }
 
   /* Bedienleiste auf dem Handy: Sondertasten und Aktionen in einer Leiste,
      umschaltbar, immer über der Bildschirmtastatur. */
@@ -3226,7 +3257,7 @@ a:hover .app-icon,
   .terminal-canvas.is-bento .terminal-session-pane.is-left { box-shadow: inset 0 2px var(--color-accent); }
 
   @container (max-width: 620px) {
-    .terminal-action-bar > button span { display: none; }
+    .terminal-action-bar > button span, .terminal-action-trigger span { display: none; }
   }
 
   @media (max-width: 1180px) {

@@ -13,6 +13,7 @@ import "@xterm/xterm/css/xterm.css";
 import type { TerminalKind } from "@workbench/contracts";
 import { ConfirmDialog } from "../ModalDialog";
 import { splitTerminalInput, terminalClipboardAction, writeClipboardText } from "../../lib/clipboard";
+import { showUiToast } from "../../lib/uiToasts";
 
 export type TerminalStatus = "connecting" | "connected" | "disconnected" | "exited" | "interrupted" | "error";
 
@@ -243,6 +244,11 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   // das als Tastatur-Eingabe (falsche Cursor-Sprünge, unbeabsichtigte Aktionen).
   const mouseTrackingRef = useRef(false);
   const mouseEncodingRef = useRef(false);
+  // Startzelle einer Drag-Auswahl bei aktivem Maus-Reporting (siehe
+  // onMouseCapture im mount-Effect).
+  const selectionDragRef = useRef<{ col: number; row: number } | null>(null);
+  // Merkt, ob aus einer Ziehbewegung eine echte Auswahl entstanden ist.
+  const dragSelectActiveRef = useRef(false);
   const kindRef = useRef(kind);
   kindRef.current = kind;
 
@@ -354,6 +360,20 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const sequence = lines < 0 ? "\x1b[A" : "\x1b[B";
     for (let step = 0; step < steps; step += 1) send({ type: "terminal.input", sessionId, data: sequence });
   }, [send]);
+
+  /** Kopiert die aktuelle xterm-Auswahl in die Zwischenablage und bestätigt
+   *  den Erfolg mit einem Toast (F04-10: Copy on Select). */
+  const copySelection = useCallback(() => {
+    const terminal = terminalRef.current;
+    const selection = terminal?.getSelection();
+    if (!selection) {
+      setError("Wähle zuerst Text im Terminal aus.");
+      return;
+    }
+    void writeClipboardText(selection)
+      .then(() => showUiToast({ title: "Kopiert", severity: "success" }))
+      .catch((copyError) => setError(copyError instanceof Error ? copyError.message : "Kopieren wurde vom Browser nicht erlaubt."));
+  }, []);
 
   const pasteIntoTerminal = useCallback((text: string) => {
     if (!text) return;
@@ -570,14 +590,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       const clipboardAction = terminalClipboardAction(event);
       if (clipboardAction === "paste") return true;
       if (clipboardAction === "copy") {
-        const selection = terminal.getSelection();
-        if (!selection) {
-          setError("Wähle zuerst Text im Terminal aus.");
-          return false;
-        }
-        void writeClipboardText(selection)
-          .then(() => setError(null))
-          .catch((copyError) => setError(copyError instanceof Error ? copyError.message : "Kopieren wurde vom Browser nicht erlaubt."));
+        copySelection();
         return false;
       }
       if (event.ctrlKey || event.metaKey || event.altKey) return true;
@@ -593,6 +606,66 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       if (event.ctrlKey || event.metaKey) return false;
       return true;
     });
+    // Drag-Auswahl auch bei Maus-Reporting: tmux und ähnliche Apps schalten
+    // Maus-Reporting ein, damit blockiert xterm die Textauswahl. Hier wählt
+    // eine Ziehbewegung (ohne Shift) trotzdem Text aus und kopiert ihn beim
+    // Loslassen; ein reiner Klick geht weiter an die App (z. B. tmux-Pane).
+    // Das Mausrad bleibt unberührt, Shift+Drag funktioniert wie gehabt.
+    const cellFromEvent = (event: MouseEvent): { col: number; row: number } | null => {
+      const terminal = terminalRef.current;
+      if (!terminal) return null;
+      const screen = (terminal.element ?? mount).querySelector<HTMLElement>(".xterm-screen") ?? terminal.element ?? mount;
+      const rect = screen.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const col = Math.floor((event.clientX - rect.left) / (rect.width / terminal.cols));
+      const visibleRow = Math.floor((event.clientY - rect.top) / (rect.height / terminal.rows));
+      return {
+        col: Math.max(0, Math.min(terminal.cols - 1, col)),
+        row: Math.max(0, Math.min(terminal.rows - 1, visibleRow)) + terminal.buffer.active.baseY,
+      };
+    };
+    const selectCells = (start: { col: number; row: number }, end: { col: number; row: number }) => {
+      const terminal = terminalRef.current;
+      if (!terminal) return;
+      const first = start.row <= end.row ? start : end;
+      const last = start.row <= end.row ? end : start;
+      const length = (last.row - first.row) * terminal.cols + (last.col - first.col) + 1;
+      terminal.select(first.col, first.row, length);
+    };
+    const onMouseCapture = (event: MouseEvent) => {
+      if (event.altKey || !mouseTrackingRef.current) return;
+      if (event.type === "mousedown") {
+        if (event.button !== 0) return;
+        selectionDragRef.current = event.shiftKey ? null : cellFromEvent(event);
+        dragSelectActiveRef.current = false;
+        return;
+      }
+      if (event.type === "mousemove") {
+        const start = selectionDragRef.current;
+        if (!start || event.shiftKey) return;
+        if ((event.buttons & 1) === 0) { selectionDragRef.current = null; dragSelectActiveRef.current = false; return; }
+        const cell = cellFromEvent(event);
+        if (!cell || (cell.col === start.col && cell.row === start.row)) return;
+        selectCells(start, cell);
+        dragSelectActiveRef.current = true;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.type === "mouseup") {
+        const wasDrag = dragSelectActiveRef.current;
+        selectionDragRef.current = null;
+        dragSelectActiveRef.current = false;
+        if (wasDrag) {
+          event.preventDefault();
+          event.stopPropagation();
+          copySelection();
+        }
+      }
+    };
+    mount.addEventListener("mousedown", onMouseCapture, { capture: true });
+    mount.addEventListener("mousemove", onMouseCapture, { capture: true });
+    mount.addEventListener("mouseup", onMouseCapture, { capture: true });
     terminalRef.current = terminal;
     fitRef.current = fit;
     const input = terminal.onData((data) => {
@@ -635,6 +708,14 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       receivePastedText(text);
     };
     mount.addEventListener("paste", onPaste, { capture: true });
+    // Copy on Select: Eine mit der Maus getroffene Auswahl landet nach dem
+    // Loslassen automatisch in der Zwischenablage (siehe copySelection).
+    const onMouseUp = () => {
+      const terminal = terminalRef.current;
+      if (!terminal?.hasSelection()) return;
+      copySelection();
+    };
+    mount.addEventListener("mouseup", onMouseUp);
     // Mausrad im Alternate Screen: xterm würde ohne Maus-Reporting der App
     // Pfeiltasten (ESC O A/B) senden. TUI-Agenten wie Codex oder Claude Code
     // interpretieren die als Tastatureingabe (Cursor-Sprünge, unbeabsichtigte
@@ -701,7 +782,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     if (activeRef.current || (keepAlive && globalThis.document.visibilityState !== "hidden")) connect();
     return () => {
       disposedRef.current = true;
-      input.dispose(); cwdHandler.dispose(); observer.disconnect(); viewport?.removeEventListener("resize", onViewportChange); viewport?.removeEventListener("scroll", onViewportChange); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true });
+      input.dispose(); cwdHandler.dispose(); observer.disconnect(); viewport?.removeEventListener("resize", onViewportChange); viewport?.removeEventListener("scroll", onViewportChange); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseUp); mount.removeEventListener("mousedown", onMouseCapture, { capture: true }); mount.removeEventListener("mousemove", onMouseCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseCapture, { capture: true });
       mount.removeEventListener("touchstart", onTouchStart);
       mount.removeEventListener("touchmove", onTouchMove);
       mount.removeEventListener("touchend", endTouch);
@@ -718,7 +799,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       socketRef.current?.close(); terminal.dispose();
       socketRef.current = null; terminalRef.current = null; fitRef.current = null;
     };
-  }, [connect, keepAlive, receivePastedText, resize, scrollByLines, send]);
+  }, [connect, copySelection, keepAlive, receivePastedText, resize, scrollByLines, send]);
 
   // Orbit-Knoten werden mit CSS transform skaliert. xterm zeichnet deshalb im
   // gesamten erlaubten Zoombereich mit dem exakten Gegenfaktor. Sichtbar bleibt
