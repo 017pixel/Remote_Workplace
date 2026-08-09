@@ -13,7 +13,7 @@ test.use({
 // Die Zwischenablage bleibt für Firefox in der manuellen Matrix.
 test.skip(({ browserName }) => browserName !== "chromium", "Zwischenablage-Automatisierung wird in Chromium geprüft.");
 
-test("copies the current terminal selection and pastes plain text instead of stale URLs", async ({ page }) => {
+test("copies terminal selections with Ctrl+Shift+C and pastes with Ctrl+Shift+V", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
   await page.goto(`${workbench}/terminal`);
   await expect(page.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
@@ -44,7 +44,7 @@ test("copies the current terminal selection and pastes plain text instead of sta
   await expect(page.locator(".xterm-screen")).toContainText(pasteMarker, { timeout: 10_000 });
 });
 
-test("keeps VS Code clipboard events inside the same-origin editor frame", async ({ page }) => {
+test("keeps VS Code on standard Ctrl+C and Ctrl+V inside the editor frame", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
   await page.goto(`${workbench}/code-editor`);
   const frameElement = page.locator('iframe[title="Editor"]');
@@ -64,7 +64,7 @@ test("keeps VS Code clipboard events inside the same-origin editor frame", async
   await expect(targetEditor.locator(".view-lines")).toContainText(marker);
 });
 
-test("does not grant embedded T3 Code or previews extra clipboard permissions", async ({ page }) => {
+test("keeps T3 Code focused so standard Ctrl+C belongs to the embedded app", async ({ page }) => {
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
   await page.goto(`${workbench}/t3-code`);
   const frame = page.locator('iframe[title="T3 Code"]');
@@ -72,6 +72,16 @@ test("does not grant embedded T3 Code or previews extra clipboard permissions", 
   expect(await frame.getAttribute("allow")).toBeNull();
   await frame.click({ position: { x: 20, y: 20 } });
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("title"))).toBe("T3 Code");
+  await page.keyboard.press("Control+C");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("title"))).toBe("T3 Code");
+});
+
+test("does not grant embedded previews extra clipboard permissions", async ({ page }) => {
+  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  await page.goto(`${workbench}/previews`);
+  for (const frame of await page.locator('iframe[title*="Preview"]').all()) {
+    expect(await frame.getAttribute("allow")).toBeNull();
+  }
 });
 
 test("routes Orbit paste to the focused editor, canvas or terminal only", async ({ page }) => {
