@@ -64,34 +64,59 @@ test.describe("Lokale Previews", () => {
 
   test("teilt identische Sessions und trennt unterschiedliche Ziele", async ({ request }) => {
     const shared = { projectId: null, primaryPort: fixturePorts.mpa, primaryProtocol: "http", isolate: false, storageProfileId: null };
-    const first = await (await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-a" } })).json() as { id: string; bindings: Array<{ slotId: number }> };
-    const second = await (await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-b" } })).json() as { id: string; bindings: Array<{ slotId: number }> };
-    expect(second.bindings[0]!.slotId).toBe(first.bindings[0]!.slotId);
+    const sessionIds: string[] = [];
 
-    const other = await (await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-c", primaryPort: fixturePorts.api } })).json() as { id: string; bindings: Array<{ slotId: number }> };
-    expect(other.bindings[0]!.slotId).not.toBe(first.bindings[0]!.slotId);
+    try {
+      const firstResponse = await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-a" } });
+      expect(firstResponse.ok()).toBeTruthy();
+      const first = await firstResponse.json() as { id: string; bindings: Array<{ slotId: number }> };
+      sessionIds.push(first.id);
+      expect(first.bindings).toHaveLength(1);
 
-    for (const session of [first, second, other]) {
-      await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+      const secondResponse = await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-b" } });
+      expect(secondResponse.ok()).toBeTruthy();
+      const second = await secondResponse.json() as { id: string; bindings: Array<{ slotId: number }> };
+      sessionIds.push(second.id);
+      expect(second.bindings).toHaveLength(1);
+      expect(second.bindings[0]!.slotId).toBe(first.bindings[0]!.slotId);
+
+      const otherResponse = await request.post("/api/v1/previews/sessions", { headers: previewIdentity, data: { ...shared, sessionKey: "e2e-share-c", primaryPort: fixturePorts.api } });
+      expect(otherResponse.ok()).toBeTruthy();
+      const other = await otherResponse.json() as { id: string; bindings: Array<{ slotId: number }> };
+      sessionIds.push(other.id);
+      expect(other.bindings).toHaveLength(1);
+      expect(other.bindings[0]!.slotId).not.toBe(first.bindings[0]!.slotId);
+    } finally {
+      for (const sessionId of sessionIds.reverse()) {
+        await request.delete(`/api/v1/previews/sessions/${sessionId}`, { headers: previewIdentity });
+      }
     }
   });
 
   test("liefert MPA-Routen, Assets und Redirects über die Slot-Origin", async ({ request }) => {
-    const session = await (await request.post("/api/v1/previews/sessions", {
+    const opened = await request.post("/api/v1/previews/sessions", {
       headers: previewIdentity,
       data: { sessionKey: "e2e-mpa", projectId: null, primaryPort: fixturePorts.mpa, primaryProtocol: "http", isolate: true, storageProfileId: null },
-    })).json() as { id: string; bindings: Array<{ slotId: number }> };
-    const slots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as { slots: Array<{ id: number; internalPort: number }> };
-    const internalPort = slots.slots.find((slot) => slot.id === session.bindings[0]!.slotId)!.internalPort;
+    });
+    expect(opened.ok()).toBeTruthy();
+    const session = await opened.json() as { id: string; bindings: Array<{ slotId: number }> };
 
-    const start = await request.get(`http://127.0.0.1:${internalPort}/`);
-    expect(await start.text()).toContain("styles.css");
-    const admin = await request.get(`http://127.0.0.1:${internalPort}/admin`);
-    expect(await admin.text()).toContain("Adminbereich");
-    const asset = await request.get(`http://127.0.0.1:${internalPort}/styles.css`);
-    expect(asset.headers()["content-type"]).toContain("text/css");
+    try {
+      expect(session.bindings).toHaveLength(1);
+      const slots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as { slots: Array<{ id: number; internalPort: number }> };
+      const bound = slots.slots.find((slot) => slot.id === session.bindings[0]!.slotId);
+      expect(bound).toBeDefined();
+      const internalPort = bound!.internalPort;
 
-    await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+      const start = await request.get(`http://127.0.0.1:${internalPort}/`);
+      expect(await start.text()).toContain("styles.css");
+      const admin = await request.get(`http://127.0.0.1:${internalPort}/admin`);
+      expect(await admin.text()).toContain("Adminbereich");
+      const asset = await request.get(`http://127.0.0.1:${internalPort}/styles.css`);
+      expect(asset.headers()["content-type"]).toContain("text/css");
+    } finally {
+      await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+    }
   });
 
   test("hält Gerätepräferenz und Slot-Override auseinander", async ({ request }) => {
@@ -147,67 +172,72 @@ test.describe("Lokale Previews", () => {
   });
 
   test("recycelt belegte Slot-Origins und öffnet die Hub-Preview direkt in einem neuen Tab und Fenster", async ({ page, request }) => {
-    const initialSlots = await (await request.get("/api/v1/previews/slots", { headers: previewIdentity })).json() as {
-      slots: Array<{ affinityStatus: "none" | "own" | "foreign" | "quarantined" }>;
+    const reclaimPreviewSlots = async () => {
+      for (let index = 0; index < 12; index += 1) {
+        const startedResponse = await request.post("/api/v1/previews/slots/reclaim", { headers: previewIdentity });
+        if (!startedResponse.ok()) break;
+        const started = await startedResponse.json() as { slotId: number; nonce: string };
+        await request.post(`/api/v1/previews/slots/${started.slotId}/reset/verify`, {
+          headers: previewIdentity,
+          data: { nonce: started.nonce, serviceWorkers: 0, cacheStorages: 0, localStorageKeys: 0, sessionStorageKeys: 0, indexedDatabases: 0, verifiable: true },
+        });
+      }
     };
-    const unusedSlotCount = initialSlots.slots.filter((slot) => slot.affinityStatus === "none").length;
-    for (let index = 0; index < unusedSlotCount; index += 1) {
-      const opened = await request.post("/api/v1/previews/sessions", {
+
+    try {
+      const initialSlotsResponse = await request.get("/api/v1/previews/slots", { headers: previewIdentity });
+      expect(initialSlotsResponse.ok()).toBeTruthy();
+      const initialSlots = await initialSlotsResponse.json() as {
+        slots: Array<{ affinityStatus: "none" | "own" | "foreign" | "quarantined" }>;
+      };
+      const unusedSlotCount = initialSlots.slots.filter((slot) => slot.affinityStatus === "none").length;
+      for (let index = 0; index < unusedSlotCount; index += 1) {
+        const opened = await request.post("/api/v1/previews/sessions", {
+          headers: previewIdentity,
+          data: { sessionKey: `e2e-alt-${index}`, projectId: `altes-projekt-${index}`, primaryPort: fixturePorts.spa, primaryProtocol: "http", isolate: true, storageProfileId: null },
+        });
+        expect(opened.ok()).toBeTruthy();
+        const session = await opened.json() as { id: string };
+        await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
+      }
+
+      const saved = await request.put("/api/v1/previews/dev-servers/remote-workplace/main-port", {
         headers: previewIdentity,
-        data: { sessionKey: `e2e-alt-${index}`, projectId: `altes-projekt-${index}`, primaryPort: fixturePorts.spa, primaryProtocol: "http", isolate: true, storageProfileId: null },
+        data: { mainPort: fixturePorts.spa },
       });
-      expect(opened.ok()).toBeTruthy();
-      const session = await opened.json() as { id: string };
-      await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
-    }
+      expect(saved.ok()).toBeTruthy();
 
-    const saved = await request.put("/api/v1/previews/dev-servers/remote-workplace/main-port", {
-      headers: previewIdentity,
-      data: { mainPort: fixturePorts.spa },
-    });
-    expect(saved.ok()).toBeTruthy();
+      await page.goto("/workbench/previews");
+      await expect(page.getByRole("heading", { name: "Preview Übersicht" })).toHaveCount(0);
+      await expect(page.locator(".topbar").getByRole("button", { name: "Remote Workplace", exact: true })).toBeVisible();
 
-    await page.goto("/workbench/previews");
-    await expect(page.getByRole("heading", { name: "Preview Übersicht" })).toHaveCount(0);
-    await expect(page.locator(".topbar").getByRole("button", { name: "Remote Workplace", exact: true })).toBeVisible();
+      const publicUrl = page.locator(".preview-hub-urlbar code");
+      await expect(publicUrl).toHaveText(/^https?:\/\/[^/]+:\d+\/$/);
+      const expectedUrl = await publicUrl.textContent();
+      expect(expectedUrl).not.toBeNull();
 
-    const publicUrl = page.locator(".preview-hub-urlbar code");
-    await expect(publicUrl).toHaveText(/^https?:\/\/[^/]+:\d+\/$/);
-    const expectedUrl = await publicUrl.textContent();
-    expect(expectedUrl).not.toBeNull();
+      // Die externen Öffner führen über die Live-Route auf die Slot-Origin, damit
+      // der neue Tab eine eigene Session mit Lease erhält statt einer nackten URL.
+      const tabPromise = page.waitForEvent("popup");
+      await page.getByRole("button", { name: "Im neuen Tab" }).click();
+      const tab = await tabPromise;
+      await expect(tab).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+      await expect(tab.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
+      await tab.close();
 
-    // Die externen Öffner führen über die Live-Route auf die Slot-Origin, damit
-    // der neue Tab eine eigene Session mit Lease erhält statt einer nackten URL.
-    const tabPromise = page.waitForEvent("popup");
-    await page.getByRole("button", { name: "Im neuen Tab" }).click();
-    const tab = await tabPromise;
-    await expect(tab).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
-    await expect(tab.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
-    await tab.close();
-
-    const windowPromise = page.waitForEvent("popup");
-    await page.getByRole("button", { name: "Im neuen Fenster" }).click();
-    const previewWindow = await windowPromise;
-    await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
-    await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
-    await previewWindow.close();
-    // Live-Fenster und Live-Tab teilen eine Session über denselben Session-
-    // Schlüssel. Sie wird beim Schließen des Tabs nicht mehr automatisch
-    // freigegeben (Sessions bleiben stabil), deshalb hier explizit aufräumen,
-    // damit der Firefox-Lauf wieder freie Slots vorfindet.
-    await request.delete("/api/v1/previews/sessions/by-key/preview-live:remote-workplace:47101", { headers: previewIdentity });
-
-    // Die belegten Slot-Origins hinterlassen fremde Storage-Affinitäten; ohne
-    // verifizierten Reset bleiben sie für spätere Läufe gesperrt. Deshalb jede
-    // Affinität über den Reclaim-Zyklus nachweislich leeren.
-    for (let index = 0; index < 12; index += 1) {
-      const startedResponse = await request.post("/api/v1/previews/slots/reclaim", { headers: previewIdentity });
-      if (!startedResponse.ok()) break;
-      const started = await startedResponse.json() as { slotId: number; nonce: string };
-      await request.post(`/api/v1/previews/slots/${started.slotId}/reset/verify`, {
-        headers: previewIdentity,
-        data: { nonce: started.nonce, serviceWorkers: 0, cacheStorages: 0, localStorageKeys: 0, sessionStorageKeys: 0, indexedDatabases: 0, verifiable: true },
-      });
+      const windowPromise = page.waitForEvent("popup");
+      await page.getByRole("button", { name: "Im neuen Fenster" }).click();
+      const previewWindow = await windowPromise;
+      await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+      await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
+      await previewWindow.close();
+    } finally {
+      // Der Test verändert absichtlich persistente Preview-Zustände. Das Cleanup
+      // muss deshalb auch nach einer fehlgeschlagenen UI-Assertion laufen, damit
+      // spätere Browser-Projekte nicht mit belegten Slots starten.
+      await request.delete(`/api/v1/previews/sessions/by-key/preview-live:remote-workplace:${fixturePorts.spa}`, { headers: previewIdentity });
+      await reclaimPreviewSlots();
     }
   });
+
 });
