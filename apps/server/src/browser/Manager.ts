@@ -99,7 +99,14 @@ class CdpConnection {
   }
 
   send(method: string, params: Record<string, unknown> = {}, sessionId?: string): Promise<Record<string, unknown>> {
-    if (this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chromium ist nicht verbunden."));
+    if (this.socket.readyState !== WebSocket.OPEN) {
+      // Hintergrund-Befehle (Captures, Cleanup nach Shutdown) erwarten die
+      // Antwort nicht mehr; ohne Abfänger würden ihre Fehler als unhandled
+      // rejections den Testlauf kippen.
+      const closed = Promise.reject(new Error("Chromium ist nicht verbunden."));
+      closed.catch(() => {});
+      return closed;
+    }
     const id = ++this.sequence;
     const promise = new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -388,7 +395,11 @@ class BrowserSession {
         this.screencastStarted = false;
         await this.startScreencast(metrics);
       }
-    });
+      // Läuft ein Größenwechsel nach der Verbindungsfreigabe (z. B. ein letzter
+      // Screencast-Frame während des Shutdowns), schlägt der CDP-Befehl fehl.
+      // Die Kette darf nicht als unhandled rejection enden, weil niemand mehr
+      // auf sie wartet.
+    }).catch(() => undefined);
     return this.resizeQueue;
   }
 
@@ -448,7 +459,9 @@ class BrowserSession {
 
   private scheduleStateRefresh() {
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => { void this.refreshState(); }, 60);
+    // Nach der Verbindungsfreigabe können letzte Navigationsevents den Refresh
+    // auslösen; die Ablehnung wird niemandem mehr gemeldet, deshalb hier abfangen.
+    this.refreshTimer = setTimeout(() => { void this.refreshState().catch(() => undefined); }, 60);
   }
 
   private async refreshState() {

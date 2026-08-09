@@ -48,6 +48,17 @@ export function previewSlotReleasedOnTargetChange(board: OrbitBoard, nodeId: str
   };
 }
 
+/** Session-Schlüssel aller Preview-Slots, die mit einem Node (Gruppe oder Slot) entfernt werden. */
+export function previewSessionKeysWithNode(board: OrbitBoard, nodeId: string): string[] {
+  const removedIds = new Set([
+    nodeId,
+    ...board.nodes.filter((node) => node.parentId === nodeId).map((node) => node.id),
+  ]);
+  return board.nodes
+    .filter((node) => removedIds.has(node.id) && node.type === "previewSlot")
+    .map((node) => `orbit-preview:${node.id}`);
+}
+
 export async function releasePreviewSlots(releases: PreviewSlotRelease[]): Promise<void> {
   await Promise.allSettled(releases.map((release) => apiClient.assignPreviewSlot({
     slotId: release.slotId,
@@ -55,4 +66,9 @@ export async function releasePreviewSlots(releases: PreviewSlotRelease[]): Promi
     isolate: true,
     ...(release.expectedTargetPort === undefined ? {} : { expectedTargetPort: release.expectedTargetPort }),
   })));
+}
+
+/** Schließt die Preview-Sessions explizit entfernter Orbit-Slots. */
+export async function releasePreviewSessions(sessionKeys: string[]): Promise<void> {
+  await Promise.allSettled(sessionKeys.map((key) => apiClient.closePreviewSessionByKey(key)));
 }

@@ -147,6 +147,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
     >
       <header className="mobile-navigation-header">
         <div>
+          <p className="mobile-navigation-kicker">Menü</p>
           <h2 id="mobile-navigation-title">Navigation</h2>
         </div>
         <button type="button" onClick={requestClose} className="icon-button mobile-navigation-close" aria-label="Navigation schließen">

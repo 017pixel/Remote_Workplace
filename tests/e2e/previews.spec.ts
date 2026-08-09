@@ -176,18 +176,38 @@ test.describe("Lokale Previews", () => {
     const expectedUrl = await publicUrl.textContent();
     expect(expectedUrl).not.toBeNull();
 
+    // Die externen Öffner führen über die Live-Route auf die Slot-Origin, damit
+    // der neue Tab eine eigene Session mit Lease erhält statt einer nackten URL.
     const tabPromise = page.waitForEvent("popup");
-    await page.getByRole("link", { name: "Im neuen Tab" }).click();
+    await page.getByRole("button", { name: "Im neuen Tab" }).click();
     const tab = await tabPromise;
-    await expect(tab).toHaveURL(expectedUrl!);
-    await expect(tab.getByText("SPA bereit")).toBeVisible();
+    await expect(tab).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+    await expect(tab.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
     await tab.close();
 
     const windowPromise = page.waitForEvent("popup");
     await page.getByRole("button", { name: "Im neuen Fenster" }).click();
     const previewWindow = await windowPromise;
-    await expect(previewWindow).toHaveURL(expectedUrl!);
-    await expect(previewWindow.getByText("SPA bereit")).toBeVisible();
+    await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
+    await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
     await previewWindow.close();
+    // Live-Fenster und Live-Tab teilen eine Session über denselben Session-
+    // Schlüssel. Sie wird beim Schließen des Tabs nicht mehr automatisch
+    // freigegeben (Sessions bleiben stabil), deshalb hier explizit aufräumen,
+    // damit der Firefox-Lauf wieder freie Slots vorfindet.
+    await request.delete("/api/v1/previews/sessions/by-key/preview-live:remote-workplace:47101", { headers: previewIdentity });
+
+    // Die belegten Slot-Origins hinterlassen fremde Storage-Affinitäten; ohne
+    // verifizierten Reset bleiben sie für spätere Läufe gesperrt. Deshalb jede
+    // Affinität über den Reclaim-Zyklus nachweislich leeren.
+    for (let index = 0; index < 12; index += 1) {
+      const startedResponse = await request.post("/api/v1/previews/slots/reclaim", { headers: previewIdentity });
+      if (!startedResponse.ok()) break;
+      const started = await startedResponse.json() as { slotId: number; nonce: string };
+      await request.post(`/api/v1/previews/slots/${started.slotId}/reset/verify`, {
+        headers: previewIdentity,
+        data: { nonce: started.nonce, serviceWorkers: 0, cacheStorages: 0, localStorageKeys: 0, sessionStorageKeys: 0, indexedDatabases: 0, verifiable: true },
+      });
+    }
   });
 });

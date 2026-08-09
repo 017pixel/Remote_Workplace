@@ -207,6 +207,27 @@ fremde Session, bestätigt keinen Storage-Reset und liest keine Snapshots.
   nicht die Browser-Verifikation. Ist auch der `playwright`-MCP nicht verfügbar, muss das als
   separates MCP-/Browser-Problem gemeldet werden.
 
+### Arbeiten mit aktiven Previews
+
+Preview-Sessions und ihre Devserver gehören dem Nutzer und laufen oft über Stunden. Sie sind
+kein Testmaterial und werden nicht umkonfiguriert. Verbindlich:
+
+- **Niemals** laufende Preview-Devserver stoppen, neu starten oder deren Prozesse killen —
+  weder per tmux (`workbench-preview-*`), `kill`/`pkill`/`fuser` auf ihren Ports noch per
+  API (`POST /api/v1/previews/dev-servers/:projectId/stop|restart`). Die Workbench startet
+  abgestürzte Devserver selbst wieder; eigene Kills brechen das Preview unnötig ab.
+- **Keinen eigenen Devserver auf einem Port starten**, den ein aktives Preview nutzt. Vorher
+  die lokale Portübersicht prüfen (Dashboard → „Lokale Ports" bzw. `GET /api/v1/services/ports`).
+  Eigene Testserver gehören auf eigene freie Ports.
+- **Keine Preview-Sessions des Nutzers schließen** (`DELETE /api/v1/previews/sessions/...`)
+  und keine direkten Slot-Zuweisungen ändern (`PUT /api/v1/previews/slots`). Der Nutzer gibt
+  Slots über die Oberfläche frei; das System räumt ungenutzte Sessions selbst auf.
+- Der `preview-doctor.sh` dient nur der Diagnose: `--probe` baut lediglich Vorschläge neu.
+- Zeigt ein Preview beim Neuladen „Preview nicht aktiv" oder „nicht erreichbar", **nichts neu
+  konfigurieren**: den Devserver-Status prüfen (`curl -s http://127.0.0.1:3010/api/v1/previews/dev-servers/<projekt-id>`)
+  und das Ergebnis dem Nutzer melden. Der Slot erholt sich meist von selbst, sobald der
+  Devserver wieder läuft.
+
 ### Zugriff auf Preview-Logs (max. sieben Tage)
 
 Preview-Logs dürfen gelesen werden, wenn sie für eine **aktuelle** Diagnose nötig sind oder der

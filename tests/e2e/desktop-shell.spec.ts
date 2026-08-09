@@ -30,7 +30,8 @@ test("moves standalone T3 Code actions into the topbar", async ({ page }) => {
   await expect(page.locator(".standalone-tool-content .panel-island")).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Vollbild" }).click();
   await expect(page.locator(".tool-surface-maximized")).toBeVisible();
-  await expect(page.locator(".tool-surface-maximized").getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+  // Im Vollbild steht die Wiederherstellen-Aktion direkt in den Topbar-Aktionen.
+  await expect(page.locator("#topbar-tool-actions").getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
 test("keeps one standalone tool menu after switching between tool routes", async ({ page }) => {

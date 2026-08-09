@@ -179,6 +179,37 @@ export function adjustEmbeddingPolicy(headers: HeaderBag, options: { workbenchOr
   return { headers: result, changes };
 }
 
+/**
+ * Verständliche 502-Seite, wenn der Zielport nicht antwortet. Sie lädt sich mit
+ * einem Zähler im sessionStorage der Slot-Origin begrenzt selbst neu, damit das
+ * Preview nach einem automatischen Devserver-Neustart ohne Nutzereingriff
+ * wiederkommt. Nach zehn Versuchen stoppt der Reload; ein späteres manuelles
+ * Neuladen startet frisch.
+ */
+export function devServerDownPage(): string {
+  return "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"><title>Preview nicht erreichbar</title>"
+    + "<script>"
+    + "(function(){"
+    + "try{"
+    + "var key='workbench:preview-retry';"
+    + "var raw=window.sessionStorage.getItem(key);"
+    + "var now=Date.now();"
+    + "var attempt=0;"
+    + "if(raw){try{var state=JSON.parse(raw);"
+    + "if(state&&typeof state.n==='number'&&typeof state.at==='number'&&now-state.at<120000)attempt=state.n+1;"
+    + "}catch(e){attempt=0}}"
+    + "if(attempt<10){window.sessionStorage.setItem(key,JSON.stringify({n:attempt,at:now}));"
+    + "window.setTimeout(function(){window.location.reload()},5000);"
+    + "}else{window.sessionStorage.removeItem(key)}"
+    + "}catch(e){}"
+    + "})();"
+    + "</script>"
+    + "</head><body>"
+    + "<p style=\"font:14px sans-serif\">Der Entwicklungs-Server antwortet gerade nicht. "
+    + "Die Workbench versucht, ihn automatisch neu zu starten; diese Seite lädt sich selbst neu.</p>"
+    + "</body></html>";
+}
+
 export interface GatewayDiagnosticEvent {
   slotId: number;
   sessionId: string | null;
@@ -386,7 +417,22 @@ export class PreviewGateway {
     );
 
     const proxyHttp = (request: FastifyRequest, reply: FastifyReply) => {
-      const route = this.resolveRoute(definition.id);
+      let route: SlotRoute;
+      try {
+        route = this.resolveRoute(definition.id);
+      } catch (error) {
+        // Browser sehen statt rohem JSON eine verständliche Seite: Die nackte
+        // Slot-URL funktioniert nur, solange eine Session diese Origin besitzt.
+        if (error instanceof AppError && error.code === "PREVIEW_SLOT_UNASSIGNED"
+          && String(request.headers.accept ?? "").includes("text/html")) {
+          return reply.type("text/html; charset=utf-8").status(503).send(
+            "<!doctype html><meta charset=\"utf-8\"><title>Preview nicht aktiv</title>"
+            + "<p style=\"font:14px sans-serif\">Dieser Preview-Slot ist keinem Entwicklungs-Server zugewiesen. "
+            + "Öffne die Vorschau aus der Workbench (Seite „Previews“), damit dieser Slot eine aktive Sitzung erhält.</p>",
+          );
+        }
+        throw error;
+      }
       const startedAt = Date.now();
       const origin = publicOrigin();
       const upstreamOrigin = route.role === "dependency" && route.primaryTarget
@@ -507,6 +553,11 @@ export class PreviewGateway {
             route: request.url,
             metadata: { durationMs: Date.now() - startedAt },
           });
+          // Browser sehen statt einer nackten Fehlermeldung eine Seite, die
+          // sich nach einem Devserver-Neustart von selbst erholt.
+          if (String(request.headers.accept ?? "").includes("text/html")) {
+            return errorReply.code(502).type("text/html; charset=utf-8").send(devServerDownPage());
+          }
           errorReply.send(error.error);
         },
         timeout: 30_000,

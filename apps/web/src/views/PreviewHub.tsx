@@ -6,7 +6,7 @@ import { LocalPreviewRuntime } from "../components/preview/LocalPreviewRuntime";
 import { CopyIcon, ExternalLinkIcon, PlayIcon, PowerIcon, RefreshIcon, ServerIcon, TerminalIcon, WarningIcon, WorkbenchIcon } from "../components/icons";
 import { apiClient } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
-import { openPreviewWindow } from "../lib/previewExternalOpen";
+import { openPreviewLiveWindow } from "../lib/previewExternalOpen";
 import { workbenchQueries } from "../lib/queryOptions";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
@@ -94,15 +94,14 @@ export function PreviewHub() {
     navigate("/workbench");
   };
   const openExternalWindow = () => {
-    if (!projectId || !publicUrl) return;
-    const opened = openPreviewWindow(publicUrl, projectId);
+    if (!projectId || !mainPort) return;
+    const opened = openPreviewLiveWindow({ projectId, port: mainPort, title: project?.name ?? "Development Preview", mode: "window" });
     if (!opened) setActionError("Das Browserfenster wurde blockiert. Erlaube Popups oder wähle den Tab-Modus.");
   };
-  const openPreviewLiveWindow = () => {
+  const openPreviewLiveWindowTab = () => {
     if (!projectId || !mainPort) return;
-    const base = window.location.pathname.split("/previews")[0] ?? "";
-    const query = new URLSearchParams({ port: String(mainPort), project: projectId, title: project?.name ?? "Development Preview" });
-    window.open(`${base}/previews/live?${query.toString()}`, "_blank", "noopener,noreferrer");
+    const opened = openPreviewLiveWindow({ projectId, port: mainPort, title: project?.name ?? "Development Preview", mode: "tab" });
+    if (!opened) setActionError("Der neue Tab wurde blockiert. Erlaube Popups oder verwende im neuen Fenster.");
   };
 
   if (projectsQuery.isLoading) return <div className="route-skeleton" aria-label="Preview Hub wird geladen"><span /><span /><span /></div>;
@@ -125,9 +124,9 @@ export function PreviewHub() {
           {isMobile ? null : <div className="preview-hub-stage">{mainPort ? <LocalPreviewRuntime targetPort={mainPort} projectId={projectId} sessionKey={`preview-hub:${projectId}:${mainPort}`} isolate={false} deviceId="responsive" title={project.name} onSlotAssigned={(_slotId, url) => setPublicUrl(url)} /> : <div className="preview-hub-stage-empty"><ServerIcon /><strong>Kein Hauptport gewählt</strong></div>}</div>}
           <footer className="preview-hub-launchbar">
             <button type="button" className="preview-hub-secondary" disabled={!mainPort} onClick={openInWorkbench}><WorkbenchIcon />In Workbench</button>
-            {isMobile ? <button type="button" className="preview-hub-primary" disabled={!mainPort} onClick={openPreviewLiveWindow}><ExternalLinkIcon />Im neuen Tab</button> : <>
-              <a className={`preview-hub-secondary${publicUrl ? "" : " is-disabled"}`} href={publicUrl ?? undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!publicUrl}><ExternalLinkIcon />Im neuen Tab</a>
-              <button type="button" className="preview-hub-primary" disabled={!publicUrl} onClick={openExternalWindow}><ExternalLinkIcon />Im neuen Fenster</button>
+            {isMobile ? <button type="button" className="preview-hub-primary" disabled={!mainPort} onClick={openPreviewLiveWindowTab}><ExternalLinkIcon />Im neuen Tab</button> : <>
+              <button type="button" className="preview-hub-secondary" disabled={!mainPort} onClick={openPreviewLiveWindowTab}><ExternalLinkIcon />Im neuen Tab</button>
+              <button type="button" className="preview-hub-primary" disabled={!mainPort} onClick={openExternalWindow}><ExternalLinkIcon />Im neuen Fenster</button>
             </>}
           </footer>
         </section>

@@ -20,7 +20,7 @@ import { ExternalPreviewChoice } from "../preview/ExternalPreviewChoice";
 import { resolvePreviewDevice } from "../../lib/previewDevice";
 import { normalizePreviewTarget } from "../../lib/previewTargets";
 import { openPreviewGroupWindow } from "../../lib/previewWindow";
-import { previewSlotReleasedOnTargetChange, previewSlotsReleasedWithNode, releasePreviewSlots } from "../../lib/previewSlotLifecycle";
+import { previewSlotReleasedOnTargetChange, previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePreviewSessions, releasePreviewSlots } from "../../lib/previewSlotLifecycle";
 import { elementContainsEventTarget } from "../../lib/domEvents";
 import { useRouteActivity } from "../../lib/routeActivity";
 
@@ -452,7 +452,10 @@ function PreviewGroupNode({ id, selected }: { id: string; selected: boolean }) {
   }, []);
   const close = () => {
     const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
-    if (board) void releasePreviewSlots(previewSlotsReleasedWithNode(board, id));
+    if (board) {
+      void releasePreviewSlots(previewSlotsReleasedWithNode(board, id));
+      void releasePreviewSessions(previewSessionKeysWithNode(board, id));
+    }
     removeNode(id);
   };
   return (
@@ -510,6 +513,7 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
     const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
     const release = board ? previewSlotReleasedOnTargetChange(board, id) : null;
     if (release) void releasePreviewSlots([release]);
+    void releasePreviewSessions([`orbit-preview:${id}`]);
     updateNode(id, {
       previewTarget: normalized.kind === "local" ? String(normalized.port) : normalized.url,
       previewPath: normalized.kind === "local" ? normalized.path : "/",
@@ -522,6 +526,7 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
     const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
     const release = board ? previewSlotReleasedOnTargetChange(board, id) : null;
     if (release) void releasePreviewSlots([release]);
+    void releasePreviewSessions([`orbit-preview:${id}`]);
     updateNode(id, { previewTarget: null, previewSlotId: null });
     setTargetDraft("");
   };

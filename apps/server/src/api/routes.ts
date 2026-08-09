@@ -11,6 +11,8 @@ import {
   usageResponseSchema,
   usageDashboardResponseSchema,
   usageRangeSchema,
+  usageTimelineResponseSchema,
+  usageSyncStatusSchema,
   accountsResponseSchema,
   discoveredAccountsResponseSchema,
   createAccountRequestSchema,
@@ -71,6 +73,7 @@ import { createProxyHandler } from "./proxy.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
 import type { UsageAnalyticsService } from "../usage/usage-service.js";
 import type { AccountService } from "../usage/account-service.js";
+import type { UsageTimelineService } from "../usage/timeline-service.js";
 import type { OrbitDatabase } from "../orbit/database.js";
 import type { createProjectFileService } from "../services/projectFileService.js";
 import type { createLocalPortService } from "../services/localPortService.js";
@@ -88,6 +91,7 @@ interface RouteServices {
   usage: CodexbarUsageService;
   analytics: UsageAnalyticsService;
   accounts: AccountService;
+  usageTimeline: UsageTimelineService;
   orbit: OrbitDatabase;
   projectFiles: ReturnType<typeof createProjectFileService>;
   localPorts: ReturnType<typeof createLocalPortService>;
@@ -400,11 +404,32 @@ export async function registerApiRoutes(app: FastifyInstance, services: RouteSer
   });
   app.get("/commands", async () => commandsResponseSchema.parse(await services.commands.list()));
   app.get("/usage", async () => usageResponseSchema.parse(await services.usage.getUsage()));
+  app.get("/usage/timeline", async () => usageTimelineResponseSchema.parse(await services.usageTimeline.get()));
   app.get("/usage/dashboard", async (request) => {
     const range = usageRangeSchema.parse((request.query as {range?:unknown}).range ?? "30d");
     return usageDashboardResponseSchema.parse(await services.analytics.dashboard(range));
   });
-  app.post("/usage/sync", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => { services.usage.invalidate(); await services.analytics.sync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
+  let usageSyncRunning = false;
+  let lastUsageSyncCompletedAt: string | null = null;
+  const startUsageSync = () => {
+    if (usageSyncRunning) return;
+    usageSyncRunning = true;
+    void (async () => {
+      try {
+        services.usage.invalidate();
+        await Promise.allSettled([services.analytics.sync(), services.usageTimeline.refresh()]);
+      } finally {
+        usageSyncRunning = false;
+        lastUsageSyncCompletedAt = new Date().toISOString();
+      }
+    })();
+  };
+  // Status für die Oberfläche, damit sie nach einem Klick automatisch nachlädt,
+  // sobald der Hintergrund-Sync abgeschlossen ist.
+  app.get("/usage/sync/status", async () => usageSyncStatusSchema.parse({ running: usageSyncRunning, lastCompletedAt: lastUsageSyncCompletedAt }));
+  // Der Sync läuft im Hintergrund; die Antwort kommt sofort mit dem aktuellsten
+  // Stand, statt auf CodexBar zu warten.
+  app.post("/usage/sync", { config: { rateLimit: { max: 6, timeWindow: "1 minute" } } }, async () => { startUsageSync(); return usageDashboardResponseSchema.parse(await services.analytics.dashboard("30d")); });
   app.get("/accounts", async () => accountsResponseSchema.parse({ accounts: await services.accounts.listWithState() }));
   app.get("/accounts/discover", async () => discoveredAccountsResponseSchema.parse({ accounts: await services.accounts.discover() }));
   app.post("/accounts", async (request, reply) => {

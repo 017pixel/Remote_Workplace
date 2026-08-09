@@ -345,11 +345,34 @@ export class PreviewSlotService {
 
   openSession(userId: string, input: PreviewSessionRequest): PreviewSessionResponse {
     this.assertAllowedTarget(input.primaryPort);
+    // Abgelaufene Sessions werden erst aufgeräumt, wenn wirklich kein Slot mehr
+    // frei ist (Kapazitätsdruck). Solange Platz ist, bleibt die Zuordnung
+    // bestehen, damit ein später zurückkehrender Tab seinen Slot wiederfindet.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = this.openSessionOnce(userId, input);
+        return result;
+      } catch (error) {
+        const exhausted = error instanceof AppError && error.code === "PREVIEW_SLOTS_EXHAUSTED";
+        if (attempt === 0 && exhausted) {
+          this.database.transaction(() => {
+            this.releaseUnusedSlots(this.database.deleteExpiredSessions(new Date().toISOString()));
+          });
+          this.publish();
+          continue;
+        }
+        throw error;
+      }
+    }
+    // Unerreichbar, aber TypeScript verlangt einen Rückgabewert.
+    throw new AppError(409, "PREVIEW_SLOTS_EXHAUSTED", "Für die verbundenen Dienste sind nicht genügend Preview-Slots frei.");
+  }
+
+  private openSessionOnce(userId: string, input: PreviewSessionRequest): PreviewSessionResponse {
     const result = this.database.transaction((): { mutated: boolean; session: SessionRow; bindings: BindingRow[] } => {
-      // Auch Ablaufbereinigung, Idempotenzprüfung und Slotwahl laufen unter
-      // derselben Schreibsperre. Damit können zwei parallele Requests weder
+      // Auch Idempotenzprüfung und Slotwahl laufen unter derselben
+      // Schreibsperre. Damit können zwei parallele Requests weder
       // denselben Slot noch denselben (User, sessionKey)-Datensatz erobern.
-      this.releaseUnusedSlots(this.database.deleteExpiredSessions(new Date().toISOString()));
       const desired = this.desiredBindings(input);
       const requestFingerprint = createHash("sha256").update(JSON.stringify({
         sessionKey: input.sessionKey,
@@ -467,6 +490,11 @@ export class PreviewSlotService {
         slotId = requested;
       }
       slotId ??= input.previousBindings.find((old) => old.targetPort === item.targetPort && !reserved.has(old.slotId) && usable(old.slotId))?.slotId ?? null;
+      // Nach Lease-Ablauf ohne Bindings gewinnt der ehemals eigene Slot: Die
+      // Storage-Affinität bleibt bestehen, und der Nutzer erhält dieselbe
+      // Slot-Origin (und damit dieselbe URL) zurück.
+      slotId ??= slots.find((slot) => slot.targetPort === null && slot.state === "free" && !reserved.has(slot.id)
+        && usable(slot.id) && this.database.affinity(slot.id)?.storageOwnerKey === input.ownerKey)?.id ?? null;
       slotId ??= slots.find((slot) => slot.targetPort === null && slot.state === "free" && !reserved.has(slot.id) && usable(slot.id))?.id ?? null;
       slotId ??= slots.find((slot) => !bound.has(slot.id) && !reserved.has(slot.id) && usable(slot.id))?.id ?? null;
       if (slotId === null) {

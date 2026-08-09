@@ -6,6 +6,7 @@ import { useTerminalStore } from "../stores/terminals";
 import { useWorkspaceStore, visiblePanels } from "../stores/workspace";
 import { usePanelPresenceStore } from "../stores/panelPresence";
 import { useResponsiveShell } from "./useResponsiveShell";
+import { t3ThreadIdFromPath } from "./t3Thread";
 
 /**
  * Meldet dem Server, welche Quelle und welcher Chat gerade sichtbar sind:
@@ -100,8 +101,7 @@ export function useViewPresence() {
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
       if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
       if (data.source === "remote-workplace-t3") {
-        const segments = (data.path.split("?")[0] ?? "").split("/").filter(Boolean);
-        setT3ThreadId(segments.length >= 2 ? segments[1] ?? null : null);
+        setT3ThreadId(t3ThreadIdFromPath(data.path));
       }
       if (data.source === "remote-workplace-hermes") {
         const path = data.path.startsWith("/hermes") ? data.path.slice("/hermes".length) : data.path;

@@ -1041,6 +1041,37 @@ export const loginSessionResponseSchema = z.object({
   command: z.string().min(1),
 });
 
+// Timeline-Lane für die Multi-Account-Limitübersicht. Jede Lane steht für genau
+// einen Account eines Providers. Die Limitfenster nutzen die bestehende
+// UsageWindow-Struktur unverändert, damit es kein zweites Fenstermodell gibt.
+export const usageTimelineStatusSchema = z.enum(["available", "partial", "stale", "unavailable", "disabled"]);
+export const usageTimelineLaneSchema = z.object({
+  providerId: usageProviderIdSchema,
+  // ManagedAccount-ID oder bei reinen CodexBar-Daten ein deterministischer Hash
+  // aus Provider, Profilpfad, Label und E-Mail — niemals positionsabhängig.
+  accountId: z.string().min(1),
+  accountLabel: z.string().min(1),
+  email: z.string().email().nullable(),
+  plan: z.string().min(1).nullable(),
+  active: z.boolean(),
+  windows: z.array(usageWindowSchema),
+  resetCredits: z.array(resetCreditSchema),
+  status: usageTimelineStatusSchema,
+  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+  updatedAt: isoDateSchema.nullable(),
+});
+export const usageTimelineResponseSchema = z.object({
+  lanes: z.array(usageTimelineLaneSchema),
+  fetchedAt: isoDateSchema,
+  lastSuccessfulFetchAt: isoDateSchema.nullable(),
+});
+
+export const usageSyncStatusSchema = z.object({
+  running: z.boolean(),
+  lastCompletedAt: isoDateSchema.nullable(),
+});
+export type UsageSyncStatus = z.infer<typeof usageSyncStatusSchema>;
+
 export const WORKBENCH_LIMITS = {
   maxResidentTools: 10,
   maxVisibleGroups: 4,
@@ -1917,6 +1948,9 @@ export type UpdateAccountRequest = z.infer<typeof updateAccountRequestSchema>;
 export type AccountResponse = z.infer<typeof accountResponseSchema>;
 export type ActivateAccountResponse = z.infer<typeof activateAccountResponseSchema>;
 export type LoginSessionResponse = z.infer<typeof loginSessionResponseSchema>;
+export type UsageTimelineStatus = z.infer<typeof usageTimelineStatusSchema>;
+export type UsageTimelineLane = z.infer<typeof usageTimelineLaneSchema>;
+export type UsageTimelineResponse = z.infer<typeof usageTimelineResponseSchema>;
 export type TerminalKind = z.infer<typeof terminalKindSchema>;
 export type TerminalSessionStatus = z.infer<typeof terminalSessionStatusSchema>;
 export type TerminalSession = z.infer<typeof terminalSessionSchema>;

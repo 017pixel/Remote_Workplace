@@ -300,4 +300,57 @@ describe("Preview-Slots", () => {
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://server.test.ts.net:8443");
     expect(response.headers.get("x-frame-options")).toBeNull();
   });
+
+  it("behält abgelaufene Sessions, solange Slots frei sind", async () => {
+    const { service: slots, path } = await service({ slotPorts: [3901, 3902] });
+    const first = slots.openSession(user, { sessionKey: "a", projectId: null, primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    expect(first.bindings[0]!.slotId).toBe(1);
+    const inspection = new DatabaseSync(path);
+    inspection.prepare("UPDATE preview_runtime_sessions SET lease_expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", first.id);
+    inspection.close();
+
+    const second = slots.openSession(user, { sessionKey: "b", projectId: null, primaryPort: 4173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    expect(second.bindings[0]!.slotId).toBe(2);
+    expect(slots.list().slots.map((slot) => slot.targetPort)).toEqual([5173, 4173]);
+  });
+
+  it("räumt abgelaufene Sessions nur unter Kapazitätsdruck auf", async () => {
+    const { service: slots, path } = await service({ slotPorts: [3901] });
+    const first = slots.openSession(user, { sessionKey: "a", projectId: null, primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    const inspection = new DatabaseSync(path);
+    inspection.prepare("UPDATE preview_runtime_sessions SET lease_expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", first.id);
+    inspection.close();
+
+    const second = slots.openSession(user, { sessionKey: "b", projectId: null, primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    expect(second.bindings[0]!.slotId).toBe(1);
+    expect(slots.sessionsOf(user).map((session) => session.sessionKey)).toEqual(["b"]);
+  });
+
+  it("findet nach Freigabe den ehemals eigenen Slot wieder", async () => {
+    const { service: slots } = await service({ slotPorts: [3901, 3902] });
+    const first = slots.openSession(user, { sessionKey: "a", projectId: "projekt", primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    slots.closeSessionById(user, first.id);
+
+    const second = slots.openSession(user, { sessionKey: "b", projectId: "projekt", primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    expect(second.bindings[0]!.slotId).toBe(first.bindings[0]!.slotId);
+  });
+
+  it("liefert bei totem Devserver eine verständliche, sich selbst ladende Seite", async () => {
+    const deadPort = await freePort();
+    const proxyPort = await freePort();
+    const { service: slots } = await service({ slotPorts: [proxyPort] });
+    slots.assign({ targetPort: deadPort, isolate: true });
+    await slots.startListeners();
+    cleanup.push(() => slots.stopListeners());
+
+    const page = await fetch(`http://127.0.0.1:${proxyPort}/`, { headers: { accept: "text/html" } });
+    expect(page.status).toBe(502);
+    const html = await page.text();
+    expect(html).toContain("Entwicklungs-Server");
+    expect(html).toContain("location.reload");
+
+    const raw = await fetch(`http://127.0.0.1:${proxyPort}/`);
+    expect(raw.status).toBeGreaterThanOrEqual(400);
+    expect(await raw.text()).not.toContain("Entwicklungs-Server");
+  });
 });

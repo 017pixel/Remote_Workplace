@@ -79,7 +79,7 @@ export function ProjectPicker({ projects, value, onChange, compact = false, labe
         aria-controls={menuId}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="project-picker-label">{label}</span>
+        {!compact ? <span className="project-picker-label">{label}</span> : null}
         <FolderCodeIcon className="project-picker-icon" aria-hidden />
         <span className="project-picker-value">{selected?.name ?? (allowEmptyValue && value === null ? "Standardpfad" : "Auswählen")}</span>
         <ChevronDownIcon className={`project-picker-chevron ${open ? "is-open" : ""}`} aria-hidden />

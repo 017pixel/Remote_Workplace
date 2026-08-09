@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { ChevronDownIcon, T3CodeIcon } from "./icons";
 import type { Project } from "@workbench/contracts";
 import { Badge } from "./primitives";
-import { openProjectDefault, openProjectToolInWorkbench, openToolForProject } from "../lib/workbenchActions";
+import { openProjectDefault, openProjectToolStandalone, openToolForProject } from "../lib/workbenchActions";
 import { projectToolOptions } from "../lib/projectTools";
 
 const availabilityTone: Record<Project["availability"], "ok" | "bad" | "warn"> = {
@@ -78,8 +78,7 @@ export function ProjectCard({ project }: { project: Project }) {
                   role="menuitem"
                   disabled={project.availability !== "available"}
                   onClick={() => {
-                    openProjectToolInWorkbench(project, tool.type, tool.previewId);
-                    navigate("/workbench");
+                    navigate(openProjectToolStandalone(project, tool));
                   }}
                 >
                   <Icon className="h-4 w-4" /> {tool.label} öffnen

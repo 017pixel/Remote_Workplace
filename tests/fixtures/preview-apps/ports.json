@@ -1,10 +1,10 @@
 {
-  "spa": 47101,
-  "mpa": 47102,
-  "api": 47103,
-  "realtime": 47104,
-  "cookie": 47105,
-  "serviceWorker": 47106,
-  "storage": 47107,
-  "broken": 47108
+  "spa": 12401,
+  "mpa": 12402,
+  "api": 12403,
+  "realtime": 12404,
+  "cookie": 12405,
+  "serviceWorker": 12406,
+  "storage": 12407,
+  "broken": 12408
 }

@@ -120,6 +120,7 @@ export const workbenchQueries = {
   // `keepPreviousData`: Beim Wechsel des Zeitraums bleibt die alte Auswertung
   // stehen, statt die Seite für die Dauer der Anfrage zu leeren.
   usageDashboard: (range: string, refetchInterval = 60_000) => queryOptions({ queryKey: ["usage", "dashboard", range], queryFn: ({signal}) => apiClient.usageDashboard(range, signal), refetchInterval, staleTime: 30_000, placeholderData: keepPreviousData }),
+  usageTimeline: (refetchInterval = 60_000) => queryOptions({ queryKey: ["usage", "timeline"], queryFn: ({signal}) => apiClient.usageTimeline(signal), refetchInterval, staleTime: 30_000, placeholderData: keepPreviousData }),
   accounts: () => queryOptions({ queryKey: ["accounts"], queryFn: ({signal}) => apiClient.accounts(signal), staleTime: 15_000 }),
   discoveredAccounts: () => queryOptions({ queryKey: ["accounts", "discovered"], queryFn: ({signal}) => apiClient.discoverAccounts(signal), staleTime: 15_000 }),
   orbit: () => queryOptions({ queryKey: ["orbit"], queryFn: ({signal}) => apiClient.orbit(signal), staleTime: 1_000 }),

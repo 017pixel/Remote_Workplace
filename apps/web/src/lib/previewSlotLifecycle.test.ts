@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OrbitBoard, OrbitNode } from "@workbench/contracts";
-import { previewSlotReleasedOnTargetChange, previewSlotsReleasedWithNode } from "./previewSlotLifecycle";
+import { previewSessionKeysWithNode, previewSlotReleasedOnTargetChange, previewSlotsReleasedWithNode } from "./previewSlotLifecycle";
 
 function slot(id: string, parentId: string | null, previewSlotId: number, target = "5173"): OrbitNode {
   return {
@@ -64,5 +64,11 @@ describe("Preview-Slot-Lebenszyklus", () => {
     const reference = { ...slot("reference", "reference-group", 1), previewReferenceId: "source-group" };
     expect(previewSlotReleasedOnTargetChange(board([sourceGroup, referenceGroup, source, reference]), "source")).toEqual({ slotId: 1, expectedTargetPort: 5173 });
     expect(previewSlotReleasedOnTargetChange(board([source, slot("shared", null, 1)]), "source")).toBeNull();
+  });
+
+  it("liefert Session-Schlüssel aller Preview-Slots eines entfernten Knotens", () => {
+    const group = { ...slot("group", null, 9), type: "previewGroup" as const, previewSlotId: null, previewLayout: "2" as const };
+    const document = board([group, slot("one", "group", 1), slot("two", "group", 2), slot("outside", null, 3)]);
+    expect(previewSessionKeysWithNode(document, "group")).toEqual(["orbit-preview:one", "orbit-preview:two"]);
   });
 });
