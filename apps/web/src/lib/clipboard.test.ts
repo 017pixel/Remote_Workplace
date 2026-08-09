@@ -13,10 +13,11 @@ describe("clipboard helpers", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
   });
 
-  it("recognizes platform-native terminal shortcuts without stealing Ctrl+C", () => {
+  it("keeps terminal clipboard shortcuts separate from Ctrl+C", () => {
     expect(terminalClipboardAction(event({ ctrlKey: true, shiftKey: true }), false)).toBe("copy");
     expect(terminalClipboardAction(event({ key: "v", ctrlKey: true, shiftKey: true }), false)).toBe("paste");
     expect(terminalClipboardAction(event({ ctrlKey: true }), false)).toBeNull();
+    expect(terminalClipboardAction(event({ key: "v", ctrlKey: true }), false)).toBeNull();
     expect(terminalClipboardAction(event({ metaKey: true }), true)).toBe("copy");
     expect(terminalClipboardAction(event({ key: "v", metaKey: true }), true)).toBe("paste");
     expect(terminalClipboardAction(event({ metaKey: true, shiftKey: true }), true)).toBeNull();
@@ -24,13 +25,14 @@ describe("clipboard helpers", () => {
     expect(isApplePlatform("Win32")).toBe(false);
   });
 
-  it("recognizes browser copy and regular or plain-text paste shortcuts", () => {
+  it("uses normal copy and paste shortcuts on browser-style surfaces", () => {
     expect(browserClipboardAction(event({ ctrlKey: true }), false)).toBe("copy");
-    expect(browserClipboardAction(event({ ctrlKey: true, shiftKey: true }), false)).toBe("copy");
     expect(browserClipboardAction(event({ key: "v", ctrlKey: true }), false)).toBe("paste");
-    expect(browserClipboardAction(event({ key: "v", ctrlKey: true, shiftKey: true }), false)).toBe("paste");
+    expect(browserClipboardAction(event({ ctrlKey: true, shiftKey: true }), false)).toBeNull();
+    expect(browserClipboardAction(event({ key: "v", ctrlKey: true, shiftKey: true }), false)).toBeNull();
     expect(browserClipboardAction(event({ metaKey: true }), true)).toBe("copy");
-    expect(browserClipboardAction(event({ metaKey: true, shiftKey: true }), true)).toBe("copy");
+    expect(browserClipboardAction(event({ key: "v", metaKey: true }), true)).toBe("paste");
+    expect(browserClipboardAction(event({ metaKey: true, shiftKey: true }), true)).toBeNull();
   });
 
   it("copies the explicit terminal selection instead of a stale document URL", async () => {
