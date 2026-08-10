@@ -48,6 +48,27 @@ test("keeps usage controls usable on mobile", async ({page}) => {
   await expect(page.getByRole("heading", {name:"Nutzung und Limits"})).toBeVisible();
   const pageWidth = await page.locator(".usage-page").evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
   expect(pageWidth.scroll).toBeLessThanOrEqual(pageWidth.client);
+
+  const table = page.getByRole("table", {name:"Aktuelle Limits je Account"});
+  await expect(table).toBeVisible({timeout:20_000});
+  const firstLimitRow = table.locator(".uat-row").first();
+  await expect(firstLimitRow).toBeVisible();
+  await expect(firstLimitRow.locator(".uat-mobile-summary")).toBeVisible();
+  const rowBox = await firstLimitRow.boundingBox();
+  expect(rowBox).not.toBeNull();
+  expect(rowBox!.height).toBeLessThanOrEqual(72);
+  const tableWidth = await table.evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
+  expect(tableWidth.scroll).toBeLessThanOrEqual(tableWidth.client);
+
+  await firstLimitRow.locator(".uat-row-main").click();
+  const detailDialog = page.locator(".uat-mobile-dialog");
+  await expect(detailDialog).toBeVisible();
+  await expect(detailDialog.locator(".uat-details-limits")).toBeVisible();
+  const detailWidth = await detailDialog.evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
+  expect(detailWidth.scroll).toBeLessThanOrEqual(detailWidth.client);
+  await detailDialog.getByRole("button", {name:"Dialog schließen"}).click();
+  await expect(detailDialog).toBeHidden();
+
   await page.getByRole("button", {name:"Accounts"}).click();
   await expect(page.getByRole("button", {name:"Mit Gerätecode anmelden"})).toBeVisible();
   const accountManagerWidth = await page.locator(".account-manager").evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
