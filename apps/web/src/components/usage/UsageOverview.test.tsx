@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UsageTimelineResponse } from "@workbench/contracts";
 import { UsageOverview } from "./UsageOverview";
 import { useUsagePreferences, defaultUsagePreferences } from "../../stores/usagePreferences";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   useUsagePreferences.setState(defaultUsagePreferences());
 });
 
@@ -253,5 +254,25 @@ describe("UsageOverview", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Arbeit Details" }));
     expect(screen.getByText("arbeit@example.com")).toBeTruthy();
+  });
+
+  it("öffnet Details auf kleinen Displays als Dialog", () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      media: "(max-width: 640px)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+
+    render(<UsageOverview timeline={timelineData()} now={now} />);
+    fireEvent.click(screen.getByRole("button", { name: "Arbeit Details" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Arbeit Limits" });
+    expect(within(dialog).getByText("arbeit@example.com")).toBeTruthy();
+    expect(within(dialog).getByText("4 % verbleibend")).toBeTruthy();
   });
 });

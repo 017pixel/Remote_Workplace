@@ -27,12 +27,17 @@ const levelClass: Record<LimitLevel, string> = {
 
 const mobileMediaQuery = "(max-width: 640px)";
 
+function getMobileMedia(): MediaQueryList | null {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return null;
+  return window.matchMedia(mobileMediaQuery);
+}
+
 function useMobileUsageTable(): boolean {
-  const [mobile, setMobile] = useState(() => typeof window !== "undefined" && window.matchMedia(mobileMediaQuery).matches);
+  const [mobile, setMobile] = useState(() => getMobileMedia()?.matches ?? false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia(mobileMediaQuery);
+    const media = getMobileMedia();
+    if (media === null) return;
     const update = () => setMobile(media.matches);
     update();
     media.addEventListener("change", update);
@@ -163,7 +168,7 @@ export function UsageAccountTable({ views, showProvider, showActiveBadge, showDa
               : "Reset unbekannt";
           return (
             <div className={`uat-row ${level !== null ? levelClass[level] : ""} ${lane.active ? "is-active" : ""}`} role="row" key={lane.accountId}>
-              <button type="button" className="uat-row-main" onClick={() => toggle(lane.accountId)} aria-expanded={open} aria-label={`${lane.accountLabel} Details öffnen`}>
+              <button type="button" className="uat-row-main" onClick={() => toggle(lane.accountId)} aria-expanded={open} aria-label={`${lane.accountLabel} Details`}>
                 <span className="uat-cell-account">
                   <span className={`uat-provider-dot qt-provider-${providerLabel[lane.providerId]}`} aria-hidden="true" />
                   <strong title={lane.accountLabel}>{lane.accountLabel}</strong>
@@ -176,10 +181,12 @@ export function UsageAccountTable({ views, showProvider, showActiveBadge, showDa
                 <span className="uat-cell-limit uat-cell-limit-5h"><LimitCell label="5 Std." remaining={findLimit("5h")} /></span>
                 <span className="uat-cell-limit uat-cell-limit-week"><LimitCell label="Woche" remaining={findLimit("week")} /></span>
                 <span className="uat-cell-limit uat-cell-limit-month"><LimitCell label="Monat" remaining={findLimit("month")} /></span>
-                <span className="uat-mobile-summary" aria-label={primaryLimit ? `${shortWindowLabel(primaryLimit.label)} ${Math.round(primaryLimit.remaining)} Prozent verbleibend` : "Keine Limitdaten"}>
-                  <span>{primaryLimit ? shortWindowLabel(primaryLimit.label) : "Keine Daten"}</span>
-                  <strong>{primaryLimit ? `${Math.round(primaryLimit.remaining)} %` : "—"}</strong>
-                </span>
+                {mobile ? (
+                  <span className="uat-mobile-summary" aria-label={primaryLimit ? `${shortWindowLabel(primaryLimit.label)} ${Math.round(primaryLimit.remaining)} Prozent verbleibend` : "Keine Limitdaten"}>
+                    <span>{primaryLimit ? shortWindowLabel(primaryLimit.label) : "Keine Daten"}</span>
+                    <strong>{primaryLimit ? `${Math.round(primaryLimit.remaining)} %` : "—"}</strong>
+                  </span>
+                ) : null}
                 <span className="uat-cell-reset">{resetLabel}</span>
                 <span className="uat-cell-status">
                   <span className={`uat-level uat-level-${level ?? "none"}`} aria-hidden="true" />
