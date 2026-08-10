@@ -68,6 +68,8 @@ export interface WebTerminalProps {
   instanceId: string;
   kind?: TerminalKind;
   projectId?: string | null;
+  /** Startverzeichnis für eine neue Sitzung, etwa bei einem Split im aktuellen Unterordner. */
+  initialCwd?: string | null;
   active?: boolean;
   /** Hält die PTY-Verbindung für eine geparkte, aber gecachte Route offen. */
   keepAlive?: boolean;
@@ -174,7 +176,7 @@ function themeFromDashboard(mount: HTMLElement | null): ITheme {
   return {
     background: value("--color-ink-950"),
     foreground: value("--color-text"),
-    cursor: value("--color-accent"),
+    cursor: value("--ansi-green"),
     selectionBackground: value("--ansi-selection"),
     black: value("--ansi-black"), red: value("--ansi-red"), green: value("--ansi-green"), yellow: value("--ansi-yellow"),
     blue: value("--ansi-blue"), magenta: value("--ansi-magenta"), cyan: value("--ansi-cyan"), white: value("--ansi-white"),
@@ -199,7 +201,7 @@ function createUuid(): string {
 }
 
 export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(function WebTerminal(
-  { instanceId, kind = "shell", projectId = null, active = true, keepAlive = false, renderScale = 1, mode = "agent", accountId, onMetaChange },
+  { instanceId, kind = "shell", projectId = null, initialCwd = null, active = true, keepAlive = false, renderScale = 1, mode = "agent", accountId, onMetaChange },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -423,10 +425,11 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       mode,
       ...(accountId ? { accountId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(initialCwd ? { cwd: initialCwd } : {}),
       cols: terminal.cols || 120,
       rows: terminal.rows || 30,
     })) setError("Die Verbindung wird noch aufgebaut. Bitte gleich erneut versuchen.");
-  }, [accountId, instanceId, kind, mode, projectId, send]);
+  }, [accountId, initialCwd, instanceId, kind, mode, projectId, send]);
 
   const connect = useCallback(() => {
     if (disposedRef.current) return;
@@ -566,10 +569,10 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       lineHeight: 1,
       letterSpacing: 0,
       customGlyphs: true,
-      scrollback: 5_000,
-      // Ein Rasten des Mausrads bewegt drei Zeilen, ein Trackpad liefert
-      // Pixelwerte und wird davon nicht beeinflusst.
-      scrollSensitivity: 3,
+      scrollback: 10_000,
+      // xterm 6 unterscheidet selbst zwischen Mausrad- und Trackpad-Pixeln.
+      // Faktor 1 verhindert das bisherige Überspringen mehrerer Ausgabezeilen.
+      scrollSensitivity: 1,
       // Weiches Scrollen würde die Ausgabe eines laufenden Builds verzögern.
       smoothScrollDuration: 0,
       fontFamily: '"SF Mono", "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace',
@@ -743,7 +746,8 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const lineHeight = () => {
       const terminal = terminalRef.current;
       const rows = terminal?.rows ?? 0;
-      return rows > 0 ? mount.clientHeight / rows : 18;
+      const screenHeight = mount.querySelector<HTMLElement>(".xterm-screen")?.getBoundingClientRect().height ?? mount.clientHeight;
+      return rows > 0 ? screenHeight / rows : 18;
     };
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.touches[0];

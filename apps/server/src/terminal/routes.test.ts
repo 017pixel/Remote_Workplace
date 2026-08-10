@@ -107,6 +107,35 @@ describe("terminal websocket route", () => {
     manager.shutdown();
   });
 
+  it("uses an explicitly validated split directory before the project root", async () => {
+    const splitDirectory = await mkdtemp(join(tmpdir(), "workbench-terminal-split-"));
+    directories.push(splitDirectory);
+    const app = Fastify();
+    apps.push(app);
+    const manager = new TerminalManager({ allowedRoots: ["/tmp"], defaultCwd: "/tmp", maxSessions: 1 });
+    await app.register(websocket, { options: { maxPayload: 65_536 } });
+    await app.register(registerTerminalRoutes, {
+      prefix: "/api/v1",
+      manager,
+      allowedUsers: ["terminal-test@example.com"],
+      resolveProjectPath: async () => "/tmp",
+    });
+    await app.ready();
+
+    const socket = await app.injectWS("/api/v1/terminal", { headers: { "tailscale-user-login": "terminal-test@example.com", origin: "http://localhost", host: "localhost", "x-forwarded-proto": "http" } });
+    const created = new Promise<Record<string, unknown>>((resolve) => {
+      socket.on("message", (data: Buffer) => {
+        const message = JSON.parse(data.toString()) as Record<string, unknown>;
+        if (message.type === "terminal.created") resolve(message);
+      });
+    });
+    socket.send(JSON.stringify({ type: "terminal.create", requestId: "split-terminal", projectId: "remote-workplace", cwd: splitDirectory, cols: 80, rows: 24 }));
+
+    await expect(created).resolves.toMatchObject({ type: "terminal.created", requestId: "split-terminal", cwd: splitDirectory });
+    socket.terminate();
+    manager.shutdown();
+  });
+
   it("exposes authenticated session and workspace synchronization endpoints", async () => {
     const directory = await mkdtemp(join(tmpdir(), "workbench-terminal-routes-"));
     directories.push(directory);

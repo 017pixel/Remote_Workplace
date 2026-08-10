@@ -125,7 +125,7 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
                 mode: message.mode,
                 ...(message.accountId ? { accountId: message.accountId } : {}),
                 clientId,
-                ...(projectCwd !== undefined ? { cwd: projectCwd } : message.cwd === undefined ? {} : { cwd: message.cwd }),
+                ...(message.cwd !== undefined ? { cwd: message.cwd } : projectCwd !== undefined ? { cwd: projectCwd } : {}),
               });
             })();
             void session.then((created) => send({ type: "terminal.created", requestId: message.requestId, sessionId: created.id, runtimeId: created.runtimeId, kind: created.kind, projectId: created.projectId, status: created.status, cwd: created.cwd, pid: created.pid })).catch((error) => send({ type: "terminal.error", ...errorMessage(error) }));

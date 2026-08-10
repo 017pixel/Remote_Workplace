@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ClipboardIcon, CloseIcon, ColumnsIcon, EraserIcon, ListIcon, MonitorOffIcon, PlayIcon, PlusIcon, RetryIcon, SendIcon, SplitIcon } from "../icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import type { TerminalKind, TerminalSession } from "@workbench/contracts";
+import { Group, Panel, Separator, type Layout, type LayoutChangedMeta } from "react-resizable-panels";
 import { apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
 import { useResponsiveShell } from "../../lib/useResponsiveShell";
@@ -77,6 +77,7 @@ export function TerminalArea({
   const addExistingTab = useTerminalStore((state) => state.addExistingTab);
   const activateTab = useTerminalStore((state) => state.activateTab);
   const removeTab = useTerminalStore((state) => state.closeTab);
+  const openSplit = useTerminalStore((state) => state.openSplit);
   const splitTab = useTerminalStore((state) => state.splitTab);
   const clearSplit = useTerminalStore((state) => state.clearSplit);
   const setSplitSizes = useTerminalStore((state) => state.setSplitSizes);
@@ -85,7 +86,7 @@ export function TerminalArea({
   const sessions = useQuery({ ...workbenchQueries.terminalSessions(), refetchInterval: false, enabled: routeActive });
   const handles = useRef(new Map<string, WebTerminalHandle>());
   const longPress = useRef<number | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const splitSaveFrame = useRef<number | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const [meta, setMeta] = useState<Record<string, TerminalMeta>>({});
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
@@ -120,12 +121,9 @@ export function TerminalArea({
     if (!requestedSessionId || !sessions.data || !area) return;
     const session = sessions.data.sessions.find((candidate) => candidate.id === requestedSessionId || candidate.runtimeId === requestedSessionId);
     if (!session) return;
-    if (!area.tabs.some((tab) => tab.id === session.runtimeId)) addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind });
+    if (!area.tabs.some((tab) => tab.id === session.runtimeId)) addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind, initialCwd: session.cwd });
     if (area.activeTabId !== session.runtimeId) activateTab(areaId, session.runtimeId);
   }, [activateTab, addExistingTab, area, areaId, requestedSessionId, sessions.data]);
-  useEffect(() => {
-    if (singlePane && area?.splitTabId) clearSplit(areaId);
-  }, [area?.splitTabId, areaId, clearSplit, singlePane]);
 
   const projectName = (projectId: string | null, cwd?: string) => projects.data?.projects.find((project) => project.id === projectId)?.name
     ?? (cwd ? projects.data?.projects.find((project) => project.path === cwd)?.name : undefined)
@@ -151,7 +149,7 @@ export function TerminalArea({
   };
 
   const openExisting = (session: TerminalSession) => {
-    addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind });
+    addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind, initialCwd: session.cwd });
   };
 
   const closeOrphan = async (session: TerminalSession) => {
@@ -169,35 +167,29 @@ export function TerminalArea({
     setDraggingTabId(null);
   };
 
-  const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!canvasRef.current || !area) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const bounds = canvasRef.current.getBoundingClientRect();
-    const move = (moveEvent: PointerEvent) => {
-      const first = Math.max(20, Math.min(80, ((moveEvent.clientX - bounds.left) / bounds.width) * 100));
-      setSplitSizes(areaId, [first, 100 - first]);
-    };
-    const stop = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop, { once: true });
+  const createSplit = () => {
+    if (!activeTab) return;
+    const currentCwd = activeMeta?.cwd.startsWith("/") ? activeMeta.cwd : activeTab.initialCwd;
+    openSplit(areaId, activeTab.projectId, activeTab.kind, currentCwd);
   };
 
-  const resizeWithKeyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (!area?.splitTabId) return;
-    const step = event.shiftKey ? 10 : 2;
-    const next = event.key === "Home" ? 20
-      : event.key === "End" ? 80
-        : event.key === "ArrowLeft" ? area.splitSizes[0] - step
-          : event.key === "ArrowRight" ? area.splitSizes[0] + step
-            : null;
-    if (next === null) return;
-    event.preventDefault();
-    const first = Math.max(20, Math.min(80, next));
-    setSplitSizes(areaId, [first, 100 - first]);
+  const saveSplitLayout = (layout: Layout, details: LayoutChangedMeta) => {
+    if (!details.isUserInteraction) return;
+    if (!area?.splitTabIds) return;
+    const firstRaw = layout[area.splitTabIds[0]];
+    const secondRaw = layout[area.splitTabIds[1]];
+    if (firstRaw === undefined || secondRaw === undefined || firstRaw + secondRaw <= 0) return;
+    const first = Math.max(20, Math.min(80, (firstRaw / (firstRaw + secondRaw)) * 100));
+    if (splitSaveFrame.current !== null) window.cancelAnimationFrame(splitSaveFrame.current);
+    splitSaveFrame.current = window.requestAnimationFrame(() => {
+      splitSaveFrame.current = null;
+      setSplitSizes(areaId, [first, 100 - first]);
+    });
   };
+
+  useEffect(() => () => {
+    if (splitSaveFrame.current !== null) window.cancelAnimationFrame(splitSaveFrame.current);
+  }, []);
 
   const sessionPicker = minimal ? null : (
     <details className="terminal-session-picker">
@@ -232,14 +224,14 @@ export function TerminalArea({
   if (!area) return <div className="terminal-area-loading">Terminal wird vorbereitet…</div>;
 
   return (
-    <section className="terminal-area" data-split={Boolean(area.splitTabId)}>
+    <section className="terminal-area" data-split={Boolean(area.splitTabIds)}>
       {minimal ? <span className="sr-only terminal-connection-status" aria-live="polite">{activeMeta ? statusLabel[activeMeta.status] : statusLabel.connecting}</span> : null}
       {!minimal ? <header className="terminal-area-toolbar">
         <div className="terminal-tabs" role="tablist" aria-label="Terminalsitzungen">
           {area.tabs.map((tab, index) => {
             const currentMeta = meta[tab.id];
             const active = tab.id === area.activeTabId;
-            const split = tab.id === area.splitTabId;
+            const split = area.splitTabIds?.includes(tab.id) ?? false;
             return (
               <div
                 key={tab.id}
@@ -291,10 +283,10 @@ export function TerminalArea({
                 <button type="button" role="menuitem" onClick={() => runAction(() => create(nextProjectId))} disabled={area.tabs.length >= maxTabs} aria-label={`${kindLabels[kind]}-Instanz öffnen`}><PlusIcon className="h-4 w-4" aria-hidden /><span>Neu</span></button>
                 <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && handles.current.get(activeTab.id)?.restart())} disabled={!activeTab} aria-label="Terminal neu starten"><RetryIcon className="h-4 w-4" aria-hidden /><span>Neustart</span></button>
                 <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && handles.current.get(activeTab.id)?.clear())} disabled={!activeTab} aria-label="Terminal leeren"><EraserIcon className="h-4 w-4" aria-hidden /><span>Leeren</span></button>
-                {!bento && !singlePane && area.tabs.length > 1 ? (
-                  area.splitTabId ?
+                {!bento && !singlePane ? (
+                  area.splitTabIds ?
                     <button type="button" role="menuitem" onClick={() => runAction(() => clearSplit(areaId))} aria-label="Split schließen"><ColumnsIcon className="h-4 w-4" aria-hidden /><span>Einzeln</span></button> :
-                    <button type="button" role="menuitem" onClick={() => runAction(() => activeTab && splitTab(areaId, activeTab.id, "left"))} disabled={!activeTab} aria-label="Terminal teilen"><SplitIcon className="h-4 w-4" aria-hidden /><span>Split</span></button>
+                    <button type="button" role="menuitem" onClick={() => runAction(createSplit)} disabled={!activeTab || area.tabs.length >= maxTabs} aria-label="Neues Terminal rechts teilen"><SplitIcon className="h-4 w-4" aria-hidden /><span>Split</span></button>
                 ) : null}
                 <button type="button" role="menuitem" className="danger" onClick={() => runAction(() => activeTab && close(activeTab.id))} disabled={!activeTab} aria-label="Terminal schließen"><MonitorOffIcon className="h-4 w-4" aria-hidden /><span>Schließen</span></button>
                 {sessionPicker}
@@ -304,14 +296,7 @@ export function TerminalArea({
         </div>
       </header> : null}
 
-      <div
-        ref={canvasRef}
-        className={`terminal-canvas ${bento ? `is-bento has-${area.tabs.length}` : ""} ${draggingTabId ? "is-dragging" : ""}`}
-        style={area.splitTabId ? {
-          gridTemplateColumns: `${area.splitSizes[0]}% ${area.splitSizes[1]}%`,
-          "--terminal-split": `${area.splitSizes[0]}%`,
-        } as CSSProperties : undefined}
-      >
+      <div className={`terminal-canvas ${bento ? `is-bento has-${area.tabs.length}` : ""} ${draggingTabId ? "is-dragging" : ""}`}>
         {area.tabs.length === 0 ? (
           <div className="terminal-empty-state">
             <MonitorOffIcon className="h-6 w-6" />
@@ -319,39 +304,65 @@ export function TerminalArea({
             <button type="button" className="quiet-button-primary" onClick={() => create(initialProjectId)}><PlusIcon className="h-4 w-4" /> {kindLabels[kind]} öffnen</button>
           </div>
         ) : null}
-        {area.tabs.map((tab) => {
-          const left = tab.id === area.activeTabId;
-          const right = tab.id === area.splitTabId;
-          const visible = bento ? (!isMobile || left) : (left || right);
-          return (
+        {(() => {
+          const renderPane = (tab: typeof area.tabs[number], visible: boolean, position?: "left" | "right") => (
             <div
               key={tab.id}
               data-terminal-index={area.tabs.indexOf(tab)}
-              className={`terminal-session-pane ${left ? "is-left" : ""} ${right ? "is-right" : ""} ${visible ? "is-visible" : "is-parked"}`}
+              data-pane-position={position}
+              className={`terminal-session-pane ${tab.id === area.activeTabId ? "is-focused" : ""} ${visible ? "is-visible" : "is-parked"}`}
               inert={!visible}
-              onPointerDown={() => bento && activateTab(areaId, tab.id)}
+              onPointerDown={() => visible && activateTab(areaId, tab.id)}
             >
               <WebTerminal
                 ref={(handle) => { if (handle) handles.current.set(tab.id, handle); else handles.current.delete(tab.id); }}
                 instanceId={tab.id}
                 kind={tab.kind}
                 projectId={tab.projectId}
+                initialCwd={tab.initialCwd}
                 active={routeActive && visible}
                 keepAlive={visible}
                 renderScale={renderScale}
-                onMetaChange={(next) => setMeta((current) => {
+                onMetaChange={(next) => {
                   setRuntimeCwd(tab.id, next.cwd);
-                  const previous = current[tab.id];
-                  if (previous?.status === next.status && previous.cwd === next.cwd && previous.error === next.error && previous.cols === next.cols && previous.rows === next.rows) return current;
-                  return { ...current, [tab.id]: next };
-                })}
+                  setMeta((current) => {
+                    const previous = current[tab.id];
+                    if (previous?.status === next.status && previous.cwd === next.cwd && previous.error === next.error && previous.cols === next.cols && previous.rows === next.rows) return current;
+                    return { ...current, [tab.id]: next };
+                  });
+                }}
               />
             </div>
           );
-        })}
-        {area.splitTabId ? <button type="button" className="terminal-split-handle" onPointerDown={startResize} onKeyDown={resizeWithKeyboard}
-          role="separator" aria-orientation="vertical" aria-valuemin={20} aria-valuemax={80} aria-valuenow={Math.round(area.splitSizes[0])}
-          aria-label="Terminal-Aufteilung anpassen" /> : null}
+          if (bento) return area.tabs.map((tab) => renderPane(tab, !isMobile || tab.id === area.activeTabId));
+          const splitTabs = !singlePane && area.splitTabIds
+            ? area.splitTabIds.map((tabId) => area.tabs.find((tab) => tab.id === tabId)).filter((tab): tab is typeof area.tabs[number] => Boolean(tab))
+            : [];
+          const visibleIds = new Set(splitTabs.length === 2 ? splitTabs.map((tab) => tab.id) : area.activeTabId ? [area.activeTabId] : []);
+          return (
+            <>
+              {splitTabs.length === 2 ? (
+                <Group
+                  key={splitTabs.map((tab) => tab.id).join(":")}
+                  id={`terminal-split-${areaId}`}
+                  className="terminal-split-group"
+                  orientation="horizontal"
+                  defaultLayout={{ [splitTabs[0]!.id]: area.splitSizes[0], [splitTabs[1]!.id]: area.splitSizes[1] }}
+                  onLayoutChanged={saveSplitLayout}
+                  resizeTargetMinimumSize={{ coarse: 44, fine: 20 }}
+                >
+                  <Panel id={splitTabs[0]!.id} minSize="20%" defaultSize={`${area.splitSizes[0]}%`}>{renderPane(splitTabs[0]!, true, "left")}</Panel>
+                  <Separator className="terminal-split-handle" aria-label="Terminal-Aufteilung anpassen" />
+                  <Panel id={splitTabs[1]!.id} minSize="20%" defaultSize={`${area.splitSizes[1]}%`}>{renderPane(splitTabs[1]!, true, "right")}</Panel>
+                </Group>
+              ) : area.activeTabId ? (() => {
+                const tab = area.tabs.find((candidate) => candidate.id === area.activeTabId);
+                return tab ? renderPane(tab, true) : null;
+              })() : null}
+              {area.tabs.filter((tab) => !visibleIds.has(tab.id)).map((tab) => renderPane(tab, false))}
+            </>
+          );
+        })()}
         {draggingTabId && !isMobile ? (
           <div className="terminal-drop-zones">
             <button type="button" onDragOver={(event) => event.preventDefault()} onDrop={() => drop("left")} onClick={() => drop("left")}>Links öffnen</button>

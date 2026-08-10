@@ -1107,14 +1107,27 @@ export const terminalTabSchema = z.object({
   id: z.string().uuid(),
   projectId: z.string().nullable(),
   kind: terminalKindSchema,
+  initialCwd: z.string().startsWith("/").nullable().default(null),
 });
-export const terminalAreaSchema = z.object({
+const canonicalTerminalAreaSchema = z.object({
   id: z.string().min(1).max(160),
-  tabs: z.array(terminalTabSchema).max(5),
+  tabs: z.array(terminalTabSchema).max(12),
   activeTabId: z.string().uuid().nullable(),
-  splitTabId: z.string().uuid().nullable(),
+  splitTabIds: z.tuple([z.string().uuid(), z.string().uuid()]).nullable(),
   splitSizes: z.tuple([z.number().min(20).max(80), z.number().min(20).max(80)]),
 });
+export const terminalAreaSchema = z.preprocess((input) => {
+  if (!input || typeof input !== "object" || "splitTabIds" in input) return input;
+  const legacy = input as { activeTabId?: unknown; splitTabId?: unknown };
+  const activeTabId = typeof legacy.activeTabId === "string" ? legacy.activeTabId : null;
+  const splitTabId = typeof legacy.splitTabId === "string" ? legacy.splitTabId : null;
+  return {
+    ...input,
+    splitTabIds: activeTabId && splitTabId && activeTabId !== splitTabId
+      ? [activeTabId, splitTabId]
+      : null,
+  };
+}, canonicalTerminalAreaSchema);
 export const terminalWorkspaceSchema = z.object({
   version: z.literal(1),
   areas: z.record(z.string(), terminalAreaSchema),
@@ -1135,11 +1148,16 @@ export const terminalWorkspaceSchema = z.object({
     if (area.activeTabId !== null && !ownIds.has(area.activeTabId)) {
       context.addIssue({ code: "custom", path: ["areas", areaKey, "activeTabId"], message: "Der aktive Tab gehört nicht zu diesem Bereich." });
     }
-    if (area.splitTabId !== null && !ownIds.has(area.splitTabId)) {
-      context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabId"], message: "Der geteilte Tab gehört nicht zu diesem Bereich." });
-    }
-    if (area.splitTabId !== null && area.splitTabId === area.activeTabId) {
-      context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabId"], message: "Aktiver und geteilter Tab müssen verschieden sein." });
+    if (area.splitTabIds !== null) {
+      if (area.splitTabIds[0] === area.splitTabIds[1]) {
+        context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabIds"], message: "Die beiden Terminal-Panes müssen verschieden sein." });
+      }
+      if (!area.splitTabIds.every((tabId) => ownIds.has(tabId))) {
+        context.addIssue({ code: "custom", path: ["areas", areaKey, "splitTabIds"], message: "Ein geteilter Tab gehört nicht zu diesem Bereich." });
+      }
+      if (area.activeTabId !== null && !area.splitTabIds.includes(area.activeTabId)) {
+        context.addIssue({ code: "custom", path: ["areas", areaKey, "activeTabId"], message: "Der fokussierte Tab muss in einem sichtbaren Pane liegen." });
+      }
     }
     if (Math.abs(area.splitSizes[0] + area.splitSizes[1] - 100) > 0.5) {
       context.addIssue({ code: "custom", path: ["areas", areaKey, "splitSizes"], message: "Die Splitgrößen müssen zusammen 100 ergeben." });

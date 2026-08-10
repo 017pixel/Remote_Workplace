@@ -12,6 +12,7 @@ import {
   skillEditorRenameRequestSchema,
   skillEditorTreeResponseSchema,
   skillEditorWriteRequestSchema,
+  terminalWorkspaceSchema,
 } from "./index.js";
 
 describe("öffentliche API-Verträge", () => {
@@ -83,5 +84,27 @@ describe("öffentliche API-Verträge", () => {
       skills: [{ name: "tot", path: "/root/skills/tot", description: null, modifiedAt: null, symlink: true, broken: true, files: [] }],
     });
     expect(tree.skills[0]?.broken).toBe(true);
+  });
+
+  it("migriert alte Terminal-Splits auf feste Pane-Plätze", () => {
+    const first = "00000000-0000-4000-8000-000000000001";
+    const second = "00000000-0000-4000-8000-000000000002";
+    const parsed = terminalWorkspaceSchema.parse({
+      version: 1,
+      areas: {
+        standalone: {
+          id: "standalone",
+          tabs: [
+            { id: first, projectId: null, kind: "shell" },
+            { id: second, projectId: null, kind: "shell" },
+          ],
+          activeTabId: first,
+          splitTabId: second,
+          splitSizes: [45, 55],
+        },
+      },
+    });
+    expect(parsed.areas.standalone).toMatchObject({ splitTabIds: [first, second] });
+    expect(parsed.areas.standalone?.tabs.every((tab) => tab.initialCwd === null)).toBe(true);
   });
 });

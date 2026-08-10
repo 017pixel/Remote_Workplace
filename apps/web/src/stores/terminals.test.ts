@@ -55,13 +55,38 @@ describe("terminal areas", () => {
     expect(useTerminalStore.getState().areas.panel!.tabs.some((tab) => tab.id === closed)).toBe(false);
   });
 
-  it("assigns two tabs to a split and collapses it when the split tab closes", () => {
+  it("ordnet zwei Tabs festen Split-Panes zu und fokussiert sie ohne Tausch", () => {
     useTerminalStore.getState().ensureArea("panel");
     const first = useTerminalStore.getState().areas.panel!.activeTabId!;
     const second = useTerminalStore.getState().addTab("panel", "remote-workplace")!;
     useTerminalStore.getState().splitTab("panel", first, "left");
-    expect(useTerminalStore.getState().areas.panel).toMatchObject({ activeTabId: first, splitTabId: second });
+    expect(useTerminalStore.getState().areas.panel).toMatchObject({ activeTabId: first, splitTabIds: [first, second] });
+    useTerminalStore.getState().activateTab("panel", second);
+    expect(useTerminalStore.getState().areas.panel).toMatchObject({ activeTabId: second, splitTabIds: [first, second] });
+  });
+
+  it("öffnet einen neuen Split im aktuellen Arbeitsordner", () => {
+    useTerminalStore.getState().ensureArea("panel", "remote-workplace");
+    const first = useTerminalStore.getState().areas.panel!.activeTabId!;
+    const second = useTerminalStore.getState().openSplit("panel", "remote-workplace", "shell", "/home/user/projects/Remote_Workplace/src")!;
+    expect(useTerminalStore.getState().areas.panel).toMatchObject({
+      activeTabId: second,
+      splitTabIds: [first, second],
+      tabs: [
+        expect.objectContaining({ id: first }),
+        expect.objectContaining({ id: second, initialCwd: "/home/user/projects/Remote_Workplace/src" }),
+      ],
+    });
+  });
+
+  it("ersetzt im Split nur das fokussierte Pane und klappt beim Schließen sauber zusammen", () => {
+    useTerminalStore.getState().ensureArea("panel");
+    const first = useTerminalStore.getState().areas.panel!.activeTabId!;
+    const second = useTerminalStore.getState().openSplit("panel")!;
+    useTerminalStore.getState().activateTab("panel", first);
+    const third = useTerminalStore.getState().addTab("panel", "sample")!;
+    expect(useTerminalStore.getState().areas.panel).toMatchObject({ activeTabId: third, splitTabIds: [third, second] });
     useTerminalStore.getState().closeTab("panel", second);
-    expect(useTerminalStore.getState().areas.panel!.splitTabId).toBeNull();
+    expect(useTerminalStore.getState().areas.panel).toMatchObject({ activeTabId: third, splitTabIds: null });
   });
 });
