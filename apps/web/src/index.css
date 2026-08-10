@@ -155,24 +155,25 @@
   --orbit-minimap-tool: #8a8a84;
   --orbit-canvas-dot: #343434;
 
-  /* 12. ANSI-Palette des WebTerminals (wie in T3 Code Nightly) */
+  /* 12. ANSI-Palette des WebTerminals: matte Pastelltöne wie in einem
+     ruhigen Linux-Terminal. Magenta bleibt bewusst ein warmes Altrosa. */
   --ansi-black: #171717;
-  --ansi-red: #fb2c36;
-  --ansi-green: #00bc7d;
-  --ansi-yellow: #fe9a00;
-  --ansi-blue: #2b7fff;
-  --ansi-magenta: #ad46ff;
-  --ansi-cyan: #00b8db;
-  --ansi-white: #d4d4d4;
-  --ansi-bright-black: #737373;
-  --ansi-bright-red: #ff6467;
-  --ansi-bright-green: #00d492;
-  --ansi-bright-yellow: #ffb900;
-  --ansi-bright-blue: #51a2ff;
-  --ansi-bright-magenta: #c27aff;
-  --ansi-bright-cyan: #00d3f2;
-  --ansi-bright-white: #fafafa;
-  --ansi-selection: rgb(54 111 251 / .3);
+  --ansi-red: #d98b8b;
+  --ansi-green: #9fbe8f;
+  --ansi-yellow: #d9bd7e;
+  --ansi-blue: #88a9cf;
+  --ansi-magenta: #d69aa6;
+  --ansi-cyan: #83b8b4;
+  --ansi-white: #d2d0ca;
+  --ansi-bright-black: #777b80;
+  --ansi-bright-red: #e9a2a2;
+  --ansi-bright-green: #b4d2a3;
+  --ansi-bright-yellow: #ead095;
+  --ansi-bright-blue: #a1bfe0;
+  --ansi-bright-magenta: #e5adb7;
+  --ansi-bright-cyan: #9ccbc7;
+  --ansi-bright-white: #f1efe9;
+  --ansi-selection: rgb(136 169 207 / .28);
 }
 
 /* Desktop-Lesbarkeit (ab 1024 px): Die Typo-Skala wird um 2 px angehoben,
@@ -2258,6 +2259,16 @@ a:hover .app-icon,
   }
 
   .content-column { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+  .app-shell[data-terminal-focus="true"] { position: fixed; inset: 0; width: 100%; height: var(--app-viewport-height, 100dvh); overflow: hidden; background: var(--color-ink-950); }
+  .app-shell[data-terminal-focus="true"] .sidebar-shell,
+  .app-shell[data-terminal-focus="true"] .topbar,
+  .app-shell[data-terminal-focus="true"] .status-bar,
+  .app-shell[data-terminal-focus="true"] .mobile-navigation-page { display: none !important; }
+  .app-shell[data-terminal-focus="true"] .content-column { width: 100%; }
+  .app-shell[data-terminal-focus="true"] .terminal-area-toolbar { padding-right: calc(52px + env(safe-area-inset-right)); }
+  .terminal-focus-exit { position: fixed; z-index: 180; top: max(4px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); color: var(--color-muted); box-shadow: var(--shadow-raised); }
+  .terminal-focus-exit:hover, .terminal-focus-exit:focus-visible { border-color: var(--color-ink-600); background: var(--color-ink-850); color: var(--color-text); outline: 0; }
+  .terminal-focus-exit:active { transform: scale(.97); }
   /* Glas-Chrome wie in T3: die Leisten liegen als getönte, unscharfe Schicht über dem Inhalt. */
   .status-bar { height: 42px; flex: none; align-items: center; gap: 16px; border-top: 1px solid var(--color-line); background: var(--glass-tint); padding: 0 20px; color: var(--color-faint); font-size: 11px; letter-spacing: .01em; backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
   .status-bar-item { display: inline-flex; min-width: 0; align-items: center; gap: 7px; white-space: nowrap; }
@@ -2366,9 +2377,10 @@ a:hover .app-icon,
   .tool-actions-popover button, .tool-actions-popover a { display: flex; min-height: 38px; align-items: center; gap: 9px; border-radius: var(--radius-sm); padding: 0 10px; color: var(--color-muted); font-size: var(--text-xs); text-align: left; text-decoration: none; }
   .tool-actions-popover button:hover, .tool-actions-popover a:hover, .tool-actions-popover button:focus-visible, .tool-actions-popover a:focus-visible { background: var(--color-ink-800); color: var(--color-text); outline: none; }
   .topbar > .tool-actions-menu.is-topbar { margin-left: auto; }
-  /* Direkt nebeneinander: Das Aktionen-Menü sitzt links neben dem
-     Projekt-Picker am rechten Rand, statt den Platz mit ihm zu teilen. */
+  /* Direkt nebeneinander: Der Projekt-Picker schiebt beide Elemente nach
+     rechts; das Aktionen-Menü schließt bündig mit der Topbar-Kante ab. */
   .tool-actions-menu.is-topbar + .project-picker { margin-left: 0; }
+  .topbar > .project-picker + .tool-actions-menu.is-topbar { margin-left: var(--space-2); }
   .topbar-tool-actions .tool-actions-trigger { width: 36px; min-height: 36px; }
   .panel-device-picker-wrapper { position: relative; }
   .panel-device-picker { display: flex; height: 32px; min-width: 0; max-width: 180px; align-items: center; gap: 5px; border: 0; border-radius: var(--radius-sm); background: transparent; padding: 0 8px; color: var(--color-muted); font-size: 12px; cursor: pointer; }
@@ -3068,7 +3080,7 @@ a:hover .app-icon,
   .terminal-viewport .xterm { height: 100%; }
   /* Der eigene Scrollbalken bleibt sichtbar für Maus und Trackpad; das
      Scrollen per Finger übernimmt die Geste in WebTerminal. */
-  .terminal-viewport .xterm-viewport { overflow-y: auto !important; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--color-ink-600) transparent; }
+  .terminal-viewport .xterm-viewport { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--color-ink-600) transparent; }
   .terminal-viewport .xterm-viewport::-webkit-scrollbar { width: 10px; }
   .terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 6px; background: var(--color-ink-600); background-clip: content-box; }
   .terminal-viewport .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
@@ -3117,7 +3129,10 @@ a:hover .app-icon,
   .workbench-mobile-workspace-picker, .workbench-mobile-more, .workbench-mobile-tool-tabs { display: none; }
   .workbench-desktop-layout-controls { display: flex; flex: none; align-items: center; gap: 5px; }
 
-  .terminal-route, .cli-terminal-route { height: 100%; min-height: 0; }
+  .terminal-route, .cli-terminal-route, .terminal-window-route { height: 100%; min-height: 0; }
+  .terminal-window-route { display: flex; width: 100%; height: 100dvh; overflow: hidden; background: var(--color-ink-950); }
+  .terminal-window-route > .terminal-session { flex: 1; }
+  .terminal-window-error { display: grid; width: 100%; place-items: center; color: var(--color-muted); font: var(--text-sm) var(--font-mono); }
   /* --- Terminal ------------------------------------------------------------
      Werkzeug statt Karte: harte Kanten, opake Flächen, Beschriftungen in Mono.
      Der einzige Radius im Terminal ist die Kantenglättung von zwei Pixeln. */
@@ -3180,14 +3195,13 @@ a:hover .app-icon,
   .terminal-session-picker-actions button:hover { background: var(--color-ink-800); color: var(--color-text); }
   .terminal-session-picker-empty { display: block; padding: 16px 5px; color: var(--color-faint); font-size: 11px; text-align: center; }
   .terminal-canvas { position: relative; display: grid; min-height: 0; flex: 1; overflow: hidden; background: var(--color-ink-950); }
-  .terminal-session-pane { position: relative; min-width: 0; min-height: 0; grid-row: 1; overflow: hidden; }
-  .terminal-session-pane.is-left { grid-column: 1; }
-  .terminal-session-pane.is-right { grid-column: 2; }
+  .terminal-session-pane { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+  .terminal-session-pane.is-focused { box-shadow: inset 0 2px var(--ansi-blue); }
   .terminal-session-pane.is-parked { position: absolute; inset: 0; z-index: -1; visibility: hidden; pointer-events: none; }
   .terminal-session { display: flex; width: 100%; height: 100%; min-width: 0; min-height: 0; flex-direction: column; padding: 0; }
-  .terminal-split-handle { position: absolute; z-index: 8; top: 0; bottom: 0; left: var(--terminal-split, 50%); width: 44px; border: 0; background: transparent; cursor: col-resize; transform: translateX(-22px); }
-  .terminal-split-handle::after { position: absolute; top: 0; bottom: 0; left: 21px; width: 2px; background: var(--color-line); content: ""; transition: background 120ms ease-out; }
-  .terminal-split-handle:hover::after { background: var(--color-accent); }
+  .terminal-split-group { width: 100%; height: 100%; }
+  .terminal-split-handle { position: relative; z-index: 8; width: 2px; border: 0; background: var(--color-line); cursor: col-resize; transition: background var(--duration-fast) ease-out; }
+  .terminal-split-handle:hover, .terminal-split-handle:focus-visible, .terminal-split-handle[data-resize-handle-active] { background: var(--ansi-blue); outline: 0; }
   .terminal-drop-zones { position: absolute; z-index: 20; inset: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: none; }
   .terminal-drop-zones button { border: 1px dashed var(--color-accent); border-radius: var(--radius-sm); background: rgb(37 48 59 / .76); color: var(--color-text); font-size: 12px; pointer-events: auto; backdrop-filter: blur(8px); }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRightIcon, MenuIcon } from "./icons";
+import { ChevronRightIcon, MenuIcon, RestoreIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { StatusBar } from "./StatusBar";
@@ -103,25 +103,42 @@ function ViewPresenceReporter() {
   return null;
 }
 
-function StandaloneRouteActions() {
-  const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
+function StandaloneRouteActions({ terminalFocus, onTerminalFocusChange }: { terminalFocus: boolean; onTerminalFocusChange: (focused: boolean) => void }) {
+  const location = useLocation();
+  const terminalKind: TerminalKind | null = location.pathname === "/terminal" ? "shell"
+    : location.pathname === "/codex" ? "codex"
+      : location.pathname === "/opencode" ? "opencode"
+        : location.pathname === "/claude" ? "claude"
+          : null;
+  const areaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
+  const area = useTerminalStore((state) => areaId ? state.areas[areaId] : undefined);
+  const [nativeFullscreen, setNativeFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
 
   useEffect(() => {
-    const update = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const update = () => setNativeFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", update);
     return () => document.removeEventListener("fullscreenchange", update);
   }, []);
 
   const toggleFullscreen = async () => {
+    if (terminalKind !== null) {
+      onTerminalFocusChange(!terminalFocus);
+      return;
+    }
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen?.();
   };
 
+  const activeTabId = area?.activeTabId;
+  const externalHref = terminalKind !== null && activeTabId
+    ? new URL(`${import.meta.env.BASE_URL}terminal/fenster/${encodeURIComponent(activeTabId)}`, window.location.origin).toString()
+    : window.location.href;
+
   return (
     <ToolActionMenu
       className="is-topbar"
-      externalHref={window.location.href}
-      isFullscreen={isFullscreen}
+      externalHref={externalHref}
+      isFullscreen={terminalKind !== null ? terminalFocus : nativeFullscreen}
       onFullscreen={toggleFullscreen}
       onReload={() => window.location.reload()}
     />
@@ -137,6 +154,7 @@ export function AppShell() {
   const isStandaloneT3 = location.pathname === "/t3-code";
   const isTerminalRoute = ["/terminal", "/codex", "/opencode", "/claude"].includes(location.pathname);
   const hasStandaloneToolMenu = standaloneToolPaths.has(location.pathname);
+  const [terminalFocus, setTerminalFocus] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const closeMobileNavigation = useCallback(() => setMobileNavigationOpen(false), []);
@@ -185,6 +203,19 @@ export function AppShell() {
     return () => window.clearTimeout(timer);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!isTerminalRoute && terminalFocus) setTerminalFocus(false);
+  }, [isTerminalRoute, terminalFocus]);
+
+  useEffect(() => {
+    if (!terminalFocus) return;
+    const exitOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setTerminalFocus(false);
+    };
+    document.addEventListener("keydown", exitOnEscape);
+    return () => document.removeEventListener("keydown", exitOnEscape);
+  }, [terminalFocus]);
+
   return (
     <div
       className={`app-shell ${isOrbit ? "is-orbit" : ""}`}
@@ -193,6 +224,7 @@ export function AppShell() {
       data-orientation={responsive.orientation}
       data-short-height={responsive.shortHeight ? "true" : "false"}
       data-terminal-shell={isTerminalRoute ? "true" : undefined}
+      data-terminal-focus={terminalFocus ? "true" : undefined}
       data-navigation-open={mobileNavigationOpen ? "true" : "false"}
       onPointerDown={(event) => {
         if (responsive.isTouchShell && event.clientX <= 24 && event.isPrimary) navigationSwipeStart.current = { x: event.clientX, y: event.clientY };
@@ -244,8 +276,8 @@ export function AppShell() {
               {isProjectDetail ? decodeURIComponent(location.pathname.split("/").at(-1) ?? "Projekt") : title}
             </span>
           </div>
-          {(isStandaloneT3 || location.pathname === "/code-editor") ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label={`${title} Aktionen`} /> : hasStandaloneToolMenu ? <StandaloneRouteActions /> : null}
           {!isStandaloneT3 ? <ContextProjectPicker /> : null}
+          {(isStandaloneT3 || location.pathname === "/code-editor") ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label={`${title} Aktionen`} /> : hasStandaloneToolMenu ? <StandaloneRouteActions terminalFocus={terminalFocus} onTerminalFocusChange={setTerminalFocus} /> : null}
         </header> : isOrbit ? (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="orbit-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null) : (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="news-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null)}
         {!online ? <div className="connection-banner" role="status"><span>Offline</span><strong>Live-Daten und Remote-Werkzeuge sind vorübergehend nicht verfügbar.</strong></div> : null}
         <main ref={mainRef} id="main-content" tabIndex={-1} className="relative min-h-0 flex-1 overflow-hidden">
@@ -253,6 +285,7 @@ export function AppShell() {
         </main>
         {responsive.mode === "desktop" ? <StatusBar /> : null}
       </div>
+      {terminalFocus ? <button type="button" className="terminal-focus-exit" onClick={() => setTerminalFocus(false)} aria-label="Vollbild verlassen" title="Vollbild verlassen"><RestoreIcon className="h-4 w-4" /></button> : null}
       <MobileNav open={mobileNavigationOpen} onClose={closeMobileNavigation} triggerRef={navigationTriggerRef} />
     </div>
   );

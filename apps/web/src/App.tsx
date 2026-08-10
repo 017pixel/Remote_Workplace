@@ -30,6 +30,7 @@ const ProjectDetail = lazy(() => loadRouteWithRecovery(loadProjectDetail).then((
 const Settings = lazy(() => loadRouteWithRecovery(loadSettings).then((module) => ({ default: module.Settings })));
 const Usage = lazy(() => loadRouteWithRecovery(loadUsage).then((module) => ({ default: module.Usage })));
 const TerminalView = lazy(() => loadRouteWithRecovery(loadTerminal).then((module) => ({ default: module.TerminalView })));
+const TerminalWindowRoute = lazy(() => loadRouteWithRecovery(loadTerminal).then((module) => ({ default: module.TerminalWindowRoute })));
 const CodexTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.CodexTerminal })));
 const OpenCodeTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.OpenCodeTerminal })));
 const ClaudeCodeTerminal = lazy(() => loadRouteWithRecovery(loadCliTerminal).then((module) => ({ default: module.ClaudeCodeTerminal })));
@@ -87,6 +88,7 @@ export function App() {
           {/* Eigenes Browserfenster: bewusst ohne Workbench-Navigation. */}
           <Route path="previews/fenster/:groupId" element={<DeferredRoute><PreviewGroupWindowRoute /></DeferredRoute>} />
           <Route path="previews/live" element={<DeferredRoute><PreviewLiveWindowRoute /></DeferredRoute>} />
+          <Route path="terminal/fenster/:runtimeId" element={<DeferredRoute><TerminalWindowRoute /></DeferredRoute>} />
           <Route element={<AppShell />}>
             <Route index element={<DeferredRoute><Dashboard /></DeferredRoute>} />
             <Route path="workbench" element={<DeferredRoute><Workbench /></DeferredRoute>} />
