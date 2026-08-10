@@ -4,7 +4,9 @@ Das Terminal verwendet eine echte `node-pty`-Sitzung mit `/bin/bash --login`; es
 
 Codex, OpenCode und Claude Code verwenden denselben abgesicherten PTY-Transport. Der Browser übermittelt dabei nur den typisierten Werkzeugnamen. Das Backend ordnet diese Auswahl festen ausführbaren Dateien zu und akzeptiert weder freie Befehle noch Argumente. Die CLIs starten normal im gewählten Projektordner und behalten ihre eigenen Freigabe- und Sicherheitsdialoge.
 
-Jeder Terminal-Bereich verwaltet bis zu fünf nummerierte Tabs. Jeder Tab besitzt eine stabile `runtimeId`, eine eigene beaufsichtigte tmux-Sitzung und bleibt beim Wechsel zu anderen Werkzeugen aktiv. `node-pty` dient als Ein-/Ausgabe-Gateway zum Supervisor; der eigentliche Shell-, Codex- oder OpenCode-Prozess hängt nicht an der Lebenszeit des Backendprozesses. Die Tab- und Area-Struktur wird serverseitig pro Tailscale-Benutzer synchronisiert. Auf Desktop können zwei Tabs per Drag-and-drop oder langem Drücken nebeneinander geöffnet werden; Mobile zeigt bewusst nur einen Tab im Fokus. Das Schließen eines Browserfensters oder ein Backend-Neustart trennt nur das Gateway: Die Session läuft weiter und kann auf einem anderen Gerät wieder geöffnet werden. Erst ein explizit geschlossener Tab beendet die tmux-Sitzung und entfernt die Registry-Zeile.
+Jeder Terminal-Bereich verwaltet bis zu fünf nummerierte Tabs. Jeder Tab besitzt eine stabile `runtimeId`, eine eigene beaufsichtigte tmux-Sitzung und bleibt beim Wechsel zu anderen Werkzeugen aktiv. `node-pty` dient als Ein-/Ausgabe-Gateway zum Supervisor; der eigentliche Shell-, Codex- oder OpenCode-Prozess hängt nicht an der Lebenszeit des Backendprozesses. Die Tab- und Area-Struktur wird serverseitig pro Tailscale-Benutzer synchronisiert. **Split** erzeugt auf Desktop eine neue unabhängige Sitzung rechts neben dem aktiven Terminal und übernimmt dessen aktuelles Arbeitsverzeichnis. Die beiden Pane-Positionen bleiben stabil; ein Tabwechsel ersetzt nur das gerade fokussierte Pane. Mobile zeigt bewusst nur ein Pane, bewahrt den Split aber für die Rückkehr zur breiten Ansicht. Das Schließen eines Browserfensters oder ein Backend-Neustart trennt nur das Gateway: Die Session läuft weiter und kann auf einem anderen Gerät wieder geöffnet werden. Erst ein explizit geschlossener Tab beendet die tmux-Sitzung und entfernt die Registry-Zeile.
+
+Die Werkzeugaktion **In neuem Tab öffnen** verbindet ausschließlich die aktive laufende Sitzung in einer reduzierten Terminalseite ohne Workbench-Navigation. Mehrere Browser-Tabs dürfen dieselbe Sitzung gleichzeitig bedienen. **Vollbild** ist ein interner Fokusmodus: Sidebar, Topbar, Statusleiste und mobile Navigation verschwinden, während der Browser selbst im normalen Fenstermodus bleibt. `Escape` oder die Schaltfläche oben rechts beendet den Fokusmodus.
 
 Die Workbench führt eine laufende Session-Liste. Dort können Sessions auf einem anderen Gerät geöffnet, beendet oder bewusst neu gestartet werden. Mehrere Geräte dürfen dieselbe Session gleichzeitig verbinden; Output wird an alle Geräte verteilt und Eingaben werden gemeinsam an tmux weitergeleitet. Beim Backendstart gleicht die Registry ihre Einträge mit den real laufenden tmux-Sitzungen ab. Bei exakt einem erlaubten Tailscale-Benutzer werden auch bereits vorhandene tmux-Sitzungen erkannt und als Shell, Codex oder OpenCode angeboten. Unbeaufsichtigte Rohprozesse ohne PTY-Supervisor können technisch nicht nachträglich an ein neues interaktives Terminal gebunden werden; neue Workbench-Läufe sind deshalb standardmäßig immer beaufsichtigt.
 
@@ -22,6 +24,11 @@ Wechsel wird ein vorhandener Tab dieses Projekts wieder aktiviert; nur bei einem
 nicht geöffneten Projekt entsteht ein neuer Tab. Dadurch können mehrere Projektordner
 parallel laufen, ohne dass eine bestehende Session stillschweigend ihr Arbeitsverzeichnis
 ändert.
+
+Der Terminalverlauf hält bis zu 10.000 Zeilen. Mausrad und Trackpad verwenden das native
+xterm-Scrolling mit einer linearen Empfindlichkeit; Touch-Gesten werden anhand der echten
+Zeilenhöhe in ganze Terminalzeilen umgesetzt. Programme im Alternate Screen erhalten ihre
+eigenen Mausereignisse weiterhin unverändert.
 
 ## Aktivierung
 
@@ -55,8 +62,13 @@ Tastatur-Paste läuft über das native `paste`-Ereignis und benötigt keine daue
 1. Workbench über `https://…:8443/workbench/` öffnen und **Terminal** wählen.
 2. Prüfen: `echo hello`, `pwd`, `ls --color=auto`, `git status`, `node`, `python3`.
 3. Interaktive Programme prüfen: `htop`, `nano test.txt`, `vim test.txt`, `tmux new -s browser-test`.
-4. `Ctrl+C`, die plattformüblichen Copy/Paste-Kürzel, `Ctrl+D`, `Ctrl+L`, Pfeiltasten und Tab-Completion testen; Fenstergröße und Smartphone-Ausrichtung ändern.
-5. Seite neu laden bzw. Netzwerk kurz trennen: die laufende Sitzung muss mit Snapshot wieder erscheinen.
-6. Backend neu starten und auf einem zweiten Gerät dieselbe Session aus **Sessions** öffnen; Prozess und Verlauf müssen weiter vorhanden sein.
-7. Eine externe tmux-Sitzung starten und kontrollieren, dass sie bei Einzelbenutzerkonfiguration in der Session-Liste erscheint.
-8. **Schließen** klicken und kontrollieren, dass die tmux-Sitzung beendet ist.
+4. Mit dem Mausrad und einem Trackpad durch eine lange Ausgabe scrollen; es dürfen keine Zeilenblöcke übersprungen werden.
+5. **Aktionen → Split** wählen: Rechts muss eine neue Sitzung im aktuellen `pwd` starten; beide Seiten müssen unabhängig bedienbar sein.
+6. Tabs in beiden Panes wechseln, den Trenner mit Maus und Tastatur verschieben und ein Pane schließen; Seiten und Fokus müssen stabil bleiben.
+7. **Werkzeugaktionen → In neuem Tab öffnen** wählen und prüfen, dass nur die aktive Sitzung ohne Workbench-Navigation erscheint.
+8. **Werkzeugaktionen → Vollbild** wählen: Sidebar, Topbar und Statusleiste müssen verschwinden; `Escape` stellt sie wieder her.
+9. `Ctrl+C`, die plattformüblichen Copy/Paste-Kürzel, `Ctrl+D`, `Ctrl+L`, Pfeiltasten und Tab-Completion testen; Fenstergröße und Smartphone-Ausrichtung ändern.
+10. Seite neu laden bzw. Netzwerk kurz trennen: die laufende Sitzung muss mit Snapshot wieder erscheinen.
+11. Backend neu starten und auf einem zweiten Gerät dieselbe Session aus **Sessions** öffnen; Prozess und Verlauf müssen weiter vorhanden sein.
+12. Eine externe tmux-Sitzung starten und kontrollieren, dass sie bei Einzelbenutzerkonfiguration in der Session-Liste erscheint.
+13. **Schließen** klicken und kontrollieren, dass die tmux-Sitzung beendet ist.
