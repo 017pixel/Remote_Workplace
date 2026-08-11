@@ -37,7 +37,7 @@ export function useModalFocus<T extends HTMLElement>(
       current = current.parentElement;
     }
     const focusFirst = () => {
-      const preferred = container.querySelector<HTMLElement>("[autofocus]")
+      const preferred = container.querySelector<HTMLElement>("[data-modal-autofocus], [autofocus]")
         ?? container.querySelector<HTMLElement>(focusableSelector);
       (preferred ?? container).focus();
     };

@@ -160,6 +160,7 @@ export function useHermesChat(instanceId: string, initialSessionId: string | nul
     setActiveSession(instanceId, null);
   }, [instanceId, sendRaw, setActiveSession]);
   const attach = useCallback((sessionId: string) => {
+    if (attachedSession.current === sessionId) return true;
     attachedSession.current = sessionId;
     initialSessionRef.current = sessionId;
     setMessages([]); setTools([]); setApprovals([]); setThought("");

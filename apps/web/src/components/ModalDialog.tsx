@@ -65,14 +65,16 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel?: string;
   danger?: boolean;
+  className?: string;
+  backdropClassName?: string;
   onConfirm: () => void;
   onClose: () => void;
 }
 
-export function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel = "Abbrechen", danger = false, onConfirm, onClose }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel = "Abbrechen", danger = false, className, backdropClassName, onConfirm, onClose }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (open) window.setTimeout(() => cancelRef.current?.focus(), 0); }, [open]);
-  return <ModalFrame open={open} title={title} description={description} onClose={onClose}>{(requestClose) =>
+  return <ModalFrame open={open} title={title} description={description} className={className} backdropClassName={backdropClassName} onClose={onClose}>{(requestClose) =>
     <div className="modal-actions">
       <button ref={cancelRef} type="button" className="quiet-button" onClick={requestClose}>{cancelLabel}</button>
       <button type="button" className={danger ? "quiet-button modal-danger" : "quiet-button-primary"} onClick={() => { onConfirm(); requestClose(); }}>{confirmLabel}</button>

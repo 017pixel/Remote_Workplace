@@ -24,6 +24,9 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 - T3-Benachrichtigungen öffnen jetzt den richtigen Thread: Die T3-Thread-Route liegt am Root (`/$environmentId/$threadId`), nicht unter dem `/_chat`-Layout — vorher zeigte das Chat-Panel „Not Found" statt der Session aus der Benachrichtigung
 - Alte T3-Tiefenlinks mit `/_chat`-Präfix werden beim Öffnen auf die Root-Thread-Route normalisiert
+- Hermes-Session-, Diagnose- und Verwaltungs-Tiefenlinks öffnen wieder zuverlässig ihr tatsächliches Ziel
+- Die mobile Hermes-Navigation liegt ohne Überlagerung in der Daumenzone und hält 44-Pixel-Touchziele ein
+- Sessions lassen sich im Verlauf und in der Seitenleiste über einen zugänglichen Bestätigungsdialog löschen
 
 ---
 

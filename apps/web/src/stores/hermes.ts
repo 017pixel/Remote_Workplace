@@ -1,11 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { hermesSurfaces, type HermesSurface } from "../lib/hermesPresentation";
 
 const DEFAULT_HERMES_PATH = "/chat";
 
-export type HermesSurface = "chat" | "tasks" | "history" | "cron" | "admin";
-
-const hermesSurfaces: readonly HermesSurface[] = ["chat", "tasks", "history", "cron", "admin"];
+export type { HermesSurface } from "../lib/hermesPresentation";
 
 /** Einheitliche Validierung für den Admin-Pfad: „.." darf nirgends im Pfad
  *  vorkommen, egal ob als Segment oder als Teil eines Namens (F04-12). */

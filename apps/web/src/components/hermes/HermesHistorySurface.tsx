@@ -1,23 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckIcon, CloseIcon, HermesIcon, SearchIcon, TrashIcon } from "../icons";
+import { HermesIcon, SearchIcon, TrashIcon } from "../icons";
+import { ConfirmDialog } from "../ModalDialog";
 import { apiClient } from "../../lib/apiClient";
 import type { HermesSession, HermesSessionSource } from "@workbench/contracts";
-
-const sourceLabels: Record<HermesSessionSource, string> = { web: "Web", cli: "CLI", telegram: "Telegram", cron: "Cron", acp: "ACP", other: "Sonstiges" };
+import { formatHermesDateTime, hermesSessionStatusLabel, hermesSourceLabels } from "../../lib/hermesPresentation";
 const filters: Array<{ value: HermesSessionSource | "all"; label: string }> = [
   { value: "all", label: "Alle" },
-  { value: "cron", label: "Cron" },
-  { value: "acp", label: "Chat" },
-  { value: "telegram", label: "Telegram" },
-  { value: "web", label: "Web" },
-  { value: "cli", label: "CLI" },
+  { value: "cron", label: hermesSourceLabels.cron },
+  { value: "acp", label: hermesSourceLabels.acp },
+  { value: "telegram", label: hermesSourceLabels.telegram },
+  { value: "web", label: hermesSourceLabels.web },
+  { value: "cli", label: hermesSourceLabels.cli },
 ];
-
-function formatDate(value: string | null): string {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + " " + new Date(value).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-}
 
 /** Verlauf aller Hermes-Sessions mit Filter, Öffnen im Chat und Löschen. */
 export function HermesHistorySurface({ onOpenSession }: { onOpenSession: (sessionId: string) => void }) {
@@ -29,7 +24,7 @@ export function HermesHistorySurface({ onOpenSession }: { onOpenSession: (sessio
     refetchInterval: 15_000,
     staleTime: 5_000,
   });
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<HermesSession | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const visible = sessions.data?.sessions ?? [];
@@ -51,9 +46,9 @@ export function HermesHistorySurface({ onOpenSession }: { onOpenSession: (sessio
       {deleteError ? <div className="hermes-chat-error" role="alert">{deleteError}</div> : null}
       <div className="hermes-history-toolbar">
         <label className="hermes-search"><SearchIcon className="h-3.5 w-3.5" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Sessions durchsuchen" aria-label="Sessions durchsuchen" /></label>
-        <div className="hermes-filter-tabs" role="tablist" aria-label="Nach Quelle filtern">
+        <div className="hermes-filter-tabs" role="group" aria-label="Nach Quelle filtern">
           {filters.map((entry) => (
-            <button key={entry.value} type="button" role="tab" aria-selected={filter === entry.value} className={filter === entry.value ? "is-active" : ""} onClick={() => setFilter(entry.value)}>
+            <button key={entry.value} type="button" aria-pressed={filter === entry.value} className={filter === entry.value ? "is-active" : ""} onClick={() => setFilter(entry.value)}>
               {entry.label}
             </button>
           ))}
@@ -72,23 +67,27 @@ export function HermesHistorySurface({ onOpenSession }: { onOpenSession: (sessio
                   <span className={`hermes-session-status is-${session.status}`} aria-hidden />
                   <span className="hermes-session-copy">
                     <strong>{session.title || "Hermes-Session"}</strong>
-                    <small>{sourceLabels[session.source]} · {session.model ?? "Modell unbekannt"} · {session.status === "failed" ? "fehlgeschlagen" : session.status === "running" ? "läuft" : "abgeschlossen"}</small>
+                    <small>{hermesSourceLabels[session.source]} · {session.model ?? "Modell unbekannt"} · {hermesSessionStatusLabel(session.status)}</small>
                   </span>
-                  <time>{formatDate(session.updatedAt ?? session.createdAt)}</time>
+                  <time>{formatHermesDateTime(session.updatedAt ?? session.createdAt)}</time>
                 </button>
-                {confirmDelete === session.id ? (
-                  <span className="hermes-delete-confirm">
-                    <button type="button" onClick={() => setConfirmDelete(null)}><CheckIcon className="h-3.5 w-3.5" /> Behalten</button>
-                    <button type="button" onClick={() => void remove(session)}><CloseIcon className="h-3.5 w-3.5" /> Löschen</button>
-                  </span>
-                ) : (
-                  <button type="button" className="hermes-row-delete" onClick={() => setConfirmDelete(session.id)} aria-label={`Session „${session.title}“ löschen`} title="Session löschen"><TrashIcon className="h-3.5 w-3.5" /></button>
-                )}
+                <button type="button" className="hermes-row-delete" onClick={() => setConfirmDelete(session)} aria-label={`Session „${session.title}“ löschen`} title="Session löschen"><TrashIcon className="h-3.5 w-3.5" /></button>
               </li>
             ))}
           </ul>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Session löschen?"
+        description={confirmDelete ? `„${confirmDelete.title || "Hermes-Session"}“ wird dauerhaft aus Hermes entfernt.` : ""}
+        confirmLabel="Session löschen"
+        danger
+        className="hermes-confirm-dialog"
+        backdropClassName="hermes-dialog-backdrop"
+        onConfirm={() => { if (confirmDelete) void remove(confirmDelete); }}
+        onClose={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
