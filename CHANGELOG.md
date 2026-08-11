@@ -4,6 +4,22 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ## [Unreleased]
 
+### Erstellt
+
+- Eigene Hermes-Oberfläche in der Workbench mit Chat, Aufgaben, Verlauf und Cron als nativen Flächen
+- DeepSeek V4 Flash als Standardmodell für Hermes, Mistral bleibt als Fallback
+- Benachrichtigungen, wenn eine geplante Hermes-Aufgabe startet oder eine Freigabe benötigt
+- Aufgaben-Übersicht mit Live-Status und direktem Abbrechen laufender Hermes-Aufgaben
+- Diagnose-Dialog direkt in der Hermes-Oberfläche ohne Umweg über die Verwaltung
+
+### Verändert
+
+- Hermes-Seite startet jetzt im nativen Chat statt in der externen Verwaltung
+- Offizielle Hermes-Verwaltung bleibt als eigene Fläche für Expertenfunktionen erreichbar
+- Verlauf zeigt alle Sessions mit Filter nach Quelle und Volltextsuche
+- Cron-Ansicht zeigt Zeitpläne, nächste und letzte Ausführung inklusive Status
+- Modellanzeige und -wechsel direkt über die Kopfzeile des Hermes-Bereichs
+
 ### Behoben
 
 - T3-Benachrichtigungen öffnen jetzt den richtigen Thread: Die T3-Thread-Route liegt am Root (`/$environmentId/$threadId`), nicht unter dem `/_chat`-Layout — vorher zeigte das Chat-Panel „Not Found" statt der Session aus der Benachrichtigung
