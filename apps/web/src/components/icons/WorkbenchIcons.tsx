@@ -28,20 +28,18 @@ export function BrowserIcon(props: IconProps) { return <IconSvg {...props}><rect
 export function NutzungIcon(props: IconProps) { return <IconSvg {...props}><circle cx="10" cy="12" r="6.5" stroke="var(--icon-surface, #171717)" strokeWidth="3.4"/><path d="M10 5.5a6.5 6.5 0 0 1 5.85 3.65M16.25 13.8A6.5 6.5 0 0 1 11 18.4" stroke="var(--icon-cyan, #4aaebd)" strokeWidth="3.4" strokeLinecap="round"/><path d="M7.1 17.8A6.5 6.5 0 0 1 4 12" stroke="var(--icon-blue-bright, #79a5df)" strokeWidth="3.4" strokeLinecap="round"/><rect x="18.1" y="7.2" width="2.2" height="9.6" rx="1.1" fill="var(--icon-line, #525252)"/><rect x="18.1" y="11.3" width="2.2" height="5.5" rx="1.1" fill="var(--icon-green, #4bb38b)"/></IconSvg>; }
 export function EinstellungenIcon(props: IconProps) { return <IconSvg {...props}><circle cx="12" cy="12" r="6.2" fill="var(--icon-surface-raised, #262626)" stroke="var(--icon-blue-bright, #79a5df)" strokeWidth="1.7"/><circle cx="12" cy="12" r="2.35" fill="var(--icon-cyan, #4aaebd)"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4" stroke="var(--icon-muted, #737373)" strokeWidth="1.8" strokeLinecap="round"/></IconSvg>; }
 
+/** Offizielles T3-Code-Nightly-Markenzeichen als kleines Rasterbild. */
 export function T3CodeIcon(props: IconProps) {
   return (
-    <IconSvg {...props}>
-      <text
-        x="2.5"
-        y="17"
-        fontFamily="ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif"
-        fontWeight="800"
-        fontSize="14"
-        fill="var(--icon-blue-bright, #79a5df)"
-        letterSpacing="-0.5"
-      >
-        T3
-      </text>
+    <IconSvg viewBox="0 0 24 24" {...props}>
+      <image
+        href={`${import.meta.env.BASE_URL}icons/t3-nightly.png`}
+        x="0"
+        y="0"
+        width="24"
+        height="24"
+        preserveAspectRatio="xMidYMid meet"
+      />
     </IconSvg>
   );
 }
