@@ -443,6 +443,7 @@
 /* Offizielle Hermes-Oberfläche --------------------------------------------- */
 .hermes-admin-frame { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; background: var(--h-bg); }
 .hermes-admin-iframe { min-height: 0; flex: 1; width: 100%; border: 0; background: var(--h-bg); }
+.hermes-official-mode { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; }
 
 /* Fehlerzustände und Diagnose ---------------------------------------------- */
 .hermes-recovery { display: grid; min-height: 0; flex: 1; place-content: center; justify-items: center; gap: var(--space-3); padding: var(--space-6); text-align: center; }

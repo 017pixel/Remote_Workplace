@@ -93,6 +93,25 @@ test("Session- und Diagnose-Deep-Links öffnen ihr tatsächliches Ziel", async (
   await expect(page.getByRole("dialog", { name: "Hermes-Diagnose" })).toHaveCount(0);
 });
 
+test("wechselt die Hermes-Darstellung über die Einstellungen", async ({ page }) => {
+  await page.goto("/workbench/settings");
+  const mode = page.getByRole("switch", { name: "Hermes-Darstellung" });
+  await expect(mode).toHaveAttribute("aria-checked", "false");
+
+  await mode.click();
+  await expect(mode).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("link", { name: "Hermes Agent" }).click();
+  const officialShell = page.locator(".hermes-shell");
+  await expect(officialShell).toHaveAttribute("data-hermes-ui", "official");
+  await expect(officialShell.locator(".hermes-surface-nav")).toHaveCount(0);
+  await expect(officialShell.locator('iframe[title="Hermes Agent"]')).toHaveAttribute("src", "/hermes/chat");
+
+  await page.getByRole("link", { name: "Einstellungen" }).click();
+  await page.getByRole("switch", { name: "Hermes-Darstellung" }).click();
+  await page.getByRole("link", { name: "Hermes Agent" }).click();
+  await expect(page.locator(".hermes-shell")).toHaveAttribute("data-hermes-ui", "native");
+});
+
 test("Verlauf bietet eine erreichbare, sichere Löschaktion", async ({ page }) => {
   await page.route("**/api/v1/hermes/sessions**", async (route) => {
     if (route.request().method() !== "GET") return route.fulfill({ status: 204 });
