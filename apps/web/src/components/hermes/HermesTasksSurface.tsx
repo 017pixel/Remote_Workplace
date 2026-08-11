@@ -3,9 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { CloseIcon, HermesIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
-import type { HermesTask, HermesSessionSource } from "@workbench/contracts";
-
-const sourceLabels: Record<HermesSessionSource, string> = { web: "Web", cli: "CLI", telegram: "Telegram", cron: "Cron", acp: "ACP", other: "Sonstiges" };
+import type { HermesTask } from "@workbench/contracts";
+import { hermesSourceLabels } from "../../lib/hermesPresentation";
 
 function runtimeLabel(seconds: number): string {
   const hours = Math.floor(seconds / 3_600);
@@ -54,13 +53,13 @@ export function HermesTasksSurface({ onOpenSession }: { onOpenSession: (sessionI
                   <span className="hermes-task-pulse" aria-hidden />
                   <span className="hermes-task-copy">
                     <strong>{task.title || "Hermes-Aufgabe"}</strong>
-                    <small>{sourceLabels[task.source]} · {task.model ?? "Modell unbekannt"}</small>
+                    <small>{hermesSourceLabels[task.source]} · {task.model ?? "Modell unbekannt"}</small>
                   </span>
                   <time>läuft seit {runtimeLabel(task.runtimeSeconds)}</time>
                 </button>
-                <button type="button" className="hermes-task-cancel" onClick={() => void cancel(task)} disabled={cancelling === task.sessionId} aria-label={`Aufgabe „${task.title}“ abbrechen`}>
+                {task.cancellable ? <button type="button" className="hermes-task-cancel" onClick={() => void cancel(task)} disabled={cancelling === task.sessionId} aria-label={`Aufgabe „${task.title}“ abbrechen`}>
                   <CloseIcon className="h-4 w-4" /> {cancelling === task.sessionId ? "Bricht ab…" : "Abbrechen"}
-                </button>
+                </button> : null}
               </li>
             ))}
           </ul>

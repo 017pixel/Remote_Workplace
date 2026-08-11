@@ -20,4 +20,12 @@ describe("HermesSurfaceNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Verlauf" }));
     expect(onSelect).toHaveBeenCalledWith("history");
   });
+
+  it("rendert alle fünf Bereiche in einer gemeinsamen Navigation", () => {
+    const { container } = render(<HermesSurfaceNav surface="admin" onSelect={vi.fn()} />);
+    const nav = screen.getByRole("navigation", { name: "Hermes-Bereiche" });
+    expect(nav.querySelectorAll("button")).toHaveLength(5);
+    expect(container.querySelector(".hermes-surface-scroll")).toBeNull();
+    expect(screen.getByRole("button", { name: "Verwaltung" }).classList.contains("is-admin")).toBe(true);
+  });
 });

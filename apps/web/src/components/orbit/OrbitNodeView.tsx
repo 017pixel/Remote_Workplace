@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { CloseIcon, CodeFileIcon, CopyIcon, DeviceRotateIcon, ExternalLinkIcon, FileIcon, FolderCodeIcon, FrameIcon, FullscreenIcon, MoreIcon, PlusIcon, RefreshIcon, SaveIcon, TodoIcon, TrashIcon } from "../icons";
 import { Handle, NodeResizeControl, Position, useStore, type NodeProps } from "@xyflow/react";
-import { ORBIT_SIZE_LIMITS, type HermesCronJob, type HermesResult, type HermesSessionSource, type HermesStatus, type HermesTask, type LocalPortsResponse, type OrbitNode, type Panel, type Project, type Service } from "@workbench/contracts";
+import { ORBIT_SIZE_LIMITS, type HermesCronJob, type HermesResult, type HermesStatus, type HermesTask, type LocalPortsResponse, type OrbitNode, type Panel, type Project, type Service } from "@workbench/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { workbenchQueries } from "../../lib/queryOptions";
 import { orbitNodeColor } from "../../lib/orbitAppearance";
@@ -23,6 +23,7 @@ import { openPreviewGroupWindow } from "../../lib/previewWindow";
 import { previewSlotReleasedOnTargetChange, previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePreviewSessions, releasePreviewSlots } from "../../lib/previewSlotLifecycle";
 import { elementContainsEventTarget } from "../../lib/domEvents";
 import { useRouteActivity } from "../../lib/routeActivity";
+import { hermesSourceLabels } from "../../lib/hermesPresentation";
 
 const toolLabels: Record<NonNullable<Panel["type"]>, string> = {
   "t3-code": "T3 Code",
@@ -313,10 +314,6 @@ function hermesDate(value: string | null): string {
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(parsed);
 }
 
-function hermesSourceLabel(source: HermesSessionSource): string {
-  return source === "telegram" ? "Telegram" : source === "cron" ? "Cron" : source === "acp" ? "Web" : source === "cli" ? "CLI" : source === "web" ? "Web" : "Sonstiges";
-}
-
 function HermesNodeState({ loading, error, empty = "Keine Daten verfügbar." }: { loading: boolean; error: boolean; empty?: string }) {
   if (loading) return <p className="orbit-hermes-state">Hermes-Daten werden geladen…</p>;
   if (error) return <p className="orbit-hermes-state is-error">Hermes ist momentan nicht erreichbar. Diagnose öffnen.</p>;
@@ -363,7 +360,7 @@ function HermesTasksNode({ id, selected }: { id: string; selected: boolean }) {
   return <NodeChrome id={id} title="Hermes Aufgaben" selected={selected}>
     {tasks.length ? <div className="orbit-hermes-list nodrag">
       {tasks.map((task) => <article className="orbit-hermes-list-item" key={task.id}>
-        <div className="orbit-hermes-list-main"><strong>{task.title}</strong><small>{hermesSourceLabel(task.source)} · {task.model ?? "Modell unbekannt"}</small></div>
+        <div className="orbit-hermes-list-main"><strong>{task.title}</strong><small>{hermesSourceLabels[task.source]} · {task.model ?? "Modell unbekannt"}</small></div>
         <div className="orbit-hermes-list-meta"><span>{task.runtimeSeconds}s</span><button type="button" className="orbit-hermes-action is-danger" disabled={!task.cancellable || cancelling === task.sessionId} onClick={() => void cancel(task)}>{cancelling === task.sessionId ? "Stoppt…" : "Stoppen"}</button><button type="button" className="orbit-hermes-action" onClick={() => navigate(`/hermes-agent?session=${encodeURIComponent(task.sessionId)}`)}>Öffnen</button></div>
       </article>)}
     </div> : <HermesNodeState loading={query.isLoading} error={query.isError} empty="Keine laufenden Aufgaben." />}
@@ -394,7 +391,7 @@ function HermesResultsNode({ id, selected }: { id: string; selected: boolean }) 
   const results = query.data?.results ?? [];
   return <NodeChrome id={id} title="Hermes Ergebnisse" selected={selected}>
     {results.length ? <div className="orbit-hermes-list nodrag">{results.map((result: HermesResult) => <article className="orbit-hermes-list-item" key={result.id}>
-      <div className="orbit-hermes-list-main"><strong>{result.title}</strong><small>{hermesSourceLabel(result.source)} · {hermesDate(result.finishedAt)}</small><p>{result.preview}</p></div>
+      <div className="orbit-hermes-list-main"><strong>{result.title}</strong><small>{hermesSourceLabels[result.source]} · {hermesDate(result.finishedAt)}</small><p>{result.preview}</p></div>
       <div className="orbit-hermes-list-meta"><span className={`orbit-hermes-status-text is-${result.status}`}>{result.status === "success" ? "Erfolg" : "Fehler"}</span><button type="button" className="orbit-hermes-action" onClick={() => navigate(`/hermes-agent?session=${encodeURIComponent(result.sessionId)}`)}>Öffnen</button></div>
     </article>)}</div> : <HermesNodeState loading={query.isLoading} error={query.isError} empty="Noch keine Ergebnisse." />}
   </NodeChrome>;
