@@ -33,8 +33,8 @@ export function hermesSessionPath(sessionId: string): string {
 
 /**
  * Die zentrale Hermes-Fläche der Workbench. Standard ist der native Chat mit
- * Aufgaben, Verlauf und Cron als eigenen Flächen; die offizielle Hermes-SPA
- * bleibt als „Verwaltung“ für Expertenfunktionen erreichbar.
+ * Aufgaben, Verlauf und Cron als eigenen Flächen; per Einstellung kann die
+ * offizielle Hermes-SPA für alle Hermes-Flächen aktiviert werden.
  */
 export function HermesShell({ instanceId, variant, minimal = false, panel }: HermesShellProps) {
   const [searchParams] = useSearchParams();
@@ -42,14 +42,15 @@ export function HermesShell({ instanceId, variant, minimal = false, panel }: Her
   const client = useQueryClient();
   const updateHermesPanel = useWorkspaceStore((state) => state.updateHermesPanel);
   const storedSurface = useHermesStore((state) => state.surface);
+  const uiMode = useHermesStore((state) => state.uiMode);
   const setStoredSurface = useHermesStore((state) => state.setSurface);
   const storedAdminPath = useHermesStore((state) => state.adminPath);
   const setStoredAdminPath = useHermesStore((state) => state.setAdminPath);
-  const status = useQuery(workbenchQueries.hermesStatus());
+  const status = useQuery({ ...workbenchQueries.hermesStatus(), enabled: uiMode === "native" });
 
   const urlSessionId = searchParams.get("session");
   const urlAdminPath = searchParams.get("path");
-  // Session-Deep-Links haben Vorrang und öffnen immer den nativen Chat.
+  // Session-Deep-Links haben im nativen Modus Vorrang und öffnen den Chat.
   const requestedSurface = resolveHermesSurface({
     urlSurface: searchParams.get("surface") ?? (urlAdminPath ? "admin" : null),
     sessionId: urlSessionId,
@@ -63,7 +64,7 @@ export function HermesShell({ instanceId, variant, minimal = false, panel }: Her
   // Projektbindung für neue Sessions (im Header wählbar).
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  const chat = useHermesChat(instanceId, requestedSessionId, projectId);
+  const chat = useHermesChat(instanceId, requestedSessionId, projectId, uiMode === "native");
   const attachSession = chat.attach;
   const resetChat = chat.newSession;
 
@@ -85,12 +86,12 @@ export function HermesShell({ instanceId, variant, minimal = false, panel }: Her
   }, [panelId, resetChat, updateHermesPanel]);
 
   useEffect(() => {
-    if (!requestedSessionId) return;
+    if (!requestedSessionId || uiMode !== "native") return;
     attachSession(requestedSessionId);
     setSurface("chat");
     setStoredSurface("chat");
     if (panelId) updateHermesPanel(panelId, { hermesSurface: "chat", hermesSessionId: requestedSessionId });
-  }, [attachSession, panelId, requestedSessionId, setStoredSurface, updateHermesPanel]);
+  }, [attachSession, panelId, requestedSessionId, setStoredSurface, uiMode, updateHermesPanel]);
 
   const requestedAdminPath = safeHermesPath(urlAdminPath ?? panel?.hermesAdminPath ?? storedAdminPath);
   const [adminPath, setAdminPath] = useState(requestedAdminPath);
@@ -120,34 +121,42 @@ export function HermesShell({ instanceId, variant, minimal = false, panel }: Her
   return (
     <section
       className={`hermes-shell hermes-variant-${variant} ${minimal ? "is-minimal" : ""}`}
-      data-surface={surface}
-      data-hermes-ui="native"
+      data-surface={uiMode === "official" ? "admin" : surface}
+      data-hermes-ui={uiMode}
     >
-      <HermesHeader
-        status={status.data}
-        connected={chat.connected}
-        running={chat.taskState === "running"}
-        sessionTitle={chat.session?.title ?? null}
-        hasSession={Boolean(chat.session)}
-        projectId={projectId}
-        onProjectChange={setProjectId}
-        onNewSession={newSession}
-        onModelChange={(model) => void chat.setModel(model)}
-        onCancel={chat.cancel}
-        onDiagnostics={() => setDiagnosticsOpen(true)}
-        onRetry={retry}
-      />
-      <HermesSurfaceNav surface={surface} onSelect={selectSurface} />
-      <div className="hermes-body">
-        <div className="hermes-surface-pane" hidden={surface !== "chat"}>
-          <HermesChatSurface chat={chat} active={surface === "chat"} onOpenSession={openSession} onNewSession={newSession} />
+      {uiMode === "official" ? (
+        <div className="hermes-official-mode">
+          <HermesAdminFrame path={adminPath} onPathChange={setAdminPathValue} />
         </div>
-        {surface === "tasks" ? <HermesTasksSurface onOpenSession={openSession} /> : null}
-        {surface === "history" ? <HermesHistorySurface onOpenSession={openSession} /> : null}
-        {surface === "cron" ? <HermesCronSurface onOpenAdmin={openAdmin} /> : null}
-        {adminMounted ? <div className="hermes-surface-pane" hidden={surface !== "admin"}><HermesAdminFrame path={adminPath} onPathChange={setAdminPathValue} /></div> : null}
-      </div>
-      <HermesDiagnosticsDialog open={diagnosticsOpen} onClose={() => setDiagnosticsOpen(false)} />
+      ) : (
+        <>
+          <HermesHeader
+            status={status.data}
+            connected={chat.connected}
+            running={chat.taskState === "running"}
+            sessionTitle={chat.session?.title ?? null}
+            hasSession={Boolean(chat.session)}
+            projectId={projectId}
+            onProjectChange={setProjectId}
+            onNewSession={newSession}
+            onModelChange={(model) => void chat.setModel(model)}
+            onCancel={chat.cancel}
+            onDiagnostics={() => setDiagnosticsOpen(true)}
+            onRetry={retry}
+          />
+          <HermesSurfaceNav surface={surface} onSelect={selectSurface} />
+          <div className="hermes-body">
+            <div className="hermes-surface-pane" hidden={surface !== "chat"}>
+              <HermesChatSurface chat={chat} active={surface === "chat"} onOpenSession={openSession} onNewSession={newSession} />
+            </div>
+            {surface === "tasks" ? <HermesTasksSurface onOpenSession={openSession} /> : null}
+            {surface === "history" ? <HermesHistorySurface onOpenSession={openSession} /> : null}
+            {surface === "cron" ? <HermesCronSurface onOpenAdmin={openAdmin} /> : null}
+            {adminMounted ? <div className="hermes-surface-pane" hidden={surface !== "admin"}><HermesAdminFrame path={adminPath} onPathChange={setAdminPathValue} /></div> : null}
+          </div>
+          <HermesDiagnosticsDialog open={diagnosticsOpen} onClose={() => setDiagnosticsOpen(false)} />
+        </>
+      )}
     </section>
   );
 }

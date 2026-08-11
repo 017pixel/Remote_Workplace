@@ -1,8 +1,10 @@
 import type { HermesSession, HermesSessionSource } from "@workbench/contracts";
 
 export type HermesSurface = "chat" | "tasks" | "history" | "cron" | "admin";
+export type HermesUiMode = "native" | "official";
 
 export const hermesSurfaces = ["chat", "tasks", "history", "cron", "admin"] as const satisfies readonly HermesSurface[];
+export const hermesUiModes = ["native", "official"] as const satisfies readonly HermesUiMode[];
 
 export const hermesSourceLabels: Record<HermesSessionSource, string> = {
   web: "Web",
@@ -15,6 +17,10 @@ export const hermesSourceLabels: Record<HermesSessionSource, string> = {
 
 export function normalizeHermesSurface(value: unknown, fallback: HermesSurface = "chat"): HermesSurface {
   return typeof value === "string" && hermesSurfaces.includes(value as HermesSurface) ? value as HermesSurface : fallback;
+}
+
+export function normalizeHermesUiMode(value: unknown, fallback: HermesUiMode = "native"): HermesUiMode {
+  return typeof value === "string" && hermesUiModes.includes(value as HermesUiMode) ? value as HermesUiMode : fallback;
 }
 
 export function resolveHermesSurface(options: {

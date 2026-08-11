@@ -11,7 +11,7 @@ function newMessageId() {
   return crypto.randomUUID();
 }
 
-export function useHermesChat(instanceId: string, initialSessionId: string | null, projectId: string | null) {
+export function useHermesChat(instanceId: string, initialSessionId: string | null, projectId: string | null, enabled = true) {
   const setActiveSession = useHermesStore((state) => state.setActiveSession);
   const [session, setSession] = useState<HermesSession | null>(null);
   const [messages, setMessages] = useState<HermesMessage[]>([]);
@@ -26,10 +26,12 @@ export function useHermesChat(instanceId: string, initialSessionId: string | nul
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const reconnectAttempt = useRef(0);
+  const enabledRef = useRef(enabled);
   const connectRef = useRef<() => void>(() => undefined);
   const pendingCreate = useRef<{ content: string; clientMessageId: string } | null>(null);
   const attachedSession = useRef<string | null>(initialSessionId);
   const initialSessionRef = useRef(initialSessionId);
+  enabledRef.current = enabled;
 
   const sendRaw = useCallback((message: HermesClientMessage): boolean => {
     const socket = socketRef.current;
@@ -88,6 +90,7 @@ export function useHermesChat(instanceId: string, initialSessionId: string | nul
   }, [instanceId, sendRaw, setActiveSession]);
 
   const connect = useCallback(() => {
+    if (!enabled) return;
     if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) return;
     const socket = new WebSocket(socketUrl());
     socketRef.current = socket;
@@ -117,26 +120,35 @@ export function useHermesChat(instanceId: string, initialSessionId: string | nul
     socket.addEventListener("close", () => {
       setConnected(false);
       socketRef.current = null;
+      if (!enabledRef.current) return;
       if (reconnectTimer.current !== null) return;
       const delay = Math.min(10_000, 500 * 2 ** reconnectAttempt.current) + Math.round(Math.random() * 300);
       reconnectAttempt.current += 1;
       reconnectTimer.current = window.setTimeout(() => { reconnectTimer.current = null; connectRef.current(); }, delay);
     });
     socket.addEventListener("error", () => setError("Die Verbindung zum Hermes-Chat ist unterbrochen."));
-  }, [onServerMessage, sendRaw]);
+  }, [enabled, onServerMessage, sendRaw]);
 
   useEffect(() => {
     connectRef.current = connect;
+    enabledRef.current = enabled;
+    if (!enabled) {
+      setConnected(false);
+      socketRef.current?.close();
+      socketRef.current = null;
+      return;
+    }
     connect();
     const heartbeat = window.setInterval(() => { sendRaw({ v: 1, type: "ping" }); }, 30_000);
     return () => {
+      enabledRef.current = false;
       window.clearInterval(heartbeat);
       if (reconnectTimer.current !== null) window.clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [connect, sendRaw]);
+  }, [connect, enabled, sendRaw]);
 
   const send = useCallback((content: string) => {
     const text = content.trim();

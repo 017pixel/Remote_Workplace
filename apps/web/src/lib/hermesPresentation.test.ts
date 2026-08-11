@@ -4,6 +4,7 @@ import {
   hermesSourceLabels,
   hermesSessionStatusLabel,
   normalizeHermesSurface,
+  normalizeHermesUiMode,
   resolveHermesSurface,
 } from "./hermesPresentation";
 
@@ -12,6 +13,8 @@ describe("Hermes-Darstellungsmodell", () => {
     expect(normalizeHermesSurface("history")).toBe("history");
     expect(normalizeHermesSurface("unknown")).toBe("chat");
     expect(normalizeHermesSurface(null, "admin")).toBe("admin");
+    expect(normalizeHermesUiMode("official")).toBe("official");
+    expect(normalizeHermesUiMode("unknown")).toBe("native");
   });
 
   it("gibt Session-Deep-Links immer Vorrang vor gespeicherten Flächen", () => {
