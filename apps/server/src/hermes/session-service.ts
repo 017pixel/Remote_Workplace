@@ -158,7 +158,20 @@ export class HermesSessionService {
     const id = String(item.id ?? item.job_id ?? item.name ?? `cron-${Date.now()}`);
     const lastStatusValue = String(item.last_status ?? item.lastStatus ?? item.status ?? "unknown").toLowerCase();
     const lastStatus = lastStatusValue === "success" || lastStatusValue === "completed" ? "success" : lastStatusValue === "failed" || lastStatusValue === "error" ? "failed" : lastStatusValue === "running" ? "running" : "unknown";
-    return { id, name: String(item.name ?? id).slice(0, 200), schedule: String(item.schedule ?? item.cron ?? item.expression ?? "").slice(0, 120), enabled: item.enabled !== false && item.paused !== true, nextRunAt: asDate(item.next_run_at ?? item.nextRunAt ?? item.next_run), lastRunAt: asDate(item.last_run_at ?? item.lastRunAt ?? item.last_run), lastStatus, adminPath: `/cron/${encodeURIComponent(id)}` };
+    return { id, name: String(item.name ?? id).slice(0, 200), schedule: cronSchedule(item).slice(0, 120), enabled: item.enabled !== false && item.paused !== true, nextRunAt: asDate(item.next_run_at ?? item.nextRunAt ?? item.next_run), lastRunAt: asDate(item.last_run_at ?? item.lastRunAt ?? item.last_run), lastStatus, adminPath: `/cron/${encodeURIComponent(id)}` };
   }
 
+}
+
+function cronSchedule(item: Record<string, unknown>): string {
+  const direct = item.schedule_display ?? item.schedule ?? item.cron ?? item.expression ?? item.spec;
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+  if (direct && typeof direct === "object") {
+    const schedule = direct as Record<string, unknown>;
+    for (const key of ["display", "expr", "cron", "expression", "interval", "schedule"]) {
+      if (typeof schedule[key] === "string" && String(schedule[key]).trim()) return String(schedule[key]).trim();
+    }
+  }
+  if (item.next_run_at ?? item.nextRunAt) return "geplant";
+  return "nach Zeitplan";
 }
