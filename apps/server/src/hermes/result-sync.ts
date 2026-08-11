@@ -11,6 +11,7 @@ interface ResultCursor {
   initialized: boolean;
   lastUpdatedAt: string | null;
   seenIds: string[];
+  startedIds: string[];
   updateFinishedAt: string | null;
   dashboardReachable: boolean | null;
   gatewayState: string | null;
@@ -20,6 +21,7 @@ const defaultCursor: ResultCursor = {
   initialized: false,
   lastUpdatedAt: null,
   seenIds: [],
+  startedIds: [],
   updateFinishedAt: null,
   dashboardReachable: null,
   gatewayState: null,
@@ -34,6 +36,7 @@ async function loadCursor(): Promise<ResultCursor> {
       initialized: value.initialized === true,
       lastUpdatedAt: typeof value.lastUpdatedAt === "string" ? value.lastUpdatedAt : null,
       seenIds: Array.isArray(value.seenIds) ? value.seenIds.filter((id): id is string => typeof id === "string").slice(-200) : [],
+      startedIds: Array.isArray(value.startedIds) ? value.startedIds.filter((id): id is string => typeof id === "string").slice(-200) : [],
       updateFinishedAt: typeof value.updateFinishedAt === "string" ? value.updateFinishedAt : null,
       dashboardReachable: typeof value.dashboardReachable === "boolean" ? value.dashboardReachable : null,
       gatewayState: typeof value.gatewayState === "string" ? value.gatewayState : null,
@@ -43,10 +46,12 @@ async function loadCursor(): Promise<ResultCursor> {
 
 async function saveCursor(cursor: ResultCursor): Promise<void> {
   const path = cursorPath();
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify({ ...cursor, seenIds: cursor.seenIds.slice(-200) }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-  await rename(temporary, path);
+  try {
+    await mkdir(dirname(path), { recursive: true });
+    const temporary = `${path}.${process.pid}.tmp`;
+    await writeFile(temporary, `${JSON.stringify({ ...cursor, seenIds: cursor.seenIds.slice(-200), startedIds: cursor.startedIds.slice(-200) }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    await rename(temporary, path);
+  } catch { /* Best Effort — der Sync kommt beim nächsten Poll erneut. */ }
 }
 
 function later(left: string | null, right: string | null): string | null {
@@ -100,10 +105,33 @@ export class HermesResultSync {
         cursor.initialized = true;
         cursor.lastUpdatedAt = new Date().toISOString();
         cursor.seenIds = response.sessions.map((session) => session.id).slice(-200);
+        cursor.startedIds = response.sessions.filter((session) => session.source === "cron" && session.status === "running").map((session) => session.id).slice(-200);
       } else {
+        const runningIds: string[] = [];
         for (const session of response.sessions) {
-          if (session.source !== "cron" && session.source !== "web" && session.source !== "acp") continue;
+          // Geplante Cron-Aufgaben melden ihren Start, damit der Lauf nicht
+          // unsichtbar im Hintergrund passiert.
+          if (session.source === "cron" && session.status === "running") {
+            runningIds.push(session.id);
+            if (!cursor.startedIds.includes(session.id)) {
+              this.notifications.create({
+                source: "hermes",
+                category: "hermes",
+                sourceIcon: "hermes",
+                kind: "hermes.started",
+                severity: "info",
+                title: "Hermes-Aufgabe gestartet",
+                body: session.title,
+                link: `/workbench/hermes-agent?session=${encodeURIComponent(session.id)}`,
+                remoteId: `started:${session.id}:${session.updatedAt ?? session.createdAt ?? session.id}`,
+                meta: { sessionId: session.id, source: session.source },
+                report: null,
+              });
+              cursor.startedIds.push(session.id);
+            }
+          }
           if (session.status === "running" || !session.updatedAt) continue;
+          if (session.source !== "cron" && session.source !== "web" && session.source !== "acp") continue;
           const remoteId = `result:${session.id}:${session.updatedAt}`;
           if (cursor.seenIds.includes(remoteId)) continue;
           if (cursor.lastUpdatedAt && Date.parse(session.updatedAt) <= Date.parse(cursor.lastUpdatedAt)) {
@@ -132,6 +160,7 @@ export class HermesResultSync {
           cursor.seenIds.push(remoteId);
           cursor.lastUpdatedAt = later(cursor.lastUpdatedAt, session.updatedAt);
         }
+        cursor.startedIds = cursor.startedIds.filter((id) => runningIds.includes(id));
       }
       cursor.dashboardReachable = true;
     } catch {
@@ -161,6 +190,23 @@ export class HermesResultSync {
   }
 
   private handleManagerMessage(message: HermesServerMessage): void {
+    if (message.type === "approval.requested") {
+      const request = message.request;
+      this.notifications.create({
+        source: "hermes",
+        category: "hermes",
+        sourceIcon: "hermes",
+        kind: "hermes.approval",
+        severity: request.risk === "high" ? "error" : "warning",
+        title: "Hermes braucht deine Freigabe",
+        body: request.title,
+        link: `/workbench/hermes-agent?session=${encodeURIComponent(request.sessionId)}`,
+        remoteId: `approval:${request.requestId}`,
+        meta: { sessionId: request.sessionId, requestId: request.requestId, risk: request.risk },
+        report: null,
+      });
+      return;
+    }
     if (message.type !== "message.complete") return;
     const session = this.manager.session(message.sessionId);
     const durationSeconds = session?.createdAt ? Math.max(0, (Date.now() - Date.parse(session.createdAt)) / 1_000) : 0;

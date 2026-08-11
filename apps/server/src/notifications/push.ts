@@ -80,15 +80,17 @@ export function isPushCandidate(notification: Notification): boolean {
     "agent.failed",
     "terminal.failed",
     "workbench.crash",
+    "hermes.started",
     "hermes.result",
+    "hermes.approval",
     "hermes.update",
   ].includes(notification.kind);
 }
 
 export function pushTimeToLive(notification: Notification): number {
   if (notification.severity === "warning" || notification.severity === "error"
-    || ["agent.input-required", "agent.plan-ready", "agent.failed", "terminal.failed", "workbench.crash"].includes(notification.kind)) return 86_400;
-  if (["agent.completed", "hermes.result", "hermes.update"].includes(notification.kind)) return 3_600;
+    || ["agent.input-required", "agent.plan-ready", "agent.failed", "terminal.failed", "workbench.crash", "hermes.approval"].includes(notification.kind)) return 86_400;
+  if (["agent.completed", "hermes.started", "hermes.result", "hermes.update"].includes(notification.kind)) return 3_600;
   return 900;
 }
 
