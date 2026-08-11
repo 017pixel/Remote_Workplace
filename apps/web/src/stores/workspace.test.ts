@@ -52,6 +52,37 @@ describe("workspace persistence", () => {
     expect(parsed.workspaces[0]?.groups[0]?.panelIds).toEqual(["left"]);
   });
 
+  it("überführt eine alte Hermes-Sitzung in den offiziellen SPA-Pfad", () => {
+    const parsed = parseStoredWorkspace({
+      ...twoPanelWorkspace,
+      panels: [
+        ...twoPanelWorkspace.panels,
+        {
+          id: "legacy-hermes",
+          type: "hermes",
+          projectId: null,
+          previewId: null,
+          reloadKey: 0,
+          hermesSurface: "chat",
+          hermesSessionId: "session-from-storage",
+        },
+      ],
+      workspaces: [{
+        ...twoPanelWorkspace.workspaces[0]!,
+        groups: [{
+          ...twoPanelWorkspace.workspaces[0]!.groups[0]!,
+          panelIds: ["left", "legacy-hermes"],
+          activePanelId: "legacy-hermes",
+        }, twoPanelWorkspace.workspaces[0]!.groups[1]!],
+      }],
+    });
+
+    expect(parsed.panels.find((panel) => panel.id === "legacy-hermes")).toMatchObject({
+      type: "hermes",
+      hermesAdminPath: "/chat?resume=session-from-storage",
+    });
+  });
+
   it("migrates the former two-panel workspace without discarding tools", () => {
     const migrated = migrateLegacyWorkspace({
       version: 1,
@@ -149,13 +180,13 @@ describe("workspace persistence", () => {
     expect(useWorkspaceStore.getState().panels.map((panel) => panel.type)).toEqual(["terminal", "terminal"]);
   });
 
-  it("erlaubt mehrere Hermes-Panels und persistiert deren Sessiondaten", () => {
+  it("erlaubt mehrere Hermes-Panels und persistiert deren SPA-Pfad", () => {
     const firstId = useWorkspaceStore.getState().openPanel({ type: "hermes" });
     const secondId = useWorkspaceStore.getState().openPanel({ type: "hermes" });
     expect(firstId).not.toBe(secondId);
     expect(useWorkspaceStore.getState().panels).toHaveLength(2);
-    useWorkspaceStore.getState().updateHermesPanel(firstId!, { hermesSessionId: "session-1", hermesSurface: "admin", hermesAdminPath: "/cron/jobs" });
-    expect(useWorkspaceStore.getState().panels.find((panel) => panel.id === firstId)).toMatchObject({ hermesSessionId: "session-1", hermesSurface: "admin", hermesAdminPath: "/cron/jobs" });
+    useWorkspaceStore.getState().updateHermesPanel(firstId!, { hermesAdminPath: "/cron/jobs" });
+    expect(useWorkspaceStore.getState().panels.find((panel) => panel.id === firstId)).toMatchObject({ hermesAdminPath: "/cron/jobs" });
   });
 
   it("allows multiple independent Codex and OpenCode panels", () => {

@@ -1189,12 +1189,9 @@ export const panelSchema = z.object({
   // z. B. `/umgebung/thread`. Optional, damit gespeicherte Arbeitsflächen
   // kompatibel bleiben. Leer steht für die T3-Startseite.
   t3Path: z.string().startsWith("/").max(512).optional(),
-  // Hermes-Paneldaten bleiben flach und optional, damit alte localStorage-
-  // Dokumente ohne Migration weiter gültig sind.
-  hermesSurface: z.enum(["chat", "tasks", "history", "cron", "admin"]).optional(),
-  hermesSessionId: z.string().min(1).max(200).nullable().optional(),
+  // Der interne Pfad der offiziellen Hermes-SPA bleibt optional, damit alte
+  // localStorage-Dokumente ohne Migration weiter gültig sind.
   hermesAdminPath: z.string().startsWith("/").max(512).optional(),
-  hermesSidebarCollapsed: z.boolean().optional(),
 });
 
 export const hermesServiceStateSchema = z.enum(["active", "inactive", "failed", "activating", "unknown"]);

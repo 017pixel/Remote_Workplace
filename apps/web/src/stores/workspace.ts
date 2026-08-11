@@ -56,10 +56,7 @@ export interface OpenPanelInput {
   browserUrl?: string | null;
   // Tiefenlink für T3-Panels: Pfad hinter dem Proxy-Präfix `/t3`.
   t3Path?: string | null;
-  hermesSurface?: "chat" | "tasks" | "history" | "cron" | "admin";
-  hermesSessionId?: string | null;
   hermesAdminPath?: string;
-  hermesSidebarCollapsed?: boolean;
   groupId?: string;
   workspaceId?: string;
 }
@@ -81,7 +78,7 @@ interface WorkspaceActions {
   removeWorkspace(workspaceId: string): void;
   renameWorkspace(workspaceId: string, name: string): void;
   activateWorkspace(workspaceId: string): void;
-  updateHermesPanel(panelId: string, patch: Partial<Pick<Panel, "hermesSurface" | "hermesSessionId" | "hermesAdminPath" | "hermesSidebarCollapsed">>): void;
+  updateHermesPanel(panelId: string, patch: Partial<Pick<Panel, "hermesAdminPath">>): void;
   setPanelProject(panelId: string, projectId: string | null): void;
   navigateT3Panel(panelId: string, t3Path: string): void;
   resetWorkspace(): void;
@@ -99,12 +96,7 @@ function makePanel(input: OpenPanelInput): Panel {
     ...(input.browserUrl ? { browserUrl: input.browserUrl } : {}),
     ...(input.t3Path ? { t3Path: input.t3Path } : {}),
     ...(input.type === "hermes" ? {
-      // Standard ist die native Workbench-Oberfläche; die SPA bleibt als
-      // „Verwaltung“ erreichbar.
-      hermesSurface: input.hermesSurface ?? "chat",
-      hermesSessionId: input.hermesSessionId ?? null,
       hermesAdminPath: input.hermesAdminPath && input.hermesAdminPath !== "/" ? input.hermesAdminPath : "/chat",
-      hermesSidebarCollapsed: input.hermesSidebarCollapsed ?? false,
     } : {}),
   };
 }
@@ -184,6 +176,17 @@ function recordOf(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
 }
 
+function migrateLegacyHermesPanel(panel: unknown, parsed: Panel): Panel {
+  if (parsed.type !== "hermes") return parsed;
+  const raw = recordOf(panel);
+  const sessionId = typeof raw?.hermesSessionId === "string" ? raw.hermesSessionId : null;
+  const surface = typeof raw?.hermesSurface === "string" ? raw.hermesSurface : null;
+  if (!sessionId || surface === "admin") return parsed;
+
+  const resumePath = `/chat?resume=${encodeURIComponent(sessionId)}`;
+  return resumePath.length <= 512 ? { ...parsed, hermesAdminPath: resumePath } : parsed;
+}
+
 /**
  * Arbeitsflächen müssen auch nach einem Rückbau lesbar bleiben. Ein unbekannter
  * Paneltyp darf deshalb nicht die gesamte localStorage-Arbeitsfläche verwerfen.
@@ -196,7 +199,7 @@ function stripUnknownPanels(value: unknown): unknown {
 
   const panels = root.panels.flatMap((panel) => {
     const parsed = panelSchema.safeParse(panel);
-    return parsed.success ? [parsed.data] : [];
+    return parsed.success ? [migrateLegacyHermesPanel(panel, parsed.data)] : [];
   });
   // Sind alle Panels unbekannt, bleiben die Arbeitsflächen-Struktur (Gruppen,
   // Layout, Namen) trotzdem erhalten — nur die Panels entfallen (F04-11).
@@ -272,7 +275,7 @@ function stripUnknownPanels(value: unknown): unknown {
 export function parseStoredWorkspaceOrNull(value: unknown): Workspace | null {
   const sanitized = stripUnknownPanels(value);
   const parsed = workspaceSchema.safeParse(sanitized);
-  if (parsed.success) return withHermesPanelDefaults(parsed.data);
+  if (parsed.success) return normalizeStoredWorkspace(parsed.data);
   const versionTwo = z.object({
     version: z.literal(2),
     selectedProjectId: z.string().nullable(),
@@ -295,16 +298,16 @@ export function parseStoredWorkspaceOrNull(value: unknown): Workspace | null {
   }).safeParse(sanitized);
   if (versionTwo.success) {
     const migrated = workspaceSchema.safeParse({ ...versionTwo.data, version: 3 });
-    if (migrated.success) return withHermesPanelDefaults(migrated.data);
+    if (migrated.success) return normalizeStoredWorkspace(migrated.data);
   }
   return migrateLegacyWorkspace(value);
 }
 
 export function parseStoredWorkspace(value: unknown): Workspace {
-  return parseStoredWorkspaceOrNull(value) ?? withHermesPanelDefaults(freshWorkspace());
+  return parseStoredWorkspaceOrNull(value) ?? normalizeStoredWorkspace(freshWorkspace());
 }
 
-function withHermesPanelDefaults(workspace: Workspace): Workspace {
+function normalizeStoredWorkspace(workspace: Workspace): Workspace {
   return {
     ...workspace,
     panels: workspace.panels.map((panel) => {
@@ -313,15 +316,8 @@ function withHermesPanelDefaults(workspace: Workspace): Workspace {
         // und gehört nicht in den gespeicherten Zustand zurück.
         return { ...panel, t3Path: undefined };
       }
-      if (panel.type !== "hermes") return panel;
-      // Migriert alte Custom-Chat-Panels ohne Datenverlust auf die native UI.
-      return {
-        ...panel,
-        hermesSurface: panel.hermesSurface ?? "chat",
-        hermesSessionId: panel.hermesSessionId ?? null,
-        hermesAdminPath: panel.hermesAdminPath && panel.hermesAdminPath !== "/" ? panel.hermesAdminPath : "/chat",
-        hermesSidebarCollapsed: panel.hermesSidebarCollapsed ?? false,
-      };
+      if (panel.type !== "hermes" || panel.hermesAdminPath) return panel;
+      return { ...panel, hermesAdminPath: "/chat" };
     }),
   };
 }

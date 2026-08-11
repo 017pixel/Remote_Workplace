@@ -60,6 +60,11 @@ function later(left: string | null, right: string | null): string | null {
   return Date.parse(left) >= Date.parse(right) ? left : right;
 }
 
+function hermesSessionLink(sessionId: string): string {
+  const path = `/chat?resume=${encodeURIComponent(sessionId)}`;
+  return `/workbench/hermes-agent?path=${encodeURIComponent(path)}`;
+}
+
 export function shouldNotifyHermesSession(source: "cron" | "web" | "acp", durationSeconds: number, minimumSeconds: number): boolean {
   return source === "cron" || durationSeconds >= minimumSeconds;
 }
@@ -122,7 +127,7 @@ export class HermesResultSync {
                 severity: "info",
                 title: "Hermes-Aufgabe gestartet",
                 body: session.title,
-                link: `/workbench/hermes-agent?session=${encodeURIComponent(session.id)}`,
+                link: hermesSessionLink(session.id),
                 remoteId: `started:${session.id}:${session.updatedAt ?? session.createdAt ?? session.id}`,
                 meta: { sessionId: session.id, source: session.source },
                 report: null,
@@ -152,7 +157,7 @@ export class HermesResultSync {
             severity: session.status === "failed" ? "error" : "success",
             title: session.status === "failed" ? "Hermes-Aufgabe fehlgeschlagen" : "Hermes-Ergebnis verfügbar",
             body: session.title,
-            link: `/workbench/hermes-agent?session=${encodeURIComponent(session.id)}`,
+            link: hermesSessionLink(session.id),
             remoteId,
             meta: { sessionId: session.id, durationSeconds: Math.round(durationSeconds), source: session.source },
             report: session.status === "failed" ? { message: session.title, stack: null, context: { Quelle: "Hermes", Sitzung: session.id }, logs: [], environment: {} } : null,
@@ -178,7 +183,7 @@ export class HermesResultSync {
           severity: update.lastResult === "failed" ? "error" : "success",
           title: update.lastResult === "failed" ? "Hermes-Update fehlgeschlagen" : "Hermes wurde aktualisiert",
           body: update.lastResult === "failed" ? "Die Update-Diagnose enthält die letzten redigierten Schritte." : `${update.previousVersion ?? "Unbekannt"} → ${update.newVersion ?? "aktuell"}`,
-          link: "/workbench/hermes-agent?diagnostics=1",
+          link: "/workbench/hermes-agent",
           remoteId: `update:${update.lastFinishedAt}:${update.lastResult}`,
           meta: { previousVersion: update.previousVersion, newVersion: update.newVersion },
           report: update.lastResult === "failed" ? { message: "Das Hermes-Update ist fehlgeschlagen.", stack: null, context: { Quelle: "Hermes Update" }, logs: update.logTail, environment: {} } : null,
@@ -200,7 +205,7 @@ export class HermesResultSync {
         severity: request.risk === "high" ? "error" : "warning",
         title: "Hermes braucht deine Freigabe",
         body: request.title,
-        link: `/workbench/hermes-agent?session=${encodeURIComponent(request.sessionId)}`,
+        link: hermesSessionLink(request.sessionId),
         remoteId: `approval:${request.requestId}`,
         meta: { sessionId: request.sessionId, requestId: request.requestId, risk: request.risk },
         report: null,
@@ -219,7 +224,7 @@ export class HermesResultSync {
       severity: "success",
       title: "Hermes-Antwort abgeschlossen",
       body: message.message.content,
-      link: `/workbench/hermes-agent?session=${encodeURIComponent(message.sessionId)}`,
+      link: hermesSessionLink(message.sessionId),
       remoteId: `acp:${message.sessionId}:${message.message.id}`,
       meta: { sessionId: message.sessionId, durationSeconds: Math.round(durationSeconds), toolCalls: message.message.toolCalls.length },
     });

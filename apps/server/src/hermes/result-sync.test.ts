@@ -49,7 +49,7 @@ describe("Hermes Task-Lebenszyklus-Benachrichtigungen", () => {
       kind: "hermes.approval",
       severity: "error",
       title: "Hermes braucht deine Freigabe",
-      link: "/workbench/hermes-agent?session=sess-1",
+      link: "/workbench/hermes-agent?path=%2Fchat%3Fresume%3Dsess-1",
       remoteId: "approval:req-1",
     }));
     sync.stop();

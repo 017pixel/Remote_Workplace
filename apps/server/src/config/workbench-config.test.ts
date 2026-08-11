@@ -13,7 +13,7 @@ describe("Workbench-Preview-Konfiguration", () => {
     const config = exampleConfig() as unknown as Record<string, unknown>;
     delete config.hermes;
     const parsed = workbenchConfigSchema.parse(config);
-    expect(parsed.hermes).toMatchObject({ enabled: true, host: "127.0.0.1", port: 9119, proxyPrefix: "/hermes", defaultSurface: "admin" });
+    expect(parsed.hermes).toMatchObject({ enabled: true, host: "127.0.0.1", port: 9119, proxyPrefix: "/hermes" });
   });
 
   it("erzwingt Loopback und einen freien Hermes-Port", () => {

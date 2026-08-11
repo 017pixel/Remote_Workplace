@@ -58,13 +58,9 @@ import {
   t3ChannelStatusResponseSchema,
   usageMonitoringResponseSchema,
   hermesStatusSchema,
-  hermesSessionsResponseSchema,
   hermesTasksResponseSchema,
   hermesCronResponseSchema,
   hermesResultsResponseSchema,
-  hermesModelsResponseSchema,
-  hermesDiagnosticsResponseSchema,
-  hermesUpdateStateSchema,
   notificationListResponseSchema,
   notificationSchema,
   notificationPreferencesSchema,
@@ -311,16 +307,6 @@ export const apiClient = {
   usageMonitoring: (signal?: AbortSignal) => request("/system/usage-monitoring", usageMonitoringResponseSchema, signal),
   saveUsageMonitoring: (monitoring: UsageMonitoring) => mutate("/system/usage-monitoring", "PUT", usageMonitoringResponseSchema, { monitoring }),
   hermesStatus: (signal?: AbortSignal) => request("/hermes/status", hermesStatusSchema, signal),
-  hermesSessions: (params: { limit?: number; offset?: number; q?: string; source?: string } = {}, signal?: AbortSignal) => {
-    const query = new URLSearchParams();
-    if (params.limit !== undefined) query.set("limit", String(params.limit));
-    if (params.offset !== undefined) query.set("offset", String(params.offset));
-    if (params.q) query.set("q", params.q);
-    if (params.source) query.set("source", params.source);
-    return request(`/hermes/sessions${query.size ? `?${query}` : ""}`, hermesSessionsResponseSchema, signal);
-  },
-  hermesSessionMessages: (sessionId: string, signal?: AbortSignal) => request(`/hermes/sessions/${encodeURIComponent(sessionId)}/messages`, z.unknown(), signal),
-  deleteHermesSession: (sessionId: string) => mutate(`/hermes/sessions/${encodeURIComponent(sessionId)}`, "DELETE", null),
   hermesTasks: (signal?: AbortSignal) => request("/hermes/tasks", hermesTasksResponseSchema, signal),
   cancelHermesTask: (sessionId: string) => mutate(`/hermes/tasks/${encodeURIComponent(sessionId)}/cancel`, "POST", null),
   hermesCron: (signal?: AbortSignal) => request("/hermes/cron", hermesCronResponseSchema, signal),
@@ -330,14 +316,6 @@ export const apiClient = {
     if (params.status) query.set("status", params.status);
     return request(`/hermes/results${query.size ? `?${query}` : ""}`, hermesResultsResponseSchema, signal);
   },
-  hermesModels: (signal?: AbortSignal) => request("/hermes/models", hermesModelsResponseSchema, signal),
-  selectHermesModel: (model: string) => mutate("/hermes/models/select", "POST", hermesModelsResponseSchema, { model }),
-  hermesDiagnostics: (signal?: AbortSignal) => request("/hermes/diagnostics", hermesDiagnosticsResponseSchema, signal),
-  runHermesDiagnostics: () => mutate("/hermes/diagnostics/run", "POST", hermesDiagnosticsResponseSchema),
-  hermesServiceAction: (target: "dashboard" | "gateway", action: "start" | "stop" | "restart") => mutate("/hermes/services/action", "POST", null, { target, action }),
-  hermesUpdateStatus: (signal?: AbortSignal) => request("/hermes/update/status", hermesUpdateStateSchema, signal),
-  hermesUpdateCheck: () => mutate("/hermes/update/check", "POST", null),
-  hermesUpdateRun: () => mutate("/hermes/update/run", "POST", hermesUpdateStateSchema),
   notifications: (params: { unreadOnly?: boolean; source?: string; category?: string; severity?: string; cursor?: string; limit?: number } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (params.unreadOnly) query.set("unreadOnly", "true");

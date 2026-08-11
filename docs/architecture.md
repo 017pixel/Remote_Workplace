@@ -183,6 +183,6 @@ Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade.
 - Editor und Workbench teilen ihren privaten HTTPS-Origin; Preview-Slots erhalten bewusst eigene private HTTPS-Origins für getrennte Web-Storage-Sitzungen.
 - CSP-Framequellen entstehen ausschließlich aus validierten Service- und Preview-Konfigurationen.
 - Der Hermes-Dashboard-Port bleibt Loopback-only; `/hermes` ist identitätsgeschützt, mutierende Aktionen verlangen zusätzlich Same-Origin.
-- Hermes-Freigaben stehen auf `ask`; die native UI bietet keine dauerhafte globale Freigabe für destruktive Befehle.
+- Hermes-Freigaben stehen auf `ask`; die offizielle SPA bietet keine dauerhafte globale Freigabe für destruktive Befehle.
 - Fehlerantworten enthalten keine Secrets, Umgebungsvariablen oder internen Stacktraces.
 - Terminal- und Editorprozesse benötigen absichtlich Schreibzugriff auf `/home/your-user/projects`; Kernel- und Systempfade bleiben über systemd gehärtet.

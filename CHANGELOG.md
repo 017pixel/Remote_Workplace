@@ -6,25 +6,25 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Erstellt
 
-- Eigene Hermes-Oberfläche in der Workbench mit Chat, Aufgaben, Verlauf und Cron als nativen Flächen
+- Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
 - DeepSeek V4 Flash als Standardmodell für Hermes, Mistral bleibt als Fallback
 - Benachrichtigungen, wenn eine geplante Hermes-Aufgabe startet oder eine Freigabe benötigt
-- Aufgaben-Übersicht mit Live-Status und direktem Abbrechen laufender Hermes-Aufgaben
-- Diagnose-Dialog direkt in der Hermes-Oberfläche ohne Umweg über die Verwaltung
+- Hermes-Status-, Aufgaben- und Ergebnisübersichten im Orbit
+- Route-Bridge für Hermes-Deep-Links zwischen Workbench und offizieller SPA
 
 ### Verändert
 
-- Hermes-Seite startet nativ und kann in den Einstellungen auf die offizielle SPA umgeschaltet werden
-- Offizielle Hermes-Verwaltung bleibt als eigene Fläche für Expertenfunktionen erreichbar
-- Verlauf zeigt alle Sessions mit Filter nach Quelle und Volltextsuche
-- Cron-Ansicht zeigt Zeitpläne, nächste und letzte Ausführung inklusive Status
-- Modellanzeige und -wechsel direkt über die Kopfzeile des Hermes-Bereichs
+- Hermes-Seite, Panels und Deep-Links verwenden ausschließlich die offizielle SPA
+- Native Chat-, Aufgaben-, Verlauf- und Cron-Flächen der Workbench wurden entfernt
+- Hermes-Status und Hintergrundaufgaben bleiben über die Workbench-Integration verfügbar
+- Verwaltung, Chat, Cron und Einstellungen laufen über denselben Hermes-SPA-Kontext
+- Alte Session- und Verwaltungslinks werden in offizielle Hermes-Routen übersetzt
 
 ### Behoben
 
 - T3-Benachrichtigungen öffnen jetzt den richtigen Thread: Die T3-Thread-Route liegt am Root (`/$environmentId/$threadId`), nicht unter dem `/_chat`-Layout — vorher zeigte das Chat-Panel „Not Found" statt der Session aus der Benachrichtigung
 - Alte T3-Tiefenlinks mit `/_chat`-Präfix werden beim Öffnen auf die Root-Thread-Route normalisiert
-- Hermes-Session-, Diagnose- und Verwaltungs-Tiefenlinks öffnen wieder zuverlässig ihr tatsächliches Ziel
+- Hermes-Session- und Verwaltungs-Tiefenlinks öffnen wieder zuverlässig ihr tatsächliches Ziel
 - Die mobile Hermes-Navigation liegt ohne Überlagerung in der Daumenzone und hält 44-Pixel-Touchziele ein
 - Sessions lassen sich im Verlauf und in der Seitenleiste über einen zugänglichen Bestätigungsdialog löschen
 

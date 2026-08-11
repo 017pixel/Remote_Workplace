@@ -371,7 +371,6 @@ export const settings = Object.freeze({
     dashboardServiceUnit: environment.HERMES_DASHBOARD_UNIT,
     gatewayServiceUnit: environment.HERMES_GATEWAY_UNIT,
     updateServiceUnit: environment.HERMES_UPDATE_UNIT,
-    defaultSurface: wb.hermes.defaultSurface,
     updateTime: wb.hermes.updateTime,
     updateTimezone: wb.hermes.updateTimezone,
     requestTimeoutSeconds: wb.hermes.requestTimeoutSeconds,
