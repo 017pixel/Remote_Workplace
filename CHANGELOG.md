@@ -14,7 +14,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ### Verändert
 
-- Hermes-Seite startet jetzt im nativen Chat statt in der externen Verwaltung
+- Hermes-Seite startet nativ und kann in den Einstellungen auf die offizielle SPA umgeschaltet werden
 - Offizielle Hermes-Verwaltung bleibt als eigene Fläche für Expertenfunktionen erreichbar
 - Verlauf zeigt alle Sessions mit Filter nach Quelle und Volltextsuche
 - Cron-Ansicht zeigt Zeitpläne, nächste und letzte Ausführung inklusive Status
