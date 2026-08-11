@@ -1,6 +1,6 @@
 {
   "name": "remote-workplace",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.29.2",

@@ -97,11 +97,12 @@ Das Frontend (Einstellungen → „Dienst neu starten") macht genau das und läd
 ## Hermes Agent
 
 Hermes bleibt in seinem eigenen Checkout und verwendet weiterhin `HERMES_HOME`. Die Workbench
-verschiebt diese Daten nicht. Die sichtbare Chat- und Verwaltungsoberfläche ist ausschließlich
-die offizielle Hermes-SPA unter `/hermes`, inklusive ihres PTY-Chats und Events Feed. Interne
-ACP-Funktionen dürfen für Hintergrundaufgaben bestehen bleiben, sind aber keine zweite sichtbare
-Chatfläche. Der Dashboard-Port bindet nur an Loopback und ist nicht über Tailscale Serve oder
-Funnel veröffentlicht.
+verschiebt diese Daten nicht. Die Hauptfläche ist die eigene Workbench-Oberfläche mit den
+Flächen Chat, Aufgaben, Verlauf und Cron; der Chat läuft über die ACP-Bridge unter
+`/api/v1/hermes/chat`. Die offizielle Hermes-SPA unter `/hermes` bleibt als Fläche
+„Verwaltung" für Expertenfunktionen erhalten (Settings, Skills, Webhooks, Kanäle, Profile).
+Der Dashboard-Port bindet nur an Loopback und ist nicht über Tailscale Serve oder Funnel
+veröffentlicht.
 
 - `hermes-dashboard.service` und die beiden Update-Timer sind User-Units. Die bestehende
   `hermes-gateway.service` wird übernommen und nicht ersetzt.

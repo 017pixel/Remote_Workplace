@@ -46,15 +46,17 @@ Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine
 ```
 
 `defaultSurface` bleibt als rückwärtskompatibles Konfigurationsfeld erhalten. Die Workbench
-öffnet Hermes unabhängig vom alten Wert immer als offizielle Hermes-SPA. Der Einstiegspunkt ist
-der offizielle Terminal-Chat; Verwaltungsseiten werden innerhalb derselben Oberfläche geöffnet.
+öffnet Hermes standardmäßig in der **eigenen Oberfläche** mit den Flächen Chat, Aufgaben,
+Verlauf und Cron. Der native Chat bedient sich direkt an der ACP-Bridge unter
+`/api/v1/hermes/chat`; die offizielle Hermes-SPA bleibt als Fläche „Verwaltung" für
+Expertenfunktionen erreichbar (Einstellungen, Skills, Webhooks, Kanäle, Profile und mehr).
 
 Die Installationsroutine erkennt CLI, Checkout, virtuelle Python-Umgebung und `HERMES_HOME` und
 schreibt die erkannten Pfade atomar in die lokale Config. `host` muss Loopback sein, `port` darf
 nicht mit Workbench, T3 oder Preview-Ports kollidieren. Die Verwaltung läuft über den geschützten
-Pfad `/hermes`; der sichtbare Chat verwendet die offiziellen Hermes-WebSockets unter
+Pfad `/hermes`; deren sichtbarer Chat verwendet die offiziellen Hermes-WebSockets unter
 `/hermes/api/pty`, `/hermes/api/ws` und `/hermes/api/events`. Die ACP-Bridge unter
-`/api/v1/hermes/chat` bleibt eine interne Schnittstelle für Hintergrundfunktionen.
+`/api/v1/hermes/chat` ist zugleich die Basis des nativen Workbench-Chats.
 
 Folgende Env-Variablen können die nicht-sensiblen Defaults überschreiben:
 
@@ -88,6 +90,35 @@ schalten. `pushEnabled` ist ausschließlich der globale Server-Master-Schalter. 
 verwendete Gerät abonniert ist, entscheidet dessen lokale Push-Subscription und nicht dieser
 Konfigurationswert. Geräte werden in den Einstellungen unabhängig aktiviert, getestet und
 deaktiviert; das Entfernen eines Endpoints verändert keine anderen Geräte.
+
+Hermes meldet neben dem Ergebnis (`hermes.result`) auch den kompletten Task-Lebenszyklus:
+`hermes.started` beim Start einer geplanten Cron-Aufgabe, `hermes.approval`, sobald eine
+Freigabe benötigt wird (bei hohem Risiko als Fehlerstufe), sowie `hermes.update` für
+Update-Läufe. Freigaben landen zusätzlich als Push mit langer Laufzeit (24 Stunden), Start- und
+Ergebnis-Meldungen mit einer Stunde.
+
+## Hermes-Modell
+
+Das Standardmodell liegt in der Hermes-eigenen Konfiguration (`~/.hermes/config.yaml`), nicht in
+der Workbench. Die Workbench liest es nur an und zeigt es in der Kopfzeile an. Der Wechsel auf
+einen OpenAI-kompatiblen Provider (etwa DeepSeek V4 Flash über den OpenCode-Go-Key) erfolgt dort
+als benannter Provider:
+
+```yaml
+model:
+  default: deepseek-v4-flash
+  provider: custom:opencode.go.ai
+fallback_providers:
+  - custom:api.mistral.ai
+custom_providers:
+  - name: Opencode.go.ai
+    base_url: https://opencode.ai/zen/go/v1
+    api_key: <OpenCode-Go-Key>
+    model: deepseek-v4-flash
+```
+
+API-Schlüssel bleiben ausschließlich in `HERMES_HOME`; die Workbench speichert keine
+Hermes-Credentials und schreibt sie weder in Logs noch in Browserzustand.
 
 Web-Push benötigt den privaten HTTPS-Origin und einen aktiven Service Worker unter
 `/workbench/`. Die Berechtigung wird ausschließlich nach einem Klick auf „Auf diesem Gerät
