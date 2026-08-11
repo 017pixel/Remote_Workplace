@@ -302,6 +302,47 @@
 .hermes-surface-pane { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; }
 .hermes-surface-pane[hidden] { display: none; }
 
+/* Aufgaben ----------------------------------------------------------------- */
+.hermes-tasks-body, .hermes-history-body, .hermes-cron-body { min-height: 0; flex: 1; overflow-y: auto; padding: var(--space-4); }
+.hermes-task-list, .hermes-history-list, .hermes-cron-list { display: grid; max-width: 860px; margin: 0 auto; gap: var(--space-2); list-style: none; padding: 0; }
+.hermes-task-card, .hermes-history-row, .hermes-cron-row { position: relative; display: flex; align-items: stretch; border: 1px solid var(--h-line); border-radius: var(--radius-md); background: var(--h-bg-raised); }
+.hermes-task-main, .hermes-history-main, .hermes-cron-main { display: flex; min-width: 0; min-height: 56px; flex: 1; align-items: center; gap: var(--space-3); border-radius: var(--radius-md); padding: var(--space-3); text-align: left; }
+.hermes-task-main:hover, .hermes-history-main:hover, .hermes-cron-main:hover { background: var(--h-hover); }
+.hermes-task-pulse { position: relative; width: 8px; height: 8px; flex: 0 0 auto; border-radius: var(--radius-pill); background: var(--h-accent); }
+.hermes-task-pulse::after { content: ""; position: absolute; inset: -4px; border-radius: var(--radius-pill); border: 1px solid var(--h-accent); animation: hermes-pulse 1.6s var(--ease-out) infinite; }
+@keyframes hermes-pulse { 0% { opacity: .7; transform: scale(.6); } 70% { opacity: 0; transform: scale(1.35); } 100% { opacity: 0; transform: scale(1.35); } }
+.hermes-task-copy, .hermes-session-copy { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.hermes-task-copy strong, .hermes-session-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--h-text); font-size: var(--text-sm); font-weight: 500; }
+.hermes-task-copy small, .hermes-session-copy small, .hermes-cron-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--h-faint); font-size: var(--text-2xs); font-family: var(--font-mono); }
+.hermes-task-card time, .hermes-cron-times time { align-self: center; color: var(--h-faint); font-size: var(--text-2xs); white-space: nowrap; }
+.hermes-task-cancel { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: var(--space-1); align-self: center; margin-right: var(--space-2); border: 1px solid var(--h-bad); border-radius: var(--radius-sm); padding: 0 var(--space-2); color: var(--h-bad); font-size: var(--text-xs); }
+.hermes-task-cancel:hover { background: var(--h-bad-soft); }
+.hermes-task-cancel:disabled { cursor: not-allowed; opacity: .5; }
+
+/* Verlauf ------------------------------------------------------------------ */
+.hermes-history-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); border-bottom: 1px solid var(--h-line); background: var(--h-bg-raised); padding: var(--space-2) var(--space-3); }
+.hermes-history-toolbar .hermes-search { margin: 0; min-width: 200px; flex: 1; }
+.hermes-filter-tabs { display: flex; flex: 0 0 auto; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.hermes-filter-tabs::-webkit-scrollbar { display: none; }
+.hermes-filter-tabs button { min-height: 40px; flex: 0 0 auto; border-bottom: 2px solid transparent; padding: 0 var(--space-3); color: var(--h-muted); font-size: var(--text-xs); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.hermes-filter-tabs button:hover { color: var(--h-text); }
+.hermes-filter-tabs button.is-active { border-bottom-color: var(--h-accent); color: var(--h-text); }
+.hermes-history-row { min-height: 64px; }
+.hermes-history-row.is-running { border-color: var(--h-accent-line); }
+.hermes-history-row.is-failed { border-color: var(--h-bad); }
+.hermes-history-main time { align-self: center; color: var(--h-faint); font-size: var(--text-2xs); white-space: nowrap; }
+.hermes-cron-times { display: grid; flex: 0 0 auto; gap: 2px; align-self: center; text-align: right; }
+.hermes-cron-row.is-failed { border-color: var(--h-bad); }
+.hermes-cron-row small code { color: var(--h-accent); }
+.hermes-admin-open { min-height: 44px; margin-top: var(--space-2); border: 1px solid var(--h-accent); border-radius: var(--radius-sm); background: var(--h-accent); padding: 0 var(--space-3); color: var(--h-accent-contrast); font-size: var(--text-sm); }
+.hermes-admin-open:hover { opacity: .92; }
+@media (max-width: 640px) {
+  .hermes-task-card, .hermes-history-row { flex-direction: column; align-items: stretch; }
+  .hermes-task-cancel { align-self: stretch; justify-content: center; margin: 0 var(--space-2) var(--space-2); }
+  .hermes-history-main { min-height: 64px; }
+  .hermes-cron-times { text-align: left; }
+}
+
 /* Sessionliste ------------------------------------------------------------- */
 /* `position: relative` ist Pflicht: Auf dem Smartphone liegt die Sessionliste
    absolut als Drawer darüber und würde sonst Kopfzeile und Flächenleiste

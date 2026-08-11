@@ -3,6 +3,10 @@ import { persist } from "zustand/middleware";
 
 const DEFAULT_HERMES_PATH = "/chat";
 
+export type HermesSurface = "chat" | "tasks" | "history" | "cron" | "admin";
+
+const hermesSurfaces: readonly HermesSurface[] = ["chat", "tasks", "history", "cron", "admin"];
+
 /** Einheitliche Validierung für den Admin-Pfad: „.." darf nirgends im Pfad
  *  vorkommen, egal ob als Segment oder als Teil eines Namens (F04-12). */
 function normalizeAdminPath(value: string): string {
@@ -15,10 +19,12 @@ interface HermesStore {
   drafts: Record<string, string>;
   activeSessions: Record<string, string | null>;
   adminPath: string;
+  surface: HermesSurface;
   setSidebarCollapsed(value: boolean): void;
   setDraft(instanceId: string, value: string): void;
   setActiveSession(instanceId: string, value: string | null): void;
   setAdminPath(value: string): void;
+  setSurface(value: HermesSurface): void;
 }
 
 export const useHermesStore = create<HermesStore>()(
@@ -28,14 +34,16 @@ export const useHermesStore = create<HermesStore>()(
       drafts: {},
       activeSessions: {},
       adminPath: DEFAULT_HERMES_PATH,
+      surface: "chat",
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setDraft: (instanceId, value) => set((state) => ({ drafts: { ...state.drafts, [instanceId]: value } })),
       setActiveSession: (instanceId, value) => set((state) => ({ activeSessions: { ...state.activeSessions, [instanceId]: value } })),
       setAdminPath: (value) => set({ adminPath: normalizeAdminPath(value) }),
+      setSurface: (surface) => set({ surface }),
     }),
     {
       name: "remote-workplace.hermes.v1",
-      partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed, drafts: state.drafts, activeSessions: state.activeSessions, adminPath: state.adminPath }),
+      partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed, drafts: state.drafts, activeSessions: state.activeSessions, adminPath: state.adminPath, surface: state.surface }),
       // Der alte, separate localStorage-Schlüssel ist überflüssig — der Pfad
       // lebt nur noch im Persist-Envelope (F04-12). Übriggebliebene Werte
       // werden beim Start entfernt.
@@ -51,6 +59,7 @@ export const useHermesStore = create<HermesStore>()(
           ...(raw.drafts && typeof raw.drafts === "object" ? { drafts: raw.drafts } : {}),
           ...(raw.activeSessions && typeof raw.activeSessions === "object" ? { activeSessions: raw.activeSessions } : {}),
           ...(typeof raw.adminPath === "string" ? { adminPath: normalizeAdminPath(raw.adminPath) } : {}),
+          ...(raw.surface && hermesSurfaces.includes(raw.surface) ? { surface: raw.surface } : {}),
         };
       },
     },

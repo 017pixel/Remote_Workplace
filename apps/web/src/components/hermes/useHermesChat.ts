@@ -170,5 +170,7 @@ export function useHermesChat(instanceId: string, initialSessionId: string | nul
   const respondApproval = useCallback((requestId: string, option: "allow_once" | "allow_session" | "deny") => sendRaw({ v: 1, type: "approval.respond", requestId, option }), [sendRaw]);
   const setModel = useCallback((model: string) => attachedSession.current ? sendRaw({ v: 1, type: "model.set", sessionId: attachedSession.current, model }) : false, [sendRaw]);
 
-  return { session, messages, tools, approvals, thought, commands, usage, taskState, connected, error, send, newSession, attach, cancel, respondApproval, setModel };
+  return { instanceId, session, messages, tools, approvals, thought, commands, usage, taskState, connected, error, send, newSession, attach, cancel, respondApproval, setModel };
 }
+
+export type HermesChatApi = ReturnType<typeof useHermesChat>;

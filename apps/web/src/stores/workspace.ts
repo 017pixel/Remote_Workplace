@@ -56,7 +56,7 @@ export interface OpenPanelInput {
   browserUrl?: string | null;
   // Tiefenlink für T3-Panels: Pfad hinter dem Proxy-Präfix `/t3`.
   t3Path?: string | null;
-  hermesSurface?: "chat" | "admin";
+  hermesSurface?: "chat" | "tasks" | "history" | "cron" | "admin";
   hermesSessionId?: string | null;
   hermesAdminPath?: string;
   hermesSidebarCollapsed?: boolean;
@@ -99,9 +99,9 @@ function makePanel(input: OpenPanelInput): Panel {
     ...(input.browserUrl ? { browserUrl: input.browserUrl } : {}),
     ...(input.t3Path ? { t3Path: input.t3Path } : {}),
     ...(input.type === "hermes" ? {
-      // Der Wert bleibt für alte Workspaces im Vertrag, zeigt aber nur noch
-      // die offizielle Hermes-SPA an.
-      hermesSurface: "admin",
+      // Standard ist die native Workbench-Oberfläche; die SPA bleibt als
+      // „Verwaltung“ erreichbar.
+      hermesSurface: input.hermesSurface ?? "chat",
       hermesSessionId: input.hermesSessionId ?? null,
       hermesAdminPath: input.hermesAdminPath && input.hermesAdminPath !== "/" ? input.hermesAdminPath : "/chat",
       hermesSidebarCollapsed: input.hermesSidebarCollapsed ?? false,
@@ -314,10 +314,10 @@ function withHermesPanelDefaults(workspace: Workspace): Workspace {
         return { ...panel, t3Path: undefined };
       }
       if (panel.type !== "hermes") return panel;
-      // Migriert alte Custom-Chat-Panels ohne Datenverlust auf die offizielle UI.
+      // Migriert alte Custom-Chat-Panels ohne Datenverlust auf die native UI.
       return {
         ...panel,
-        hermesSurface: "admin",
+        hermesSurface: panel.hermesSurface ?? "chat",
         hermesSessionId: panel.hermesSessionId ?? null,
         hermesAdminPath: panel.hermesAdminPath && panel.hermesAdminPath !== "/" ? panel.hermesAdminPath : "/chat",
         hermesSidebarCollapsed: panel.hermesSidebarCollapsed ?? false,

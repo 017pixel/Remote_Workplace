@@ -16,7 +16,7 @@ function roleLabel(role: HermesMessage["role"]): string {
 export function HermesMessageList({ messages, tools, thought, onApproval, approvals }: { messages: HermesMessage[]; tools: HermesToolCall[]; thought: string; approvals: React.ComponentProps<typeof HermesApprovalCard>["request"][]; onApproval: (requestId: string, option: "allow_once" | "allow_session" | "deny") => void }) {
   return (
     <div className="hermes-message-list" role="log" aria-live="polite" aria-label="Hermes-Chat">
-      {messages.length === 0 && tools.length === 0 && !thought ? <div className="hermes-empty-chat"><HermesIcon className="hermes-empty-mark" /><strong>Womit soll Hermes beginnen?</strong><p>Ungebunden starten oder im Menü ein Projekt verbinden. Freigaben erscheinen direkt im Verlauf. System, Cron und Logs stehen oben in der Leiste.</p></div> : null}
+      {messages.length === 0 && tools.length === 0 && !thought ? <div className="hermes-empty-chat"><HermesIcon className="hermes-empty-mark" /><strong>Womit soll Hermes beginnen?</strong><p>Ungebunden starten oder im Menü ein Projekt verbinden. Freigaben erscheinen direkt im Verlauf. Aufgaben, Verlauf und Cron stehen oben in der Leiste.</p></div> : null}
       {messages.map((message) => (
         <article key={message.id} className={`hermes-message is-${message.role}`}>
           <div className="hermes-message-meta"><span>{roleLabel(message.role)}</span><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</time></div>
