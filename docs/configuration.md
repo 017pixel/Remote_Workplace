@@ -36,7 +36,6 @@ Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine
     "host": "127.0.0.1",
     "port": 9119,
     "proxyPrefix": "/hermes",
-    "defaultSurface": "admin",
     "updateTime": "04:15",
     "updateTimezone": "Europe/Berlin",
     "acpMaxSessions": 8,
@@ -45,18 +44,17 @@ Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine
 }
 ```
 
-`defaultSurface` bleibt als rückwärtskompatibles Konfigurationsfeld erhalten. Die Workbench
-öffnet Hermes standardmäßig in der **eigenen Oberfläche** mit den Flächen Chat, Aufgaben,
-Verlauf und Cron. Der native Chat bedient sich direkt an der ACP-Bridge unter
-`/api/v1/hermes/chat`; die offizielle Hermes-SPA bleibt als Fläche „Verwaltung" für
-Expertenfunktionen erreichbar (Einstellungen, Skills, Webhooks, Kanäle, Profile und mehr).
+Die Workbench öffnet Hermes ausschließlich in der offiziellen Hermes-SPA. Chat, Cron,
+Einstellungen, Skills, Webhooks, Kanäle, Profile und weitere Funktionen laufen damit über
+dieselbe eingebettete Oberfläche. Eine eigene Hermes-Agent-UI gibt es nicht mehr.
 
 Die Installationsroutine erkennt CLI, Checkout, virtuelle Python-Umgebung und `HERMES_HOME` und
 schreibt die erkannten Pfade atomar in die lokale Config. `host` muss Loopback sein, `port` darf
 nicht mit Workbench, T3 oder Preview-Ports kollidieren. Die Verwaltung läuft über den geschützten
 Pfad `/hermes`; deren sichtbarer Chat verwendet die offiziellen Hermes-WebSockets unter
 `/hermes/api/pty`, `/hermes/api/ws` und `/hermes/api/events`. Die ACP-Bridge unter
-`/api/v1/hermes/chat` ist zugleich die Basis des nativen Workbench-Chats.
+`/api/v1/hermes/chat` bleibt für interne Hintergrundaufgaben verfügbar und ist kein
+zweiter sichtbarer Chat.
 
 Folgende Env-Variablen können die nicht-sensiblen Defaults überschreiben:
 

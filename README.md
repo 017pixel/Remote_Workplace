@@ -38,7 +38,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 | Hermes Agent – Chat | Hermes Agent – System |
 |:--:|:--:|
 | ![Hermes Agent Chat](docs/screenshots/10-hermes-chat.png) | ![Hermes Agent System](docs/screenshots/11-hermes-system.png) |
-| Nativer Chat und die vollständige offizielle Hermes-Web-UI im eingebetteten Dashboard. | Host- und Dienstzustand des Hermes-Agenten: Version, Ressourcen und Gateway. |
+| Vollständige offizielle Hermes-Web-UI im eingebetteten Dashboard für Chat, Automatisierungen und Verwaltung. | Host- und Dienstzustand des Hermes-Agenten: Version, Ressourcen und Gateway. |
 
 ## Funktionen
 
@@ -54,7 +54,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Sidebar-Palette und Slash-Menü erzeugen Knoten per Klick oder Drag-and-drop; Inspector, Szenen und Undo/Redo ermöglichen freie Organisation.
 - Native `node-pty`-/xterm.js-Terminals mit Tailscale-Identität, tmux-Supervisor, serverseitiger Session-Registry, geräteübergreifender Wiederaufnahme, Resize, Verlauf und Reconnect.
 - Eigenständige Codex- und OpenCode-Seiten mit automatisch gestarteten CLIs, Projektbindung und bis zu vier persistenten Bento-Instanzen je Werkzeug.
-- Hermes-Agent als eigenständige Fläche: nativer ACP-Chat mit Freigaben im Verlauf, Sessionliste, Betriebszustandsanzeige und die vollständige offizielle Hermes-Verwaltung (System, Cron, Logs, Modelle, Skills, MCP u. a.) im eingebetteten Dashboard.
+- Hermes-Agent als eigenständige Fläche: die vollständige offizielle Hermes-SPA für Chat, Cron, Logs, Modelle, Skills, MCP und weitere Verwaltungsfunktionen im eingebetteten Dashboard.
 - Zentrale Inbox für Hermes, T3 Code, Codex, OpenCode, Claude Code und lange Terminal-Prozesse mit Live-Zustellung, sicheren Deep-Links, Swipe-Aktionen, Fehlerberichten und geräteübergreifendem Web-Push für Android und installierte iPadOS-PWAs. Jedes Gerät besitzt ein unabhängiges Abo und lässt sich einzeln testen oder deaktivieren.
 - Werkzeug „KI-Skills": globale Agenten-Regeln und alle Skills des Harness-Ordners im Browser bearbeiten, mit Autosave ohne Speichern-Knopf, Konflikterkennung, Skill-Gerüst im offiziellen Format, automatischer Verteilung per Symlink und Commit/Push ins Skills-Repository.
 - Dateimanager „Finder" als eigene Seite und Workbench-Werkzeug: Drei-Pane-Ansicht mit Verzeichnisbaum, Liste/Raster und Vorschau-Panel, serverseitig synchronisierter Zustand über Geräte hinweg, Quick Look per Leertaste (Code, Bilder, Video, Audio, PDF, HTML, Markdown) und Dateiaktionen im Server-Dateisystem (Umbenennen, Verschieben, Löschen, Upload, Download).

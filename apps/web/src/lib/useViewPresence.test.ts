@@ -20,6 +20,8 @@ describe("deriveViewPresence", () => {
       .toEqual([{ source: "hermes", sessionId: "sitzung-1" }]);
     expect(deriveViewPresence("/hermes-agent", "?session=sitzung-2", null, null, emptyAreas, noPanels, {}))
       .toEqual([{ source: "hermes", sessionId: "sitzung-2" }]);
+    expect(deriveViewPresence("/hermes-agent", "?path=%2Fchat%3Fresume%3Dsitzung-3", null, null, emptyAreas, noPanels, {}))
+      .toEqual([{ source: "hermes", sessionId: "sitzung-3" }]);
     expect(deriveViewPresence("/hermes-agent", "?session=sitzung-2", null, "sitzung-1", emptyAreas, noPanels, {}))
       .toEqual([{ source: "hermes", sessionId: "sitzung-1" }]);
   });

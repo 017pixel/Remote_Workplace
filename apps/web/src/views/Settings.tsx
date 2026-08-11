@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, HermesIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
+import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient, ApiClientError } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
@@ -15,7 +15,6 @@ import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } f
 import { useRouteActivity } from "../lib/routeActivity";
 import { useWebPushDevice } from "../lib/useWebPushDevice";
 import type { WebPushDeviceStatus } from "../lib/webPushDevice";
-import { useHermesStore } from "../stores/hermes";
 
 export function Settings() {
   const routeActive = useRouteActivity();
@@ -64,10 +63,6 @@ export function Settings() {
 
         <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
           <T3ChannelControls onJumpToRestart={jumpToRestart} />
-        </Card>
-
-        <Card title="Hermes Oberfläche" subtitle="Native Workbench-Flächen oder offizielle Hermes-SPA" action={<HermesIcon className="h-4 w-4 text-faint" />}>
-          <HermesUiModeSettings />
         </Card>
 
         <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
@@ -157,23 +152,6 @@ export function Settings() {
         <ConfirmDialog open={resetOpen} title="Workspace zurücksetzen?" description="Alle geöffneten Panels, Arbeitsflächen und Auswahlen werden lokal gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." confirmLabel="Workspace zurücksetzen" danger onConfirm={resetWorkspace} onClose={() => setResetOpen(false)} />
       </div>
     </div>
-  );
-}
-
-function HermesUiModeSettings() {
-  const uiMode = useHermesStore((state) => state.uiMode);
-  const setUiMode = useHermesStore((state) => state.setUiMode);
-  const official = uiMode === "official";
-  return (
-    <button type="button" className="settings-toggle-row" onClick={() => setUiMode(official ? "native" : "official")}>
-      <span>
-        <strong>Offizielle Hermes-SPA verwenden</strong>
-        <small>{official ? "Aktiv. Hermes läuft in der offiziellen Single-Page-Application." : "Aus. Hermes nutzt die Remote-Workplace-Oberfläche mit Chat, Aufgaben, Verlauf und Cron."}</small>
-      </span>
-      <span className={`settings-toggle-switch ${official ? "is-on" : ""}`} role="switch" aria-checked={official} aria-label="Hermes-Darstellung">
-        <span className="settings-toggle-thumb" />
-      </span>
-    </button>
   );
 }
 

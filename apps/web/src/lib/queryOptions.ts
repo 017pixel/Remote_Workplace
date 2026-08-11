@@ -15,13 +15,9 @@ export const workbenchQueries = {
   usageMonitoring: () =>
     queryOptions({ queryKey: ["system", "usage-monitoring"], queryFn: ({ signal }) => apiClient.usageMonitoring(signal), staleTime: 15_000 }),
   hermesStatus: () => queryOptions({ queryKey: ["hermes", "status"], queryFn: ({ signal }) => apiClient.hermesStatus(signal), refetchInterval: 30_000, staleTime: 10_000 }),
-  hermesSessions: (query = "") => queryOptions({ queryKey: ["hermes", "sessions", query], queryFn: ({ signal }) => apiClient.hermesSessions({ limit: 100, ...(query ? { q: query } : {}) }, signal), refetchInterval: 10_000, staleTime: 3_000 }),
   hermesTasks: () => queryOptions({ queryKey: ["hermes", "tasks"], queryFn: ({ signal }) => apiClient.hermesTasks(signal), refetchInterval: 6_000, staleTime: 2_000, refetchIntervalInBackground: false }),
   hermesCron: () => queryOptions({ queryKey: ["hermes", "cron"], queryFn: ({ signal }) => apiClient.hermesCron(signal), refetchInterval: 60_000, staleTime: 15_000, refetchIntervalInBackground: false }),
   hermesResults: (source?: string, status?: string) => queryOptions({ queryKey: ["hermes", "results", source ?? "all", status ?? "all"], queryFn: ({ signal }) => apiClient.hermesResults({ ...(source ? { source } : {}), ...(status ? { status } : {}) }, signal), refetchInterval: 20_000, staleTime: 5_000, refetchIntervalInBackground: false }),
-  hermesModels: () => queryOptions({ queryKey: ["hermes", "models"], queryFn: ({ signal }) => apiClient.hermesModels(signal), staleTime: 60_000 }),
-  hermesDiagnostics: () => queryOptions({ queryKey: ["hermes", "diagnostics"], queryFn: ({ signal }) => apiClient.hermesDiagnostics(signal), staleTime: 10_000 }),
-  hermesUpdateStatus: () => queryOptions({ queryKey: ["hermes", "update"], queryFn: ({ signal }) => apiClient.hermesUpdateStatus(signal), refetchInterval: 10_000, staleTime: 5_000 }),
   notifications: (unreadOnly = false) => queryOptions({ queryKey: ["notifications", unreadOnly], queryFn: ({ signal }) => apiClient.notifications({ unreadOnly }, signal), refetchInterval: 15_000, staleTime: 2_000 }),
   notificationSettings: () => queryOptions({ queryKey: ["notifications", "settings"], queryFn: ({ signal }) => apiClient.notificationSettings(signal), staleTime: 30_000 }),
   serverSummary: (refetchInterval = 30_000) =>

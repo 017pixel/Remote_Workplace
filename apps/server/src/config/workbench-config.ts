@@ -84,8 +84,6 @@ export const workbenchConfigSchema = z.object({
     dashboardServiceUnit: z.string().min(1).default("hermes-dashboard.service"),
     gatewayServiceUnit: z.string().min(1).default("hermes-gateway.service"),
     updateServiceUnit: z.string().min(1).default("hermes-update.service"),
-    // Legacy field. Hermes öffnet in der Workbench immer die offizielle SPA.
-    defaultSurface: z.enum(["chat", "admin"]).default("admin"),
     updateTime: z.string().regex(/^\d{2}:\d{2}$/).default("04:15"),
     updateTimezone: z.string().min(1).default("Europe/Berlin"),
     requestTimeoutSeconds: z.number().int().positive().default(20),

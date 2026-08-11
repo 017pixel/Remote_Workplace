@@ -25,6 +25,11 @@ import { elementContainsEventTarget } from "../../lib/domEvents";
 import { useRouteActivity } from "../../lib/routeActivity";
 import { hermesSourceLabels } from "../../lib/hermesPresentation";
 
+function hermesSessionRoute(sessionId: string): string {
+  const path = `/chat?resume=${encodeURIComponent(sessionId)}`;
+  return `/hermes-agent?path=${encodeURIComponent(path)}`;
+}
+
 const toolLabels: Record<NonNullable<Panel["type"]>, string> = {
   "t3-code": "T3 Code",
   "code-server": "Code-Server",
@@ -361,7 +366,7 @@ function HermesTasksNode({ id, selected }: { id: string; selected: boolean }) {
     {tasks.length ? <div className="orbit-hermes-list nodrag">
       {tasks.map((task) => <article className="orbit-hermes-list-item" key={task.id}>
         <div className="orbit-hermes-list-main"><strong>{task.title}</strong><small>{hermesSourceLabels[task.source]} · {task.model ?? "Modell unbekannt"}</small></div>
-        <div className="orbit-hermes-list-meta"><span>{task.runtimeSeconds}s</span><button type="button" className="orbit-hermes-action is-danger" disabled={!task.cancellable || cancelling === task.sessionId} onClick={() => void cancel(task)}>{cancelling === task.sessionId ? "Stoppt…" : "Stoppen"}</button><button type="button" className="orbit-hermes-action" onClick={() => navigate(`/hermes-agent?session=${encodeURIComponent(task.sessionId)}`)}>Öffnen</button></div>
+        <div className="orbit-hermes-list-meta"><span>{task.runtimeSeconds}s</span><button type="button" className="orbit-hermes-action is-danger" disabled={!task.cancellable || cancelling === task.sessionId} onClick={() => void cancel(task)}>{cancelling === task.sessionId ? "Stoppt…" : "Stoppen"}</button><button type="button" className="orbit-hermes-action" onClick={() => navigate(hermesSessionRoute(task.sessionId))}>Öffnen</button></div>
       </article>)}
     </div> : <HermesNodeState loading={query.isLoading} error={query.isError} empty="Keine laufenden Aufgaben." />}
   </NodeChrome>;
@@ -372,7 +377,7 @@ function HermesCronNode({ id, selected }: { id: string; selected: boolean }) {
   const navigate = useNavigate();
   const query = useQuery({ ...workbenchQueries.hermesCron(), enabled: routeActive });
   const jobs = query.data?.jobs ?? [];
-  const openJob = (job: HermesCronJob) => navigate(`/hermes-agent?surface=admin&path=${encodeURIComponent(job.adminPath)}`);
+  const openJob = (job: HermesCronJob) => navigate(`/hermes-agent?path=${encodeURIComponent(job.adminPath)}`);
   return <NodeChrome id={id} title="Hermes Automatisierungen" selected={selected}>
     {jobs.length ? <div className="orbit-hermes-list nodrag">{jobs.map((job) => <article className="orbit-hermes-list-item" key={job.id}>
       <div className="orbit-hermes-list-main"><strong>{job.name}</strong><small>{job.schedule || "Kein Zeitplan"} · {job.enabled ? "Aktiv" : "Pausiert"}</small></div>
@@ -392,7 +397,7 @@ function HermesResultsNode({ id, selected }: { id: string; selected: boolean }) 
   return <NodeChrome id={id} title="Hermes Ergebnisse" selected={selected}>
     {results.length ? <div className="orbit-hermes-list nodrag">{results.map((result: HermesResult) => <article className="orbit-hermes-list-item" key={result.id}>
       <div className="orbit-hermes-list-main"><strong>{result.title}</strong><small>{hermesSourceLabels[result.source]} · {hermesDate(result.finishedAt)}</small><p>{result.preview}</p></div>
-      <div className="orbit-hermes-list-meta"><span className={`orbit-hermes-status-text is-${result.status}`}>{result.status === "success" ? "Erfolg" : "Fehler"}</span><button type="button" className="orbit-hermes-action" onClick={() => navigate(`/hermes-agent?session=${encodeURIComponent(result.sessionId)}`)}>Öffnen</button></div>
+      <div className="orbit-hermes-list-meta"><span className={`orbit-hermes-status-text is-${result.status}`}>{result.status === "success" ? "Erfolg" : "Fehler"}</span><button type="button" className="orbit-hermes-action" onClick={() => navigate(hermesSessionRoute(result.sessionId))}>Öffnen</button></div>
     </article>)}</div> : <HermesNodeState loading={query.isLoading} error={query.isError} empty="Noch keine Ergebnisse." />}
   </NodeChrome>;
 }

@@ -112,7 +112,6 @@
     "dashboardServiceUnit": "hermes-dashboard.service",
     "gatewayServiceUnit": "hermes-gateway.service",
     "updateServiceUnit": "hermes-update.service",
-    "defaultSurface": "admin",
     "updateTime": "04:15",
     "updateTimezone": "Europe/Berlin",
     "requestTimeoutSeconds": 20,

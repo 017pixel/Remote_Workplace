@@ -39,7 +39,12 @@ export function deriveViewPresence(
   const items: NotificationPresenceItem[] = [];
   const params = new URLSearchParams(search);
   if (pathname === "/t3-code") items.push({ source: "t3", threadId: t3ThreadId });
-  if (pathname === "/hermes-agent") items.push({ source: "hermes", sessionId: hermesSessionId ?? params.get("session") });
+  if (pathname === "/hermes-agent") {
+    const legacySessionId = params.get("session");
+    const officialPath = params.get("path");
+    const resume = officialPath?.includes("?") ? new URLSearchParams(officialPath.slice(officialPath.indexOf("?") + 1)).get("resume") : null;
+    items.push({ source: "hermes", sessionId: hermesSessionId ?? legacySessionId ?? resume });
+  }
   if (pathname === "/terminal") {
     const source = params.get("kind") === "claude" ? "claude" : "terminal";
     const area = terminalAreas.standalone;

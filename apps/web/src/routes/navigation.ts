@@ -38,7 +38,7 @@ export const primaryNavItems: NavItem[] = [
 
 export const toolRouteItems: NavItem[] = [
   { to: "/t3-code", label: "T3 Code", description: "Codex-Arbeitsumgebung", icon: T3CodeIcon },
-  { to: "/hermes-agent", label: "Hermes Agent", description: "Agent, Automatisierungen und Serververwaltung", icon: HermesIcon },
+  { to: "/hermes-agent", label: "Hermes Agent", description: "Offizielle Hermes-SPA für Chat, Automatisierungen und Verwaltung", icon: HermesIcon },
   { to: "/code-editor", label: "Code-Server", description: "VS Code im Browser", icon: CodeServerIcon },
   { to: "/terminal", label: "Terminal", description: "Interaktive Server-Shell", icon: TerminalIcon },
   { to: "/opencode", label: "OpenCode", description: "OpenCode CLI im Browser", icon: OpenCodeIcon },
