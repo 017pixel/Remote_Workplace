@@ -57,7 +57,7 @@ test("zeigt aktiven Kanal und Version ohne Neustart-Hinweis", async ({ page }) =
 
   const card = page.locator("section.document-section").filter({ hasText: "T3 Code Kanal" });
   await expect(card.getByText("Stable · v0.0.28")).toBeVisible();
-  await expect(card.getByRole("button", { name: /Stable/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByRole("radio", { name: /Stable/ })).toHaveAttribute("aria-checked", "true");
   await expect(card.getByText("Neustart erforderlich")).toBeHidden();
 });
 
@@ -66,7 +66,7 @@ test("speichert Nightly, startet aber nichts neu und verweist auf die Neustart-B
   await stubChannelApi(page, status(), saved);
 
   const card = page.locator("section.document-section").filter({ hasText: "T3 Code Kanal" });
-  await card.getByRole("button", { name: /Nightly/ }).click();
+  await card.getByRole("radio", { name: /Nightly/ }).click();
 
   expect(saved).toEqual(["nightly"]);
   await expect(card.getByText("Neustart erforderlich")).toBeVisible();
@@ -92,6 +92,6 @@ test("meldet eine fehlende Installation, lässt den Umschalter aber nutzbar", as
   await expect(card.getByText("nicht erreichbar")).toBeVisible();
   await expect(card.getByText("Neustart erforderlich")).toBeVisible();
 
-  await card.getByRole("button", { name: /Nightly/ }).click();
+  await card.getByRole("radio", { name: /Nightly/ }).click();
   expect(saved).toEqual(["nightly"]);
 });

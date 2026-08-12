@@ -404,7 +404,7 @@ kbd { font-variant-numeric: tabular-nums; }
   .inbox-desktop-table { display: none; }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-height: 430px) and (pointer: coarse) {
   .ui-tab { min-height: 44px; }
   .dash-link { min-height: 44px; }
   .project-picker-trigger { padding-block: 0; }

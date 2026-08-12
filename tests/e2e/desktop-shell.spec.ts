@@ -23,7 +23,8 @@ test("moves standalone T3 Code actions into the topbar", async ({ page }) => {
   await expect(actions).toBeVisible();
   await expect(page.getByRole("button", { name: "Projekt auswählen" })).toHaveCount(0);
   await actions.getByRole("button", { name: "Werkzeugaktionen" }).click();
-  const menu = actions.getByRole("menu", { name: "Werkzeugaktionen" });
+  // Base UI rendert Menüs absichtlich in ein Portal unter document.body.
+  const menu = page.getByRole("menu", { name: "Werkzeugaktionen" });
   await expect(menu.getByRole("menuitem", { name: "Neu laden" })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "In neuem Tab öffnen" })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Vollbild" })).toBeVisible();

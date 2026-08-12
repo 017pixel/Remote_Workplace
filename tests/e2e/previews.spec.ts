@@ -209,7 +209,9 @@ test.describe("Lokale Previews", () => {
 
       await page.goto("/workbench/previews");
       await expect(page.getByRole("heading", { name: "Preview Übersicht" })).toHaveCount(0);
-      await expect(page.locator(".topbar").getByRole("button", { name: "Remote Workplace", exact: true })).toBeVisible();
+      await expect(
+        page.locator(".topbar").getByRole("combobox", { name: "Projekt" }),
+      ).toHaveValue("Remote Workplace");
 
       const publicUrl = page.locator(".preview-hub-urlbar code");
       await expect(publicUrl).toHaveText(/^https?:\/\/[^/]+:\d+\/$/);
