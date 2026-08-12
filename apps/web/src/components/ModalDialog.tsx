@@ -1,7 +1,6 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CloseIcon } from "./icons";
-import { useModalFocus } from "../lib/useModalFocus";
 
 export interface ModalFrameProps {
   open: boolean;
@@ -14,11 +13,8 @@ export interface ModalFrameProps {
 }
 
 export function ModalFrame({ open, title, description, className, backdropClassName, onClose, children }: ModalFrameProps) {
-  const frameRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const historyId = useRef(`modal-${Math.random().toString(36).slice(2)}`);
-  const titleId = useId();
-  const descriptionId = useId();
   closeRef.current = onClose;
 
   const requestClose = () => {
@@ -26,8 +22,6 @@ export function ModalFrame({ open, title, description, className, backdropClassN
     if (state?.workbenchModal === historyId.current) window.history.back();
     else closeRef.current();
   };
-  useModalFocus(frameRef, open, requestClose);
-
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
@@ -41,20 +35,21 @@ export function ModalFrame({ open, title, description, className, backdropClassN
     };
   }, [open]);
 
-  if (!open) return null;
-  /* Über einen Portal an <body>, damit transformierte Eltern (z. B. Karten mit Hover-Transform)
-     kein neues Bezugssystem für position:fixed aufspannen und der Dialog immer mittig sitzt. */
-  return createPortal(
-    <div className={`modal-backdrop ${backdropClassName ?? ""}`} role="presentation" onPointerDown={requestClose}>
-      <div ref={frameRef} className={`modal-sheet ${className ?? ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} onPointerDown={(event) => event.stopPropagation()}>
+  return (
+    <BaseDialog.Root open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
+      <BaseDialog.Portal>
+        <BaseDialog.Backdrop className={`modal-backdrop ${backdropClassName ?? ""}`} />
+        <BaseDialog.Viewport className="modal-viewport">
+          <BaseDialog.Popup className={`modal-sheet ${className ?? ""}`}>
         <header>
-          <div><h2 id={titleId}>{title}</h2>{description ? <p id={descriptionId}>{description}</p> : null}</div>
+          <div><BaseDialog.Title>{title}</BaseDialog.Title>{description ? <BaseDialog.Description>{description}</BaseDialog.Description> : null}</div>
           <button type="button" className="icon-button" onClick={requestClose} aria-label="Dialog schließen"><CloseIcon className="h-5 w-5" /></button>
         </header>
         {children(requestClose)}
-      </div>
-    </div>,
-    document.body,
+          </BaseDialog.Popup>
+        </BaseDialog.Viewport>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
   );
 }
 

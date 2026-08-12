@@ -27,7 +27,7 @@
   --color-ink-750: rgb(255 255 255 / .06);
   --color-ink-700: rgb(255 255 255 / .08);
   --color-ink-600: rgb(255 255 255 / .12);
-  --color-line: rgb(255 255 255 / .06);
+  --color-line: rgb(255 255 255 / .075);
   --color-line-soft: rgb(255 255 255 / .04);
 
   --color-text: #f5f5f5;
@@ -83,13 +83,12 @@
   --space-12: 56px;
   --space-16: 80px;
 
-  /* 3. Radius-Skala — terminalnahe Kanten: große Flächen 4px, Buttons und
-     Kleinteile 2px. --radius-pill bleibt nur für funktionale Dots reserviert. */
-  --radius: .25rem;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: .25rem;
-  --radius-xl: .25rem;
+  /* 3. Radius-Skala: kompakte COSS-Geometrie ohne Bubble-Ästhetik. */
+  --radius: .5rem;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
   --radius-pill: 999px;
 
   /* 4. Elevation — auf der dunkleren Basis darf der Schatten tiefer sein. */
@@ -102,7 +101,7 @@
   --ease-emphasized: cubic-bezier(.2, .8, .2, 1);
   --duration-fast: 120ms;
   --duration-base: 180ms;
-  --duration-slow: 320ms;
+  --duration-slow: 240ms;
 
   /* 6. Surface-Rollen (semantische Aliase auf die Ink-Skala) */
   --surface-base: #0a0a0a;
@@ -1011,10 +1010,9 @@ a:hover .app-icon,
   @keyframes news-spin { to { transform: rotate(360deg); } }
   @keyframes news-shimmer { from { transform: translateX(-100%); } to { transform: translateX(220%); } }
   .is-spinning { animation: news-spin 1s linear infinite; }
-  /* Kein Trennstrich, sondern ein Auslaufen nach unten — harte Kanten sollen im Feed nicht vorkommen.
-     Tönung und Blur sitzen auf einer maskierten Ebene, damit nur der Hintergrund ausblendet, nicht der Inhalt. */
+  /* Die opake Kopfebene hält Suche und Navigation auf bewegten Inhalten lesbar. */
   .news-page-header { position: sticky; z-index: 16; top: 0; display: grid; grid-template-columns: auto minmax(280px, 600px) auto; align-items: center; gap: 24px; min-height: 76px; padding: 12px clamp(24px, 4vw, 64px) 18px; }
-  .news-page-header::before { position: absolute; z-index: -1; inset: 0 0 -22px; background: linear-gradient(180deg, rgb(10 10 10 / .96) 0%, rgb(10 10 10 / .9) 52%, rgb(10 10 10 / 0) 100%); content: ""; backdrop-filter: blur(22px) saturate(140%); mask-image: linear-gradient(180deg, black 0%, black 58%, transparent 100%); pointer-events: none; }
+  .news-page-header::before { position: absolute; z-index: -1; inset: 0 0 -22px; background: rgb(10 10 10 / .96); content: ""; backdrop-filter: blur(22px) saturate(140%); pointer-events: none; }
   .news-title-lockup { display: flex; align-items: center; gap: 12px; }
   .news-title-mark { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); background: var(--color-accent-soft); color: var(--color-accent); }
   .news-title-mark svg { width: 19px; }
@@ -1033,8 +1031,8 @@ a:hover .app-icon,
   .news-sync-button svg { display: block; width: 15px; height: 15px; margin: 0; }
   .news-command-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 18px clamp(24px, 4vw, 64px) 0; }
   .news-sync-error { display: flex; max-width: 880px; min-height: 44px; align-items: center; gap: 10px; margin: 14px auto 0; border: 1px solid var(--color-bad); border-radius: var(--radius-md); background: var(--color-bad-soft); padding: 10px 14px; color: var(--color-bad); font-size: var(--text-sm); }
-  /* Weiche Kante statt hartem Abschnitt: Die Leiste scrollt, das muss man sehen. */
-  .news-category-rail { display: flex; min-width: 0; flex: 1; gap: 5px; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(to right, black 0, black calc(100% - 64px), transparent 100%); }
+  /* Die Kategorien bleiben als ruhige, horizontal scrollbare Reihe sichtbar. */
+  .news-category-rail { display: flex; min-width: 0; flex: 1; gap: 5px; overflow-x: auto; scrollbar-width: none; }
   .news-category-rail::-webkit-scrollbar { display: none; }
   .news-category-rail button, .news-filter-trigger { min-height: 37px; flex: none; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; padding: 0 14px; color: var(--color-faint); font-size: 11px; font-weight: 580; white-space: nowrap; transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out; }
   .news-collection-rail button { display: flex; align-items: center; gap: 7px; border-color: var(--color-line); background: var(--color-ink-900); }
@@ -1043,9 +1041,9 @@ a:hover .app-icon,
   .news-collection-rail button.is-active small { background: var(--color-accent-line); color: var(--color-text); }
   .news-category-rail button:hover, .news-filter-trigger:hover, .news-filter-trigger.is-active { border-color: var(--color-line); background: var(--color-ink-850); color: var(--color-text); }
   .news-category-rail button.is-active { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
-  /* Der Knopf sitzt über der auslaufenden Leiste; der Verlauf davor ersetzt die frühere harte Kante. */
+  /* Die feste Fläche trennt den Filterknopf zuverlässig von der scrollenden Reihe. */
   .news-filter-trigger { position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; }
-  .news-filter-trigger::before { position: absolute; top: -14px; right: -10px; bottom: -14px; left: -46px; z-index: -1; background: linear-gradient(to right, rgb(10 10 10 / 0) 0%, rgb(10 10 10 / .82) 46%, rgb(10 10 10 / .95) 100%); content: ""; mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%); pointer-events: none; }
+  .news-filter-trigger::before { position: absolute; top: -14px; right: -10px; bottom: -14px; left: -10px; z-index: -1; background: rgb(10 10 10 / .95); content: ""; pointer-events: none; }
   .news-filter-trigger svg { width: 14px; height: 14px; flex: none; }
   .news-filter-trigger svg:last-child { width: 12px; height: 12px; }
   .news-filter-panel { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px clamp(24px, 4vw, 64px) 0; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 12px; animation: news-fade-in 180ms ease-out; }
@@ -1129,7 +1127,7 @@ a:hover .app-icon,
   .news-collection-preview .news-cover::after { display: none; }
   .news-collection-preview .news-cover-fallback { justify-content: center; padding: 6px; }
   .news-collection-preview .news-cover-fallback span, .news-collection-preview .news-cover-fallback strong { display: none; }
-  .news-collection-shade { position: absolute; z-index: 1; inset: 0; background: linear-gradient(105deg, rgb(12 12 12 / .96) 30%, rgb(12 12 12 / .72) 100%); }
+  .news-collection-shade { position: absolute; z-index: 1; inset: 0; background: rgb(12 12 12 / .84); }
   .news-collection-open > svg, .news-collection-open > span { position: relative; z-index: 2; }
   .news-collection-delete { position: absolute; z-index: 6; top: 50%; right: 10px; display: grid; width: 34px; min-height: 34px; place-items: center; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--color-faint); transform: translateY(-50%); opacity: 0; transition: border-color 150ms ease-out, color 150ms ease-out, opacity 160ms ease-out; }
   .news-collection-card:hover .news-collection-delete, .news-collection-delete:focus-visible { opacity: 1; }
@@ -1284,7 +1282,7 @@ a:hover .app-icon,
   /* --- KI-Recherche: eigene Seite statt Popup ------------------------------- */
   .news-ai-page { position: relative; width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
   .news-ai-header { position: relative; z-index: 2; display: flex; min-height: 68px; align-items: center; gap: 12px; padding: 14px clamp(18px, 3vw, 34px) 12px; }
-  .news-ai-header::after { position: absolute; right: 0; bottom: -26px; left: 0; height: 26px; background: linear-gradient(180deg, rgb(10 10 10 / .55), rgb(10 10 10 / 0)); content: ""; pointer-events: none; }
+  .news-ai-header::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 1px; background: var(--color-line); content: ""; pointer-events: none; }
   .news-ai-title { display: flex; min-width: 0; flex: 1; align-items: center; gap: 11px; }
   .news-ai-title > svg { width: 20px; height: 20px; flex: none; color: var(--color-accent); }
   .news-ai-title strong, .news-ai-title small { display: block; }
@@ -1325,7 +1323,7 @@ a:hover .app-icon,
   /* Nur der Touch-Shell vorbehalten — am Desktop steht die Quellenspalte rechts. */
   .news-source-pills { display: none; }
   .news-ai-sources { min-height: 0; display: flex; flex-direction: column; overflow-y: auto; border-left: 1px solid var(--color-line-soft); padding: 8px 18px 24px; }
-  .news-ai-sources > header { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; gap: 8px; background: linear-gradient(180deg, var(--color-ink-950) 62%, transparent); padding: 10px 0 14px; color: var(--color-faint); }
+  .news-ai-sources > header { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; gap: 8px; background: var(--color-ink-950); padding: 10px 0 14px; color: var(--color-faint); }
   .news-ai-sources > header svg { width: 15px; }
   .news-ai-sources > header strong { color: var(--color-text); font-size: 11px; font-weight: 640; letter-spacing: .06em; text-transform: uppercase; }
   .news-ai-sources > header small { display: grid; min-width: 19px; height: 19px; place-items: center; border-radius: var(--radius-sm); background: var(--color-ink-800); color: var(--color-muted); font-size: 9px; font-weight: 650; }
@@ -1341,7 +1339,7 @@ a:hover .app-icon,
   .news-source-copy small { display: block; margin-top: 4px; color: var(--color-faint); font-size: 10px; }
   /* Rechts wird die Quellenspalte ausgespart, damit die Eingabe unter dem Gespräch sitzt und nicht darüber hinausrutscht. */
   .news-ai-composer { position: relative; z-index: 2; flex: none; padding: 10px clamp(18px, 3vw, 34px) calc(96px + env(safe-area-inset-bottom)); padding-right: calc(320px + clamp(18px, 3vw, 34px)); }
-  .news-ai-composer::before { position: absolute; right: 0; bottom: 100%; left: 0; height: 34px; background: linear-gradient(180deg, rgb(10 10 10 / 0), rgb(10 10 10 / .9)); content: ""; pointer-events: none; }
+  .news-ai-composer::before { position: absolute; right: 0; bottom: 100%; left: 0; height: 1px; background: var(--color-line); content: ""; pointer-events: none; }
   .news-ai-composer-field { display: flex; max-width: 760px; align-items: flex-end; gap: 8px; margin: 0 auto; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 7px 7px 7px 16px; transition: border-color 200ms ease-out, box-shadow 200ms ease-out; }
   .news-ai-composer-field:focus-within { border-color: var(--color-accent-line); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent) 10%, transparent); }
   .news-ai-composer-field > svg { width: 17px; height: 17px; flex: none; align-self: center; color: var(--color-accent); }
@@ -1385,8 +1383,8 @@ a:hover .app-icon,
 
 @media (max-width: 1180px) {
   .news-surface-list { overflow: hidden; }
-  /* Ein durchgehender Verlauf bis unter die Filterpillen statt einer abgeschnittenen Fläche. */
-  .news-surface-list::before { position: absolute; z-index: 15; top: 0; right: 0; left: 0; height: calc(206px + env(safe-area-inset-top)); background: linear-gradient(180deg, rgb(9 9 9 / .97) 0%, rgb(9 9 9 / .95) 42%, rgb(9 9 9 / .82) 62%, rgb(9 9 9 / .45) 80%, rgb(9 9 9 / .12) 92%, rgb(9 9 9 / 0) 100%); content: ""; pointer-events: none; }
+  /* Eine durchgehende opake Ebene hält Suche und Filter auf Mobilgeräten lesbar. */
+  .news-surface-list::before { position: absolute; z-index: 15; top: 0; right: 0; left: 0; height: calc(206px + env(safe-area-inset-top)); background: rgb(9 9 9 / .94); content: ""; pointer-events: none; }
   .news-page-header { position: absolute; top: 0; right: 0; left: 0; min-height: 62px; grid-template-columns: 1fr auto; gap: 8px; background: transparent; padding: calc(8px + env(safe-area-inset-top)) 14px 8px calc(58px + env(safe-area-inset-left)); box-shadow: none; backdrop-filter: none; }
   .news-page-header::before { display: none; }
   .news-title-mark { width: 36px; height: 36px; }
@@ -1395,9 +1393,8 @@ a:hover .app-icon,
   .news-desktop-search { position: absolute; top: calc(58px + env(safe-area-inset-top)); right: 14px; left: 14px; height: 44px; border-color: rgb(255 255 255 / .12); background: rgb(10 10 10 / .82); box-shadow: none; backdrop-filter: blur(18px) saturate(140%); }
   .news-sync-button { width: 40px; height: 40px; min-height: 40px; border-color: rgb(255 255 255 / .12); background: rgb(10 10 10 / .72); backdrop-filter: blur(18px); }
   .news-command-row { position: absolute; z-index: 18; top: calc(107px + env(safe-area-inset-top)); right: 0; left: 0; padding: 6px 14px 10px; box-shadow: none; }
-  .news-category-rail { gap: 6px; mask-image: linear-gradient(to right, black 0, black calc(100% - 72px), transparent 100%); }
-  /* Kein backdrop-filter in der Leiste: Zusammen mit der Verlaufsmaske des Rails würde Chrome
-     den kompletten Maskenbereich als Rechteck filtern — genau die harte Kante, die hier weg soll. */
+  .news-category-rail { gap: 6px; }
+  /* Kein backdrop-filter in der Leiste, damit Chrome keine zusätzliche Rechteckfläche zeichnet. */
   .news-category-rail button { min-height: 38px; border-color: rgb(255 255 255 / .12); background: rgb(12 12 12 / .82); color: var(--color-muted); }
   .news-category-rail button.is-active { border-color: var(--color-accent-line); background: rgb(37 48 59 / .85); color: var(--color-accent); }
   .news-collection-rail button { min-height: 44px; background: rgb(10 10 10 / .88); }
@@ -1406,7 +1403,7 @@ a:hover .app-icon,
   .news-filter-trigger { display: grid; width: 42px; min-height: 42px; place-items: center; gap: 0; border-color: rgb(255 255 255 / .12); border-radius: var(--radius-sm); background: rgb(12 12 12 / .9); padding: 0; line-height: 0; }
   .news-filter-trigger > span, .news-filter-trigger svg:last-child { display: none; }
   .news-filter-trigger svg { display: block; width: 16px; height: 16px; margin: 0; }
-  .news-filter-trigger::before { top: -18px; right: -14px; bottom: -18px; left: -54px; background: linear-gradient(to right, rgb(9 9 9 / 0) 0%, rgb(9 9 9 / .5) 50%, rgb(9 9 9 / .72) 100%); }
+  .news-filter-trigger::before { top: -18px; right: -14px; bottom: -18px; left: -14px; background: rgb(9 9 9 / .94); }
   .news-filter-panel { position: absolute; z-index: 30; top: calc(158px + env(safe-area-inset-top)); right: 14px; left: 14px; margin: 0; border-radius: var(--radius-sm); background: rgb(24 24 24 / .96); backdrop-filter: blur(22px); }
   .news-filter-panel label { flex: 1; flex-direction: column; align-items: stretch; }
   .news-ask-bar, .news-saved-stats { display: none; }
@@ -1428,7 +1425,7 @@ a:hover .app-icon,
   .news-collection-preview .news-cover-fallback span, .news-collection-preview .news-cover-fallback strong { display: none; }
   /* Die Vorschau bleibt Stimmungsbild — der Name muss ohne Anstrengung lesbar sein. */
   .news-collection-preview { opacity: .6; }
-  .news-collection-shade { position: absolute; z-index: 1; inset: 0; background: linear-gradient(180deg, rgb(8 8 8 / .55) 0%, rgb(8 8 8 / .78) 46%, rgb(8 8 8 / .95) 100%); }
+  .news-collection-shade { position: absolute; z-index: 1; inset: 0; background: rgb(8 8 8 / .84); }
   .news-collection-card > svg:first-of-type { position: absolute; z-index: 2; top: 14px; left: 14px; width: 22px; height: 22px; color: var(--color-accent); }
   .news-collection-card > span { position: relative; z-index: 2; display: block; align-self: end; min-width: 0; padding-right: 20px; }
   .news-collection-card strong { font-size: 15px; line-height: 1.1; white-space: normal; }
@@ -1460,8 +1457,8 @@ a:hover .app-icon,
   .news-story > .news-cover::after { display: none; }
   .news-story > .news-cover .news-cover-fallback { justify-content: center; padding: 28px; }
   .news-story > .news-cover .news-cover-fallback span, .news-story > .news-cover .news-cover-fallback strong { display: none; }
-  /* Trägt die Lesbarkeit auch über hellen Aufmachern: unten fast deckend, oben restlos offen. */
-  .news-story-scrim { position: absolute; z-index: 2; inset: 0; background: linear-gradient(to top, rgb(4 4 4 / .98) 0%, rgb(5 5 5 / .95) 26%, rgb(7 7 7 / .82) 44%, rgb(9 9 9 / .5) 60%, rgb(10 10 10 / .18) 76%, rgb(10 10 10 / 0) 92%); pointer-events: none; }
+  /* Die gleichmäßige Abdunklung hält Text auch auf hellen Aufmachern lesbar. */
+  .news-story-scrim { position: absolute; z-index: 2; inset: 0; background: rgb(4 4 4 / .72); pointer-events: none; }
   .news-story-copy { position: absolute; z-index: 3; right: 0; bottom: calc(96px + env(safe-area-inset-bottom)); left: 0; max-height: calc(100% - 170px - env(safe-area-inset-top)); padding: 22px 20px; }
   .news-story-copy > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--color-text); font-size: 9px; font-weight: 650; letter-spacing: .04em; text-shadow: 0 1px 8px rgb(0 0 0 / .72); text-transform: uppercase; }
   .news-story-copy h2 { display: -webkit-box; overflow: hidden; margin: 14px 0 22px; color: var(--color-text); font-size: clamp(2rem, 7vw, 3.15rem); font-weight: 650; letter-spacing: -.052em; line-height: 1.02; text-shadow: 0 2px 16px rgb(0 0 0 / .78); text-wrap: balance; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
@@ -1480,7 +1477,7 @@ a:hover .app-icon,
   .news-story .news-cover img { transition: transform 620ms cubic-bezier(.16,1,.3,1); }
   .news-story:not(.is-active) .news-cover img { transform: scale(1.07); }
   .news-story-progress { position: absolute; z-index: 20; right: 0; bottom: calc(80px + env(safe-area-inset-bottom)); left: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; pointer-events: none; }
-  .news-story-progress-track { height: 2px; flex: 1; overflow: hidden; border-radius: 2px; background: rgb(255 255 255 / .12); mask-image: linear-gradient(to right, black 0, black 82%, transparent 100%); }
+  .news-story-progress-track { height: 2px; flex: 1; overflow: hidden; border-radius: 2px; background: rgb(255 255 255 / .12); }
   .news-story-progress-track i { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left; background: var(--color-text); transition: transform 420ms cubic-bezier(.16,1,.3,1); }
   .news-story-progress > span { display: inline-flex; align-items: baseline; gap: 2px; color: rgb(255 255 255 / .58); font-size: 10px; font-weight: 620; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
   .news-dynamic-island { width: min(320px, calc(100vw - 32px)); }
@@ -1843,14 +1840,9 @@ a:hover .app-icon,
   .app-shell.is-orbit .sidebar-shell { display: none; }
   .app-shell.is-orbit .orbit-app-menu { display: inline-flex !important; }
   .orbit-app-menu { position: absolute; z-index: 55; top: calc(8px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); width: 44px; height: 44px; margin: 0; border: 1px solid var(--color-ink-600); border-radius: 10px; background: rgb(30 30 30 / .97); box-shadow: 0 8px 22px rgb(0 0 0 / .25); }
-  /* Die Insel ist so breit wie ihr Inhalt und nicht wie der Bildschirm — auf dem
-     iPad stand sonst eine fast leere Leiste über der ganzen Breite. Passt der
-     Inhalt nicht, scrollt sie und zeigt an der Kante eine Verlaufsblende. */
-  /* Oben mittig — wie am Desktop. Die Insel war links am Menüknopf verankert und
-     lief mit ihrer Verlaufskante nach rechts aus dem Bild. Der Platz links neben
-     dem Menüknopf und rechts neben den Schnellaktionen bleibt frei, indem die
-     Breite entsprechend gedeckelt wird; erst wenn der Inhalt darüber hinausgeht,
-     scrollt sie und zeigt die weiche Kante. */
+  /* Die Insel ist nur so breit wie ihr Inhalt und bleibt wie am Desktop mittig.
+     Der freie Platz neben Menü und Schnellaktionen begrenzt ihre Breite; längere
+     Inhalte scrollen innerhalb dieser Grenze. */
   .orbit-main-island {
     top: calc(8px + env(safe-area-inset-top));
     right: auto;
@@ -3450,9 +3442,8 @@ a:hover .app-icon,
   .app-shell[data-shell-mode="compact"] .news-story-copy,
   .app-shell[data-shell-mode="tablet"] .news-story-copy { padding-bottom: 96px; }
 
-  /* Weiche Kante an der Tastenreihe, damit sichtbar ist, dass sie seitlich
-     weiterscrollt. */
-  .terminal-keybar-keys { mask-image: linear-gradient(to right, black 0, black calc(100% - 20px), transparent 100%); }
+  /* Die Tastenreihe bleibt ohne dekorative Maskierung seitlich scrollbar. */
+  .terminal-keybar-keys { mask-image: none; }
 
   /* Ist nur eine Sitzung offen, muss die Tab-Leiste sich nicht über die ganze
      Breite ziehen — auf dem iPad stand dort ein leerer Balken. */
@@ -3583,7 +3574,7 @@ a:hover .app-icon,
 .orbit-gallery--media .orbit-gallery-card.is-image .orbit-gallery-card-meta {
   position: absolute; inset: auto 0 0 0; z-index: 2; gap: 1px;
   padding: 20px 12px 9px;
-  background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,.4) 55%, transparent);
+  background: rgb(0 0 0 / .8);
   opacity: 0; transform: translateY(6px); transition: opacity .16s ease, transform .16s ease;
 }
 .orbit-gallery--media .orbit-gallery-card.is-image .orbit-gallery-card-meta strong { color: var(--color-text); }

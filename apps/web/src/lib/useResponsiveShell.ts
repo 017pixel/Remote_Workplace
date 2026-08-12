@@ -53,10 +53,17 @@ export function useResponsiveShell() {
     const compact = state.width <= 767 || phoneLandscape;
     const tablet = !compact && (state.width <= 1180 || (state.coarsePointer && state.width <= 1366));
     const mode: ShellMode = compact ? "compact" : tablet ? "tablet" : "desktop";
+    const orientation = (state.width > state.height ? "landscape" : "portrait") as ShellOrientation;
+    const deviceMode = mode === "compact"
+      ? "phone"
+      : mode === "tablet"
+        ? orientation === "portrait" ? "tablet-portrait" : "tablet-landscape"
+        : "desktop";
 
     return {
       mode,
-      orientation: (state.width > state.height ? "landscape" : "portrait") as ShellOrientation,
+      deviceMode,
+      orientation,
       shortHeight: state.height <= 600,
       isTouchShell: mode !== "desktop",
       inputMode: state.coarsePointer || !state.finePointer ? "touch" : "fine",

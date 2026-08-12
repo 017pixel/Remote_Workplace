@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRightIcon, MenuIcon, RestoreIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
+import { MobileBottomNav } from "./MobileBottomNav";
+import { TabletRail } from "./TabletRail";
 import { StatusBar } from "./StatusBar";
 import { useSidebarLayout } from "../lib/useSidebarLayout";
 import { PersistentOutlet } from "./PersistentOutlet";
@@ -164,7 +166,7 @@ export function AppShell() {
   const navigationSwipeStart = useRef<{ x: number; y: number } | null>(null);
   const sidebar = useSidebarLayout();
   const responsive = useResponsiveShell();
-  const showNavigationTrigger = responsive.isTouchShell && !mobileNavigationOpen;
+  const showNavigationTrigger = responsive.deviceMode === "tablet-portrait" && !mobileNavigationOpen;
   useVisualViewportVariables();
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
   const queryClient = useQueryClient();
@@ -220,6 +222,7 @@ export function AppShell() {
     <div
       className={`app-shell ${isOrbit ? "is-orbit" : ""}`}
       data-shell-mode={responsive.mode}
+      data-device-mode={responsive.deviceMode}
       data-input-mode={responsive.inputMode}
       data-orientation={responsive.orientation}
       data-short-height={responsive.shortHeight ? "true" : "false"}
@@ -243,12 +246,12 @@ export function AppShell() {
       <NotificationCenter />
       <ViewPresenceReporter />
       <WorkbenchNotice />
-      {responsive.mode === "desktop" ? <Sidebar
-        collapsed={sidebar.collapsed}
-        width={sidebar.width}
+      {responsive.mode === "desktop" || (responsive.mode === "tablet" && responsive.orientation === "landscape") ? <Sidebar
+        collapsed={responsive.mode === "desktop" ? sidebar.collapsed : false}
+        width={responsive.mode === "desktop" ? sidebar.width : 210}
         onToggle={sidebar.toggleCollapsed}
         onResize={sidebar.setWidth}
-      /> : null}
+      /> : responsive.mode === "tablet" ? <TabletRail onMore={() => setMobileNavigationOpen(true)} /> : null}
       <div
         className={`content-column ${isOrbit ? "is-orbit" : ""}`}
         inert={mobileNavigationOpen ? true : undefined}
@@ -286,6 +289,7 @@ export function AppShell() {
         {responsive.mode === "desktop" ? <StatusBar /> : null}
       </div>
       {terminalFocus ? <button type="button" className="terminal-focus-exit" onClick={() => setTerminalFocus(false)} aria-label="Vollbild verlassen" title="Vollbild verlassen"><RestoreIcon className="h-4 w-4" /></button> : null}
+      {responsive.mode === "compact" && !terminalFocus ? <MobileBottomNav moreRef={navigationTriggerRef} onMore={() => setMobileNavigationOpen(true)} /> : null}
       <MobileNav open={mobileNavigationOpen} onClose={closeMobileNavigation} triggerRef={navigationTriggerRef} />
     </div>
   );

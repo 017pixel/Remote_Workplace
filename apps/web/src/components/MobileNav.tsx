@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router";
-import { CloseIcon } from "./icons";
+import { CloseIcon, SearchIcon } from "./icons";
 import { navSections, type NavItem } from "../routes/navigation";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
 import { workbenchQueries } from "../lib/queryOptions";
@@ -41,6 +41,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   // verschwindet, sondern nach links hinausgleitet, während die gewählte
   // Ansicht von rechts nachrückt.
   const [phase, setPhase] = useState<"closed" | "open" | "closing">(open ? "open" : "closed");
+  const [search, setSearch] = useState("");
   // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
   const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
   const notifications = useQuery(workbenchQueries.notifications());
@@ -48,9 +49,11 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
     ...section,
     items: section.items.filter((item) => {
       const routeId = pathToRouteId(item.to);
-      return routeId === null || isPageVisibleIn(hiddenPages, routeId);
+      const visible = routeId === null || isPageVisibleIn(hiddenPages, routeId);
+      const query = search.trim().toLocaleLowerCase("de");
+      return visible && (!query || `${item.label} ${item.description}`.toLocaleLowerCase("de").includes(query));
     }),
-  })).filter((section) => section.items.length > 0), [hiddenPages]);
+  })).filter((section) => section.items.length > 0), [hiddenPages, search]);
 
   useEffect(() => {
     const changed = previousPath.current !== location.pathname;
@@ -154,6 +157,13 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
           <CloseIcon className="h-[18px] w-[18px]" />
         </button>
       </header>
+
+      <label className="mobile-navigation-search">
+        <SearchIcon aria-hidden />
+        <span className="sr-only">Bereiche durchsuchen</span>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Bereiche durchsuchen" autoComplete="off" />
+        {search ? <button type="button" onClick={() => setSearch("")} aria-label="Suche leeren"><CloseIcon aria-hidden /></button> : null}
+      </label>
 
       <nav className="mobile-navigation-list" aria-label="Hauptnavigation">
         {filteredSections.length === 0 ? (

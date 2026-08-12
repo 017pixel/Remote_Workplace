@@ -52,6 +52,7 @@ import { writeClipboardText } from "../lib/clipboard";
 import { ContentDialog, ConfirmDialog } from "../components/ModalDialog";
 import { runWithViewTransition } from "../lib/viewTransition";
 import { apiClient } from "../lib/apiClient";
+import { Tabs } from "../components/ui/Tabs";
 
 const integer = new Intl.NumberFormat("de-DE");
 const decimal = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -471,7 +472,7 @@ function VitalsBand({
   }
 
   if (tiles.length === 0) return null;
-  return <div className="dash-vitals">{tiles}</div>;
+  return <div className="dash-vitals">{tiles.slice(0, 4)}</div>;
 }
 
 /* --------------------------------------------------------- Serverdiagnose */
@@ -1253,24 +1254,42 @@ export function Dashboard() {
           </div>
         ) : null}
 
-        <VitalsBand metrics={metrics} diagnostics={diagnostics} showMetrics={metricsVisible} showDiagnostics={diagnosticsVisible} />
-
-        {/* Bento-Raster: unterschiedlich breite Kacheln in einem gemeinsamen
-            12-Spalten-Raster. Klappt eine Kachel auf, ordnet sich der Rest neu
-            an — die Bewegung dabei kommt aus `runWithViewTransition`. */}
-        <div className="dash-bento">
-          {serverVisible || metricsVisible ? (
-            <ServerDiagnosticsPanel summary={summary} health={health} metrics={metrics} />
-          ) : null}
-          {visible("services") ? <ServicesPanel services={services} /> : null}
-          {diagnosticsVisible ? <WorkbenchDiagnosticsPanel diagnostics={diagnostics} readiness={readiness} /> : null}
-          {runtimeVisible ? <RuntimePanel ports={ports} sessions={sessions} projects={projects} onOpenPort={openPort} /> : null}
-          {visible("usage") ? <UsagePanel usage={usage} /> : null}
-          {visible("news") ? <NewsPanel news={news} /> : null}
-          {visible("commands") ? <CommandsPanel commands={commands} onSelect={setSelectedCommand} /> : null}
-        </div>
-
-        {quickActionsVisible ? <QuickBar projectsLoading={projects.isLoading} projects={projects.data?.projects ?? []} /> : null}
+        <Tabs
+          label="Dashboard Bereiche"
+          className="dashboard-tabs"
+          defaultValue="overview"
+          tabs={[
+            {
+              value: "overview",
+              label: "Übersicht",
+              content: <>
+                <VitalsBand metrics={metrics} diagnostics={diagnostics} showMetrics={metricsVisible} showDiagnostics={diagnosticsVisible} />
+                <div className="dash-bento is-overview">
+                  {runtimeVisible ? <RuntimePanel ports={ports} sessions={sessions} projects={projects} onOpenPort={openPort} /> : null}
+                  {visible("usage") ? <UsagePanel usage={usage} /> : null}
+                </div>
+                {quickActionsVisible ? <QuickBar projectsLoading={projects.isLoading} projects={projects.data?.projects ?? []} /> : null}
+              </>,
+            },
+            {
+              value: "activity",
+              label: "Aktivität",
+              content: <div className="dash-bento is-activity">
+                {visible("news") ? <NewsPanel news={news} /> : null}
+                {visible("commands") ? <CommandsPanel commands={commands} onSelect={setSelectedCommand} /> : null}
+              </div>,
+            },
+            {
+              value: "diagnostics",
+              label: "Diagnose",
+              content: <div className="dash-bento is-diagnostics">
+                {serverVisible || metricsVisible ? <ServerDiagnosticsPanel summary={summary} health={health} metrics={metrics} /> : null}
+                {visible("services") ? <ServicesPanel services={services} /> : null}
+                {diagnosticsVisible ? <WorkbenchDiagnosticsPanel diagnostics={diagnostics} readiness={readiness} /> : null}
+              </div>,
+            },
+          ]}
+        />
 
         {visibleCount === 0 ? (
           <div className="dash-empty">

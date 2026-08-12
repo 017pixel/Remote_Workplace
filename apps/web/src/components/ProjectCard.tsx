@@ -4,6 +4,7 @@ import type { Project } from "@workbench/contracts";
 import { Badge } from "./primitives";
 import { openProjectDefault, openProjectToolStandalone, openToolForProject } from "../lib/workbenchActions";
 import { projectToolOptions } from "../lib/projectTools";
+import { DropdownMenu } from "./ui/DropdownMenu";
 
 const availabilityTone: Record<Project["availability"], "ok" | "bad" | "warn"> = {
   available: "ok",
@@ -66,27 +67,20 @@ export function ProjectCard({ project }: { project: Project }) {
         >
           <T3CodeIcon className="h-3.5 w-3.5" /> {project.links.t3Code ? "T3 öffnen" : "Workbench öffnen"}
         </button>
-        <details className="project-tools-menu">
-          <summary aria-label="Weitere Werkzeuge öffnen" title="Weitere Werkzeuge"><ChevronDownIcon className="h-4 w-4" /><span>Weitere</span><span className="project-tools-count">{tools.length}</span></summary>
-          <div role="menu">
-            {tools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <button
-                  key={tool.id}
-                  type="button"
-                  role="menuitem"
-                  disabled={project.availability !== "available"}
-                  onClick={() => {
-                    navigate(openProjectToolStandalone(project, tool));
-                  }}
-                >
-                  <Icon className="h-4 w-4" /> {tool.label} öffnen
-                </button>
-              );
-            })}
-          </div>
-        </details>
+        <DropdownMenu
+          label="Weitere Werkzeuge öffnen"
+          trigger={<button type="button" className="quiet-button project-tools-trigger"><ChevronDownIcon className="h-4 w-4" /><span>Weitere</span><span className="project-tools-count">{tools.length}</span></button>}
+          items={tools.map((tool) => {
+            const Icon = tool.icon;
+            return {
+              id: tool.id,
+              label: `${tool.label} öffnen`,
+              icon: <Icon className="h-4 w-4" />,
+              disabled: project.availability !== "available",
+              onSelect: () => navigate(openProjectToolStandalone(project, tool)),
+            };
+          })}
+        />
       </div>
       {project.availability !== "available" ? <p className="project-attention-hint">Projektpfad prüfen, bevor Werkzeuge geöffnet werden können.</p> : null}
     </article>

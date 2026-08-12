@@ -24,32 +24,34 @@ describe("ProjectPicker", () => {
     const onChange = vi.fn();
     const { container } = render(<ProjectPicker projects={projects} value="eins" onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Projekt\s*Projekt Eins/i }));
-    const menu = screen.getByRole("listbox", { name: "Projekte" }).closest(".project-picker-popover");
-    expect(menu?.parentElement).toBe(document.body);
+    fireEvent.click(screen.getByRole("button", { name: "Projektliste öffnen" }));
+    const menu = screen.getByRole("listbox").closest(".project-picker-popover");
+    expect(menu?.closest("[data-base-ui-portal]")?.parentElement).toBe(document.body);
     expect(container.querySelector(".project-picker-popover")).toBeNull();
 
     fireEvent.click(screen.getByRole("option", { name: /Projekt Zwei/i }));
     expect(onChange).toHaveBeenCalledWith("zwei");
-    expect(screen.queryByRole("listbox", { name: "Projekte" })).toBeNull();
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("closes with Escape and restores focus to the trigger", () => {
     render(<ProjectPicker projects={projects} value="eins" onChange={() => undefined} />);
-    const trigger = screen.getByRole("button", { name: /Projekt\s*Projekt Eins/i });
+    const trigger = screen.getByRole("button", { name: "Projektliste öffnen" });
+    const input = screen.getByRole("combobox", { name: "Projekt" });
+    input.focus();
     fireEvent.click(trigger);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("listbox", { name: "Projekte" })).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(input);
   });
 
   it("keeps arrow-key selection working inside the portal", () => {
     const onChange = vi.fn();
     render(<ProjectPicker projects={projects} value="eins" onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: /Projekt\s*Projekt Eins/i }));
-    const menu = screen.getByRole("listbox", { name: "Projekte" }).closest(".project-picker-popover")!;
-    fireEvent.keyDown(menu, { key: "ArrowDown" });
-    fireEvent.keyDown(menu, { key: "Enter" });
+    const input = screen.getByRole("combobox", { name: "Projekt" });
+    fireEvent.click(screen.getByRole("button", { name: "Projektliste öffnen" }));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("zwei");
   });
 });

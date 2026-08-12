@@ -4,7 +4,9 @@ import ClaudeCodeColor from "@lobehub/icons/es/ClaudeCode/components/Color.js";
 import type { Notification, NotificationCategory, NotificationSourceIcon } from "@workbench/contracts";
 import { apiClient } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
-import { CheckIcon, ChevronRightIcon, CloseIcon, CodexIcon, CopyIcon, HermesIcon, InboxIcon, OpenCodeIcon, RemoteWorkbenchIcon, T3CodeIcon, TerminalIcon, TrashIcon, WarningIcon } from "../components/icons";
+import { CheckIcon, ChevronRightIcon, CodexIcon, CopyIcon, HermesIcon, InboxIcon, OpenCodeIcon, RemoteWorkbenchIcon, T3CodeIcon, TerminalIcon, TrashIcon, WarningIcon } from "../components/icons";
+import { DataTable } from "../components/ui/DataTable";
+import { ModalFrame } from "../components/ModalDialog";
 
 const categories: Array<{ id: NotificationCategory; title: string; short: string; icon: ComponentType<{ className?: string }> }> = [
   { id: "hermes", title: "Hermes", short: "Hermes", icon: HermesIcon },
@@ -95,20 +97,28 @@ export function Inbox() {
       {categories.map(({ id, short, icon: Icon }) => <button key={id} type="button" aria-label={short} className={filter === id ? "is-active" : ""} onClick={() => setFilter(id)}><Icon className="h-4 w-4" /></button>)}
     </div>
 
-    <div className="inbox-desktop-columns">
-      {categories.map((category) => {
-        const all = notifications.filter((item) => item.category === category.id);
-        const visible = all.filter((item) => !item.readAt || item.severity === "error" || showRead[category.id]);
-        const unread = all.filter((item) => !item.readAt).length;
-        const hiddenRead = all.length - visible.length;
-        return <section className="inbox-column" key={category.id}>
-          <header><div><category.icon className="h-4 w-4" /><strong>{category.title}</strong>{unread > 0 ? <span>{unread}</span> : null}</div><button type="button" onClick={() => void markAll(category.id)} disabled={unread === 0}>Alles gelesen</button></header>
-          <div className="inbox-list">{visible.map((item) => <NotificationRow key={item.id} item={item} onOpen={() => markRead(item)} onRead={() => markRead(item, false)} onDismiss={() => dismiss(item)} onReport={() => setReport(item)} />)}
-            {visible.length === 0 ? <Empty category={category.title} /> : null}
-            {hiddenRead > 0 ? <button type="button" className="inbox-show-read" onClick={() => setShowRead((current) => ({ ...current, [category.id]: true }))}>{hiddenRead} gelesene einblenden</button> : null}
-          </div>
-        </section>;
-      })}
+    <div className="inbox-desktop-table">
+      <div className="inbox-desktop-filters" role="group" aria-label="Inbox filtern">
+        <button type="button" className={filter === "all" ? "is-active" : ""} onClick={() => setFilter("all")}>Alle <span>{notifications.length}</span></button>
+        {categories.map(({ id, title, icon: Icon }) => {
+          const count = notifications.filter((item) => item.category === id && !item.readAt).length;
+          return <button key={id} type="button" className={filter === id ? "is-active" : ""} onClick={() => setFilter(id)}><Icon className="h-4 w-4" />{title}{count > 0 ? <span>{count}</span> : null}</button>;
+        })}
+        {hiddenReadOnMobile > 0 && !showRead[filter] ? <button type="button" className="inbox-show-read" onClick={() => setShowRead((current) => ({ ...current, [filter]: true }))}>{hiddenReadOnMobile} gelesene</button> : null}
+      </div>
+      <DataTable
+        rows={visibleOnMobile}
+        getRowKey={(item) => item.id}
+        caption="Benachrichtigungen"
+        empty={<Empty category={filter === "all" ? "der Inbox" : categories.find((category) => category.id === filter)?.title ?? "diesem Filter"} />}
+        columns={[
+          { id: "source", header: "Quelle", priority: "secondary", cell: (item) => <span className="inbox-table-source"><SourceIcon source={item.sourceIcon} className="h-4 w-4" />{categories.find((category) => category.id === item.category)?.title}</span> },
+          { id: "event", header: "Ereignis", priority: "primary", cell: (item) => <button type="button" className="inbox-table-event" onClick={() => markRead(item)}><strong>{item.title}</strong><span>{item.body}</span></button> },
+          { id: "created", header: "Zeitpunkt", priority: "detail", mono: true, cell: (item) => new Date(item.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) },
+          { id: "status", header: "Status", priority: "secondary", cell: (item) => <span className={`inbox-table-status is-${item.severity}`}>{item.readAt ? "Gelesen" : item.severity === "error" ? "Fehler" : "Neu"}</span> },
+        ]}
+        rowActions={(item) => <div className="inbox-table-actions">{!item.readAt ? <button type="button" onClick={() => markRead(item, false)} aria-label={`${item.title} als gelesen markieren`}><CheckIcon className="h-4 w-4" /></button> : null}{item.report ? <button type="button" onClick={() => setReport(item)} aria-label={`Fehlerbericht zu ${item.title} öffnen`}><WarningIcon className="h-4 w-4" /></button> : null}<button type="button" onClick={() => dismiss(item)} aria-label={`${item.title} löschen`}><TrashIcon className="h-4 w-4" /></button></div>}
+      />
     </div>
 
     <div className="inbox-mobile-stream">{visibleOnMobile.map((item) => <NotificationRow key={item.id} item={item} onOpen={() => markRead(item)} onRead={() => markRead(item, false)} onDismiss={() => dismiss(item)} onReport={() => setReport(item)} />)}
@@ -161,10 +171,9 @@ function ReportDialog({ notification, onClose }: { notification: Notification; o
     // In der Workbench-SPA öffnen, nicht im T3-Proxy-Vollbild.
     window.open("/workbench/t3-code", "_blank", "noopener,noreferrer");
   };
-  return <div className="notification-report-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="notification-report-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-report-title">
-    <header><div><span>Diagnose</span><h2 id="notification-report-title">Fehlerbericht</h2></div><button type="button" onClick={onClose} aria-label="Dialog schließen"><CloseIcon className="h-4 w-4" /></button></header>
+  return <ModalFrame open title="Fehlerbericht" description="Diagnose" className="notification-report-dialog" backdropClassName="notification-report-backdrop" onClose={onClose}>{() => <>
     <pre>{text}</pre>
     {copied ? <p className="notification-report-hint" role="status">Prompt kopiert. In T3 Code einfügen.</p> : null}
     <footer><button type="button" className="quiet-button" onClick={() => void copy()}><CopyIcon className="h-4 w-4" /> Bericht kopieren</button><button type="button" className="quiet-button-primary" onClick={() => void openT3()}><T3CodeIcon className="h-4 w-4" /> Mit T3 Code beheben</button></footer>
-  </section></div>;
+  </>}</ModalFrame>;
 }

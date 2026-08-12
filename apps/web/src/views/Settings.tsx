@@ -15,6 +15,8 @@ import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } f
 import { useRouteActivity } from "../lib/routeActivity";
 import { useWebPushDevice } from "../lib/useWebPushDevice";
 import type { WebPushDeviceStatus } from "../lib/webPushDevice";
+import { RadioGroup } from "../components/ui/RadioGroup";
+import { Switch } from "../components/ui/Switch";
 
 export function Settings() {
   const routeActive = useRouteActivity();
@@ -43,6 +45,15 @@ export function Settings() {
           <h1>Einstellungen</h1>
           <p>Lokaler Workspace-Zustand und Informationen zur Workbench.</p>
         </div>
+        <nav className="settings-category-nav" aria-label="Einstellungskategorien">
+          <a href="#settings-system">System</a>
+          <a href="#settings-workspace">Workspace</a>
+          <a href="#settings-notifications">Benachrichtigungen</a>
+          <a href="#settings-interface">Oberfläche</a>
+          <a href="#settings-security">Sicherheit</a>
+        </nav>
+        <section id="settings-system" className="settings-category" aria-labelledby="settings-system-title">
+          <h2 id="settings-system-title" className="sr-only">System</h2>
         <Card title="Version" subtitle="Wird aus der Health-Antwort gelesen" action={<GitBranchIcon className="h-4 w-4 text-faint" />}>
           <div className="flex items-center gap-3">
             <span className="text-xl font-medium tracking-tight text-text">
@@ -68,7 +79,10 @@ export function Settings() {
         <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
           <UsageMonitoringSettings />
         </Card>
+        </section>
 
+        <section id="settings-workspace" className="settings-category" aria-labelledby="settings-workspace-title">
+          <h2 id="settings-workspace-title" className="sr-only">Workspace</h2>
         <Card title="Workspace" subtitle="Lokaler, persistenter Zustand">
           <div className="space-y-3 text-[13px]">
             <div className="data-row px-0">
@@ -97,11 +111,17 @@ export function Settings() {
           <p className="mb-4 text-[12px] text-muted">Die zentrale Config legt Defaults und verfügbare Bereiche fest. Deine Auswahl wird nur in diesem Browser gespeichert. Bereiche, die in der Config deaktiviert sind, bleiben hier gesperrt.</p>
           <DashboardSectionToggles config={dashboardConfig.data} />
         </Card>
+        </section>
 
+        <section id="settings-notifications" className="settings-category" aria-labelledby="settings-notifications-title">
+          <h2 id="settings-notifications-title" className="sr-only">Benachrichtigungen</h2>
         <Card title="Benachrichtigungen" subtitle="Toasts und System-Benachrichtigungen pro Quelle" action={<InboxIcon className="h-4 w-4 text-faint" />}>
           <NotificationSettings />
         </Card>
+        </section>
 
+        <section id="settings-interface" className="settings-category" aria-labelledby="settings-interface-title">
+          <h2 id="settings-interface-title" className="sr-only">Oberfläche</h2>
         <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
           {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
           {pwa.isInstalled ? (
@@ -131,7 +151,10 @@ export function Settings() {
         <Card title="Seiten-Sichtbarkeit" subtitle="Navigationselemente global steuern (Sidebar, Dashboard, Mobile)" action={<EyeIcon className="h-4 w-4 text-faint" />}>
           <PageVisibilityToggles />
         </Card>
+        </section>
 
+        <section id="settings-security" className="settings-category" aria-labelledby="settings-security-title">
+          <h2 id="settings-security-title" className="sr-only">Sicherheit</h2>
         <Card title="Sicherheit" subtitle="Keine eigene Anmeldung" action={<ShieldIcon className="h-4 w-4 text-faint" />}>
           <ul className="space-y-2 text-[13px] text-muted">
             <li className="flex items-start gap-2">
@@ -148,6 +171,7 @@ export function Settings() {
             </li>
           </ul>
         </Card>
+        </section>
         <footer className="settings-system-footer"><span>{health.data?.appName ?? "Remote Workplace"}</span><strong>Version {health.data?.version ?? "–"}</strong><span>Lokale Remote-Entwicklungsumgebung</span></footer>
         <ConfirmDialog open={resetOpen} title="Workspace zurücksetzen?" description="Alle geöffneten Panels, Arbeitsflächen und Auswahlen werden lokal gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." confirmLabel="Workspace zurücksetzen" danger onConfirm={resetWorkspace} onClose={() => setResetOpen(false)} />
       </div>
@@ -249,12 +273,7 @@ function UsageMonitoringSettings() {
     <div className="notification-settings">
       <p className="mb-2 text-[12px] text-muted">Ausgeschaltete Werkzeuge werden nicht mehr auf ihre Limits abgefragt. Die Nutzungshistorie (Tokens und Kosten) bleibt davon unberührt.</p>
       {usageMonitoringOrder.map((provider) => (
-        <button key={provider} type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...current, [provider]: !current[provider] })}>
-          <span><strong>{usageMonitoringLabels[provider]}</strong><small>Limitfenster, Prognosen und Warnungen für {usageMonitoringLabels[provider]}</small></span>
-          <span className={`settings-toggle-switch ${current[provider] ? "is-on" : ""}`} role="switch" aria-checked={current[provider]} aria-label={`Limitüberwachung ${usageMonitoringLabels[provider]}`}>
-            <span className="settings-toggle-thumb" />
-          </span>
-        </button>
+        <Switch key={provider} checked={current[provider]} disabled={saving} onCheckedChange={() => void save({ ...current, [provider]: !current[provider] })} label={usageMonitoringLabels[provider]} description={`Limitfenster, Prognosen und Warnungen für ${usageMonitoringLabels[provider]}`} />
       ))}
       {message ? <p className="text-[12px] text-muted" role="status">{message}</p> : null}
     </div>
@@ -272,12 +291,7 @@ function DashboardSectionToggles({ config }: { config: DashboardConfig | undefin
         const hidden = hiddenSections.has(section);
         const enabled = allowed && !hidden;
         return (
-          <button key={section} type="button" className="settings-toggle-row dashboard-settings-toggle-row" disabled={!allowed} onClick={() => toggleSection(section)} title={!allowed ? "Dieser Bereich ist in der zentralen Config deaktiviert" : undefined}>
-            <span className="dashboard-settings-toggle-copy"><strong>{meta.label}</strong><small>{meta.description}{!allowed ? " · in Config deaktiviert" : ""}</small></span>
-            <span className={`settings-toggle-switch ${enabled ? "is-on" : ""} ${!allowed ? "is-locked" : ""}`} role="switch" aria-checked={enabled} aria-disabled={!allowed} aria-label={meta.label}>
-              <span className="settings-toggle-thumb" />
-            </span>
-          </button>
+          <Switch key={section} checked={enabled} disabled={!allowed} onCheckedChange={() => toggleSection(section)} label={meta.label} description={`${meta.description}${!allowed ? " · in Config deaktiviert" : ""}`} />
         );
       })}
     </div>
@@ -492,27 +506,17 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
 
   return (
     <div className="space-y-3">
-      <div className="settings-segment" role="group" aria-label="T3 Code Kanal">
-        {t3Channels.map((option) => {
-          const selected = status?.configuredChannel === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={selected}
-              disabled={saving !== null || status === undefined}
-              onClick={() => void selectChannel(option)}
-              className={`settings-segment-option ${selected ? "is-selected" : ""}`}
-            >
-              <span className="flex items-center gap-2 font-medium text-text">
-                {saving === option ? <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> : null}
-                {t3ChannelLabels[option]}
-              </span>
-              <span className="text-[11px] text-faint">{t3ChannelHints[option]}</span>
-            </button>
-          );
-        })}
-      </div>
+      <RadioGroup
+        label="T3 Code Kanal"
+        value={status?.configuredChannel ?? ""}
+        onValueChange={(next) => void selectChannel(next as T3Channel)}
+        options={t3Channels.map((option) => ({
+          value: option,
+          label: `${saving === option ? "Wird gespeichert: " : ""}${t3ChannelLabels[option]}`,
+          description: t3ChannelHints[option],
+          disabled: saving !== null || status === undefined,
+        }))}
+      />
 
       <div className="space-y-3 text-[13px]">
         <div className="data-row px-0">
@@ -618,12 +622,7 @@ function OrbitItemToggles() {
             {section.items.map((item) => {
               const isHidden = hiddenOrbitItems.has(item);
               return (
-                <button key={item} type="button" className="settings-toggle-row" onClick={() => toggleOrbitItem(item)}>
-                  <span className="text-[13px] text-text">{orbitItemLabels[item]}</span>
-                  <span className={`settings-toggle-switch ${isHidden ? "" : "is-on"}`} role="switch" aria-checked={!isHidden} aria-label={orbitItemLabels[item]}>
-                    <span className="settings-toggle-thumb" />
-                  </span>
-                </button>
+                <Switch key={item} checked={!isHidden} onCheckedChange={() => toggleOrbitItem(item)} label={orbitItemLabels[item]} />
               );
             })}
           </div>
@@ -665,12 +664,7 @@ function PageVisibilityToggles() {
         const isLocked = page === "settings";
         const isHidden = !isLocked && hiddenPages.has(page);
         return (
-          <button key={page} type="button" className="settings-toggle-row" disabled={isLocked} onClick={() => togglePage(page)} title={isLocked ? "Diese Seite bleibt immer sichtbar" : undefined}>
-            <span className="text-[13px] text-text">{pageRouteLabels[page]}{isLocked ? <span className="ml-2 text-[11px] text-faint">, immer sichtbar</span> : null}</span>
-            <span className={`settings-toggle-switch ${isHidden ? "" : "is-on"} ${isLocked ? "is-locked" : ""}`} role="switch" aria-checked={!isHidden} aria-disabled={isLocked} aria-label={pageRouteLabels[page]}>
-              <span className="settings-toggle-thumb" />
-            </span>
-          </button>
+          <Switch key={page} checked={!isHidden} disabled={isLocked} onCheckedChange={() => togglePage(page)} label={pageRouteLabels[page]} {...(isLocked ? { description: "Immer sichtbar" } : {})} />
         );
       })}
     </div>

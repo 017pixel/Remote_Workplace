@@ -3,9 +3,21 @@ import { expect, test, type Page } from "@playwright/test";
 test.use({ extraHTTPHeaders: { "tailscale-user-login": "user@example.com" } });
 
 const routes = [
-  "", "projects", "settings", "usage", "workbench", "tech-tldrs",
+  "", "projects", "inbox", "settings", "usage", "workbench", "tech-tldrs", "files", "ki-skills", "hermes-agent",
   "browser", "terminal", "previews", "code-editor", "t3-code", "codex", "opencode", "claude", "notion",
 ];
+
+type DeviceMode = "phone" | "tablet-portrait" | "tablet-landscape" | "desktop";
+
+async function deviceMode(page: Page): Promise<DeviceMode> {
+  return await page.locator(".app-shell").getAttribute("data-device-mode") as DeviceMode;
+}
+
+async function navigationTrigger(page: Page) {
+  return await deviceMode(page) === "phone"
+    ? page.getByRole("button", { name: "Weitere Bereiche öffnen" })
+    : page.getByRole("button", { name: "Navigation öffnen" });
+}
 
 async function mockPreviewSlots(page: Page) {
   const slots = Array.from({ length: 6 }, (_, index) => ({
@@ -31,24 +43,42 @@ async function mockPreviewSlots(page: Page) {
   });
 }
 
-test("uses the touch shell without desktop chrome", async ({ page }) => {
+test("uses the navigation pattern assigned to the current device mode", async ({ page }) => {
   await page.goto("/workbench/");
   const shell = page.locator(".app-shell");
   await expect(shell).toHaveAttribute("data-shell-mode", /compact|tablet/);
-  await expect(page.locator(".workspace-sidebar")).toHaveCount(0);
   await expect(page.locator(".status-bar")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Navigation öffnen" })).toBeVisible();
-  const size = await page.getByRole("button", { name: "Navigation öffnen" }).evaluate((element) => {
-    const bounds = element.getBoundingClientRect();
-    return { width: bounds.width, height: bounds.height };
-  });
-  expect(size.width).toBeGreaterThanOrEqual(44);
-  expect(size.height).toBeGreaterThanOrEqual(44);
+  const mode = await deviceMode(page);
+  if (mode === "phone") {
+    await expect(page.locator(".workspace-sidebar, .tablet-rail")).toHaveCount(0);
+    const bottom = page.getByRole("navigation", { name: "Mobile Hauptnavigation" });
+    await expect(bottom).toBeVisible();
+    await expect(bottom.locator("a, button")).toHaveCount(5);
+  } else if (mode === "tablet-portrait") {
+    await expect(page.locator(".workspace-sidebar")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Tablet Hauptnavigation" })).toBeVisible();
+    await expect(page.locator(".mobile-bottom-nav")).toHaveCount(0);
+  } else {
+    await expect(page.locator(".workspace-sidebar")).toBeVisible();
+    await expect(page.locator(".sidebar-shell")).toHaveCSS("width", "210px");
+    await expect(page.locator(".tablet-rail, .mobile-bottom-nav")).toHaveCount(0);
+  }
+  const trigger = mode === "tablet-landscape" ? null : await navigationTrigger(page);
+  if (trigger) {
+    const size = await trigger.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    expect(size.width).toBeGreaterThanOrEqual(44);
+    expect(size.height).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test("navigation page manages focus, history and scroll lock", async ({ page }) => {
   await page.goto("/workbench/");
-  const trigger = page.getByRole("button", { name: "Navigation öffnen" });
+  const mode = await deviceMode(page);
+  test.skip(mode === "tablet-landscape", "Die kompakte Sidebar zeigt alle Ziele direkt.");
+  const trigger = await navigationTrigger(page);
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Navigation" });
   await expect(dialog).toBeVisible();
@@ -75,7 +105,9 @@ test("keeps route floating controls behind the navigation page", async ({ page }
 
   for (const route of floatingRoutes) {
     await page.goto(`/workbench/${route}`);
-    await page.getByRole("button", { name: "Navigation öffnen" }).click();
+    const mode = await deviceMode(page);
+    test.skip(mode === "tablet-landscape", "Die kompakte Sidebar benötigt keine Navigationsseite.");
+    await (await navigationTrigger(page)).click();
     const dialog = page.getByRole("dialog", { name: "Navigation" });
     await expect(dialog).toBeVisible();
     await expect(page.locator(".mobile-nav-trigger")).toHaveCount(0);
@@ -137,8 +169,13 @@ test("preserves an embedded runtime across rotation", async ({ page }) => {
 
 test("moves focus into content after a navigation choice", async ({ page }) => {
   await page.goto("/workbench/");
-  await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await page.getByRole("dialog", { name: "Navigation" }).getByRole("link", { name: "Projekte" }).click();
+  const mode = await deviceMode(page);
+  if (mode === "tablet-landscape") {
+    await page.getByRole("link", { name: "Projekte" }).click();
+  } else {
+    await (await navigationTrigger(page)).click();
+    await page.getByRole("dialog", { name: "Navigation" }).getByRole("link", { name: "Projekte" }).click();
+  }
   await expect(page).toHaveURL(/\/workbench\/projects$/);
   await expect(page.locator("#main-content")).toBeFocused();
 });

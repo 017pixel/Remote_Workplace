@@ -4,21 +4,25 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ## [Unreleased]
 
+---
+
+## [0.45.0] - 2026-08-12
+
 ### Erstellt
 
-- Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
-- DeepSeek V4 Flash als Standardmodell für Hermes, Mistral bleibt als Fallback
-- Benachrichtigungen, wenn eine geplante Hermes-Aufgabe startet oder eine Freigabe benötigt
-- Hermes-Status-, Aufgaben- und Ergebnisübersichten im Orbit
-- Route-Bridge für Hermes-Deep-Links zwischen Workbench und offizieller SPA
+- Gemeinsame Base-UI-Primitives für Buttons, Menüs, Tabs, Tabellen, Dialoge, Formulare und Bäume
+- Vier responsive Navigationsmuster für Handy, Tablet hoch, Tablet quer und Desktop
+- Dashboard-Bereiche für Übersicht, Aktivität und Diagnose mit vier kompakten Kernwerten
+- Offizielle Hermes-SPA mit DeepSeek V4 Flash als Standardmodell und Mistral als Fallback
+- Hermes-Benachrichtigungen, Orbit-Übersichten und Route-Bridge für Aufgaben und Freigaben
 
 ### Verändert
 
-- Hermes-Seite, Panels und Deep-Links verwenden ausschließlich die offizielle SPA
-- Native Chat-, Aufgaben-, Verlauf- und Cron-Flächen der Workbench wurden entfernt
-- Hermes-Status und Hintergrundaufgaben bleiben über die Workbench-Integration verfügbar
-- Verwaltung, Chat, Cron und Einstellungen laufen über denselben Hermes-SPA-Kontext
-- Alte Session- und Verwaltungslinks werden in offizielle Hermes-Routen übersetzt
+- Alle sichtbaren Routen folgen der ruhigen COSS-Origin-Komposition und dem bestehenden T3-Farbsystem
+- Inbox, Projekte, Nutzung, Skills und Dateien nutzen dichtere responsive Arbeitsansichten
+- Generische Produktsymbole kommen aus Lucide, Markenlogos bleiben als eigene Assets erhalten
+- Werkzeugflächen teilen Projektwahl, Aktionsmenüs, Fokusverhalten und mobile Einbettung
+- Hermes-Seite, Panels, Verwaltung und Deep-Links verwenden ausschließlich den offiziellen SPA-Kontext
 
 ### Behoben
 
