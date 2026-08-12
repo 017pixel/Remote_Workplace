@@ -14,7 +14,9 @@ async function startWithDefaultSidebarPreferences(page: Page) {
 }
 
 function settingsSection(page: Page, title: string) {
-  return page.locator("section").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  return page.locator("section.document-section").filter({
+    has: page.getByRole("heading", { name: title, exact: true }),
+  });
 }
 
 test("schaltet Seiten in Sidebar und Navigation um und behält die Auswahl nach Reload", async ({ page }) => {
