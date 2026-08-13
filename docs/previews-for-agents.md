@@ -52,7 +52,8 @@ Service Workern und Browser-internen Mechanismen erscheinen **nicht**.
 Preview-Sessions, Slots und Devserver gehören dem Nutzer und laufen oft über Stunden. Diese
 Regeln gelten für Coding-Agenten, die neben aktiven Previews arbeiten.
 
-- Laufende Preview-Devserver sind tmux-Sessions mit Namen `workbench-preview-<hash>` und dem
+- Laufende Preview-Devserver sind auf dem eigenen tmux-Socket `remote-workplace-previews`
+  laufende Sessions mit Namen `workbench-preview-<hash>` und dem
   Marker `@workbench_kind=preview-dev-server`. Sie werden **niemals** gestoppt, neu gestartet
   oder gekillt — weder über tmux, `kill`/`pkill`/`fuser` noch über die Devserver-API
   (`POST /api/v1/previews/dev-servers/:projectId/stop|restart`). Stirbt ein Devserver,

@@ -36,8 +36,10 @@ Unit heißt `workbench.service` und liegt unter `~/.config/systemd/user/`; sie e
 den tatsächlichen Schreibpfaden in Repository, Datenverzeichnis, Browserprofilen und CLI-Homes.
 
 code-server bindet an `127.0.0.1:8080`, deaktiviert eigene TLS-Terminierung und wird
-ausschließlich durch die private Workbench unter `/editor/` erreicht. Eine Beispiel-Konfiguration
-liegt unter `config/code-server.yaml.example`.
+ausschließlich durch die private Workbench unter `/editor/` erreicht. Die User-Unit liest
+`config/code-server.yaml`; fehlt die lokale, ignorierte Datei beim Installieren, wird sie einmalig
+aus `config/code-server.yaml.example` angelegt. Workspace Trust ist dort deaktiviert, weil dieser
+private Einzelbenutzer-Editor alle geöffneten Projektordner mit vollständigem Zugriff nutzt.
 
 ## Tailscale Serve (optional)
 

@@ -84,10 +84,13 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 
 ## Dev-Server im Preview Hub startet nicht
 
-- Im Projekt muss eine `package.json` mit einem `scripts.dev`-Eintrag liegen; ausgeführt wird immer `npm run dev` im Projektordner.
+- Der Hub erkennt Frontend, API und lokale Datenbank anhand der Projektdateien und Skripte. Die erkannte Laufzeit steht vor dem Start unter **Projektlaufzeit**; Abweichungen gehören in `preview.config.json`.
 - `tmux has-session -t <Sitzungsname>` und der Log-Bereich im Preview Hub zeigen, ob die Sitzung noch läuft oder der Prozess beendet wurde.
-- Fehlt ein Port, den Dev-Server auf Loopback starten lassen und kurz warten, bis die lokale Porterkennung ihn dem Projekt zugeordnet hat.
+- **Alles starten** startet die erkannten Prozesse auch dann, wenn noch kein veröffentlichbarer Preview-Slot frei ist. Erst **Im neuen Tab öffnen** benötigt einen Slot.
+- Automatisch erkannte Dienste erhalten projektübergreifend freie Ports aus der konfigurierten Preview-Port-Palette. Feste Zahlenports in `preview.config.json` bleiben reserviert; bei parallelen Projekten kann Version 2 stattdessen `"port": "auto"` verwenden.
+- `PREVIEW_RUNTIME_PORT_CAPACITY` bedeutet, dass die geöffneten Laufzeiten gemeinsam mehr Browserports benötigen als die Palette noch hergibt. Ein Projekt-Tab kann geschlossen bleiben, seine Laufzeit muss zum Freigeben aber ausdrücklich gestoppt werden.
 - Nach einem Backend-Neustart darf der Prozess nicht neu gestartet werden: Der Hub verbindet sich wieder mit der vorhandenen tmux-Sitzung.
+- Preview-Prozesse laufen dafür auf dem eigenen tmux-Socket `remote-workplace-previews` in einer separaten systemd-Scope. Sie gehören nicht zur Cgroup des Workbench-Dienstes.
 - Lässt der Browser kein Popup zu, wird einmalig auf einen neuen Tab zurückgefallen; alternativ den Öffnungsmodus dauerhaft auf „Neuer Tab“ stellen.
 
 ## Preview-Slot steht in Quarantäne
@@ -95,9 +98,12 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - Ein Slot wird `quarantined`, wenn ein Storage-Reset nicht nachweislich alles geleert hat.
   Das ist fail-closed gewollt: Ein fremdes Projekt darf keinen alten Service Worker erben.
 - Zustand prüfen: `bash scripts/preview-doctor.sh --status`.
+- Beim direkten Öffnen versucht der Preview Hub automatisch, einen ungebundenen alten oder
+  quarantänisierten Slot im aktuellen Browser zu leeren und verifiziert wieder freizugeben.
+  Der laufende Schritt wird oberhalb der Öffnen-Aktion angezeigt.
 - In der Preview-Diagnose unter **Preview-Info → Slot-Speicher zurücksetzen** einen neuen,
-  verifizierten Reset auslösen. Erst ein sauberer Bericht erhöht die `slotGeneration` und
-  gibt den Slot frei.
+  verifizierten Reset auslösen, falls die automatische Wiederherstellung scheitert. Erst ein
+  sauberer Bericht erhöht die `slotGeneration` und gibt den Slot frei.
 - Meldet der Browser keine `indexedDB.databases()`, bleibt der Reset unverifizierbar. Dann
   hilft nur ein Browser, der die Inventur unterstützt, oder ein anderer Slot.
 

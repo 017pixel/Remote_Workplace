@@ -28,6 +28,22 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Die mobile Hermes-Navigation liegt ohne Überlagerung in der Daumenzone und hält 44-Pixel-Touchziele ein
 - Sessions lassen sich im Verlauf und in der Seitenleiste über einen zugänglichen Bestätigungsdialog löschen
 
+### Preview-System
+
+- Mehrere persistente Projekt-Tabs lassen sich gleichzeitig öffnen, starten und verwalten
+- Automatisch erkannte Dienste teilen sich die feste Portpalette konfliktfrei über alle laufenden Projekte
+- Tatsächliche Portzuweisungen und das logische Hauptziel bleiben bei Backend-Neustarts erhalten
+- Inaktive Tabs zeigen ihren Laufzeitstatus, während nur das aktive Projekt vollständige Logs abruft
+- Desktop-Tab-Leiste, mobile Projektauswahl und Sammelaktionen verwenden dieselben laufenden Projektzustände
+
+### Preview-System
+
+- Frontend, Backend, API, WebSocket, Datenbank und Worker werden als gemeinsame Projektlaufzeit erkannt und beaufsichtigt
+- Projektports stammen ausschließlich aus der zentralen Palette `1234, 1223, 8000, 8080, 8888, 4444, 1233, 6000, 6060, 4040`
+- Laufende Dev-Server werden zuverlässig erkannt; Status und Logs aktualisieren sich live und bleiben nach Workbench-Neustarts sichtbar
+- Der Preview Hub zeigt Laufzeit, Dienste, Hauptziel und direkte URL klar getrennt; der neue Tab ist die Primäraktion
+- Projektprozesse starten unabhängig von Preview-Slots, überleben Workbench-Neustarts und stellen alte Slot-Origins beim Öffnen automatisch wieder her
+
 ---
 
 ## [0.43.0] - 2026-08-10

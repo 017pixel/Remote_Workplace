@@ -191,11 +191,24 @@ Manuell ausgewählte Ordner werden in der lokalen `DATABASE_PATH`-SQLite-Datei g
 
 Projekt-Previews können entweder eine öffentliche `url` oder einen lokalen `targetPort` plus optionalen Root-Pfad enthalten. Lokale Ziele laufen immer direkt im iframe über einen freien Preview-Slot am Root. Das ältere Feld `runtime` wird aus Kompatibilitätsgründen weiterhin akzeptiert, beeinflusst die Preview-Laufzeit aber nicht mehr. Vite benötigt weder `base` noch einen gepflegten `allowedHosts`-Eintrag, weil der Proxy den Host-Header auf `127.0.0.1:PORT` umschreibt.
 
-Der Preview Hub startet den Dev-Server des gewählten Projekts ausschließlich mit `npm run dev`.
-Der Prozess läuft in einer benutzer- und projektgebundenen tmux-Sitzung und bleibt deshalb bei
-einem Backend-Neustart aktiv. Hauptport und Öffnungsmodus werden pro Benutzer in der zentralen
-SQLite-Datenbank gespeichert. Als Hauptport kann nur ein erkannter Port des Projekts oder ein
-fest konfigurierter `targetPort` gewählt werden.
+Der Preview Hub erkennt die Projektlaufzeit aus Paketmanager, Workspaces, `package.json`-Scripts
+und bekannten Framework-Abhängigkeiten. Frontend, Backend, API, WebSocket, lokale Datenbank und
+Worker können als getrennte Prozesse gemeinsam in einer benutzer- und projektgebundenen
+tmux-Sitzung laufen. Diese Sitzung bleibt bei einem Backend-Neustart aktiv. Reicht die Erkennung
+nicht aus, beschreibt `preview.config.json` im Projektroot die Dienste explizit; das vollständige
+Format steht im Agenten-Skill `preview-config`.
+
+Der Hub hält mehrere Projekt-Tabs gleichzeitig offen. Automatisch erkannte Browserdienste erhalten
+beim Start freie Ports aus `previews.allowedProjectPorts`; die tatsächliche Zuordnung liegt an der
+tmux-Sitzung und bleibt bei einem Backend-Neustart erhalten. Explizite Konfigurationen der Version 1
+behalten feste Zahlenports. Version 2 erlaubt `"port": "auto"`, wenn auch ein manuell beschriebener
+Dienst konfliktfrei neben anderen Projekten laufen soll. Das Schließen eines Tabs stoppt keine Laufzeit.
+
+Das Hauptziel wird pro Benutzer gespeichert und beim Öffnen zusammen mit seinen HTTP- und
+WebSocket-Abhängigkeiten über Preview-Slots veröffentlicht. „Im neuen Tab öffnen“ verwendet die
+direkte Tailscale-/Slot-URL. Die Workbench-Hülle mit Gerätewerkzeugen bleibt eine erweiterte
+Option. Als Dienstport ist nur ein Wert aus `previews.allowedProjectPorts` oder die Auto-Zuweisung
+einer Version-2-Konfiguration zulässig.
 
 Die Arrays `previews.slotPorts` und `previews.publicPorts` müssen gleich lang und jeweils eindeutig sein. Nach einer Änderung muss `deploy/proxy/configure-tailscale-serve.sh` einmal mit sudo ausgeführt werden. Die voreingestellten zwölf Paare sind `3901–3912` intern und `8451–8462` öffentlich. Bestätigte Begleitdienste eines Projekts erhalten eigene HTTPS-Slots; die Haupt-Preview schreibt lokale HTTP-, Fetch-, XHR-, EventSource- und WebSocket-Ziele auf diese Tailscale-Adressen um. Web Storage ist portgetrennt; Cookies kennen keine Ports und bleiben auf demselben Host geteilt.
 
@@ -281,6 +294,7 @@ lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren
 ```json
 {
   "previews": {
+    "allowedProjectPorts": [1234, 1223, 8000, 8080, 8888, 4444, 1233, 6000, 6060, 4040],
     "npmExecutable": "npm",
     "devServerLogBytes": 131072,
     "devServerStartTimeoutMs": 15000,
@@ -312,11 +326,12 @@ lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren
   auch dann bleiben sie pro Preview standardmäßig aus.
 - `slotResetEnabled` — erlaubt den verifizierten Storage-Reset einer Slot-Origin. Ohne
   bestandene Verifikation bleibt der Slot in Quarantäne.
-- `npmExecutable` — vertrauenswürdiger npm-Pfad oder Programmname; Argumente bleiben fest
-  auf `run dev` begrenzt und sind nicht über die Oberfläche änderbar.
-- `devServerLogBytes` — maximale Größe des aus dem tmux-Pane gelesenen Log-Ausschnitts.
-- `devServerStartTimeoutMs` — Zeitfenster, in dem der Manager nach dem Start auf Prozesszustand
-  und erkannte Projektports wartet.
+- `allowedProjectPorts` — einzige Ports, die beaufsichtigte HTTP- und WebSocket-Dienste verwenden
+  dürfen; die Reihenfolge bestimmt zugleich die automatische Vergabe.
+- `npmExecutable` — bleibt als kompatibles Altfeld akzeptiert. Die neue Erkennung wählt npm,
+  pnpm, Yarn oder Bun aus `packageManager` und Lockdatei des Projekts.
+- `devServerLogBytes` — maximale Größe des pro Dienst aus dem tmux-Pane gelesenen Log-Ausschnitts.
+- `devServerStartTimeoutMs` — Zeitfenster für Supervisor- und optionale Setup-Schritte.
 
 Jeder Wert lässt sich per Umgebungsvariable überschreiben (`PREVIEW_GATEWAY_V2`,
 `PREVIEW_BRIDGE`, `PREVIEW_DIAGNOSTICS`, `PREVIEW_STORAGE_SYNC_MODE`, `PREVIEW_SLOT_RESET`,
