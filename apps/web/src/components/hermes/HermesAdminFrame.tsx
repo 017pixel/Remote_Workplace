@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Interner Pfad innerhalb der Hermes-SPA, z. B. `/cron`. */
 export function safeHermesPath(value: string | null | undefined): string {
@@ -23,13 +23,17 @@ function frameUrl(path: string): string {
  * die Komponente auf eine echte Iframe-Navigation zurück — langsamer, aber ein
  * Klick bleibt nie wirkungslos.
  */
-export function HermesAdminFrame({ path, onPathChange }: { path: string; onPathChange: (path: string) => void }) {
+export function HermesAdminFrame({ path, active = true, onPathChange }: { path: string; active?: boolean; onPathChange: (path: string) => void }) {
   const safePath = safeHermesPath(path);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [reloadToken, setReloadToken] = useState(0);
   // Der erste Pfad bestimmt das `src`. Spätere Wechsel laufen über die Brücke.
   const mountedSrc = useRef(frameUrl(safePath));
   const reportedPath = useRef(safePath);
+  const sendActivity = useCallback(() => frameRef.current?.contentWindow?.postMessage(
+    { source: "remote-workplace-hermes", version: 1, type: "host.activity", active },
+    window.location.origin,
+  ), [active]);
 
   useEffect(() => {
     const receive = (event: MessageEvent) => {
@@ -61,9 +65,11 @@ export function HermesAdminFrame({ path, onPathChange }: { path: string; onPathC
     return () => window.clearTimeout(fallback);
   }, [safePath]);
 
+  useEffect(() => { sendActivity(); }, [sendActivity]);
+
   return (
     <section className="hermes-admin-frame" aria-label="Hermes Agent">
-      <iframe key={reloadToken} ref={frameRef} src={mountedSrc.current} title="Hermes Agent" className="hermes-admin-iframe" />
+      <iframe key={reloadToken} ref={frameRef} src={mountedSrc.current} onLoad={sendActivity} title="Hermes Agent" className="hermes-admin-iframe" />
     </section>
   );
 }

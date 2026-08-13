@@ -81,6 +81,9 @@ describe("Hermes-Dashboard-Proxy", () => {
     expect(bridge).toContain("route.navigate");
     expect(bridge).toContain("history.pushState");
     expect(bridge).toContain("PopStateEvent");
+    // Geparkte Hermes-Flächen behalten WebSockets, pausieren aber Polling.
+    expect(bridge).toContain("host.activity");
+    expect(bridge).toContain("if (hostActive) callback");
   });
 
   it("nimmt nur Navigationsbefehle vom eigenen Origin mit unverdächtigem Pfad an", () => {

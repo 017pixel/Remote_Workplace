@@ -373,7 +373,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
           </div>
         ) : panel.type === "hermes" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted">Hermes wird geladen…</div>}>
-            <HermesShell variant="panel" minimal={minimal} panel={panel} />
+            <HermesShell variant="panel" minimal={minimal} panel={panel} active={routeActive && isFocused} />
           </Suspense>
         ) : showPreviewStart ? (
           <LocalPorts projectId={project?.id ?? null} projectName={project?.name ?? "dieses Projekt"} allowAllPorts onOpen={(port) => {

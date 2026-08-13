@@ -122,6 +122,11 @@ export function rewriteHtmlAssetUrls(source: string, proxyPrefix = prefix): stri
  */
 export function routeBridgeScript(): string {
   return `<script data-remote-workplace-hermes-bridge="1">(() => {
+  let hostActive = true;
+  const nativeSetInterval = window.setInterval.bind(window);
+  window.setInterval = (callback, delay, ...args) => nativeSetInterval((...values) => {
+    if (hostActive) callback(...values);
+  }, delay, ...args);
   const here = () => location.pathname + location.search + location.hash;
   const notify = () => window.parent.postMessage({source:"remote-workplace-hermes",version:1,type:"route.changed",path:here()}, location.origin);
   for (const name of ["pushState","replaceState"]) { const original = history[name]; history[name] = function (...args) { const result = original.apply(this, args); notify(); return result; }; }
@@ -130,6 +135,12 @@ export function routeBridgeScript(): string {
     if (event.origin !== location.origin) return;
     const data = event.data;
     if (!data || data.source !== "remote-workplace-hermes" || data.version !== 1) return;
+    if (data.type === "host.activity" && typeof data.active === "boolean") {
+      const changed = hostActive !== data.active;
+      hostActive = data.active;
+      if (changed && hostActive) dispatchEvent(new Event("focus"));
+      return;
+    }
     if (data.type !== "route.navigate" || typeof data.path !== "string") return;
     if (!data.path.startsWith("/") || data.path.includes("..") || data.path.startsWith("//")) return;
     if (data.path === here()) return;
