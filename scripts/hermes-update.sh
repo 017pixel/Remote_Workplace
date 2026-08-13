@@ -23,10 +23,6 @@ python_path="${python_path:-$checkout/venv/bin/python}"
 npm_cmd=(npm)
 npm_major="$(npm --version | cut -d. -f1)"
 if [[ "$npm_major" -lt 12 ]]; then npm_cmd=(npx --yes npm@12); fi
-web_install_command=(install)
-if [[ -f "$checkout/web/package-lock.json" || -f "$checkout/web/npm-shrinkwrap.json" ]]; then
-  web_install_command=(ci)
-fi
 state_file="$data_dir/hermes/update-state.json"
 lock_file="$data_dir/hermes/update.lock"
 force_marker="$data_dir/hermes/update-force"
@@ -131,7 +127,9 @@ if ! run_quiet "$cli" update --yes --backup; then
   state "phase=failed" "lastFinishedAt=$(now)" "lastResult=failed" "pending=false" "HERMES_UPDATE_LOG_TAIL_FILE=$log_file"
   exit 1
 fi
-if ! run_quiet "${npm_cmd[@]}" --prefix "$checkout/web" "${web_install_command[@]}" --no-audit --no-fund || ! run_quiet "${npm_cmd[@]}" --prefix "$checkout/web" run build; then
+# Hermes ist ein npm-Workspace. Die Installation muss am Checkout-Root laufen,
+# damit die dort gepflegte allowScripts-Liste und der gemeinsame Lockfile gelten.
+if ! run_quiet "${npm_cmd[@]}" --prefix "$checkout" install --workspace web --no-audit --no-fund --prefer-offline || ! run_quiet "${npm_cmd[@]}" --prefix "$checkout/web" run build; then
   safe_tail "$log_file"
   restart_services
   state "phase=failed" "lastFinishedAt=$(now)" "lastResult=failed" "pending=false" "HERMES_UPDATE_LOG_TAIL_FILE=$log_file"
