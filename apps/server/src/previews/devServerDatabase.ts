@@ -5,6 +5,7 @@ import type { PreviewExternalOpenMode } from "@workbench/contracts";
 
 interface ProjectPreferenceRow {
   mainPort: number | null;
+  mainServiceId: string | null;
   updatedAt: string;
 }
 
@@ -25,6 +26,7 @@ export class PreviewDevServerDatabase {
         user_id TEXT NOT NULL,
         project_id TEXT NOT NULL,
         main_port INTEGER,
+        main_service_id TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY(user_id, project_id)
       ) STRICT;
@@ -34,20 +36,24 @@ export class PreviewDevServerDatabase {
         updated_at TEXT NOT NULL
       ) STRICT;
     `);
+    const columns = this.db.prepare("PRAGMA table_info(preview_dev_server_preferences)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "main_service_id")) {
+      this.db.exec("ALTER TABLE preview_dev_server_preferences ADD COLUMN main_service_id TEXT");
+    }
   }
 
   projectPreference(userId: string, projectId: string): ProjectPreferenceRow | undefined {
-    return this.db.prepare(`SELECT main_port mainPort, updated_at updatedAt
+    return this.db.prepare(`SELECT main_port mainPort, main_service_id mainServiceId, updated_at updatedAt
       FROM preview_dev_server_preferences WHERE user_id = ? AND project_id = ?`)
       .get(userId, projectId) as ProjectPreferenceRow | undefined;
   }
 
-  saveMainPort(userId: string, projectId: string, mainPort: number | null): ProjectPreferenceRow {
+  saveMainPort(userId: string, projectId: string, mainPort: number | null, mainServiceId: string | null = null): ProjectPreferenceRow {
     const updatedAt = new Date().toISOString();
-    this.db.prepare(`INSERT INTO preview_dev_server_preferences(user_id, project_id, main_port, updated_at)
-      VALUES (?, ?, ?, ?) ON CONFLICT(user_id, project_id) DO UPDATE SET
-      main_port=excluded.main_port, updated_at=excluded.updated_at`).run(userId, projectId, mainPort, updatedAt);
-    return { mainPort, updatedAt };
+    this.db.prepare(`INSERT INTO preview_dev_server_preferences(user_id, project_id, main_port, main_service_id, updated_at)
+      VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, project_id) DO UPDATE SET
+      main_port=excluded.main_port, main_service_id=excluded.main_service_id, updated_at=excluded.updated_at`).run(userId, projectId, mainPort, mainServiceId, updatedAt);
+    return { mainPort, mainServiceId, updatedAt };
   }
 
   hubPreference(userId: string): UserPreferenceRow | undefined {

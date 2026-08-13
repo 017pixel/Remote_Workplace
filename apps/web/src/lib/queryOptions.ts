@@ -72,6 +72,20 @@ export const workbenchQueries = {
       refetchInterval,
       staleTime: 1_000,
     }),
+  previewDevServers: (refetchInterval = 5_000) =>
+    queryOptions({
+      queryKey: ["preview-dev-servers"],
+      queryFn: ({ signal }) => apiClient.previewDevServers(signal),
+      refetchInterval,
+      staleTime: 2_000,
+    }),
+  previewRuntimeProfile: (projectId: string | null) =>
+    queryOptions({
+      queryKey: ["preview-dev-server", projectId, "profile"],
+      queryFn: ({ signal }) => apiClient.previewRuntimeProfile(projectId!, signal),
+      enabled: projectId !== null,
+      staleTime: 10_000,
+    }),
   previewDevServerLogs: (projectId: string | null, refetchInterval = 1_500) =>
     queryOptions({
       queryKey: ["preview-dev-server", projectId, "logs"],

@@ -40,6 +40,7 @@ describe("projectToolOptions", () => {
     expect(options.map((option) => option.type)).toEqual([
       "t3-code",
       "code-server",
+      "preview",
       "terminal",
       "opencode",
       "codex",
@@ -48,10 +49,13 @@ describe("projectToolOptions", () => {
       "preview",
     ]);
     expect(options.at(-1)).toMatchObject({ id: "preview:frontend", label: "Frontend", previewId: "frontend" });
+    expect(options[2]).toMatchObject({ id: "preview-runtime", label: "Projektlaufzeit" });
+    expect(options[2]).not.toHaveProperty("previewId");
   });
 
   it("blendet nicht verfügbare Server-Werkzeuge aus, behält aber lokale Werkzeuge", () => {
     expect(projectToolOptions(project()).map((option) => option.type)).toEqual([
+      "preview",
       "terminal",
       "opencode",
       "codex",

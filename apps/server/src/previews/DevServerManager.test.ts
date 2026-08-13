@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { LocalPort, Project } from "@workbench/contracts";
-import { PreviewDevServerManager, sanitizeDevServerPath } from "./DevServerManager.js";
+import { PreviewDevServerManager, sanitizeDevServerPath, type PreviewRuntimePublication } from "./DevServerManager.js";
 import { PreviewDevServerDatabase } from "./devServerDatabase.js";
 
 const cleanup: Array<() => Promise<unknown> | unknown> = [];
@@ -29,14 +29,23 @@ async function harness() {
     previews: [],
     links: { t3Code: null, codeServer: null },
   };
-  const ports: LocalPort[] = [{ port: 5173, address: "127.0.0.1", process: "vite", pid: 42, projectId: project.id, projectName: project.name, protocol: "http", localUrl: "http://127.0.0.1:5173", proxyUrl: null }];
+  const projects = new Map([[project.id, project]]);
+  const addProject = async (id: string) => {
+    const path = join(directory, id);
+    await mkdir(path);
+    await writeFile(join(path, "package.json"), JSON.stringify({ scripts: { dev: "vite" } }));
+    const value: Project = { ...project, id, name: id, path };
+    projects.set(id, value);
+    return value;
+  };
+  const ports: LocalPort[] = [];
   const supervisor = {
     exists: false,
     dead: false,
     exitCode: null as number | null,
     output: "\u001b[31merror\u001b[0m\nready on http://localhost:5173\n",
     commands: [] as string[][],
-    sessions: new Map<string, { options: Record<string, string>; dead: boolean; exitCode: number | null }>(),
+    sessions: new Map<string, { options: Record<string, string>; dead: boolean; exitCode: number | null; windows: string[] }>(),
   };
   const runner = (args: string[]) => {
     supervisor.commands.push(args);
@@ -46,11 +55,11 @@ async function harness() {
     if (args[0] === "list-panes") {
       const session = supervisor.sessions.get(args[2] ?? "");
       if (!session) return { status: 1, stdout: "", stderr: "missing" };
-      return { status: 0, stdout: `${session.dead ? 1 : 0}\t${session.exitCode ?? ""}\t4242\t1700000000\n`, stderr: "" };
+      return { status: 0, stdout: session.windows.map((window) => `${window}\t${session.dead ? 1 : 0}\t${session.exitCode ?? ""}\t4242\t1700000000`).join("\n") + "\n", stderr: "" };
     }
     if (args[0] === "new-session") {
       const name = args[3]!;
-      supervisor.sessions.set(name, { options: {}, dead: false, exitCode: null });
+      supervisor.sessions.set(name, { options: {}, dead: false, exitCode: null, windows: [args[5] ?? "frontend"] });
       supervisor.exists = true;
       supervisor.dead = false;
       supervisor.exitCode = null;
@@ -59,6 +68,11 @@ async function harness() {
     if (args[0] === "kill-session") {
       supervisor.sessions.delete(args[2] ?? "");
       supervisor.exists = false;
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (args[0] === "new-window") {
+      const session = supervisor.sessions.get(args[3] ?? "");
+      if (session) session.windows.push(args[5] ?? `dienst-${session.windows.length + 1}`);
       return { status: 0, stdout: "", stderr: "" };
     }
     if (args[0] === "capture-pane") return { status: 0, stdout: supervisor.output, stderr: "" };
@@ -74,25 +88,29 @@ async function harness() {
     }
     return { status: 0, stdout: "", stderr: "" };
   };
-  const create = () => new PreviewDevServerManager({
+  const create = (publishRuntime?: () => Promise<PreviewRuntimePublication>) => new PreviewDevServerManager({
     database,
     tmuxExecutable: "/usr/bin/tmux",
-    npmExecutable: "npm",
+    allowedProjectPorts: [1234, 1223, 8000, 8080, 8888, 4444, 1233, 6000, 6060, 4040],
     logBytes: 16_384,
     startTimeoutMilliseconds: 5_000,
-    project: async (id) => { if (id !== project.id) throw new Error("missing"); return project; },
+    project: async (id) => { const value = projects.get(id); if (!value) throw new Error("missing"); return value; },
     localPorts: async () => ports,
+    ...(publishRuntime ? { publishRuntime } : {}),
     runner,
   });
-  return { create, database, supervisor, project };
+  return { create, database, supervisor, project, addProject };
 }
 
 describe("PreviewDevServerManager", () => {
   it("übernimmt eine laufende tmux-Sitzung nach einem Backend-Neustart", async () => {
     const { create, supervisor } = await harness();
     expect((await create().start("user@example.test", "projekt")).state).toBe("running");
+    const paneQuery = supervisor.commands.find((args) => args[0] === "list-panes");
+    expect(paneQuery?.[4]).toContain("\t");
+    expect(paneQuery?.[4]).not.toContain("\\t");
     const command = supervisor.commands.find((args) => args[0] === "new-session");
-    expect(command?.at(-1)).toContain("'npm' 'run' 'dev'");
+    expect(command?.at(-1)).toContain("npm run dev -- --port 1234");
     expect((await create().status("user@example.test", "projekt")).state).toBe("running");
     expect((await create().stop("user@example.test", "projekt")).state).toBe("stopped");
   });
@@ -104,8 +122,72 @@ describe("PreviewDevServerManager", () => {
     const last = command?.at(-1) ?? "";
     expect(last.startsWith("'/usr/bin/env'")).toBe(true);
     expect(last).toContain(`PATH=${join(project.path, "node_modules", ".bin")}:`);
-    expect(last).toContain("'npm' 'run' 'dev'");
+    expect(last).toContain("npm run dev -- --port 1234");
     expect(command).not.toContain("-e");
+  });
+
+  it("startet Frontend, API und Datenbank gemeinsam als getrennte überwachte Dienste", async () => {
+    const { create, supervisor, project } = await harness();
+    await writeFile(join(project.path, "preview.config.json"), JSON.stringify({
+      version: 1,
+      mainService: "frontend",
+      services: [
+        { id: "frontend", name: "Frontend", role: "frontend", command: "npm run dev:web -- --port {port}", port: 1234, portMode: "none" },
+        { id: "api", name: "API", role: "api", command: "npm run dev:api", port: 1223, portMode: "environment" },
+        { id: "database", name: "Datenbank", role: "database", command: "npm run db:dev", port: null, portMode: "none" },
+      ],
+    }));
+    const status = await create().start("user@example.test", "projekt");
+    const session = [...supervisor.sessions.values()][0];
+    expect(session?.windows).toEqual(["frontend", "api", "database"]);
+    expect(status.services.map((service) => [service.role, service.port, service.state])).toEqual([
+      ["frontend", 1234, "running"],
+      ["api", 1223, "running"],
+      ["database", null, "running"],
+    ]);
+    const apiCommand = supervisor.commands.find((command) => command[0] === "new-window" && command.includes("api"))?.at(-1) ?? "";
+    expect(apiCommand).toContain("PORT=1223");
+    expect(apiCommand).toContain("HOST=127.0.0.1");
+  });
+
+  it("weist gleichzeitig gestarteten Projekten unterschiedliche Ports zu und behält sie nach einem Backend-Neustart", async () => {
+    const { create, addProject } = await harness();
+    await addProject("zweites-projekt");
+    const manager = create();
+    const [first, second] = await Promise.all([
+      manager.start("user@example.test", "projekt"),
+      manager.start("user@example.test", "zweites-projekt"),
+    ]);
+    expect([first.mainPort, second.mainPort]).toEqual([1234, 1223]);
+    expect((await create().status("user@example.test", "zweites-projekt")).mainPort).toBe(1223);
+  });
+
+  it("lässt feste Ports kompatibel und meldet ihren Konflikt konkret", async () => {
+    const { create, addProject } = await harness();
+    const second = await addProject("festes-projekt");
+    await writeFile(join(second.path, "preview.config.json"), JSON.stringify({
+      version: 1,
+      services: [{ id: "web", name: "Web", role: "frontend", command: "npm run dev", port: 1234, portMode: "environment" }],
+    }));
+    const manager = create();
+    await manager.start("user@example.test", "projekt");
+    await expect(manager.start("user@example.test", "festes-projekt")).rejects.toMatchObject({ code: "PREVIEW_RUNTIME_PORT_BUSY" });
+  });
+
+  it("liefert für nicht konfigurierte Projekte einen stabilen Status, lehnt ihren Start aber ab", async () => {
+    const { create, addProject } = await harness();
+    const unconfigured = await addProject("ohne-laufzeit");
+    await writeFile(join(unconfigured.path, "package.json"), JSON.stringify({ scripts: {} }));
+    const manager = create();
+
+    await expect(manager.status("user@example.test", unconfigured.id)).resolves.toMatchObject({
+      state: "stopped",
+      services: [],
+      message: expect.stringContaining("preview.config.json"),
+    });
+    await expect(manager.logs("user@example.test", unconfigured.id)).resolves.toMatchObject({ services: [], output: "" });
+    await expect(manager.profile(unconfigured.id)).rejects.toMatchObject({ code: "PREVIEW_RUNTIME_PROFILE_INVALID" });
+    await expect(manager.start("user@example.test", unconfigured.id)).rejects.toMatchObject({ code: "PREVIEW_RUNTIME_PROFILE_INVALID" });
   });
 
   it("entfernt fremde node_modules-Bins aus dem PATH, behält aber globale und System-Werkzeuge", () => {
@@ -135,7 +217,45 @@ describe("PreviewDevServerManager", () => {
   it("speichert nur einen Port, der zum Projekt gehört", async () => {
     const { create } = await harness();
     await expect(create().saveMainPort("user@example.test", "projekt", 9999)).rejects.toMatchObject({ code: "DEV_SERVER_PORT_NOT_OWNED" });
-    expect((await create().saveMainPort("user@example.test", "projekt", 5173)).mainPort).toBe(5173);
+    expect((await create().saveMainPort("user@example.test", "projekt", 1234)).mainPort).toBe(1234);
+  });
+
+  it("startet beim Launch die Laufzeit und liefert die direkte veröffentlichte URL", async () => {
+    const { create } = await harness();
+    const manager = create(async () => ({ url: "https://server.test.ts.net:8451/", sessionId: "11111111-1111-4111-8111-111111111111" }));
+    const launched = await manager.launch("user@example.test", "projekt");
+    expect(launched.publication.url).toBe("https://server.test.ts.net:8451/");
+    expect(launched.status).toMatchObject({ state: "running", mainPort: 1234, publicUrl: "https://server.test.ts.net:8451/" });
+  });
+
+  it("startet die Projektprozesse auch dann, wenn noch kein Preview-Slot veröffentlicht werden kann", async () => {
+    const { create } = await harness();
+    let publications = 0;
+    const manager = create(async () => {
+      publications += 1;
+      throw new Error("Keine Preview-Slots frei");
+    });
+
+    await expect(manager.start("user@example.test", "projekt")).resolves.toMatchObject({ state: "running", publicUrl: null });
+    await manager.tick();
+    expect(publications).toBe(0);
+    await expect(manager.launch("user@example.test", "projekt")).rejects.toThrow(/Keine Preview-Slots frei/);
+    expect(publications).toBe(1);
+    expect((await manager.status("user@example.test", "projekt")).state).toBe("running");
+  });
+
+  it("erneuert nur eine ausdrücklich geöffnete Preview nach einem Backend-Neustart", async () => {
+    const { create } = await harness();
+    let publications = 0;
+    const publish = async () => {
+      publications += 1;
+      return { url: "https://server.test.ts.net:8451/", sessionId: "11111111-1111-4111-8111-111111111111" };
+    };
+    await create(publish).launch("user@example.test", "projekt");
+    expect(publications).toBe(1);
+
+    await create(publish).tick();
+    expect(publications).toBe(2);
   });
 
   it("entfernt Terminal-Steuersequenzen aus Logs und speichert den Öffnungsmodus", async () => {

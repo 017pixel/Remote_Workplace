@@ -50,8 +50,17 @@ async function harness() {
     preference: () => ({ externalOpenMode: "window" as const, updatedAt: null }),
     savePreference: (_userId: string, externalOpenMode: "window" | "tab") => ({ externalOpenMode, updatedAt: new Date().toISOString() }),
     status: async (_userId: string, projectId: string) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort: null, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    profile: async (projectId: string) => ({
+      projectId, source: "detected" as const, mainServiceId: "frontend",
+      services: [{ id: "frontend", name: "Frontend", role: "frontend" as const, command: "npm run dev", workingDirectory: "/tmp/projekt", port: 1234, portMode: "argument" as const, source: "detected" as const, frameworkHints: ["Vite"] }],
+      allowedPorts: [1234, 1223], warnings: [], detectedAt: new Date().toISOString(), setupCommand: null,
+    }),
     logs: async (_userId: string, projectId: string) => ({ projectId, output: "", truncated: false, capturedAt: new Date().toISOString() }),
     start: async (_userId: string, projectId: string) => ({ projectId, state: "running" as const, command: "npm run dev" as const, mainPort: null, pid: 1, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exitCode: null, message: null }),
+    launch: async (_userId: string, projectId: string) => ({
+      status: { projectId, state: "running" as const, command: "npm run dev", mainPort: 1234, pid: 1, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exitCode: null, message: null },
+      publication: { url: "https://server.test.ts.net:8451/", sessionId: "11111111-1111-4111-8111-111111111111" },
+    }),
     stop: async (_userId: string, projectId: string) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort: null, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
     restart: async (_userId: string, projectId: string) => ({ projectId, state: "running" as const, command: "npm run dev" as const, mainPort: null, pid: 1, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exitCode: null, message: null }),
     saveMainPort: async (_userId: string, projectId: string, mainPort: number | null) => ({ projectId, state: "stopped" as const, command: "npm run dev" as const, mainPort, pid: null, startedAt: null, updatedAt: new Date().toISOString(), exitCode: null, message: null }),
@@ -119,12 +128,20 @@ describe("Preview-API", () => {
     expect(status.statusCode).toBe(200);
     expect(status.json()).toMatchObject({ projectId: "projekt", command: "npm run dev", state: "stopped" });
 
+    const profile = await app.inject({ method: "GET", url: "/api/v1/previews/dev-servers/projekt/profile", headers: { "tailscale-user-login": user } });
+    expect(profile.statusCode).toBe(200);
+    expect(profile.json()).toMatchObject({ projectId: "projekt", mainServiceId: "frontend", services: [{ role: "frontend", port: 1234 }] });
+
     const crossOrigin = await app.inject({
       method: "POST",
       url: "/api/v1/previews/dev-servers/projekt/start",
       headers: { "tailscale-user-login": user, origin: "https://boese.example", host: "workbench.test" },
     });
     expect(crossOrigin.statusCode).toBe(403);
+
+    const launch = await app.inject({ method: "POST", url: "/api/v1/previews/dev-servers/projekt/launch", headers: { "tailscale-user-login": user, ...sameOrigin } });
+    expect(launch.statusCode).toBe(200);
+    expect(launch.json()).toMatchObject({ url: "https://server.test.ts.net:8451/", status: { state: "running", mainPort: 1234 } });
 
     const invalidProject = await app.inject({
       method: "POST",

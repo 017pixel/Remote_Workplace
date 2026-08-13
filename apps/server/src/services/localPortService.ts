@@ -134,8 +134,8 @@ export function createLocalPortService(options: { cacheMilliseconds: number; pro
   };
 
   return {
-    async list(): Promise<LocalPortsResponse> {
-      if (cached && Date.now() - cachedAt < options.cacheMilliseconds) return cached;
+    async list(force = false): Promise<LocalPortsResponse> {
+      if (!force && cached && Date.now() - cachedAt < options.cacheMilliseconds) return cached;
       if (!inFlight) {
         inFlight = scan().then((response) => {
           cached = response;

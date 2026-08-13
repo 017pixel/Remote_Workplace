@@ -90,7 +90,7 @@ export function openProjectToolStandalone(project: Project, tool: ProjectToolOpt
     case "files":
       return "/files";
     case "preview":
-      return `/previews?preview=${encodeURIComponent(tool.previewId ?? "")}`;
+      return tool.previewId ? `/previews?preview=${encodeURIComponent(tool.previewId)}` : "/previews";
     default:
       return "/workbench";
   }

@@ -10,7 +10,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
-import { apiErrorSchema, operationalMetricsSchema, readinessResponseSchema } from "@workbench/contracts";
+import { apiErrorSchema, operationalMetricsSchema, readinessResponseSchema, type PreviewServiceEdge } from "@workbench/contracts";
 import Fastify from "fastify";
 import { ZodError } from "zod";
 import { registerApiRoutes } from "./api/routes.js";
@@ -281,11 +281,41 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const previewDevServers = new PreviewDevServerManager({
     database: previewDevServerDatabase,
     tmuxExecutable: settings.tmuxPath,
-    npmExecutable: settings.previews.npmExecutable,
+    allowedProjectPorts: settings.previews.allowedProjectPorts,
     logBytes: settings.previews.devServerLogBytes,
     startTimeoutMilliseconds: settings.previews.devServerStartTimeoutMilliseconds,
     project: async (projectId) => (await projects.get(projectId)).project,
-    localPorts: async () => (await localPorts.list()).ports,
+    // Starts und Neustarts brauchen einen frischen Scan; der normale
+    // Port-Dashboard-Cache könnte einen soeben beendeten eigenen Dienst sonst
+    // noch als Konflikt melden.
+    localPorts: async () => (await localPorts.list(true)).ports,
+    publishRuntime: async (userId, profile) => {
+      const main = profile.services.find((service) => service.id === profile.mainServiceId && service.port !== null);
+      if (!main?.port) throw new AppError(409, "PREVIEW_RUNTIME_MAIN_SERVICE_MISSING", "Die Projektlaufzeit besitzt keinen Hauptdienst mit Browser-Port.");
+      const edges: PreviewServiceEdge[] = profile.services.filter((service) => service.id !== main.id && service.port !== null).map((service) => ({
+        serviceId: `runtime:${service.id}`,
+        projectId: profile.projectId,
+        port: service.port!,
+        protocol: service.role === "socket" ? "ws" : "http",
+        role: service.role === "socket" ? "socket" : ["api", "backend"].includes(service.role) ? "api" : service.role === "frontend" ? "asset" : "other",
+        label: service.name,
+        probeStatus: "unknown",
+        source: "detected",
+        confirmedAt: new Date().toISOString(),
+      }));
+      previewSlots.saveServiceGraph(profile.projectId, String(main.port), edges);
+      const session = previewSlots.openSession(userId, {
+        sessionKey: `preview-runtime:${profile.projectId}`,
+        projectId: profile.projectId,
+        primaryPort: main.port,
+        primaryProtocol: "http",
+        isolate: false,
+        storageProfileId: null,
+      });
+      const primary = session.bindings.find((binding) => binding.role === "primary");
+      if (!primary) throw new AppError(500, "PREVIEW_RUNTIME_PUBLICATION_FAILED", "Der veröffentlichte Hauptdienst fehlt.");
+      return { url: primary.publicUrl, sessionId: session.id };
+    },
     logger: (message) => app.log.warn({ component: "preview-dev-server-watchdog" }, message),
   });
 

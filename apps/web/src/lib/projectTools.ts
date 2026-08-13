@@ -32,6 +32,7 @@ export function projectToolOptions(project: Project): ProjectToolOption[] {
   }
 
   options.push(
+    { id: "preview-runtime", label: "Projektlaufzeit", type: "preview", icon: PreviewsIcon },
     { id: "terminal", label: "Terminal", type: "terminal", icon: TerminalIcon },
     { id: "opencode", label: "OpenCode", type: "opencode", icon: OpenCodeIcon },
     { id: "codex", label: "Codex", type: "codex", icon: CodexIcon },

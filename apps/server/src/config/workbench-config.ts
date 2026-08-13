@@ -95,6 +95,11 @@ export const workbenchConfigSchema = z.object({
     resultPollSeconds: z.number().int().min(5).max(300).default(20),
   }).prefault({}),
   previews: z.object({
+    // Ausschließlich diese Ports dürfen Projektlaufzeiten für HTTP-, WebSocket-,
+    // Frontend- und Backend-Dienste verwenden. Die Reihenfolge ist zugleich die
+    // automatische Vergabepriorität.
+    allowedProjectPorts: z.array(z.number().int().min(1_024).max(65_535)).min(1).max(32)
+      .default([1234, 1223, 8000, 8080, 8888, 4444, 1233, 6000, 6060, 4040]),
     slotPorts: z.array(z.number().int().min(1).max(65_535)).min(1).max(32)
       .default([3901, 3902, 3903, 3904, 3905, 3906, 3907, 3908, 3909, 3910, 3911, 3912]),
     publicPorts: z.array(z.number().int().min(1).max(65_535)).min(1).max(32)
@@ -166,6 +171,9 @@ export const workbenchConfigSchema = z.object({
   if (new Set(config.previews.publicPorts).size !== config.previews.publicPorts.length) {
     context.addIssue({ code: "custom", path: ["previews", "publicPorts"], message: "Öffentliche Preview-Ports müssen eindeutig sein." });
   }
+  if (new Set(config.previews.allowedProjectPorts).size !== config.previews.allowedProjectPorts.length) {
+    context.addIssue({ code: "custom", path: ["previews", "allowedProjectPorts"], message: "Erlaubte Projektports müssen eindeutig sein." });
+  }
   const internalAndPublic = [...config.previews.slotPorts, ...config.previews.publicPorts];
   if (new Set(internalAndPublic).size !== internalAndPublic.length) {
     context.addIssue({ code: "custom", path: ["previews"], message: "Interne und öffentliche Preview-Ports dürfen sich nicht überschneiden." });
@@ -175,6 +183,11 @@ export const workbenchConfigSchema = z.object({
   }
   if (config.previews.publicPorts.includes(config.tailscale.httpsPort)) {
     context.addIssue({ code: "custom", path: ["previews", "publicPorts"], message: "Ein öffentlicher Preview-Port kollidiert mit dem Workbench-HTTPS-Port." });
+  }
+  const reservedProjectPort = config.previews.allowedProjectPorts.find((port) =>
+    internalAndPublic.includes(port) || port === config.tailscale.httpsPort || port === config.t3.port || port === config.hermes.port);
+  if (reservedProjectPort !== undefined) {
+    context.addIssue({ code: "custom", path: ["previews", "allowedProjectPorts"], message: `Projektport ${reservedProjectPort} kollidiert mit einem Workbench-Dienst.` });
   }
   if (!["127.0.0.1", "::1", "localhost"].includes(config.hermes.host)) {
     context.addIssue({ code: "custom", path: ["hermes", "host"], message: "Das Hermes-Dashboard darf nur an Loopback binden." });

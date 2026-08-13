@@ -123,6 +123,7 @@
     "resultPollSeconds": 20
   },
   "previews": {
+    "allowedProjectPorts": [1234, 1223, 8000, 8080, 8888, 4444, 1233, 6000, 6060, 4040],
     "npmExecutable": "npm",
     "devServerLogBytes": 131072,
     "devServerStartTimeoutMs": 15000,

@@ -8,6 +8,7 @@ import {
   previewDevServerLogsSchema,
   previewDevServerMainPortRequestSchema,
   previewDevServerStatusSchema,
+  previewDevServersResponseSchema,
   previewDevicePreferenceRequestSchema,
   previewDevicePreferenceSchema,
   previewDiagnosticBatchSchema,
@@ -19,6 +20,8 @@ import {
   previewLocalStorageStateSchema,
   previewHubPreferenceRequestSchema,
   previewHubPreferenceSchema,
+  previewRuntimeLaunchSchema,
+  previewRuntimeProfileSchema,
   previewRepairJobSchema,
   previewRepairRequestSchema,
   previewServiceCandidatesResponseSchema,
@@ -117,9 +120,17 @@ export async function registerPreviewRoutes(app: FastifyInstance, options: Previ
     const input = previewHubPreferenceRequestSchema.parse(request.body);
     return previewHubPreferenceSchema.parse(options.devServers.savePreference(userId, input.externalOpenMode));
   });
+  app.get("/previews/dev-servers", async (request) =>
+    previewDevServersResponseSchema.parse({ runtimes: await options.devServers.statuses(user(request)) }),
+  );
   app.get("/previews/dev-servers/:projectId", async (request) => {
     const { projectId } = projectParamsSchema.parse(request.params);
     return previewDevServerStatusSchema.parse(await options.devServers.status(user(request), projectId));
+  });
+  app.get("/previews/dev-servers/:projectId/profile", async (request) => {
+    user(request);
+    const { projectId } = projectParamsSchema.parse(request.params);
+    return previewRuntimeProfileSchema.parse(await options.devServers.profile(projectId));
   });
   app.get("/previews/dev-servers/:projectId/logs", async (request) => {
     const { projectId } = projectParamsSchema.parse(request.params);
@@ -129,13 +140,22 @@ export async function registerPreviewRoutes(app: FastifyInstance, options: Previ
     const { projectId } = projectParamsSchema.parse(request.params);
     return previewDevServerStatusSchema.parse(await options.devServers.start(mutating(request), projectId));
   });
+  app.post("/previews/dev-servers/:projectId/launch", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const { projectId } = projectParamsSchema.parse(request.params);
+    const launched = await options.devServers.launch(mutating(request), projectId);
+    return previewRuntimeLaunchSchema.parse({ status: launched.status, url: launched.publication.url, sessionId: launched.publication.sessionId });
+  });
   app.post("/previews/dev-servers/:projectId/stop", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
     const { projectId } = projectParamsSchema.parse(request.params);
-    return previewDevServerStatusSchema.parse(await options.devServers.stop(mutating(request), projectId));
+    const userId = mutating(request);
+    options.slots.closeSession(userId, `preview-runtime:${projectId}`);
+    return previewDevServerStatusSchema.parse(await options.devServers.stop(userId, projectId));
   });
   app.post("/previews/dev-servers/:projectId/restart", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
     const { projectId } = projectParamsSchema.parse(request.params);
-    return previewDevServerStatusSchema.parse(await options.devServers.restart(mutating(request), projectId));
+    const userId = mutating(request);
+    options.slots.closeSession(userId, `preview-runtime:${projectId}`);
+    return previewDevServerStatusSchema.parse(await options.devServers.restart(userId, projectId));
   });
   app.put("/previews/dev-servers/:projectId/main-port", async (request) => {
     const { projectId } = projectParamsSchema.parse(request.params);

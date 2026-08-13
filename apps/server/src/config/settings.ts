@@ -236,6 +236,7 @@ export const settings = Object.freeze({
   previewPublicPorts: wb.previews.publicPorts,
   dataDirectory: environment.DATA_DIR,
   previews: {
+    allowedProjectPorts: wb.previews.allowedProjectPorts,
     gatewayV2Enabled: environment.PREVIEW_GATEWAY_V2,
     bridgeEnabled: environment.PREVIEW_BRIDGE,
     diagnosticsEnabled: environment.PREVIEW_DIAGNOSTICS,

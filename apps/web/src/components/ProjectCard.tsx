@@ -49,12 +49,10 @@ export function ProjectCard({ project }: { project: Project }) {
       <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-faint">
         {project.links.t3Code ? <Badge tone="accent">T3 verfügbar</Badge> : null}
         {project.links.codeServer ? <Badge>Editor verfügbar</Badge> : null}
+        {project.availability === "available" ? <Badge>Preview-Laufzeit</Badge> : null}
         {project.previews.map((p) => (
           <Badge key={p.id}>{p.name}</Badge>
         ))}
-        {project.links.t3Code === null && project.links.codeServer === null && project.previews.length === 0 ? (
-          <span className="text-faint">keine Werkzeuge</span>
-        ) : null}
       </div>
 
       <div className="project-actions mt-4 flex flex-wrap items-center gap-2">
