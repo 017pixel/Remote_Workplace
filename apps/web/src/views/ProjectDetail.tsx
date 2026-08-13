@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, EyeIcon, FolderTreeIcon } from "../components/icons";
+import { ArrowLeftIcon, EyeIcon, FolderTreeIcon, PreviewsIcon, ServicesIcon } from "../components/icons";
 import { CodeServerIcon, T3CodeIcon } from "../components/icons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { QueryBoundary } from "../components/QueryBoundary";
@@ -15,6 +15,7 @@ export function ProjectDetail() {
   const navigate = useNavigate();
   const routeActive = useRouteActivity();
   const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const runtime = useQuery({ ...workbenchQueries.previewDevServer(projectId ?? null, 5_000), enabled: routeActive && Boolean(projectId) });
 
   return (
     <div className="page-scroll">
@@ -84,10 +85,27 @@ export function ProjectDetail() {
                   </div>
                 </Card>
 
-                <Card title="Previews" subtitle={`${project.previews.length} konfiguriert`}>
-                  {project.previews.length === 0 ? (
-                    <p className="text-[13px] text-faint">Keine Previews konfiguriert.</p>
-                  ) : (
+                <Card title="Projektlaufzeit" subtitle={runtime.data?.profileSource === "configured" ? "preview.config.json" : "automatisch erkannt"}>
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-line-soft bg-ink-800 px-3 py-3 max-md:flex-col max-md:items-stretch">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <PreviewsIcon className="h-5 w-5 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-medium text-text">Frontend, Backend und lokale Dienste</div>
+                        <div className="mt-0.5 text-[11px] text-faint">
+                          {runtime.isLoading ? "Laufzeit wird erkannt…" : runtime.data ? `${runtime.data.services.length} Dienste · ${runtime.data.state === "running" ? "läuft" : "gestoppt"}` : "Laufzeit konnte nicht geladen werden"}
+                        </div>
+                      </div>
+                    </div>
+                    <button type="button" className="quiet-button-primary" onClick={() => { openPreviewForProject(project, ""); navigate("/previews"); }}>
+                      <ServicesIcon className="h-3.5 w-3.5" /> Preview verwalten
+                    </button>
+                  </div>
+                  {runtime.data?.services.length ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {runtime.data.services.map((service) => <Badge key={service.id} tone={service.state === "running" ? "ok" : "default"}>{service.name}{service.port ? ` :${service.port}` : ""}</Badge>)}
+                    </div>
+                  ) : null}
+                  {project.previews.length > 0 ? (
                     <ul className="border-t border-line-soft">
                       {project.previews.map((preview) => (
                         <li key={preview.id} className="data-row">
@@ -110,7 +128,7 @@ export function ProjectDetail() {
                         </li>
                       ))}
                     </ul>
-                  )}
+                  ) : null}
                 </Card>
               </>
             );
