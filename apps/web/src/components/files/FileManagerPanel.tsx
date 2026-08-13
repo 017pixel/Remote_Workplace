@@ -220,7 +220,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
     void apiClient.registerProject({ path }).then((result) => {
       if (!result) return;
       queryClient.setQueryData<ProjectsResponse>(["projects"], (current) => {
-        if (!current) return { projects: [result.project], recentLimit: 8 };
+        if (!current) return { projects: [result.project], projectsRoot: "/", recentLimit: 8 };
         const exists = current.projects.some((project) => project.id === result.project.id);
         return { ...current, projects: exists ? current.projects.map((project) => project.id === result.project.id ? result.project : project) : [...current.projects, result.project] };
       });

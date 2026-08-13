@@ -52,4 +52,16 @@ describe("ProjectPicker", () => {
     fireEvent.keyDown(menu, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("zwei");
   });
+
+  it("groups folders from the project root and opens a manually entered path", async () => {
+    const onOpenPath = vi.fn().mockResolvedValue(undefined);
+    render(<ProjectPicker projects={projects} projectsRoot="/tmp" value="eins" onChange={() => undefined} onOpenPath={onOpenPath} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Projekt\s*Projekt Eins/i }));
+    expect(screen.getByRole("group", { name: "Projekte in /tmp" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Anderen Ordner öffnen"), { target: { value: "/home/test/projekt" } });
+    fireEvent.click(screen.getByRole("button", { name: "Öffnen" }));
+
+    await vi.waitFor(() => expect(onOpenPath).toHaveBeenCalledWith("/home/test/projekt"));
+  });
 });

@@ -33,6 +33,7 @@ function ContextProjectPicker() {
   const addTerminalTab = useTerminalStore((state) => state.addTab);
   const activateProject = useTerminalStore((state) => state.activateProject);
   const { data } = useQuery(workbenchQueries.projects());
+  const queryClient = useQueryClient();
   const context = location.pathname === "/code-editor" ? "editor"
     : location.pathname === "/previews" ? "preview"
     : location.pathname === "/terminal" ? "terminal"
@@ -78,7 +79,7 @@ function ContextProjectPicker() {
     if (selectedProjectId === null) selectProject(project.id);
   }, [activeTerminalTab, context, project, selectProject, selectedProjectId, terminalKind, terminalProjectId]);
 
-  if (!context || pickerProjects.length === 0) return null;
+  if (!context || !data) return null;
 
   const change = (projectId: string) => {
     selectProject(projectId);
@@ -90,8 +91,20 @@ function ContextProjectPicker() {
     }
   };
 
+  const openPath = async (path: string) => {
+    const result = await apiClient.registerProject({ path });
+    if (!result) throw new Error("Der Projektordner konnte nicht geöffnet werden.");
+    queryClient.setQueryData<ProjectsResponse>(["projects"], (current) => {
+      if (!current) return { projects: [result.project], projectsRoot: data.projectsRoot, recentLimit: data.recentLimit };
+      const exists = current.projects.some((project) => project.id === result.project.id);
+      return { ...current, projects: exists ? current.projects.map((project) => project.id === result.project.id ? result.project : project) : [...current.projects, result.project] };
+    });
+    change(result.project.id);
+    void queryClient.invalidateQueries({ queryKey: ["projects"] });
+  };
+
   return (
-    <ProjectPicker projects={pickerProjects} value={contextProjectId} onChange={change} allowEmptyValue={terminalKind !== null} compact />
+    <ProjectPicker projects={pickerProjects} projectsRoot={data.projectsRoot} value={contextProjectId} onChange={change} onOpenPath={openPath} allowEmptyValue={terminalKind !== null} compact />
   );
 }
 

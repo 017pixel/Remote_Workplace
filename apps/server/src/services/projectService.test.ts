@@ -26,10 +26,30 @@ describe("project service registry", () => {
     );
 
     await expect(service.list()).resolves.toMatchObject({
+      projectsRoot: root,
       projects: [
         { id: "alpha", name: "alpha", path: join(root, "alpha") },
         { id: "beta", name: "beta", path: join(root, "beta") },
       ],
+    });
+  });
+
+  it("nutzt feste Einträge nur als Metadaten für vorhandene Root-Ordner", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-project-metadata-"));
+    directories.push(root);
+    await mkdir(join(root, "live-project"));
+
+    const service = createProjectService(
+      { projects: [
+        { id: "live", name: "Alter Name", description: "Alt", path: join(root, "live-project"), enabled: true, sortOrder: 1, previews: [] },
+        { id: "removed", name: "Entfernt", description: "Alt", path: join(root, "removed-project"), enabled: true, sortOrder: 2, previews: [] },
+      ] },
+      [],
+      { enabled: true, rootDirectory: root },
+    );
+
+    await expect(service.list()).resolves.toMatchObject({
+      projects: [{ id: "live", name: "live-project", path: join(root, "live-project"), availability: "available" }],
     });
   });
 

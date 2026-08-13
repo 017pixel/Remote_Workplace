@@ -54,14 +54,24 @@ async function discoverProjects(
     return [];
   }
 
-  const configuredPaths = new Set(configuredProjects.map((project) => normalize(project.path)));
+  const configuredByPath = new Map(configuredProjects.map((project) => [normalize(project.path), project]));
   const usedIds = new Set([...configuredProjects.map((project) => project.id), ...(registry?.list().map((project) => project.id) ?? [])]);
   return entries
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
     .sort((left, right) => left.name.localeCompare(right.name, "de", { sensitivity: "base" }))
     .flatMap((entry, index) => {
       const path = normalize(join(rootDirectory, entry.name));
-      if (configuredPaths.has(path)) return [];
+      const configured = configuredByPath.get(path);
+      if (configured) {
+        return [{
+          ...configured,
+          name: entry.name,
+          description: "Automatisch erkannter lokaler Arbeitsbereich.",
+          path,
+          enabled: true,
+          sortOrder: 1_000 + index,
+        }];
+      }
       const known = registry?.findByPath(path);
       const id = known?.id ?? uniqueProjectId(entry.name, usedIds);
       if (known) usedIds.add(known.id);
@@ -139,13 +149,21 @@ export function createProjectService(
     const discovered = discovery.enabled
       ? await discoverProjects(discovery.rootDirectory, projectConfig.projects, registry)
       : [];
-    const base = [...projectConfig.projects, ...discovered];
+    const discoveredPaths = new Set(discovered.map((project) => normalize(project.path)));
+    const configuredOutsideDiscovery = projectConfig.projects.filter((project) => !discoveredPaths.has(normalize(project.path)) && !isWithinDiscoveryRoot(project.path));
+    const base = discovery.enabled ? [...discovered, ...configuredOutsideDiscovery] : [...projectConfig.projects];
     const knownPaths = new Set(base.map((project) => normalize(project.path)));
     const registered = (registry?.list() ?? []).flatMap((project): ProjectConfig[] => {
       if (knownPaths.has(normalize(project.path))) return [];
       return [registeredProjectConfig(project)];
     });
     return [...base, ...registered];
+  }
+
+  function isWithinDiscoveryRoot(path: string): boolean {
+    const root = normalize(discovery.rootDirectory);
+    const candidate = normalize(path);
+    return candidate === root || candidate.startsWith(`${root}/`);
   }
 
   function registeredProjectConfig(project: RegisteredProject): ProjectConfig {
@@ -170,7 +188,7 @@ export function createProjectService(
       settings.projectActivityConcurrency,
       mapProject,
     );
-    return projectsResponseSchema.parse({ projects, recentLimit: settings.orbitRecentProjectLimit });
+    return projectsResponseSchema.parse({ projects, projectsRoot: discovery.rootDirectory, recentLimit: settings.orbitRecentProjectLimit });
   });
   const referenceCache = createAsyncCache<readonly ProjectReference[]>(settings.projectListCacheMilliseconds, async () => {
     const availableProjects = await configuredAndDiscoveredProjects();

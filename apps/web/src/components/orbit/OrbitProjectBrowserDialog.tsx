@@ -263,7 +263,7 @@ export function OrbitProjectBrowserDialog({ open, onClose }: OrbitProjectBrowser
       const result = await apiClient.registerProject({ path: selectedPath });
       if (!result) throw new Error("Das Projekt konnte nicht registriert werden.");
       queryClient.setQueryData<ProjectsResponse>(["projects"], (current) => {
-        if (!current) return { projects: [result.project], recentLimit: 8 };
+        if (!current) return { projects: [result.project], projectsRoot: "/", recentLimit: 8 };
         const exists = current.projects.some((project) => project.id === result.project.id);
         return { ...current, projects: exists ? current.projects.map((project) => project.id === result.project.id ? result.project : project) : [...current.projects, result.project] };
       });
