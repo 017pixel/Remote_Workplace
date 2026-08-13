@@ -21,6 +21,7 @@ import { changeDevicePreviewScaleFactor, DevicePreviewFrame, devicePreviewScaleF
 import { PreviewDiagnosticsSheet } from "./PreviewDiagnosticsSheet";
 import { useRouteActivity } from "../../lib/routeActivity";
 import { writeClipboardText } from "../../lib/clipboard";
+import { runPreviewSlotReset, withPreviewSlotRecovery } from "../../lib/previewSlotRecovery";
 
 export interface LocalPreviewRuntimeProps {
   targetPort: number;
@@ -230,15 +231,11 @@ export function LocalPreviewRuntime({
       try {
         return await open(requestedSlotId);
       } catch (reason) {
-        if (requestedSlotId !== null && reason instanceof ApiClientError && reason.code === "PREVIEW_SLOT_CHANGED") return open(null);
+        if (requestedSlotId !== null && reason instanceof ApiClientError && reason.code === "PREVIEW_SLOT_CHANGED") {
+          return withPreviewSlotRecovery(() => open(null));
+        }
         if (!(reason instanceof ApiClientError) || reason.code !== "PREVIEW_SLOTS_EXHAUSTED") throw reason;
-        const started = await apiClient.reclaimPreviewSlot();
-        if (!started) throw reason;
-        const report = await runSlotReset(started.resetUrl, started.nonce);
-        if (!report) throw new Error("Der freie Preview-Slot konnte nicht verifiziert zurückgesetzt werden.", { cause: reason });
-        const verified = await apiClient.verifyPreviewSlotReset(started.slotId, report);
-        if (!verified || verified.state !== "free") throw new Error(verified?.message ?? "Der Preview-Slot bleibt gesperrt.", { cause: reason });
-        return open(null);
+        return withPreviewSlotRecovery(() => open(null));
       }
     };
     void openWithRecovery().then((response) => {
@@ -584,12 +581,20 @@ export function LocalPreviewRuntime({
               storageProfileId,
             });
             if (!started) return;
-            const report = await runSlotReset(started.resetUrl, started.nonce);
+            const report = await runPreviewSlotReset(started.resetUrl, started.nonce);
+            const verification = await apiClient.verifyPreviewSlotReset(slotId, report ?? {
+              nonce: started.nonce,
+              serviceWorkers: 0,
+              cacheStorages: 0,
+              localStorageKeys: 0,
+              sessionStorageKeys: 0,
+              indexedDatabases: 0,
+              verifiable: false,
+            });
             if (!report) {
-              setError("Der Reset konnte nicht verifiziert werden. Der Slot bleibt gesperrt.");
+              setError(verification?.message ?? "Der Reset konnte nicht verifiziert werden. Der Slot bleibt gesperrt.");
               return;
             }
-            const verification = await apiClient.verifyPreviewSlotReset(slotId, report);
             setError(verification?.state === "quarantined" ? verification.message : null);
             assignmentRef.current = null;
             setRetryKey((value) => value + 1);
@@ -598,30 +603,4 @@ export function LocalPreviewRuntime({
       ) : null}
     </div>
   );
-}
-
-/**
- * Führt den Storage-Reset in einem unsichtbaren iframe auf der Slot-Origin aus
- * und liefert die Inventur zurück. Ohne verifizierbare Inventur bleibt der Slot
- * fail-closed gesperrt.
- */
-async function runSlotReset(resetUrl: string, nonce: string) {
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";
-  const client = new PreviewBridgeClient({});
-  document.body.append(frame);
-  try {
-    client.beginEpoch();
-    client.attach(frame, resetUrl);
-    frame.src = resetUrl;
-    await new Promise((resolve) => {
-      frame.addEventListener("load", resolve, { once: true });
-      window.setTimeout(resolve, 10_000);
-    });
-    return await client.resetStorage(nonce);
-  } finally {
-    client.dispose();
-    frame.remove();
-  }
 }

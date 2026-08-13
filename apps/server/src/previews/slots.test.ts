@@ -174,6 +174,50 @@ describe("Preview-Slots", () => {
     expect(reused.bindings[0]!.slotId).toBe(1);
   });
 
+  it("kann einen quarantänisierten Slot erneut verifiziert zurücksetzen", async () => {
+    const { service: slots } = await service({ slotPorts: [3901], flags: { slotResetEnabled: true } });
+    const first = slots.openSession(user, { sessionKey: "alt", projectId: "alt", primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    slots.closeSessionById(user, first.id);
+
+    const failedReset = slots.beginReclaim();
+    const failed = slots.reset.verify(1, {
+      nonce: failedReset.nonce,
+      serviceWorkers: 0,
+      cacheStorages: 0,
+      localStorageKeys: 0,
+      sessionStorageKeys: 0,
+      indexedDatabases: 0,
+      verifiable: false,
+    });
+    expect(failed.affinity.state).toBe("quarantined");
+
+    const retry = slots.beginReclaim();
+    expect(retry.slotId).toBe(1);
+    const verified = slots.reset.verify(1, {
+      nonce: retry.nonce,
+      serviceWorkers: 0,
+      cacheStorages: 0,
+      localStorageKeys: 0,
+      sessionStorageKeys: 0,
+      indexedDatabases: 0,
+      verifiable: true,
+    });
+    expect(verified.affinity.state).toBe("free");
+    expect(verified.affinity.storageOwnerKey).toBeNull();
+  });
+
+  it("lässt einen abgebrochenen Reset auslaufen und erneut beginnen", async () => {
+    const { service: slots, database } = await service({ slotPorts: [3901], flags: { slotResetEnabled: true } });
+    const first = slots.openSession(user, { sessionKey: "alt", projectId: "alt", primaryPort: 5173, primaryProtocol: "http", isolate: true, storageProfileId: null });
+    slots.closeSessionById(user, first.id);
+    slots.beginReclaim();
+    const resetting = database.affinity(1)!;
+    database.writeAffinity({ ...resetting, resetStartedAt: "2000-01-01T00:00:00.000Z" });
+
+    expect(slots.beginReclaim().slotId).toBe(1);
+    expect(database.affinity(1)?.state).toBe("resetting");
+  });
+
   it("meldet fehlende Kapazität, statt einen Graphen teilweise zu aktivieren", async () => {
     const { service: slots } = await service({ slotPorts: [3901, 3902] });
     const capacity = slots.capacity({

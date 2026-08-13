@@ -585,15 +585,19 @@ export class PreviewSlotService {
     const result = this.database.transaction(() => {
       this.releaseUnusedSlots(this.database.deleteExpiredSessions(new Date().toISOString()));
       const persisted = new Map(this.database.list().map((slot) => [slot.slotId, slot]));
-      for (const definition of this.definitions) {
+      const candidates = this.definitions.flatMap((definition) => {
         const affinity = this.reset.affinity(definition.id);
         const targetPort = persisted.get(definition.id)?.targetPort ?? null;
-        if (targetPort !== null || this.database.bindingCount(definition.id) > 0) continue;
-        if (affinity.state !== "free" || affinity.storageOwnerKey === null) continue;
+        if (targetPort !== null || this.database.bindingCount(definition.id) > 0) return [];
+        if (affinity.state === "free" && affinity.storageOwnerKey !== null) return [{ definition, affinity, priority: 0 }];
+        if (affinity.state === "quarantined") return [{ definition, affinity, priority: 1 }];
+        return [];
+      }).sort((left, right) => left.priority - right.priority || left.definition.id - right.definition.id);
+      for (const { definition, affinity } of candidates) {
         const started = this.reset.begin(definition.id, affinity.generation, affinity.storageProfileId);
         return { slotId: definition.id, ...started };
       }
-      throw new AppError(409, "PREVIEW_SLOTS_EXHAUSTED", "Es ist kein freier Preview-Slot verfügbar, der sicher zurückgesetzt werden kann.");
+      throw new AppError(409, "PREVIEW_SLOTS_EXHAUSTED", "Es ist kein ungebundener Preview-Slot verfügbar, der im Browser sicher zurückgesetzt werden kann.");
     });
     this.publish();
     return result;
