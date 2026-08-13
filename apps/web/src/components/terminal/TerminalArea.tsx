@@ -118,12 +118,12 @@ export function TerminalArea({
     };
   }, [actionsOpen]);
   useEffect(() => {
-    if (!requestedSessionId || !sessions.data || !area) return;
+    if (!routeActive || !requestedSessionId || !sessions.data || !area) return;
     const session = sessions.data.sessions.find((candidate) => candidate.id === requestedSessionId || candidate.runtimeId === requestedSessionId);
     if (!session) return;
     if (!area.tabs.some((tab) => tab.id === session.runtimeId)) addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind, initialCwd: session.cwd });
     if (area.activeTabId !== session.runtimeId) activateTab(areaId, session.runtimeId);
-  }, [activateTab, addExistingTab, area, areaId, requestedSessionId, sessions.data]);
+  }, [activateTab, addExistingTab, area, areaId, requestedSessionId, routeActive, sessions.data]);
 
   const projectName = (projectId: string | null, cwd?: string) => projects.data?.projects.find((project) => project.id === projectId)?.name
     ?? (cwd ? projects.data?.projects.find((project) => project.path === cwd)?.name : undefined)

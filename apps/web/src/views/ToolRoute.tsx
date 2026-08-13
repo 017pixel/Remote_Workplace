@@ -44,11 +44,11 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   }, [t3Env, t3Thread, type]);
 
   useEffect(() => {
-    if (type !== "t3-code" || !t3Path) return;
+    if (!routeActive || type !== "t3-code" || !t3Path) return;
     // Ein in der Workbench bereits offenes T3-Panel wechselt auf den Ziel-Thread.
     const existing = useWorkspaceStore.getState().panels.find((panel) => panel.type === "t3-code");
     if (existing) useWorkspaceStore.getState().navigateT3Panel(existing.id, t3Path);
-  }, [t3Path, type]);
+  }, [routeActive, t3Path, type]);
 
   if (isLoading) return <div className="flex h-full items-center justify-center text-sm text-muted">Lädt…</div>;
   if (!project && type !== "preview") {

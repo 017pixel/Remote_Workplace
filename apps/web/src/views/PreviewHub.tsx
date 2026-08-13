@@ -152,7 +152,7 @@ export function PreviewHub() {
   };
 
   useEffect(() => {
-    if (!projectsQuery.isSuccess) return;
+    if (!routeActive || !projectsQuery.isSuccess) return;
     const availableIds = projects.map((project) => project.id);
     const requested = searchParams.get("project");
     const fallback = requested && availableIds.includes(requested)
@@ -173,25 +173,25 @@ export function PreviewHub() {
         setProjectParam(nextProjectId);
       }
     }
-  }, [openProject, projects, projectsQuery.isSuccess, reconcileProjects, searchParams, selectProject, selectedProjectId, setProjectParam]);
+  }, [openProject, projects, projectsQuery.isSuccess, reconcileProjects, routeActive, searchParams, selectProject, selectedProjectId, setProjectParam]);
 
   useEffect(() => {
-    if (!initialized.current || selectedProjectId === synchronizedProjectId.current) return;
+    if (!routeActive || !initialized.current || selectedProjectId === synchronizedProjectId.current) return;
     synchronizedProjectId.current = selectedProjectId;
     if (!selectedProjectId || selectedProjectId === activeProjectId) return;
     if (!projects.some((project) => project.id === selectedProjectId)) return;
     openProject(selectedProjectId);
     setProjectParam(selectedProjectId);
-  }, [activeProjectId, openProject, projects, selectedProjectId, setProjectParam]);
+  }, [activeProjectId, openProject, projects, routeActive, selectedProjectId, setProjectParam]);
 
   useEffect(() => {
-    if (!initialized.current) return;
+    if (!routeActive || !initialized.current) return;
     const requested = searchParams.get("project");
     if (!requested || requested === activeProjectId || !projects.some((project) => project.id === requested)) return;
     synchronizedProjectId.current = requested;
     openProject(requested);
     if (selectedProjectId !== requested) selectProject(requested);
-  }, [activeProjectId, openProject, projects, searchParams, selectProject, selectedProjectId]);
+  }, [activeProjectId, openProject, projects, routeActive, searchParams, selectProject, selectedProjectId]);
 
   useEffect(() => {
     if (!projectManagerOpen) return;
@@ -355,7 +355,7 @@ function PreviewProjectView({ project, routeActive }: PreviewProjectViewProps) {
   }, [filter, logsQuery.data?.services, serviceFilter]);
 
   useEffect(() => {
-    if (!status || !project || configuredPreviewApplied.current === project.id) return;
+    if (!routeActive || !status || !project || configuredPreviewApplied.current === project.id) return;
     configuredPreviewApplied.current = project.id;
     const previewId = searchParams.get("preview");
     const targetPort = project.previews.find((preview) => preview.id === previewId)?.targetPort;
@@ -364,7 +364,7 @@ function PreviewProjectView({ project, routeActive }: PreviewProjectViewProps) {
         void queryClient.invalidateQueries({ queryKey: ["preview-dev-server", project.id] });
       });
     }
-  }, [project, queryClient, searchParams, status]);
+  }, [project, queryClient, routeActive, searchParams, status]);
 
   useEffect(() => {
     const node = logRef.current;

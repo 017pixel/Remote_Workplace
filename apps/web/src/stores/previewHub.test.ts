@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePreviewHubStore } from "./previewHub";
 
 describe("Preview-Hub-Tabs", () => {
@@ -32,5 +32,18 @@ describe("Preview-Hub-Tabs", () => {
     usePreviewHubStore.setState({ openProjectIds: [], activeProjectId: null });
     usePreviewHubStore.getState().reconcileProjects(["eins", "zwei"], null);
     expect(usePreviewHubStore.getState()).toMatchObject({ openProjectIds: [], activeProjectId: null });
+  });
+
+  it("meldet bei unveränderter Projektauswahl kein Store-Update", () => {
+    usePreviewHubStore.setState({ openProjectIds: ["eins", "zwei"], activeProjectId: "zwei" });
+    const listener = vi.fn();
+    const unsubscribe = usePreviewHubStore.subscribe(listener);
+
+    usePreviewHubStore.getState().reconcileProjects(["eins", "zwei"], null);
+    usePreviewHubStore.getState().openProject("zwei");
+    usePreviewHubStore.getState().activateProject("zwei");
+
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
   });
 });

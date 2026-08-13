@@ -17,16 +17,27 @@ function validIds(value: unknown): string[] {
   return [...new Set(value.filter((item): item is string => typeof item === "string" && item.length > 0))];
 }
 
+function sameIds(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
 export const usePreviewHubStore = create<PreviewHubState>()(
   persist(
     (set) => ({
       openProjectIds: [],
       activeProjectId: null,
-      openProject: (projectId) => set((state) => ({
-        openProjectIds: state.openProjectIds.includes(projectId) ? state.openProjectIds : [...state.openProjectIds, projectId],
-        activeProjectId: projectId,
-      })),
-      activateProject: (projectId) => set((state) => state.openProjectIds.includes(projectId) ? { activeProjectId: projectId } : state),
+      openProject: (projectId) => set((state) => {
+        const alreadyOpen = state.openProjectIds.includes(projectId);
+        if (alreadyOpen && state.activeProjectId === projectId) return state;
+        return {
+          openProjectIds: alreadyOpen ? state.openProjectIds : [...state.openProjectIds, projectId],
+          activeProjectId: projectId,
+        };
+      }),
+      activateProject: (projectId) => set((state) => {
+        if (!state.openProjectIds.includes(projectId) || state.activeProjectId === projectId) return state;
+        return { activeProjectId: projectId };
+      }),
       closeProject: (projectId) => set((state) => {
         const index = state.openProjectIds.indexOf(projectId);
         if (index < 0) return state;
@@ -42,6 +53,7 @@ export const usePreviewHubStore = create<PreviewHubState>()(
         const activeProjectId = state.activeProjectId && openProjectIds.includes(state.activeProjectId)
           ? state.activeProjectId
           : (openProjectIds[0] ?? null);
+        if (sameIds(openProjectIds, state.openProjectIds) && activeProjectId === state.activeProjectId) return state;
         return { openProjectIds, activeProjectId };
       }),
     }),
