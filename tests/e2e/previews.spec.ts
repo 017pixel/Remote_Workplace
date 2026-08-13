@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { startPreviewFixtures, fixturePorts } from "../fixtures/preview-apps/server.mjs";
 import { previewIdentity, previewsEnabled, previewsReason } from "./helpers/previews";
 
@@ -172,6 +174,45 @@ test.describe("Lokale Previews", () => {
   });
 
   test("recycelt belegte Slot-Origins und öffnet die Hub-Preview direkt in einem neuen Tab und Fenster", async ({ page, request }) => {
+    // Eigene Projektlaufzeit im Fixture-Bereich (innerhalb des erlaubten
+    // Browser-Roots): preview.config.json startet einen minimalen node-Server
+    // auf dem ersten freien Port der erlaubten Preview-Palette.
+    const runtimeDirectory = await mkdtemp(join(process.cwd(), "tests", "fixtures", ".e2e-runtime-"));
+    await writeFile(join(runtimeDirectory, "preview.config.json"), JSON.stringify({
+      version: 2,
+      mainService: "frontend",
+      services: [{
+        id: "frontend",
+        name: "E2E Fixture",
+        role: "frontend",
+        command: "node server.mjs",
+        port: "auto",
+        portMode: "argument",
+      }],
+    }));
+    await writeFile(join(runtimeDirectory, "server.mjs"), `import { createServer } from "node:http";
+const port = Number(process.argv[process.argv.indexOf("--port") + 1] ?? 1234);
+createServer((_request, response) => {
+  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  response.end("<!doctype html><html lang=\\"de\\"><head><meta charset=\\"utf-8\\"><title>E2E Fixture</title></head><body><p>SPA bereit</p></body></html>");
+}).listen(port, "127.0.0.1");
+`);
+
+    const registered = await request.post("/api/v1/projects/register", {
+      headers: previewIdentity,
+      data: { path: runtimeDirectory },
+    });
+    expect(registered.ok()).toBeTruthy();
+    const registeredProject = await registered.json() as { project: { id: string; name: string } };
+
+    // Die erkannte Laufzeit besitzt mindestens einen Browserdienst auf einem
+    // Port der zentralen Palette; die konkrete Zuweisung kann beim Start noch
+    // auf einen freien Palettenport ausweichen.
+    const profileResponse = await request.get(`/api/v1/previews/dev-servers/${encodeURIComponent(registeredProject.project.id)}/profile`, { headers: previewIdentity });
+    expect(profileResponse.ok()).toBeTruthy();
+    const profile = await profileResponse.json() as { services: Array<{ port: number | null }> };
+    expect(profile.services.some((service) => service.port !== null)).toBeTruthy();
+
     const reclaimPreviewSlots = async () => {
       for (let index = 0; index < 12; index += 1) {
         const startedResponse = await request.post("/api/v1/previews/slots/reclaim", { headers: previewIdentity });
@@ -201,42 +242,55 @@ test.describe("Lokale Previews", () => {
         await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
       }
 
-      const saved = await request.put("/api/v1/previews/dev-servers/remote-workplace/main-port", {
-        headers: previewIdentity,
-        data: { mainPort: fixturePorts.spa },
-      });
-      expect(saved.ok()).toBeTruthy();
-
       await page.goto("/workbench/previews");
-      await expect(page.getByRole("heading", { name: "Preview Übersicht" })).toHaveCount(0);
-      await expect(page.locator(".topbar").getByRole("button", { name: "Remote Workplace", exact: true })).toBeVisible();
 
-      const publicUrl = page.locator(".preview-hub-urlbar code");
-      await expect(publicUrl).toHaveText(/^https?:\/\/[^/]+:\d+\/$/);
-      const expectedUrl = await publicUrl.textContent();
-      expect(expectedUrl).not.toBeNull();
+      // Der Hub öffnet das zuletzt gewählte Projekt automatisch; die Fixture-
+      // Laufzeit wird über den Projekt-Manager als eigener Tab hinzugefügt.
+      await test.step("Projekt-Tab im Hub öffnen", async () => {
+        await page.getByRole("button", { name: "Preview-Projekt hinzufügen" }).click();
+        const dialog = page.getByRole("dialog", { name: "Preview-Projekte" });
+        await dialog.getByRole("textbox", { name: "Preview-Projekte suchen" }).fill(registeredProject.project.name);
+        await dialog.getByRole("button", { name: registeredProject.project.name }).click();
+      });
 
-      // Die externen Öffner führen über die Live-Route auf die Slot-Origin, damit
-      // der neue Tab eine eigene Session mit Lease erhält statt einer nackten URL.
-      const tabPromise = page.waitForEvent("popup");
-      await page.getByRole("button", { name: "Im neuen Tab" }).click();
-      const tab = await tabPromise;
-      await expect(tab).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
-      await expect(tab.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
-      await tab.close();
+      await test.step("Laufzeit starten", async () => {
+        // Das Hauptziel wartet auf den zugewiesenen Dienstport aus der Palette,
+        // dann startet die Laufzeit.
+        await expect(page.locator(".preview-hub-urlbar code")).toContainText(/Port \d+ wird beim Öffnen über einen sicheren Slot veröffentlicht/);
+        await page.locator(".preview-hub-command").getByRole("button", { name: "Alles starten" }).click();
+        await expect(page.locator(".preview-hub-command .preview-hub-state.is-running")).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByRole("button", { name: "Im neuen Tab öffnen" })).toBeEnabled();
+      });
 
-      const windowPromise = page.waitForEvent("popup");
-      await page.getByRole("button", { name: "Im neuen Fenster" }).click();
-      const previewWindow = await windowPromise;
-      await expect(previewWindow).toHaveURL(new RegExp(`/previews/live\\?.*port=${fixturePorts.spa}`));
-      await expect(previewWindow.frameLocator("iframe").getByText("SPA bereit")).toBeVisible();
-      await previewWindow.close();
+      await test.step("Direkt in einem neuen Tab öffnen", async () => {
+        // Direktes Öffnen: Das Popup erreicht die veröffentlichte Slot-Origin und
+        // zeigt die Fixture-Seite ohne Workbench-Oberfläche.
+        const tabPromise = page.waitForEvent("popup");
+        await page.getByRole("button", { name: "Im neuen Tab öffnen" }).click();
+        const tab = await tabPromise;
+        await expect(tab).toHaveURL(/^http:\/\/127\.0\.0\.1:\d+\//, { timeout: 30_000 });
+        await expect(tab.getByText("SPA bereit")).toBeVisible({ timeout: 15_000 });
+        await tab.close();
+      });
+
+      await test.step("Direkt in einem neuen Fenster öffnen", async () => {
+        // Das Menü öffnet dieselbe direkte URL in einem eigenen Fenster.
+        await page.locator(".preview-hub-launchbar summary").click();
+        const windowPromise = page.waitForEvent("popup");
+        await page.getByRole("button", { name: "Im neuen Fenster" }).click();
+        const previewWindow = await windowPromise;
+        await expect(previewWindow).toHaveURL(/^http:\/\/127\.0\.0\.1:\d+\//, { timeout: 30_000 });
+        await expect(previewWindow.getByText("SPA bereit")).toBeVisible({ timeout: 15_000 });
+        await previewWindow.close();
+      });
     } finally {
       // Der Test verändert absichtlich persistente Preview-Zustände. Das Cleanup
       // muss deshalb auch nach einer fehlgeschlagenen UI-Assertion laufen, damit
       // spätere Browser-Projekte nicht mit belegten Slots starten.
-      await request.delete(`/api/v1/previews/sessions/by-key/preview-live:remote-workplace:${fixturePorts.spa}`, { headers: previewIdentity });
+      await request.post(`/api/v1/previews/dev-servers/${encodeURIComponent(registeredProject.project.id)}/stop`, { headers: previewIdentity }).catch(() => {});
+      await request.delete(`/api/v1/previews/sessions/by-key/preview-runtime:${encodeURIComponent(registeredProject.project.id)}`, { headers: previewIdentity }).catch(() => {});
       await reclaimPreviewSlots();
+      await rm(runtimeDirectory, { recursive: true, force: true });
     }
   });
 
