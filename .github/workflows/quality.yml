@@ -49,6 +49,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Preview-Laufzeiten starten über tmux auf dem separaten Preview-Socket.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
       - run: pnpm exec playwright install --with-deps chromium firefox
       - run: pnpm test:e2e
       - if: failure()
