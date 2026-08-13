@@ -64,6 +64,10 @@ function proxyWebSocket(source: WebSocket, request: FastifyRequest) {
     protocols,
     {
       headers: forwardedHeaders(request, optionalHeaders),
+      // Auf dem Loopback-Hop spart Kompression keine Netzwerkzeit. Ohne sie
+      // erreichen kleine Eingabe-, Hover- und Dateisystemnachrichten den
+      // code-server ohne zusätzlichen Deflate-Durchlauf.
+      perMessageDeflate: false,
     },
   );
   const pending: Array<{ data: WebSocket.RawData; binary: boolean }> = [];
