@@ -9,9 +9,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 Environment=HOME=__HOME__
-ExecStart=__CODE_SERVER_BIN__ --bind-addr 127.0.0.1:8080 --auth none
+ExecStart=__CODE_SERVER_BIN__ --config __REPO_ROOT__/config/code-server.yaml
 Restart=on-failure
-RestartSec=5s
+RestartSec=1s
 TimeoutStopSec=20s
 KillSignal=SIGTERM
 UMask=0077
@@ -20,11 +20,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectKernelTunables=true
-ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 
 [Install]
 WantedBy=default.target

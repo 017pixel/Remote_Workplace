@@ -10,12 +10,16 @@ timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 pnpm_binary="$(command -v pnpm || true)"
 units=("workbench.service")
 installed_units=()
+code_server_config="$repo_root/config/code-server.yaml"
 
 if [[ -z "$pnpm_binary" ]]; then
   echo "pnpm wurde nicht im PATH gefunden. Bitte zuerst scripts/install-deps.sh ausführen." >&2
   exit 1
 fi
 if command -v code-server >/dev/null 2>&1; then
+  if [[ ! -f "$code_server_config" ]]; then
+    install -m 0600 "$repo_root/config/code-server.yaml.example" "$code_server_config"
+  fi
   units+=("code-server.service")
 fi
 
