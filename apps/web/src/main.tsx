@@ -15,6 +15,8 @@ import { bootstrapLegacyCommands } from "./extensions/legacyCommands";
 import { bootstrapLegacyStatusBar } from "./extensions/legacyStatusBar";
 import { bootstrapLegacyTopbar } from "./extensions/legacyTopbar";
 import { bootstrapLegacyContextMenus } from "./extensions/legacyContextMenus";
+import { bootstrapLegacyDashboardSections } from "./extensions/legacyDashboardSections";
+import { bootstrapLegacySettingsCards } from "./extensions/legacySettingsCards";
 import "./index.css";
 import "./components/usage/usage-mobile.css";
 
@@ -26,6 +28,8 @@ bootstrapLegacyCommands();
 bootstrapLegacyStatusBar();
 bootstrapLegacyTopbar();
 bootstrapLegacyContextMenus();
+bootstrapLegacyDashboardSections();
+bootstrapLegacySettingsCards();
 
 const root = document.querySelector<HTMLDivElement>("#root");
 if (root === null) throw new Error("Der Frontend-Mount-Punkt #root fehlt.");

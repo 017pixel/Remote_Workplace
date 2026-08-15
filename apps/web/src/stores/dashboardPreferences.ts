@@ -1,6 +1,8 @@
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { DashboardConfig, DashboardSection } from "@workbench/contracts";
+import { dashboardSectionRegistry } from "../extensions/dashboardRegistry";
 
 export const allDashboardSections: DashboardSection[] = [
   "quickActions",
@@ -25,6 +27,43 @@ export const dashboardSectionMeta: Record<DashboardSection, { label: string; des
   news: { label: "News", description: "Anzahl ungelesener Tech-TLDRs und Sync-Status" },
   commands: { label: "Command Reference", description: "Konfigurierte Befehle zum Kopieren" },
 };
+
+export interface DashboardSectionView {
+  readonly section: DashboardSection;
+  readonly label: string;
+  readonly description: string;
+}
+
+let cachedRegistryRevision = -1;
+let cachedRegistrySections: readonly DashboardSectionView[] = Object.freeze([]);
+
+function dashboardSectionsFromRegistry(): readonly DashboardSectionView[] {
+  const snapshot = dashboardSectionRegistry.getSnapshot();
+  if (snapshot.revision !== cachedRegistryRevision) {
+    cachedRegistryRevision = snapshot.revision;
+    cachedRegistrySections = Object.freeze(
+      snapshot.sections.map((entry) => ({
+        section: entry.value.runtime.legacySectionId,
+        label: entry.value.contribution.title,
+        description: entry.value.contribution.description ?? "",
+      })),
+    );
+  }
+  return cachedRegistrySections;
+}
+
+/**
+ * Die Dashboard-Bereiche kommen zur Renderzeit aus der Dashboard-Section-
+ * Registry (Legacy Built-ins). Config- und LocalStorage-Werte bleiben über
+ * den Legacy-Alias unverändert lesbar; die statische `allDashboardSections`
+ * bleibt als Persist-Filter und Fallback erhalten.
+ */
+export function useDashboardSections(): readonly DashboardSectionView[] {
+  return useSyncExternalStore(
+    dashboardSectionRegistry.subscribe,
+    dashboardSectionsFromRegistry,
+  );
+}
 
 interface DashboardPreferencesState {
   hiddenSections: Set<DashboardSection>;

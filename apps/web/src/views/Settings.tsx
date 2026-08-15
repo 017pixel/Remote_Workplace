@@ -7,12 +7,12 @@ import { usePwaInstall } from "../lib/usePwaInstall";
 import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
-import { WORKBENCH_LIMITS, type DashboardConfig, type DashboardSection, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
+import { WORKBENCH_LIMITS, type DashboardConfig, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
 import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem } from "../stores/sidebarPreferences";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
-import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } from "../stores/dashboardPreferences";
+import { useDashboardPreferences, useDashboardSections } from "../stores/dashboardPreferences";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useWebPushDevice } from "../lib/useWebPushDevice";
 import type { WebPushDeviceStatus } from "../lib/webPushDevice";
@@ -265,17 +265,17 @@ function UsageMonitoringSettings() {
 function DashboardSectionToggles({ config }: { config: DashboardConfig | undefined }) {
   const toggleSection = useDashboardPreferences((state) => state.toggleSection);
   const hiddenSections = useDashboardPreferences((state) => state.hiddenSections);
+  const sections = useDashboardSections();
   return (
     <div className="dashboard-settings-toggle-list">
-      {allDashboardSections.map((section: DashboardSection) => {
-        const meta = dashboardSectionMeta[section];
+      {sections.map(({ section, label, description }) => {
         const allowed = config?.sections[section] ?? true;
         const hidden = hiddenSections.has(section);
         const enabled = allowed && !hidden;
         return (
           <button key={section} type="button" className="settings-toggle-row dashboard-settings-toggle-row" disabled={!allowed} onClick={() => toggleSection(section)} title={!allowed ? "Dieser Bereich ist in der zentralen Config deaktiviert" : undefined}>
-            <span className="dashboard-settings-toggle-copy"><strong>{meta.label}</strong><small>{meta.description}{!allowed ? " · in Config deaktiviert" : ""}</small></span>
-            <span className={`settings-toggle-switch ${enabled ? "is-on" : ""} ${!allowed ? "is-locked" : ""}`} role="switch" aria-checked={enabled} aria-disabled={!allowed} aria-label={meta.label}>
+            <span className="dashboard-settings-toggle-copy"><strong>{label}</strong><small>{description}{!allowed ? " · in Config deaktiviert" : ""}</small></span>
+            <span className={`settings-toggle-switch ${enabled ? "is-on" : ""} ${!allowed ? "is-locked" : ""}`} role="switch" aria-checked={enabled} aria-disabled={!allowed} aria-label={label}>
               <span className="settings-toggle-thumb" />
             </span>
           </button>
