@@ -3,6 +3,7 @@ export * from "./contributions.js";
 export * from "./context-expressions.js";
 export * from "./context-menus.js";
 export * from "./dependencies.js";
+export * from "./file-contributions.js";
 export * from "./ids.js";
 export * from "./keyboard-shortcuts.js";
 export * from "./lifecycle.js";

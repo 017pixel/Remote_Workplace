@@ -240,6 +240,30 @@ const validManifest = {
         },
       },
     ],
+    files: [
+      {
+        id: "workbench.agent-tasks.file.open",
+        kind: "opener",
+        title: "In Agent Tasks öffnen",
+        icon: "workbench.agent-tasks.icon.tasks",
+        matcher: {
+          extensions: ["task.json"],
+          mimeTypes: ["application/json"],
+          caseSensitiveFileNames: false,
+        },
+        priority: 60,
+        commandId: "workbench.agent-tasks.command.create",
+        when: {
+          all: [
+            {
+              key: "host.project.open",
+              operator: "equals",
+              value: true,
+            },
+          ],
+        },
+      },
+    ],
   },
 };
 
@@ -1655,6 +1679,156 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert File Opener und permission-gebundene Viewer", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          files: validManifest.contributes.files,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [{ permission: "files.read" }],
+        contributes: {
+          files: [
+            {
+              id: "workbench.agent-tasks.file.viewer",
+              kind: "viewer",
+              title: "Agent Task Vorschau",
+              icon: "workbench.agent-tasks.icon.tasks",
+              matcher: validManifest.contributes.files[0]!.matcher,
+              priority: 80,
+              provider: "workbench.agent-tasks.file-provider.viewer",
+              surfaces: ["detail", "quick-look"],
+              contentMode: "text",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende File Commands und fremde Viewer Provider ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          files: [
+            {
+              ...validManifest.contributes.files[0],
+              commandId: "workbench.agent-tasks.command.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [{ permission: "files.read" }],
+        contributes: {
+          files: [
+            {
+              id: "workbench.agent-tasks.file.viewer",
+              kind: "viewer",
+              title: "Agent Task Vorschau",
+              matcher: validManifest.contributes.files[0]!.matcher,
+              priority: 80,
+              provider: "workbench.other.file-provider.viewer",
+              surfaces: ["quick-look"],
+              contentMode: "text",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde File Icons, Context Keys und manifestweite IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          files: [
+            {
+              ...validManifest.contributes.files[0],
+              icon: "workbench.other.icon.tasks",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          files: [
+            {
+              ...validManifest.contributes.files[0],
+              when: {
+                all: [
+                  {
+                    key: "workbench.other.context.visible",
+                    operator: "exists",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          files: [
+            {
+              ...validManifest.contributes.files[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt UI-Entrypoint und files.read für File Viewer", () => {
+    const viewer = {
+      id: "workbench.agent-tasks.file.viewer",
+      kind: "viewer",
+      title: "Agent Task Vorschau",
+      matcher: validManifest.contributes.files[0]!.matcher,
+      priority: 80,
+      provider: "workbench.agent-tasks.file-provider.viewer",
+      surfaces: ["detail"],
+      contentMode: "text",
+    } as const;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { server: "./dist/server.mjs" },
+        permissions: [{ permission: "files.read" }],
+        contributes: { files: [viewer] },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [],
+        contributes: { files: [viewer] },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -1720,6 +1894,11 @@ describe("Extension Manifest V1", () => {
       }).success,
     ).toBe(true);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        files: validManifest.contributes.files,
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ pages: [] }).success,
     ).toBe(false);
     expect(
@@ -1747,6 +1926,9 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
     expect(
       extensionContributionsV1Schema.safeParse({ files: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ terminal: [] }).success,
     ).toBe(false);
   });
 });

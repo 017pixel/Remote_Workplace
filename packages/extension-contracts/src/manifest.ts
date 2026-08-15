@@ -24,6 +24,7 @@ import {
   extensionConflictsSchema,
   extensionDependencyMapSchema,
 } from "./dependencies.js";
+import { fileContributionsSchema } from "./file-contributions.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import { keyboardShortcutContributionsSchema } from "./keyboard-shortcuts.js";
 import {
@@ -174,6 +175,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   contextMenus: contextMenuContributionsSchema.optional(),
   statusBar: statusBarContributionsSchema.optional(),
   topbar: topbarContributionsSchema.optional(),
+  files: fileContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -335,6 +337,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.topbar ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "topbar", index, "id"] as const,
+      })),
+      ...(manifest.contributes.files ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "files", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -711,6 +717,58 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (manifest.contributes.files ?? []).entries()) {
+      if (item.kind === "opener" && !commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein File Opener muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "files", index, "commandId"],
+        });
+      }
+      if (
+        item.kind === "viewer" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine File Viewer Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "files", index, "provider"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine File Contribution Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "files", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "files", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "files", index, "when"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -788,6 +846,34 @@ export const extensionManifestV1Schema = z
         message:
           "Providerbasierte Topbar Contributions benötigen einen UI- oder Server-Entrypoint.",
         path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.files?.some((item) => item.kind === "viewer") ===
+        true &&
+      manifest.entrypoints.ui === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "File Viewer Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
+        path: ["entrypoints", "ui"],
+      });
+    }
+
+    if (
+      manifest.contributes.files?.some((item) => item.kind === "viewer") ===
+        true &&
+      !manifest.permissions.some(
+        (request) => request.permission === "files.read",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "File Viewer Contributions müssen die Permission files.read anfordern.",
+        path: ["permissions"],
       });
     }
 

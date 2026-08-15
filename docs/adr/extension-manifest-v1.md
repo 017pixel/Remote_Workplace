@@ -733,6 +733,80 @@ sie kontrolliert als Route-Metadaten, `hostOnly`-Elemente und Legacy Built-in Co
 Route-Activity-Prüfung des Portals muss dabei erhalten bleiben, damit persistente T3- und
 code-server-Flächen nicht gleichzeitig Aktionen in die aktive Topbar schreiben.
 
+#### File Contributions
+
+File Contributions registrieren einen Viewer oder ein „Öffnen mit“-Command anhand begrenzter
+Dateimetadaten:
+
+```json
+{
+  "contributes": {
+    "files": [
+      {
+        "id": "workbench.markdown.file.viewer",
+        "kind": "viewer",
+        "title": "Markdown Vorschau",
+        "icon": "workbench.markdown.icon.file",
+        "matcher": {
+          "extensions": ["md", "markdown"],
+          "fileNames": ["README"],
+          "mimeTypes": ["text/markdown"],
+          "caseSensitiveFileNames": false
+        },
+        "priority": 80,
+        "provider": "workbench.markdown.file-provider.viewer",
+        "surfaces": ["detail", "quick-look"],
+        "contentMode": "text"
+      },
+      {
+        "id": "workbench.markdown.file.open",
+        "kind": "opener",
+        "title": "Im Markdown Editor öffnen",
+        "matcher": {
+          "extensions": ["md", "markdown"],
+          "caseSensitiveFileNames": false
+        },
+        "priority": 60,
+        "commandId": "workbench.markdown.command.open"
+      }
+    ]
+  }
+}
+```
+
+- Matcher verwenden ausschließlich kleingeschriebene Endungen ohne führenden Punkt, exakte
+  Basenames und kleingeschriebene MIME-Typen ohne Parameter. MIME-Wildcards sind nur als
+  Subtyp `type/*` erlaubt. Mindestens eine Matcher-Liste ist erforderlich und jede Liste ist auf
+  64 eindeutige Werte begrenzt.
+- Pfade, Verzeichnisse, Globs, reguläre Ausdrücke, URLs und ausführbarer Matcher-Code sind nicht
+  erlaubt. `caseSensitiveFileNames` macht die Basename-Semantik explizit; Endungen und MIME-Typen
+  bleiben kanonisch kleingeschrieben.
+- Viewer registrieren einen namespaced UI-Provider für `detail`, `quick-look` oder beide Flächen.
+  `text`, `media` und `binary` wählen nur den späteren Broker-Kanal. Sie erhöhen weder Payload-
+  Grenze noch Dateiberechtigung.
+- Jeder Viewer benötigt einen UI-Entrypoint und einen ausdrücklichen `files.read` Permission
+  Request. Ein Match ist niemals ein Grant. Der Host liefert nur eine begrenzte Auswahlreferenz;
+  der Filesystem Broker prüft Root, Scope, kanonischen Pfad, Realpath und Symlinks bei jedem
+  tatsächlichen Zugriff erneut.
+- Opener referenzieren ein tatsächlich deklariertes Command. Dateiauswahl, Disabled Reason und
+  Business Logic laufen durch Command Registry und Capability Broker. Die Contribution verleiht
+  weder `files.read` noch `files.write`.
+- `priority` liegt zwischen 0 und 100. Überlappende Viewer und Opener bleiben sichtbar als
+  „Öffnen mit“-Auswahl; ein Hostdefault wird deterministisch nach Priorität, Extension-ID und
+  Contribution-ID ermittelt. Spätere serverseitige Nutzerpräferenzen referenzieren die stabile
+  Contribution-ID und werden bei fehlender Extension nicht gelöscht.
+- Icons und Context Expressions folgen den gemeinsamen Namespace-Regeln. Freier HTML- oder SVG-
+  Code ist nicht Teil einer File Contribution. Gerenderte Markdown-/HTML-Inhalte bleiben an die
+  Host-Sanitizing-, CSP- und Sandbox-Regeln gebunden.
+- Disable entfernt Viewer und Opener, verändert aber keine Datei und beendet keinen Editor,
+  Terminalprozess oder andere user-owned Runtime. Download, Rename, Move und Delete bleiben
+  eigene Commands mit erneuter Capability- und Bestätigungsprüfung.
+
+`previewKindOf`, `FilePreview`, `QuickLook` und `FileManagerService` werden in diesem Subgoal
+nicht verändert. Phase 2 adaptiert die vorhandenen Code-, Markdown-, Media-, PDF-, HTML- und
+Fallback-Renderer als Legacy Built-in Contributions. Die bestehenden O_NOFOLLOW-, Realpath-,
+Root- und Größenprüfungen bleiben Kernel-Substrat.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

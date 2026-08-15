@@ -156,6 +156,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Routes, Commands, Provider, Icons und Context Keys strikt auf gültige Contributions begrenzt
 - Navigation, Breadcrumbs, Recovery-Flächen und beliebige Komponenten unter Hostkontrolle belassen
 
+### Extension-Dateien
+
+- Viewer und Open-With-Commands als sichere File Contributions definiert
+- Exakte Endungs-, Dateinamen- und MIME-Matcher ohne Pfade, Globs oder Regex eingeführt
+- Detail- und Quick-Look-Viewer auf kontrollierte Text-, Media- und Binary-Kanäle begrenzt
+- Viewer verbindlich an UI-Entrypoint und ausdrückliche files.read Permission gebunden
+- Dateizugriff, Symlink-Schutz und Schreibaktionen vollständig beim Capability Broker belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

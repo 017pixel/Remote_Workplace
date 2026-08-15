@@ -14,6 +14,7 @@ import {
   EXTENSION_CONFLICTS_MAX_COUNT,
   EXTENSION_DEPENDENCIES_MAX_COUNT,
 } from "./dependencies.js";
+import { FILE_CONTRIBUTIONS_MAX_COUNT } from "./file-contributions.js";
 import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
@@ -158,6 +159,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               type: "array",
               minItems: 1,
               maxItems: TOPBAR_CONTRIBUTIONS_MAX_COUNT,
+              uniqueItems: true,
+              items: { oneOf: expect.any(Array) },
+            },
+            files: {
+              type: "array",
+              minItems: 1,
+              maxItems: FILE_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { oneOf: expect.any(Array) },
             },
