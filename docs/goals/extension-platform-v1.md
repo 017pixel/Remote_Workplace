@@ -95,7 +95,9 @@ lokale `.rwext`-Pakete.
   hostverwaltete Provider mit Health, begrenztem Restart und deterministischem Shutdown, ohne
   Prozesse oder Core-Runtimes im Manifest zu öffnen. Scheduled Job Contributions decken vier
   Triggerarten und begrenzte Policies für Concurrency, Missed Runs, Retries, Idempotenz, Abbruch
-  und History ab. Weitere Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
+  und History ab. HTTP/RPC Contributions verwenden lokale Request-/Response-Schemas und laufen
+  strikt unter Extension-Namespace, zentraler Identity, Origin-, Audit-, Rate-, Größen- und
+  Timeoutkontrolle. Weitere Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -104,12 +106,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.24 sechsundzwanzig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.25 siebenundzwanzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`097881f264aebddd33a012d8a5d8c1ae8eb6edf4` als analysierter Ausgangspunkt von Subgoal 1.24.
-Der Ergebniscommit enthält Scheduled Job Contributions V1 und diese Tracker-Aktualisierung.
+`0b03c3269776c8071927cb23a43a6a81fe34cbb9` als analysierter Ausgangspunkt von Subgoal 1.25.
+Der Ergebniscommit enthält HTTP/RPC Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -126,8 +128,8 @@ Der Ergebniscommit enthält Scheduled Job Contributions V1 und diese Tracker-Akt
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
 Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool-,
-Agent-Skill-, Background-Service- sowie Scheduled-Job-Contributions sind geöffnet. Weitere
-Contributions und Catalog Contracts folgen.
+Agent-Skill-, Background-Service- sowie Scheduled-Job-Contributions sind geöffnet. HTTP-/RPC-
+Contributions sind ebenfalls geöffnet. Weitere Contributions und Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -135,14 +137,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.25, HTTP/RPC Contributions V1 planen.
+Subgoal 1.26, Realtime Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.25 gleicht die 167 bestehenden Fastify-Endpunkte, zentrale Security Hooks und
-Extension-Runtime-Grenzen erneut ab. Es definiert strikt namespaced HTTP/RPC Contributions mit
-lokalen Request-/Response-Schemas, Provider, Methoden, Größen- und Timeoutgrenzen, ohne Core-
-Routen zu überschreiben oder Authentifizierung, Same-Origin und Rate Limits zu umgehen.
+Subgoal 1.26 gleicht die fünf bestehenden WebSocket-Flächen, Send Queues, Payload-Grenzen und
+Ownership-Regeln erneut ab. Es definiert typisierte Realtime Channels mit lokalen Schemas,
+Richtung, Provider, Queue-, Backpressure-, Rate-, Heartbeat- und Cleanup-Grenzen, ohne rohe
+WebSockets, freie Origins oder Zugriff auf user-owned Runtime-Kanäle zu öffnen.
 
 ## Phase Table
 
@@ -188,6 +190,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Topbar | Pfadabfragen, Projektpicker, Standalone-Aktionen und persistenzgeschütztes Tool-Portal direkt in `AppShell` verdrahtet; gemeinsamer Manifestvertrag eingeführt | Route-Metadaten und hostgeschützte Flächen plus sparsame, priorisierte Action-/Selector-Contributions | 2-3, 10 | planning |
 | File Surfaces | Statische Dateityperkennung und Renderer in File Manager/Quick Look; sicherer File Service im Core; gemeinsamer Manifestvertrag eingeführt | Viewer und Open-With-Commands über Metadata Matcher, UI Registry und Filesystem Broker | 2, 6, 10 | planning |
 | Server Bootstrap | Dienste und Routen direkt in `app.ts` | Kernel Bootstrap plus deterministischer Extension Manager | 5 | planning |
+| Server APIs | 167 direkt registrierte Fastify-Endpunkte; HTTP/RPC-Manifestvertrag eingeführt | Namespaced Extension HTTP und typisierte RPC Registry unter zentraler Security | 5-6 | planning |
 | Storage | Featuretabellen in Workbench-DB | Registry-Metadaten zentral, Fachdaten je Extension getrennt | 5-6 | planning |
 | Permissions | Zentrale Security, aber keine Extension Grants | Permission Manager und Capability Broker mit Scopes | 1, 6 | planning |
 | Events und Jobs | Direkte Listener, Timer und Service-Start-Aufrufe; Background-Service- und Scheduled-Job-Verträge eingeführt | Typisierter Event Bus und Scheduler mit Cleanup | 5-6 | planning |
@@ -246,6 +249,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Extension-Skills bleiben getrennt von globalen User-Skills und Regeln. | Lokale `SKILL.md`-Pakete verwenden einen extensiongebundenen Namen, serverseitig abgeleitete Provenance und separates Enablement je Skill. Harness-Ziele sind nur Kompatibilitätsangaben; globale Regeln, User-Skills und fremde Extension-Skills bleiben schreibgeschützt. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Background Services sind hostverwaltete Provider, keine Prozessdefinitionen. | Server-Entrypoint, Health Policy, begrenztes Restart-Budget und Shutdown-Frist bilden den Lifecycle. Commands, systemd-Units und Core-Runtimes bleiben Kernel; Extension-Capabilities werden separat gewährt. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Scheduled Jobs laufen ausschließlich über den autoritativen Host-Scheduler. | Interval, fünfstelliges Cron, One-shot und Event Trigger teilen begrenzte Policies für Concurrency, Missed Runs, Retries, Idempotenz, Cancellation und History. Eigene Cron-Daemons und freie Timer sind kein Manifestvertrag. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Extension APIs sind namespaced und erben unveränderlich die Host-Security. | HTTP-Pfade liegen nur unter `/api/v1/extensions/<id>`; RPC verwendet stabile Contribution-IDs. Lokale Schemas, Größen, Timeout und Rate dürfen Hostgrenzen nur verschärfen; Identity, Same-Origin und Audit bleiben zentral. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -282,6 +286,7 @@ Priorisierte Abhängigkeiten:
 | Ein Extension-Skill kollidiert mit globalen Regeln oder bleibt nach Disable unbemerkt aktiv | Verändertes Agentenverhalten, falsche Provenance oder unkontrollierbare Instructions | Extensiongebundene Namen, paketinterne Realpath-Prüfung, serverseitig abgeleitete Provenance und getrenntes Enablement; Disable entfernt nur verwaltete Sichtbarkeit und verändert keine User-Skills | offen |
 | Ein Background Service blockiert Bootstrap oder gerät in eine Restart-Schleife | Nicht erreichbare Workbench, hohe Last oder Zombie-Handles nach Disable | Start und Health je Provider isolieren; Restarts durch Versuche, Fenster und Backoff begrenzen; Stop mit Abort und Frist genau einmal ausführen, danach Quarantäne statt Endlosschleife | offen |
 | Ein Scheduled Job erzeugt nach Downtime, Retry oder Parallelstart doppelte Mutationen | Datenfehler, ungebremste Last oder endlose Queue | Concurrency und Catch-up hart begrenzen, Host-Key vor Ausführung persistieren, Retries mit Timeout und Backoff steuern, aktive Runs per Abort Signal beenden und History serverseitig führen | offen |
+| Ein Extension-Endpunkt überschreibt Core-Routen oder umgeht Identity, Origin oder Rate Limits | Unautorisierter Zugriff, CSRF, DoS oder inkonsistente APIs | Fester Extension-Präfix, zentrale Hooks vor Registrierung, lokale Input-/Output-Schemas, Host-Minimum für Rate, Größe und Timeout sowie keine rohe Request-/Reply-Instanz im Provider | offen |
 
 ## Compatibility Matrix
 
@@ -312,6 +317,7 @@ Priorisierte Abhängigkeiten:
 | Agent Skill Contributions | 1 bis 128 lokale `SKILL.md`-Pakete für Codex, Claude Code, OpenCode oder Hermes | `agents.skills.register`, extensiongebundene Namen und serverseitige Provenance sind Pflicht; tatsächliches Enablement bleibt je Skill und Ziel getrennt, globale Regeln und User-Skills unverändert |
 | Background Service Contributions | 1 bis 128 serverweite Provider mit Health, Enablement, Restart Policy und Shutdown-Frist | Server-Entrypoint und eigener Provider sind Pflicht; Host kontrolliert Lifecycle, Observability und Cleanup, während systemd, Prozesse und user-owned Runtimes außerhalb des Manifests bleiben |
 | Scheduled Job Contributions | 1 bis 128 Interval-, Cron-, One-shot- oder Event-Jobs mit begrenzten Ausführungs-Policies | Server-Entrypoint, eigener Provider und tatsächliche onSchedule-Ziele sind Pflicht; enabled, nextRun, lastRun, Status und History bleiben autoritativer Scheduler-State |
+| HTTP/RPC Contributions | Je 1 bis 128 schema-validierte Handler mit Provider, Rate-, Größen- und Timeoutgrenzen | HTTP bleibt unter festem Extension-Namespace; RPC unterscheidet Query und Mutation, alle Handler erben Identity, Origin, Audit und globale Hostlimits |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -323,10 +329,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.24, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.24, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 401 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1094 | Subgoal 1.24, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.24, vollständiger Build einschließlich aktualisiertem JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.25, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.25, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 409 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1102 | Subgoal 1.25, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.25, vollständiger Build einschließlich aktualisiertem JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -399,7 +405,8 @@ Keine.
 | `a7a305f` | Subgoal 1.21, Agent Tool Contributions V1 |
 | `3abffe0` | Subgoal 1.22, Agent Skill Contributions V1 |
 | `097881f` | Subgoal 1.23, Background Service Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.24, Scheduled Job Contributions V1 |
+| `0b03c32` | Subgoal 1.24, Scheduled Job Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.25, HTTP/RPC Contributions V1 |
 
 ## Subgoal Log
 
@@ -432,4 +439,5 @@ Keine.
 | 1.22 Agent Skill Contributions V1 | done | Paketinterne `SKILL.md`, vier Harness-Ziele, Extension-Namensraum, Permission-, Pfad-, Provenance- und Enablement-Vertrag, JSON Schema und 1080 grüne Repository-Tests | Subgoal 1.23, Background Service Contributions V1 |
 | 1.23 Background Service Contributions V1 | done | Hostverwaltete Provider, Enablement, Health-Grenzen, begrenzte Restart Policy, Shutdown-Frist, Entrypoint-, Provider- und ID-Prüfungen, JSON Schema und 1087 grüne Repository-Tests | Subgoal 1.24, Scheduled Job Contributions V1 |
 | 1.24 Scheduled Job Contributions V1 | done | Vier Triggerarten, Enablement, Timeout, Concurrency, Missed Runs, Retries, Idempotenz, Cancellation, History, Entrypoint-, Provider-, Activation- und ID-Prüfungen, JSON Schema und 1094 grüne Repository-Tests | Subgoal 1.25, HTTP/RPC Contributions V1 |
-| 1.25 HTTP/RPC Contributions V1 | planning | Fastify-Routen, Security Hooks, Proxy-Grenzen und Endpoint-Inventar aus Phase 0 liegen vor | Namespace, Methoden, lokale Schemas, Provider, Auth-, Origin-, Rate-, Größen-, Timeout- und Cleanup-Regeln erneut inventarisieren |
+| 1.25 HTTP/RPC Contributions V1 | done | Namespaced HTTP und typisierte Query-/Mutation-RPCs, lokale Schemas, Methoden, Provider, Pfadkollisionen, Rate-, Größen-, Timeout-, Entrypoint- und ID-Prüfungen, JSON Schema und 1102 grüne Repository-Tests | Subgoal 1.26, Realtime Contributions V1 |
+| 1.26 Realtime Contributions V1 | planning | Fünf WebSocket-Flächen, Send Queues, Security Hooks und Payload-Grenzen aus Phase 0 liegen vor | Channel-Schemas, Richtung, Provider, Identity, Ownership, Backpressure, Queue, Rate, Heartbeat und Cleanup erneut inventarisieren |

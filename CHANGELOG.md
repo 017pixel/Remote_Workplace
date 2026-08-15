@@ -220,6 +220,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Jobzustand und begrenzte Run History als serverseitig autoritative Daten eingeordnet
 - Freie Cron-Daemons, unbegrenzte Queues und ungeprüfte Extension-Timer ausgeschlossen
 
+### Extension-HTTP-RPC
+
+- HTTP-Endpunkte strikt unter dem Extension-API-Namespace und typisierte RPC-Prozeduren definiert
+- Request und Response an lokale JSON-Schemas sowie feste Größen- und Timeoutgrenzen gebunden
+- Provider, IDs, Methoden und Pfadmuster auf sichere, kollisionsfreie Verträge begrenzt
+- Workbench-Identität, Same-Origin, Audit und globale Rate Limits als unveränderliche Hostregeln festgelegt
+- Rohe Requests, Replies, Header, Cookies, Redirects, Streams und Core-Routen ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

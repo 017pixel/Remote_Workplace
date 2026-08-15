@@ -2710,6 +2710,77 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  const httpEndpoint = {
+    id: "workbench.agent-tasks.http.task",
+    description: "Liest einen Agent Task.",
+    provider: "workbench.agent-tasks.http-provider.task",
+    requestSchema: "./schemas/task-request.json",
+    responseSchema: "./schemas/task-response.json",
+    maxRequestBytes: 64_000,
+    maxResponseBytes: 256_000,
+    timeoutMilliseconds: 10_000,
+    rateLimit: { maxRequests: 60, windowMilliseconds: 60_000 },
+    method: "GET",
+    path: "/tasks/:taskId",
+  } as const;
+
+  const rpcProcedure = {
+    id: "workbench.agent-tasks.rpc.create",
+    description: "Erstellt einen Agent Task.",
+    provider: "workbench.agent-tasks.rpc-provider.create",
+    requestSchema: "./schemas/create-task-request.json",
+    responseSchema: "./schemas/create-task-response.json",
+    maxRequestBytes: 64_000,
+    maxResponseBytes: 256_000,
+    timeoutMilliseconds: 10_000,
+    rateLimit: { maxRequests: 30, windowMilliseconds: 60_000 },
+    kind: "mutation",
+  } as const;
+
+  it("akzeptiert namespaced HTTP- und typisierte RPC-Contributions", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: { http: [httpEndpoint], rpc: [rpcProcedure] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("verlangt für HTTP/RPC eigene Provider und Server-Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          http: [
+            {
+              ...httpEndpoint,
+              provider: "workbench.other.http-provider.task",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { ui: "./dist/ui.js" },
+        contributes: { rpc: [rpcProcedure] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist manifestweit doppelte HTTP/RPC IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          http: [httpEndpoint],
+          rpc: [{ ...rpcProcedure, id: httpEndpoint.id }],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -2885,7 +2956,20 @@ describe("Extension Manifest V1", () => {
       extensionContributionsV1Schema.safeParse({ scheduledJobs: [] }).success,
     ).toBe(false);
     expect(
+      extensionContributionsV1Schema.safeParse({ http: [httpEndpoint] })
+        .success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({ rpc: [rpcProcedure] }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ http: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ rpc: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ realtime: [] }).success,
     ).toBe(false);
   });
 });

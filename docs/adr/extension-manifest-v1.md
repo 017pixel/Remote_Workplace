@@ -148,7 +148,7 @@ normalisiert und sortiert sie deterministisch für Vergleich und Persistenz.
 pages, routes, navigation, orbit, dashboard, settings,
 commands, keyboardShortcuts, contextMenus, topbar, statusbar, files,
 terminal, previews, browser, agentTools, agentSkills, backgroundServices,
-scheduledJobs, rpc, realtime, notifications, themes
+scheduledJobs, http, rpc, realtime, notifications, themes
 ```
 
 Die einzelnen Contribution-Schemas werden in Phase 1 additiv eingeführt. Unbekannte Bereiche
@@ -1222,6 +1222,75 @@ namespaced Provider auf:
 Die bestehenden Usage-, News-, Notification-, Hermes- und Preview-Timer bleiben bis zu ihrer
 einzelnen Migration unverändert. Dieses Contract-Subgoal startet keinen Scheduler und verändert
 keine laufenden Synchronisierer.
+
+#### HTTP/RPC Contributions
+
+HTTP und RPC öffnen serverseitige Extension-Handler ausschließlich innerhalb der zentralen
+Workbench-Sicherheitsgrenze. HTTP-Pfade sind relativ zum festen Namespace
+`/api/v1/extensions/<extension-id>`; RPC wird über die stabile Contribution-ID aufgerufen:
+
+```json
+{
+  "contributes": {
+    "http": [
+      {
+        "id": "workbench.agent-tasks.http.task",
+        "description": "Liest einen Agent Task.",
+        "provider": "workbench.agent-tasks.http-provider.task",
+        "requestSchema": "./schemas/task-request.json",
+        "responseSchema": "./schemas/task-response.json",
+        "maxRequestBytes": 64000,
+        "maxResponseBytes": 256000,
+        "timeoutMilliseconds": 10000,
+        "rateLimit": { "maxRequests": 60, "windowMilliseconds": 60000 },
+        "method": "GET",
+        "path": "/tasks/:taskId"
+      }
+    ],
+    "rpc": [
+      {
+        "id": "workbench.agent-tasks.rpc.create",
+        "description": "Erstellt einen Agent Task.",
+        "provider": "workbench.agent-tasks.rpc-provider.create",
+        "requestSchema": "./schemas/create-task-request.json",
+        "responseSchema": "./schemas/create-task-response.json",
+        "maxRequestBytes": 64000,
+        "maxResponseBytes": 256000,
+        "timeoutMilliseconds": 10000,
+        "rateLimit": { "maxRequests": 30, "windowMilliseconds": 60000 },
+        "kind": "mutation"
+      }
+    ]
+  }
+}
+```
+
+- HTTP unterstützt nur `GET`, `POST`, `PUT`, `PATCH` und `DELETE` mit statischen Segmenten oder
+  benannten Pflichtparametern. Der Host setzt immer den Extension-Namespace davor und reserviert
+  Core- und Recovery-Routen vollständig. Identische Pfadmuster derselben Methode werden vor
+  Aktivierung abgewiesen; `HEAD` und `OPTIONS` bleiben Hostaufgabe.
+- RPC unterscheidet Query und Mutation. UI, Agent Tools, Jobs und andere Extensions rufen die
+  stabile ID über `extension.rpc.call` auf, statt interne Provider oder Fastify-Instanzen zu
+  importieren. Cross-Extension-Aufrufe durchlaufen später Dependency- und Capability-Prüfung.
+- Request und Response werden gegen paketinterne, selbstenthaltene JSON-Schemas geprüft.
+  Installer und Runtime lösen sie per Realpath innerhalb des Pakets auf und verbieten externe
+  Referenzen. Body, Parameter und Query werden für HTTP in ein kontrolliertes Requestobjekt
+  normalisiert; Provider erhalten keine rohe Request- oder Reply-Instanz.
+- Workbench-Identität und globale Rate Limits gelten immer. Deklarierte Limits dürfen sie nur
+  verschärfen. `POST`, `PUT`, `PATCH`, `DELETE` und RPC Mutations verlangen zusätzlich den
+  bestehenden Same-Origin-Schutz und landen mit Request-ID, Actor, Ziel und Ergebnis im Audit.
+- Request-, Response- und Timeoutgrenzen werden vor und nach dem Handler erzwungen. Provider
+  erhalten ein Abort Signal sowie separat gewährte Capabilities. Freie Header, Cookies, Redirects,
+  HTML, Streams, Binärdateien, WebSockets, Tokens, Statuscodes und ausführbarer Code sind keine
+  Manifestfelder. Fehler verwenden das zentrale redaktierte API-Fehlerformat.
+- Disable entfernt zuerst neue Routen und Prozeduren, bricht laufende Handler ab und wartet nur
+  bis zur Hostfrist. Handler, Timeouts und Listener werden deterministisch disposed. Bereits
+  angenommene mutierende Antworten werden nicht künstlich wiederholt; Idempotenz bleibt Aufgabe
+  des jeweiligen fachlichen Vertrags oder des Schedulers.
+
+Die bestehenden 167 Core-Endpunkte bleiben unverändert. Erst der Extension Manager registriert
+diese Contributions atomar und prüft globale Kollisionen; dieses Contract-Subgoal mountet keine
+neuen produktiven Routen.
 
 ### Dependencies und Conflicts
 

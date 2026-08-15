@@ -31,6 +31,10 @@ import {
   extensionDependencyMapSchema,
 } from "./dependencies.js";
 import { fileContributionsSchema } from "./file-contributions.js";
+import {
+  httpContributionsSchema,
+  rpcContributionsSchema,
+} from "./http-rpc-contributions.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import { keyboardShortcutContributionsSchema } from "./keyboard-shortcuts.js";
 import {
@@ -193,6 +197,8 @@ export const extensionContributionsV1Schema = z.strictObject({
   agentSkills: agentSkillContributionsSchema.optional(),
   backgroundServices: backgroundServiceContributionsSchema.optional(),
   scheduledJobs: scheduledJobContributionsSchema.optional(),
+  http: httpContributionsSchema.optional(),
+  rpc: rpcContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -400,6 +406,14 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.scheduledJobs ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "scheduledJobs", index, "id"] as const,
+      })),
+      ...(manifest.contributes.http ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "http", index, "id"] as const,
+      })),
+      ...(manifest.contributes.rpc ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "rpc", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -1050,6 +1064,23 @@ export const extensionManifestV1Schema = z
       });
     }
 
+    for (const [area, items] of [
+      ["http", manifest.contributes.http ?? []],
+      ["rpc", manifest.contributes.rpc ?? []],
+    ] as const) {
+      for (const [index, item] of items.entries()) {
+        if (contributionBelongsToExtension(manifest.id, item.provider)) {
+          continue;
+        }
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine HTTP/RPC Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", area, index, "provider"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1248,6 +1279,19 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "Scheduled Job Contributions benötigen einen Server-Entrypoint für ihre Provider.",
+        path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      (manifest.contributes.http !== undefined ||
+        manifest.contributes.rpc !== undefined) &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "HTTP/RPC Contributions benötigen einen Server-Entrypoint für ihre Provider.",
         path: ["entrypoints", "server"],
       });
     }
