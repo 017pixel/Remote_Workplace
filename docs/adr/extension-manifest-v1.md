@@ -1359,6 +1359,77 @@ Die fünf bestehenden Workbench-WebSocket-Flächen und alle Runtime-Proxies blei
 Der Extension Manager führt Realtime Channels später atomar ein; dieses Contract-Subgoal öffnet
 keinen neuen produktiven Socket.
 
+#### Notification Contributions
+
+Notification Contributions registrieren erweiterbare Quellen und ihre hostgerenderten Metadaten.
+Die Notification-Datenbank, Redaction, Inbox, Toasts, Push-Zustellung und Deep-Link-Prüfung bleiben
+Kernel-Infrastruktur:
+
+```json
+{
+  "permissions": [{ "permission": "notifications.create" }],
+  "contributes": {
+    "notifications": [
+      {
+        "id": "workbench.agent-tasks.notification.source",
+        "title": "Agent Tasks",
+        "description": "Benachrichtigungen zu Agent-Aufgaben.",
+        "icon": "extension",
+        "categories": [
+          {
+            "id": "workbench.agent-tasks.notification-category.tasks",
+            "title": "Agent-Aufgaben"
+          }
+        ],
+        "actions": [
+          {
+            "id": "workbench.agent-tasks.notification-action.open",
+            "title": "Aufgabe öffnen",
+            "commandId": "workbench.agent-tasks.command.open"
+          }
+        ],
+        "retention": "until-resolved",
+        "deduplication": {
+          "mode": "keyed",
+          "keyMaxLength": 128,
+          "behavior": "replace-active"
+        }
+      }
+    ]
+  }
+}
+```
+
+- Source-, Kategorie- und Action-IDs sind stabil, manifestweit eindeutig und gehören zur
+  deklarierenden Extension. Eine Source besitzt mindestens eine Kategorie. Actions sind optional
+  und referenzieren ausschließlich deklarierte Commands, damit Ausführung, Context und weitere
+  Capabilities erneut durch den Host geprüft werden.
+- `icon: extension` verwendet das paketlokale Manifest-Icon. Eine namespaced Icon-ID wird später
+  über die kontrollierte UI Registry aufgelöst. Data URLs, Remote URLs, SVG-Markup und freie
+  Komponenten sind keine Manifestfelder.
+- `transient`, `standard` und `until-resolved` sind semantische Retention-Klassen. Der Host legt
+  ihre konkreten Fristen fest und darf sie aus Sicherheits- oder Betriebsgründen verkürzen.
+  Extensions erhalten weder direkten Datenbankzugriff noch eine Möglichkeit, unbegrenzte
+  Historien oder Push-Payloads zu erzwingen.
+- `none` erzeugt einzelne Events. `keyed` verlangt bei der späteren Capability-Erstellung einen
+  begrenzten Deduplizierungsschlüssel. `keep-first` bewahrt die aktive Meldung;
+  `replace-active` aktualisiert sie atomar. Der Host namespaced Schlüssel mit Extension, Source
+  und Kategorie und schützt die Erstellung zusätzlich durch globale Rate- und Größenlimits.
+- Die Capability API akzeptiert später nur Klartexttitel und Klartexttext, bekannte Severity,
+  deklarierte Kategorie und Actions sowie einen vom Host geprüften internen Deep Link. HTML,
+  Skript, externe URLs, eigene Push-Endpunkte und rohe Reports werden abgewiesen. Inhalte,
+  Metadaten, Diagnosefelder und Logs werden vor Persistenz, Audit und Zustellung redaktiert.
+- Jede Notification Source verlangt `notifications.create`. Der Request ist kein Grant. Der
+  Capability Broker prüft Extension-Status, Grant, Payload, Deduplizierung und Ownership bei jeder
+  Erstellung und Auflösung erneut. Disable entfernt die Source aus Registries, löscht aber keine
+  bestehenden Einträge oder Push-Subscriptions.
+
+Die bisherigen Quellen `hermes`, `t3`, `opencode`, `codex`, `claude`, `terminal`, `workbench` und
+`update` sowie die drei bisherigen Kategorien bleiben als Legacy-Built-ins lesbar. Die spätere
+Datenmigration ergänzt stabile Source- und Kategorie-IDs additiv; alte Zeilen und gespeicherte
+Benutzereinstellungen behalten ihre Fallback-Darstellung. Dieses Contract-Subgoal verändert die
+produktive Notification-Datenbank und ihre geschlossenen Contracts noch nicht.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

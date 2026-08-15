@@ -37,6 +37,7 @@ import {
 } from "./http-rpc-contributions.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import { keyboardShortcutContributionsSchema } from "./keyboard-shortcuts.js";
+import { notificationContributionsSchema } from "./notification-contributions.js";
 import {
   extensionEntrypointPathSchema,
   extensionIconPathSchema,
@@ -201,6 +202,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   http: httpContributionsSchema.optional(),
   rpc: rpcContributionsSchema.optional(),
   realtime: realtimeContributionsSchema.optional(),
+  notifications: notificationContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -421,6 +423,34 @@ export const extensionManifestV1Schema = z
         id: item.id,
         path: ["contributes", "realtime", index, "id"] as const,
       })),
+      ...(manifest.contributes.notifications ?? []).flatMap((item, index) => [
+        {
+          id: item.id,
+          path: ["contributes", "notifications", index, "id"] as const,
+        },
+        ...item.categories.map((category, categoryIndex) => ({
+          id: category.id,
+          path: [
+            "contributes",
+            "notifications",
+            index,
+            "categories",
+            categoryIndex,
+            "id",
+          ] as const,
+        })),
+        ...(item.actions ?? []).map((action, actionIndex) => ({
+          id: action.id,
+          path: [
+            "contributes",
+            "notifications",
+            index,
+            "actions",
+            actionIndex,
+            "id",
+          ] as const,
+        })),
+      ]),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
@@ -1099,6 +1129,46 @@ export const extensionManifestV1Schema = z
       });
     }
 
+    for (const [index, item] of (
+      manifest.contributes.notifications ?? []
+    ).entries()) {
+      if (
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Notification Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "notifications", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "notifications", index, "icon"],
+        });
+      }
+      for (const [actionIndex, action] of (item.actions ?? []).entries()) {
+        if (commandIds.has(action.commandId)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Notification Action muss eine deklarierte Command Contribution referenzieren.",
+          path: [
+            "contributes",
+            "notifications",
+            index,
+            "actions",
+            actionIndex,
+            "commandId",
+          ],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1323,6 +1393,20 @@ export const extensionManifestV1Schema = z
         message:
           "Realtime Contributions benötigen einen Server-Entrypoint für ihre Provider.",
         path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.notifications !== undefined &&
+      !manifest.permissions.some(
+        (request) => request.permission === "notifications.create",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Notification Contributions müssen die Permission notifications.create anfordern.",
+        path: ["permissions"],
       });
     }
 

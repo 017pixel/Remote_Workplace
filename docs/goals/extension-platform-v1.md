@@ -98,8 +98,10 @@ lokale `.rwext`-Pakete.
   und History ab. HTTP/RPC Contributions verwenden lokale Request-/Response-Schemas und laufen
   strikt unter Extension-Namespace, zentraler Identity, Origin-, Audit-, Rate-, Größen- und
   Timeoutkontrolle. Realtime Contributions ergänzen typisierte JSON-Kanäle mit User-/Projekt-
-  Scope und begrenzten Queue-, Backpressure-, Rate-, Heartbeat- und Cleanup-Policies. Weitere
-  Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
+  Scope und begrenzten Queue-, Backpressure-, Rate-, Heartbeat- und Cleanup-Policies.
+  Notification Contributions öffnen stabile Sources, Kategorien und Command-Actions mit
+  hostverwalteter Retention und Deduplizierung. Weitere Contributions, Manager, Capability
+  Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -108,12 +110,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.26 achtundzwanzig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.27 neunundzwanzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`9746419b882ef250b04cd232161d0e328ff98f61` als analysierter Ausgangspunkt von Subgoal 1.26.
-Der Ergebniscommit enthält Realtime Contributions V1 und diese Tracker-Aktualisierung.
+`1ad52d7312c51a56bf6fd18f0be7e0f2411311a4` als analysierter Ausgangspunkt von Subgoal 1.27.
+Der Ergebniscommit enthält Notification Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -130,9 +132,9 @@ Der Ergebniscommit enthält Realtime Contributions V1 und diese Tracker-Aktualis
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
 Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool-,
-Agent-Skill-, Background-Service- sowie Scheduled-Job-Contributions sind geöffnet. HTTP-, RPC-
-und Realtime-Contributions sind ebenfalls geöffnet. Weitere Contributions und Catalog Contracts
-folgen.
+Agent-Skill-, Background-Service- sowie Scheduled-Job-Contributions sind geöffnet. HTTP-, RPC-,
+Realtime- und Notification-Contributions sind ebenfalls geöffnet. Weitere Contributions und
+Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -140,14 +142,15 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.27, Notification Contributions V1 planen.
+Subgoal 1.28, Theme Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.27 gleicht Notification-Datenbank, geschlossene Quellen, Push, Reports, Redaction und
-Deep Links erneut ab. Es definiert erweiterbare Notification Source Contributions mit stabiler
-Source-ID, lokalem Icon, Kategorien, Actions, Retention und deduplizierbarer Erstellung über die
-Capability API, ohne Secrets oder freie HTML-/URL-Inhalte zu öffnen.
+Subgoal 1.28 gleicht den zentralen `@theme`-Block, gespeicherte Theme-Präferenz, Systemmodus,
+Hermes-Abgrenzung, PWA-Flächen und bestehende Design-Tokens erneut ab. Es definiert sichere Theme
+Contributions mit stabilen IDs, kontrollierten Tokenrollen und kompatiblen Fallbacks, ohne freie
+CSS-Dateien, globale Selektoren, Remote Assets oder Überschreibungen geschützter Hostzustände zu
+öffnen.
 
 ## Phase Table
 
@@ -195,6 +198,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Server Bootstrap | Dienste und Routen direkt in `app.ts` | Kernel Bootstrap plus deterministischer Extension Manager | 5 | planning |
 | Server APIs | 167 direkt registrierte Fastify-Endpunkte; HTTP/RPC-Manifestvertrag eingeführt | Namespaced Extension HTTP und typisierte RPC Registry unter zentraler Security | 5-6 | planning |
 | Realtime | Fünf direkte Workbench-WebSockets plus Runtime-Proxies; Realtime-Manifestvertrag eingeführt | Typisierte Extension Channels unter zentraler Identity, Scope-, Queue- und Backpressure-Kontrolle | 5-6 | planning |
+| Notifications | Geschlossene Sources, Icons und Kategorien auf zentraler SQLite-, WebSocket- und Push-Infrastruktur; Manifestvertrag eingeführt | Dynamische Source Registry und Capability API mit Redaction, sicheren Deep Links und Legacy-Fallbacks | 5-6, 10 | planning |
 | Storage | Featuretabellen in Workbench-DB | Registry-Metadaten zentral, Fachdaten je Extension getrennt | 5-6 | planning |
 | Permissions | Zentrale Security, aber keine Extension Grants | Permission Manager und Capability Broker mit Scopes | 1, 6 | planning |
 | Events und Jobs | Direkte Listener, Timer und Service-Start-Aufrufe; Background-Service- und Scheduled-Job-Verträge eingeführt | Typisierter Event Bus und Scheduler mit Cleanup | 5-6 | planning |
@@ -255,6 +259,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Scheduled Jobs laufen ausschließlich über den autoritativen Host-Scheduler. | Interval, fünfstelliges Cron, One-shot und Event Trigger teilen begrenzte Policies für Concurrency, Missed Runs, Retries, Idempotenz, Cancellation und History. Eigene Cron-Daemons und freie Timer sind kein Manifestvertrag. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Extension APIs sind namespaced und erben unveränderlich die Host-Security. | HTTP-Pfade liegen nur unter `/api/v1/extensions/<id>`; RPC verwendet stabile Contribution-IDs. Lokale Schemas, Größen, Timeout und Rate dürfen Hostgrenzen nur verschärfen; Identity, Same-Origin und Audit bleiben zentral. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Realtime öffnet typisierte Hostkanäle, keine rohen WebSockets. | Richtungsspezifische lokale JSON-Schemas, User-/Projekt-Scope, Verbindungs- und Nachrichtenlimits, Reliable-/Latest-Backpressure und Host-Heartbeat bilden den Vertrag. Bestehende Runtime-Kanäle bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Notification Contributions registrieren Sources, keine Zustellwege. | Stabile Source-, Kategorie- und Action-IDs, kontrollierte Icons, Retention-Klassen und begrenzte Deduplizierung bilden den Vertrag. Capability Broker, Redaction, Deep-Link-Prüfung, Push und Persistenz bleiben Hostaufgaben. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -293,6 +298,7 @@ Priorisierte Abhängigkeiten:
 | Ein Scheduled Job erzeugt nach Downtime, Retry oder Parallelstart doppelte Mutationen | Datenfehler, ungebremste Last oder endlose Queue | Concurrency und Catch-up hart begrenzen, Host-Key vor Ausführung persistieren, Retries mit Timeout und Backoff steuern, aktive Runs per Abort Signal beenden und History serverseitig führen | offen |
 | Ein Extension-Endpunkt überschreibt Core-Routen oder umgeht Identity, Origin oder Rate Limits | Unautorisierter Zugriff, CSRF, DoS oder inkonsistente APIs | Fester Extension-Präfix, zentrale Hooks vor Registrierung, lokale Input-/Output-Schemas, Host-Minimum für Rate, Größe und Timeout sowie keine rohe Request-/Reply-Instanz im Provider | offen |
 | Ein Realtime Channel flutet den Server, verliert zuverlässige Events oder greift fremde Verbindungen ab | Speicheranstieg, inkonsistenter Clientzustand oder Datenleck | Schema und Größe je Nachricht, User-/Projekt-Ownership, harte Verbindungs- und Ratelimits, begrenzte Queue, Reliable-Close statt Drop, Host-Heartbeat und deterministischer Disconnect beim Disable | offen |
+| Eine Extension erzeugt Notification-Spam, schleust Secrets ein oder öffnet unsichere Links | Überlastete Inbox, Datenleck oder Navigation außerhalb der Workbench | Permission und Rate Limit je Erstellung, begrenzte Klartextfelder, Redaction vor Persistenz und Push, deklarierte Kategorien/Actions sowie zentrale Prüfung interner Deep Links | offen |
 
 ## Compatibility Matrix
 
@@ -325,6 +331,7 @@ Priorisierte Abhängigkeiten:
 | Scheduled Job Contributions | 1 bis 128 Interval-, Cron-, One-shot- oder Event-Jobs mit begrenzten Ausführungs-Policies | Server-Entrypoint, eigener Provider und tatsächliche onSchedule-Ziele sind Pflicht; enabled, nextRun, lastRun, Status und History bleiben autoritativer Scheduler-State |
 | HTTP/RPC Contributions | Je 1 bis 128 schema-validierte Handler mit Provider, Rate-, Größen- und Timeoutgrenzen | HTTP bleibt unter festem Extension-Namespace; RPC unterscheidet Query und Mutation, alle Handler erben Identity, Origin, Audit und globale Hostlimits |
 | Realtime Contributions | 1 bis 128 gerichtete oder bidirektionale JSON-Kanäle mit User-/Projekt-Scope | Server-Entrypoint, Provider und Richtungsschemas sind Pflicht; Host besitzt URL, Identity, Origin, Queue, Rate, Heartbeat, Close und Runtime-Isolation |
+| Notification Contributions | 1 bis 128 Sources mit je 1 bis 32 Kategorien, bis zu 16 Command-Actions, drei Retention-Klassen und optionaler Schlüssel-Deduplizierung | `notifications.create`, eigener Namespace und kontrollierte Icons sind Pflicht; bestehende geschlossene Sources, Kategorien und gespeicherte Meldungen bleiben über Legacy-Fallbacks lesbar |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -336,10 +343,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.26, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.26, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 416 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1109 | Subgoal 1.26, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.26, vollständiger Build einschließlich aktualisiertem JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.27, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.27, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 427 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1120 | Subgoal 1.27, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.27, vollständiger Build einschließlich aktualisiertem JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -414,7 +421,8 @@ Keine.
 | `097881f` | Subgoal 1.23, Background Service Contributions V1 |
 | `0b03c32` | Subgoal 1.24, Scheduled Job Contributions V1 |
 | `9746419` | Subgoal 1.25, HTTP/RPC Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.26, Realtime Contributions V1 |
+| `1ad52d7` | Subgoal 1.26, Realtime Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.27, Notification Contributions V1 |
 
 ## Subgoal Log
 
@@ -449,4 +457,5 @@ Keine.
 | 1.24 Scheduled Job Contributions V1 | done | Vier Triggerarten, Enablement, Timeout, Concurrency, Missed Runs, Retries, Idempotenz, Cancellation, History, Entrypoint-, Provider-, Activation- und ID-Prüfungen, JSON Schema und 1094 grüne Repository-Tests | Subgoal 1.25, HTTP/RPC Contributions V1 |
 | 1.25 HTTP/RPC Contributions V1 | done | Namespaced HTTP und typisierte Query-/Mutation-RPCs, lokale Schemas, Methoden, Provider, Pfadkollisionen, Rate-, Größen-, Timeout-, Entrypoint- und ID-Prüfungen, JSON Schema und 1102 grüne Repository-Tests | Subgoal 1.26, Realtime Contributions V1 |
 | 1.26 Realtime Contributions V1 | done | Drei Richtungen, lokale Nachrichtenschemas, User-/Projekt-Scope, Provider, Queue, Delivery, Rate, Heartbeat, Close, Entrypoint- und ID-Prüfungen, JSON Schema und 1109 grüne Repository-Tests | Subgoal 1.27, Notification Contributions V1 |
-| 1.27 Notification Contributions V1 | planning | Notification-Datenbank, Sources, Push, Reports, Redaction und Deep Links aus Phase 0 liegen vor | Source-IDs, Icons, Kategorien, Actions, Retention, Deduplizierung, Permission, Redaction und Kompatibilität erneut inventarisieren |
+| 1.27 Notification Contributions V1 | done | Sources, Kategorien, Command-Actions, kontrollierte Icons, drei Retention-Klassen, optionale Schlüssel-Deduplizierung, Permission-, Namespace- und ID-Prüfungen, JSON Schema und 1120 grüne Repository-Tests | Subgoal 1.28, Theme Contributions V1 |
+| 1.28 Theme Contributions V1 | planning | Zentraler `@theme`-Block, Systemmodus, gespeicherte Präferenz, Hermes-Abgrenzung und PWA-Flächen aus Phase 0 liegen vor | Tokenrollen, Werte, Aktivierung, Systemmodus, Accessibility, sichere Isolation und Kompatibilität erneut inventarisieren |

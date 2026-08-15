@@ -236,6 +236,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Reliable- und Latest-Delivery mit expliziter Backpressure-Semantik festgelegt
 - Rohe WebSockets, Binärframes, eigene Authentifizierung und fremde Runtime-Kanäle ausgeschlossen
 
+### Extension-Benachrichtigungen
+
+- Erweiterbare Notification Sources mit stabilen Source-, Kategorie- und Action-IDs definiert
+- Icons an kontrollierte Extension-Referenzen und Actions an deklarierte Commands gebunden
+- Transiente, normale und auflösbare Meldungen als hostverwaltete Retention-Klassen festgelegt
+- Optionale Deduplizierung mit begrenzten Schlüsseln und zwei Update-Verhalten beschrieben
+- Erstellung an `notifications.create` gebunden und freie HTML-, URL- und Push-Ziele ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

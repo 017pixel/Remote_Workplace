@@ -14,6 +14,7 @@ export * from "./keyboard-shortcuts.js";
 export * from "./lifecycle.js";
 export * from "./manifest-json-schema.js";
 export * from "./manifest.js";
+export * from "./notification-contributions.js";
 export * from "./permissions.js";
 export * from "./preview-contributions.js";
 export * from "./realtime-contributions.js";
