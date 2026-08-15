@@ -12,5 +12,6 @@ export * from "./manifest.js";
 export * from "./permissions.js";
 export * from "./settings-contributions.js";
 export * from "./status-bar.js";
+export * from "./terminal-contributions.js";
 export * from "./topbar.js";
 export * from "./versioning.js";

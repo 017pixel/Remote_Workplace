@@ -807,6 +807,64 @@ nicht verändert. Phase 2 adaptiert die vorhandenen Code-, Markdown-, Media-, PD
 Fallback-Renderer als Legacy Built-in Contributions. Die bestehenden O_NOFOLLOW-, Realpath-,
 Root- und Größenprüfungen bleiben Kernel-Substrat.
 
+#### Terminal Contributions
+
+Terminal Contributions registrieren hostgerenderte Profile oder Command-basierte Aktionen. Das
+Manifest enthält weder Shell-Text noch Prozessargumente, Umgebungsvariablen, Zugangsdaten oder
+direkte PTY-Nachrichten:
+
+```json
+{
+  "contributes": {
+    "terminal": [
+      {
+        "id": "workbench.python.terminal.profile.repl",
+        "kind": "profile",
+        "title": "Python REPL",
+        "icon": "workbench.python.icon.terminal",
+        "order": 100,
+        "provider": "workbench.python.terminal-provider.repl",
+        "projectContext": true,
+        "supportsSplit": true,
+        "visibleByDefault": true
+      },
+      {
+        "id": "workbench.python.terminal.action.interrupt",
+        "kind": "action",
+        "title": "Prozess unterbrechen",
+        "order": 200,
+        "commandId": "workbench.python.command.interrupt",
+        "group": "session",
+        "surfaces": ["toolbar", "mobile-actions"],
+        "requiresSession": true
+      }
+    ]
+  }
+}
+```
+
+- Profile benötigen einen namespaced Provider, einen UI- oder Server-Entrypoint und die
+  Permission `terminal.create`. Der spätere Provider liefert nur einen typisierten Startwunsch;
+  Projektpfad, Executable, Account, Limits und Grants prüft der Terminal Broker erneut.
+- PTY Manager, tmux Supervisor, Session Registry, History, Geometrie, Ownership, Reconnect und
+  Workspace-Sync bleiben Kernel. Ein deaktiviertes Profil beendet keine laufende user-owned
+  Session. Die UI kann sie weiter über die geschützte Session-Liste öffnen oder beenden.
+- Actions referenzieren tatsächlich deklarierte Commands. Sie können in Toolbar, Session-Menü,
+  Session-Liste und mobiler Aktionsleiste erscheinen. `requiresSession` steuert nur den
+  Hostzustand; Eingabe, Restart, Close und andere Mutationen prüfen ihre Capability bei jeder
+  Ausführung erneut.
+- Gruppen und Reihenfolge sind deklarativ und deterministisch. Die Gefahrengruppe erhält in der
+  späteren UI eine sichtbare Bestätigung, verleiht aber selbst keine zusätzliche Berechtigung.
+- Icons und Context Expressions folgen denselben Namespace-Regeln wie andere Surfaces. Freie
+  React-Komponenten, HTML, Terminal Escape Sequences oder beliebiger WebSocket-Code sind nicht
+  Teil der Contribution.
+- Split-Unterstützung ist ein UI-Merkmal. Pane-Identitäten, mobile Ein-Pane-Darstellung und das
+  bestehende persistierte Split-Dokument werden durch diesen Contract nicht verändert.
+
+Phase 2 registriert Shell, Codex, OpenCode und Claude Code zunächst als Legacy Built-in Profile.
+Die dynamische Profilauflösung folgt erst mit Runtime Registry und Capability Broker. Bestehende
+Terminal- und Agentensitzungen bleiben bis dahin vollständig auf dem bisherigen Codepfad.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

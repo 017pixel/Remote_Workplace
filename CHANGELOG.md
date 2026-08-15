@@ -164,6 +164,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Viewer verbindlich an UI-Entrypoint und ausdrückliche files.read Permission gebunden
 - Dateizugriff, Symlink-Schutz und Schreibaktionen vollständig beim Capability Broker belassen
 
+### Extension-Terminal
+
+- Terminalprofile und Sitzungsaktionen als kontrollierte Contributions definiert
+- Profile an hostverwaltete Provider und eine ausdrückliche Terminal-Berechtigung gebunden
+- Toolbar, Session-Menü, Session-Liste und mobile Aktionen als feste Flächen geöffnet
+- Beliebige Shell-Befehle, Zugangsdaten und direkte PTY-Steuerung aus Manifesten ausgeschlossen
+- Laufende Sitzungen, Reconnect, Split und Workspace-Sync vollständig im sicheren Kernel belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

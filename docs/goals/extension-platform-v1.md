@@ -82,6 +82,8 @@ lokale `.rwext`-Pakete.
   Verhalten bereit. Topbar Contributions binden Actions und hostgerenderte Selector an eigene
   Routes, Commands und sichere Platzierungsregeln. File Contributions registrieren Viewer und
   Open-With-Commands über begrenzte Dateimetadaten, ohne den Filesystem Broker zu umgehen.
+  Terminal Contributions registrieren hostgerenderte Profile und Command-basierte
+  Sitzungsaktionen, während PTY, tmux, Ownership, Reconnect und Workspace-Sync Kernel bleiben.
   Weitere Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
@@ -91,12 +93,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.17 neunzehn lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.18 zwanzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`179d365ada9fb26d1675212d18ad0a234154a96a` als analysierter Ausgangspunkt von Subgoal 1.17.
-Der Ergebniscommit enthält File Contributions V1 und diese Tracker-Aktualisierung.
+`c959b4c893d68ab0686b23dfb83cbaad8af6cc9f` als analysierter Ausgangspunkt von Subgoal 1.18.
+Der Ergebniscommit enthält Terminal Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -112,7 +114,7 @@ Der Ergebniscommit enthält File Contributions V1 und diese Tracker-Aktualisieru
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
-Context-Menu-, Status-Bar-, Topbar- sowie File-Contributions sind geöffnet. Weitere
+Context-Menu-, Status-Bar-, Topbar-, File- sowie Terminal-Contributions sind geöffnet. Weitere
 Contributions und Catalog Contracts folgen.
 
 ## Current Phase
@@ -121,14 +123,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.18, Terminal Contributions V1 planen.
+Subgoal 1.19, Preview Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.18 untersucht `TerminalArea`, Shell-/Agent-Terminalarten, PTY/tmux-Lifecycle und die
-bestehenden Reconnect-Grenzen. Es definiert Terminal Contributions für Profile und Commands,
-ohne PTY Manager, Process Broker oder laufende Sessions in Extension-Code zu verschieben. Eine
-Runtime Registry oder UI-Migration ist noch nicht Teil dieses Vertrags.
+Subgoal 1.19 untersucht Preview Hub, Slots, Sessions, Gruppen, Diagnose und die geschützte
+Devserver-Laufzeit. Es definiert Preview Contributions für hostgerenderte Targets und Commands,
+ohne Preview Gateway, Slot Manager, Storage-Reset oder aktive Nutzer-Devserver in Extension-Code
+zu verschieben. Eine Runtime Registry oder UI-Migration ist noch nicht Teil dieses Vertrags.
 
 ## Phase Table
 
@@ -183,7 +185,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Skills UI | Route und Serverdienst fest eingebaut | `workbench.skills` Built-in Extension auf bestehender Infrastruktur | 10 | not-started |
 | T3 Code | Eigener Prozess/Proxy, statische UI Surfaces | Runtime im Kernel, UI/Navigation/Orbit/Settings als `workbench.t3-code` | 10 | not-started |
 | code-server | Eigener Prozess/Proxy, statische UI Surfaces | Runtime im Kernel, sichtbare Surfaces als `workbench.code-server` | 10 | not-started |
-| Terminal und KI-CLIs | PTY/tmux Runtime plus statische Seiten | Runtime im Kernel, UI und Contributions als Built-ins | 10 | not-started |
+| Terminal und KI-CLIs | PTY/tmux Runtime plus statische Seiten; Manifestvertrag für Profile und Actions eingeführt | Runtime im Kernel, UI und Contributions als Built-ins | 2, 6, 10 | planning |
 | Hermes | Eigene SPA, Proxy, Bridge und Services | Kernel Runtime/Proxy, UI Contributions als `workbench.hermes` | 10 | not-started |
 | Browser/Previews/Files | Sicherheitskritische Broker plus statische UI | Broker im Kernel, sichtbare UI als Built-in Extensions | 10 | not-started |
 | Projects/Inbox/Dashboard | Zentrale sichtbare Features | Built-in Extensions auf Workspace- und Notification-Substrat | 10 | not-started |
@@ -225,6 +227,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Status Bar Contributions sind kompakte hostgerenderte Zustände und Aktionen. | Fünf kontrollierte Typen referenzieren Provider oder Commands statt beliebiger Komponenten. Bereiche, Reihenfolge, Priorität und Compact-Modus steuern nur die Darstellung; Kernel Health und Recovery bleiben geschützte `hostOnly`-Elemente. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Öffentliche Topbar Contributions bleiben routegebunden und hostgerendert. | Actions verwenden Commands, Selector verwenden begrenzte Provider plus Commands. Freie Komponenten, Navigation und Breadcrumbs bleiben außerhalb der Surface; Platzierung, Priorität und Compact-Modus sichern Desktop und Mobile. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | File Contributions matchen Metadaten, nicht Pfade oder Capabilities. | Viewer verwenden begrenzte UI-Provider und verlangen `files.read`; Opener teilen Commands. Jeder tatsächliche Read oder Write bleibt eine neue Filesystem-Broker-Prüfung mit Root-, Scope-, Realpath- und Symlink-Schutz. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Terminal Contributions beschreiben Profile und Actions, niemals PTY- oder Prozesscode. | Profile verwenden namespaced Provider und `terminal.create`; Commands teilen die gemeinsame Registry. PTY, tmux, Ownership, Reconnect, Workspace-Sync und das Beenden user-owned Sessions bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -254,6 +257,7 @@ Priorisierte Abhängigkeiten:
 | Ein Status Provider überlastet die Leiste oder verdrängt Kernel Health | Unlesbare UI, Aktualisierungsflut oder verdeckter Recovery-Zustand | Maximal 128 Items, kontrollierte Priorität und Compact-Modi, hostgeschützte Kernbereiche sowie Runtime-Grenzen für Timeout, Payload und Aktualisierungsrate | offen |
 | Topbar Contributions überladen kleine Viewports oder konkurrieren mit persistenten inaktiven Routes | Unbedienbare Aktionen, falscher Route-Kontext oder doppelte Portal-Inhalte | Routebindung, Route-Activity-Prüfung, maximal 128 Items, feste Platzierungen, Priority/Compact-Policy, 44-Pixel-Touchziele und geschützte Host-Flächen | offen |
 | Ein File Matcher wird als Zugriffserlaubnis behandelt oder ein Viewer umgeht Symlink-/Root-Grenzen | Lesen fremder Dateien, Path Escape oder Secret Leak | Matcher enthalten keine Pfade; Viewer fordern `files.read`, erhalten begrenzte Brokerkanäle und jeder Zugriff validiert Scope, Realpath, Root, Symlink und Payload erneut | offen |
+| Ein Terminalprofil umgeht den Broker oder Disable beendet eine laufende Session | Unautorisierte Prozesse oder Verlust laufender Arbeit | Manifest enthält keine Launch-Daten; Provider benötigen `terminal.create`, Broker revalidiert jeden Start und Disable entfernt nur Contributions, nie user-owned Sessions | offen |
 
 ## Compatibility Matrix
 
@@ -277,6 +281,7 @@ Priorisierte Abhängigkeiten:
 | Status Bar Contributions | 1 bis 128 Einträge, fünf Typen, zwei Bereiche, Priorität und drei Compact-Modi | Provider und Commands bleiben namespaced; Host rendert kontrollierte Payloads, schützt Kernelzustände und isoliert Aktualisierung sowie Fehler je Contribution |
 | Topbar Contributions | 1 bis 128 routegebundene Actions oder Selector, drei Platzierungen, drei Darstellungen und drei Compact-Modi | Route und Command müssen deklariert sein; Selector Provider bleiben namespaced, Host sortiert und überführt niedrige Prioritäten kontrolliert in Compact oder Overflow |
 | File Contributions | 1 bis 128 Viewer oder Opener; je Matcher bis zu 64 Endungen, Basenames und MIME-Typen | Keine Pfade/Globs/Regex; Viewer benötigen UI plus `files.read`, Opener ein Command, Broker revalidiert jeden Zugriff und Nutzerdefaults bleiben bei fehlender Extension erhalten |
+| Terminal Contributions | 1 bis 128 Profile oder Actions mit vier kontrollierten Host-Surfaces | Profile benötigen Provider, Entrypoint und `terminal.create`; Actions teilen Commands, PTY/tmux und Session-Lifecycle bleiben Kernel |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -288,10 +293,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.17, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.17 |
-| `pnpm test` | bestanden am 2026-08-15, 348 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.17, 1041 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.17, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.18, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.18 |
+| `pnpm test` | bestanden am 2026-08-15, 356 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.18, 1049 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.18, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -357,7 +362,8 @@ Keine.
 | `38072f2` | Subgoal 1.14, Context Menu Contributions V1 |
 | `99189d3` | Subgoal 1.15, Status Bar Contributions V1 |
 | `179d365` | Subgoal 1.16, Topbar Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.17, File Contributions V1 |
+| `c959b4c` | Subgoal 1.17, File Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.18, Terminal Contributions V1 |
 
 ## Subgoal Log
 
@@ -383,4 +389,5 @@ Keine.
 | 1.15 Status Bar Contributions V1 | done | Fünf kompakte Typen, Bereiche, Prioritäten, Compact-Modi, Command-/Provider-/Icon-/Context-Prüfungen, JSON Schema und 1005 grüne Repository-Tests | Subgoal 1.16, Topbar Contributions V1 |
 | 1.16 Topbar Contributions V1 | done | Routegebundene Actions und Selector, Platzierungen, Priority/Compact, Command-/Provider-/Icon-/Context-Prüfungen, JSON Schema und 1015 grüne Repository-Tests | Subgoal 1.17, File Contributions V1 |
 | 1.17 File Contributions V1 | done | Viewer und Opener, exakte Metadata Matcher, UI-/Permission-, Command-/Provider-/Icon-/Context-Prüfungen, JSON Schema und 1041 grüne Repository-Tests | Subgoal 1.18, Terminal Contributions V1 |
-| 1.18 Terminal Contributions V1 | planning | Command-, Project-, Permission- und Runtime-Grenzverträge liegen vor | TerminalArea, Profile, PTY/tmux-Lifecycle und Reconnect-Verhalten inventarisieren |
+| 1.18 Terminal Contributions V1 | done | Profile und Actions, vier Host-Surfaces, Permission-, Entrypoint-, Command-, Provider-, Icon-, Context- und ID-Prüfungen, JSON Schema und 1049 grüne Repository-Tests | Subgoal 1.19, Preview Contributions V1 |
+| 1.19 Preview Contributions V1 | planning | Preview-Inventar und Kernel-Grenzen aus Phase 0 liegen vor | Preview Hub, Targets, Slots, Gruppen, Diagnose, Devserver und Session-Lifecycle erneut inventarisieren |

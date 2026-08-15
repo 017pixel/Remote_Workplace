@@ -41,6 +41,7 @@ import {
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
+import { terminalContributionsSchema } from "./terminal-contributions.js";
 import { topbarContributionsSchema } from "./topbar.js";
 
 export * from "./package-paths.js";
@@ -176,6 +177,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   statusBar: statusBarContributionsSchema.optional(),
   topbar: topbarContributionsSchema.optional(),
   files: fileContributionsSchema.optional(),
+  terminal: terminalContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -341,6 +343,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.files ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "files", index, "id"] as const,
+      })),
+      ...(manifest.contributes.terminal ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "terminal", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -769,6 +775,60 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.terminal ?? []
+    ).entries()) {
+      if (item.kind === "action" && !commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Terminal Action muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "terminal", index, "commandId"],
+        });
+      }
+      if (
+        item.kind === "profile" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Terminal Profile Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "terminal", index, "provider"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Terminal Contribution Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "terminal", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "terminal", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "terminal", index, "when"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -859,6 +919,35 @@ export const extensionManifestV1Schema = z
         message:
           "File Viewer Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
         path: ["entrypoints", "ui"],
+      });
+    }
+
+    if (
+      manifest.contributes.terminal?.some((item) => item.kind === "profile") ===
+        true &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Terminal Profile Contributions benötigen einen UI- oder Server-Entrypoint für ihren Provider.",
+        path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.terminal?.some((item) => item.kind === "profile") ===
+        true &&
+      !manifest.permissions.some(
+        (request) => request.permission === "terminal.create",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Terminal Profile Contributions müssen die Permission terminal.create anfordern.",
+        path: ["permissions"],
       });
     }
 
