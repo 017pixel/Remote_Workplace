@@ -6,4 +6,5 @@ export * from "./lifecycle.js";
 export * from "./manifest-json-schema.js";
 export * from "./manifest.js";
 export * from "./permissions.js";
+export * from "./settings-contributions.js";
 export * from "./versioning.js";

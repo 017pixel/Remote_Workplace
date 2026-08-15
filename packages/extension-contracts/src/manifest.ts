@@ -29,6 +29,7 @@ import {
   semanticVersionSchema,
 } from "./versioning.js";
 import { extensionPermissionRequestsSchema } from "./permissions.js";
+import { settingsContributionsSchema } from "./settings-contributions.js";
 
 export * from "./package-paths.js";
 
@@ -157,6 +158,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   navigation: navigationContributionsSchema.optional(),
   orbit: orbitContributionsSchema.optional(),
   dashboard: dashboardContributionsSchema.optional(),
+  settings: settingsContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -282,6 +284,25 @@ export const extensionManifestV1Schema = z
         id: item.id,
         path: ["contributes", "dashboard", index, "id"] as const,
       })),
+      ...(manifest.contributes.settings ?? []).flatMap((setting, index) => [
+        {
+          id: setting.id,
+          path: ["contributes", "settings", index, "id"] as const,
+        },
+        ...(setting.kind === "schema"
+          ? setting.fields.map((field, fieldIndex) => ({
+              id: field.id,
+              path: [
+                "contributes",
+                "settings",
+                index,
+                "fields",
+                fieldIndex,
+                "id",
+              ] as const,
+            }))
+          : []),
+      ]),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
@@ -422,6 +443,39 @@ export const extensionManifestV1Schema = z
           message:
             "Eine Dashboard Provider ID muss zur deklarierenden Extension gehören.",
           path: ["contributes", "dashboard", index, "provider"],
+        });
+      }
+    }
+
+    for (const [index, setting] of (
+      manifest.contributes.settings ?? []
+    ).entries()) {
+      if (
+        setting.icon !== undefined &&
+        setting.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, setting.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Settings Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "settings", index, "icon"],
+        });
+      }
+      if (setting.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "settings", index, "icon"],
+        });
+      }
+      if (setting.kind === "page" && !pageIds.has(setting.pageId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine eigene Settings Page muss eine deklarierte Page Contribution referenzieren.",
+          path: ["contributes", "settings", index, "pageId"],
         });
       }
     }

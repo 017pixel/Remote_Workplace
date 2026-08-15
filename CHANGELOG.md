@@ -116,6 +116,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Größe, Reihenfolge, Projektkontext und Standardsichtbarkeit als Host-Metadaten ergänzt
 - On-Demand-, Intervall- und Realtime-Aktualisierung mit sicheren Grenzen beschrieben
 
+### Extension-Settings
+
+- Schema-driven Settings Sections und eigene Settings Pages als Contributions definiert
+- Zehn Feldtypen mit kontrollierten Defaults, Grenzen und Auswahlwerten ergänzt
+- Server-, Benutzer- und Projekt-Scope als autoritative Speichergrenzen festgelegt
+- Secret-Felder ohne Manifest-Default vom normalen Settings JSON getrennt
+- Namespaced Section-, Field-, Page- und Icon-Referenzen strikt validiert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

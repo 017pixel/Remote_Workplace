@@ -402,6 +402,67 @@ Die heutigen neun produktbezogenen Bereiche in `Dashboard.tsx` und der Browser-K
 adaptiert sie zunächst als Legacy Built-in Contributions; die serverseitige Präferenzmigration
 folgt kontrolliert mit Dual Read.
 
+#### Settings Contributions
+
+Settings Contributions sind entweder eine vom Host gerenderte Feldgruppe oder eine referenzierte
+Page für komplexe Oberflächen:
+
+```json
+{
+  "contributes": {
+    "settings": [
+      {
+        "id": "workbench.agent-tasks.settings.general",
+        "kind": "schema",
+        "title": "Agent Tasks",
+        "order": 100,
+        "scope": "user",
+        "fields": [
+          {
+            "id": "workbench.agent-tasks.setting.notifications",
+            "type": "boolean",
+            "label": "Benachrichtigungen",
+            "default": true
+          },
+          {
+            "id": "workbench.agent-tasks.setting.api-token",
+            "type": "secret",
+            "label": "API Token",
+            "required": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- Schema Sections unterstützen `string`, `number`, `boolean`, `enum`, `multi-select`, `path`,
+  `url`, `secret`, `project` und `duration`. Feld- und Section-IDs sind manifestweit eindeutig
+  und gehören zum Extension-Namespace.
+- `server`, `user` und `project` bestimmen die autoritative serverseitige Ablage. Der Default ist
+  `user`. Ein Browser- oder Device-Scope ist absichtlich kein Extension-Settings-Scope.
+- Strings und Zahlen besitzen kontrollierte Grenzen. Enum- und Multi-Select-Werte referenzieren
+  eindeutige deklarierte Optionen. URLs erlauben nur HTTP und HTTPS. Durations werden
+  unabhängig von der Anzeigeeinheit als ganze Millisekunden gespeichert.
+- Ein Path-Wert ist nur Konfiguration. Er erweitert weder `files.read` noch `files.write` und
+  umgeht keine Realpath-, Symlink- oder Root-Prüfung des Filesystem Brokers.
+- Secret-Felder dürfen keinen Default im Manifest enthalten. Normale Settings-Antworten liefern
+  später nur `gesetzt` oder `nicht gesetzt`; der Wert liegt in einem getrennten Secret Store und
+  wird ausschließlich über den Secrets Broker verwendet.
+- Eine `page` Section referenziert eine tatsächlich deklarierte Page derselben Extension. Deren
+  Renderer läuft über denselben UI-Entrypoint und dieselbe Error Boundary wie andere Pages.
+- Schema Sections benötigen keinen Extension-Entrypoint. Host, Settings Manager und Storage
+  Manager validieren, rendern und persistieren sie generisch.
+- Manifest-Defaults sind keine gespeicherten Grants oder Werte. Änderungen verwenden später
+  Identity, Same-Origin, Revisionen, Audit und die serverseitige Scope-Autorisierung aus
+  [`extension-server-authority.md`](extension-server-authority.md).
+
+Die elf festen Cards in `Settings.tsx` werden in diesem Subgoal nicht verändert. Version,
+Security, Extensions und Recovery bleiben Core. T3, Usage und andere Featurebereiche werden
+erst über Legacy Built-in Contributions adaptiert; browserlokale Präferenzen bleiben bis zur
+getesteten Dual-Read-Migration erhalten.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

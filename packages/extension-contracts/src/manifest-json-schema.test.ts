@@ -18,6 +18,7 @@ import {
   createExtensionManifestV1JsonSchema,
 } from "./manifest-json-schema.js";
 import { extensionPermissionIds } from "./permissions.js";
+import { SETTINGS_CONTRIBUTIONS_MAX_COUNT } from "./settings-contributions.js";
 
 const trackedSchema = JSON.parse(
   readFileSync(
@@ -120,6 +121,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               maxItems: DASHBOARD_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: expect.any(Object),
+            },
+            settings: {
+              type: "array",
+              minItems: 1,
+              maxItems: SETTINGS_CONTRIBUTIONS_MAX_COUNT,
+              uniqueItems: true,
+              items: { oneOf: expect.any(Array) },
             },
           },
         },
