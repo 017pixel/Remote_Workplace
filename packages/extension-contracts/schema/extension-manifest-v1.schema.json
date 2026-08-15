@@ -13911,6 +13911,130 @@
             "additionalProperties": false
           },
           "uniqueItems": true
+        },
+        "backgroundServices": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "provider": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "enabledByDefault": {
+                "type": "boolean"
+              },
+              "restart": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "never"
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "on-failure"
+                      },
+                      "maxAttempts": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10
+                      },
+                      "windowMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 86400000
+                      },
+                      "backoffMilliseconds": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 60000
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "maxAttempts",
+                      "windowMilliseconds",
+                      "backoffMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "health": {
+                "type": "object",
+                "properties": {
+                  "intervalMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  },
+                  "timeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 30000
+                  },
+                  "failureThreshold": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  }
+                },
+                "required": [
+                  "intervalMilliseconds",
+                  "timeoutMilliseconds",
+                  "failureThreshold"
+                ],
+                "additionalProperties": false
+              },
+              "shutdownTimeoutMilliseconds": {
+                "type": "integer",
+                "minimum": 250,
+                "maximum": 60000
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "description",
+              "provider",
+              "enabledByDefault",
+              "restart",
+              "health",
+              "shutdownTimeoutMilliseconds"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

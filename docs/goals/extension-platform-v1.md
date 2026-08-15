@@ -91,7 +91,9 @@ lokale `.rwext`-Pakete.
   oder namespaced Server-Provider über lokale Ein- und Ausgabeschemas, ohne Grants, Approvals
   oder ausführbaren Code im Manifest zu erlauben. Agent Skill Contributions referenzieren lokale
   `SKILL.md`-Pakete für vier kontrollierte Harness-Ziele, mit extensiongebundenen Namen,
-  sichtbarer Provenance und getrenntem Enablement. Weitere Contributions, Manager, Capability
+  sichtbarer Provenance und getrenntem Enablement. Background Service Contributions beschreiben
+  hostverwaltete Provider mit Health, begrenztem Restart und deterministischem Shutdown, ohne
+  Prozesse oder Core-Runtimes im Manifest zu öffnen. Weitere Contributions, Manager, Capability
   Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
@@ -101,12 +103,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.22 vierundzwanzig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.23 fünfundzwanzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`a7a305fecdf584a2db081b80937ceeca2ef73152` als analysierter Ausgangspunkt von Subgoal 1.22.
-Der Ergebniscommit enthält Agent Skill Contributions V1 und diese Tracker-Aktualisierung.
+`3abffe08aefe380ece7a7df3213e65014410be73` als analysierter Ausgangspunkt von Subgoal 1.23.
+Der Ergebniscommit enthält Background Service Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -122,8 +124,9 @@ Der Ergebniscommit enthält Agent Skill Contributions V1 und diese Tracker-Aktua
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
-Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool- sowie
-Agent-Skill-Contributions sind geöffnet. Weitere Contributions und Catalog Contracts folgen.
+Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool-,
+Agent-Skill- sowie Background-Service-Contributions sind geöffnet. Weitere Contributions und
+Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -131,14 +134,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.23, Background Service Contributions V1 planen.
+Subgoal 1.24, Scheduled Job Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.23 inventarisiert die direkt in `app.ts` gestarteten Synchronisierer, Timer und
-Service-Manager erneut. Es definiert Background Service Contributions mit stabilem Provider,
-kontrollierter Startart, Health, Restart Policy und deterministischem Cleanup, ohne systemd,
-Kernel-Runtimes oder frei deklarierbare Prozesse in Extension-Manifeste zu verschieben.
+Subgoal 1.24 inventarisiert bestehende Intervalle, Timer und manuelle Sync-Endpunkte erneut. Es
+definiert Scheduled Job Contributions für Interval, Cron, One-shot und Events mit Provider,
+Timeout, Concurrency, Missed-run Policy, Retries, Idempotency, Cancellation und Run History,
+ohne ungeprüfte extensioneigene Cron-Systeme zu erlauben.
 
 ## Phase Table
 
@@ -186,7 +189,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Server Bootstrap | Dienste und Routen direkt in `app.ts` | Kernel Bootstrap plus deterministischer Extension Manager | 5 | planning |
 | Storage | Featuretabellen in Workbench-DB | Registry-Metadaten zentral, Fachdaten je Extension getrennt | 5-6 | planning |
 | Permissions | Zentrale Security, aber keine Extension Grants | Permission Manager und Capability Broker mit Scopes | 1, 6 | planning |
-| Events und Jobs | Direkte Listener, Timer und Service-Start-Aufrufe | Typisierter Event Bus und Scheduler mit Cleanup | 5-6 | planning |
+| Events und Jobs | Direkte Listener, Timer und Service-Start-Aufrufe; Background-Service-Vertrag eingeführt | Typisierter Event Bus und Scheduler mit Cleanup | 5-6 | planning |
 | Agent Integration | Globaler Skill Editor und featuregebundene Agentenflächen; Agent-Tool- und Agent-Skill-Verträge eingeführt | Provenance-basierte Skills, Tools und Agent Contributions | 2, 6, 8 | planning |
 | Tech TLDRs | UI, API, SQLite, Sync und Network fest eingebaut | `workbench.tech-tldrs` Canary Extension | 9 | not-started |
 | Usage | UI und Services fest eingebaut | `workbench.usage` Built-in Extension | 10 | not-started |
@@ -240,6 +243,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Browser Contributions öffnen keinen freien Chromium- oder CDP-Zugriff. | Tools deklarieren sieben begrenzte Broker-Operationen, benötigen einen Provider und `browser.control`; Actions teilen Commands. Profile, Cookies, Downloads, Session-Ownership, DevTools-Proxy und Lifecycle bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Agent Tools registrieren Schemas und Handler, keine Agentenrechte. | Command- und Provider-Tools benötigen lokalen Input Contract, Server-Entrypoint und `agents.tools.register`. Approval bleibt Host Policy oder wird durch `always` verschärft; weitere Fähigkeiten werden separat gewährt und pro Aufruf geprüft. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Extension-Skills bleiben getrennt von globalen User-Skills und Regeln. | Lokale `SKILL.md`-Pakete verwenden einen extensiongebundenen Namen, serverseitig abgeleitete Provenance und separates Enablement je Skill. Harness-Ziele sind nur Kompatibilitätsangaben; globale Regeln, User-Skills und fremde Extension-Skills bleiben schreibgeschützt. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Background Services sind hostverwaltete Provider, keine Prozessdefinitionen. | Server-Entrypoint, Health Policy, begrenztes Restart-Budget und Shutdown-Frist bilden den Lifecycle. Commands, systemd-Units und Core-Runtimes bleiben Kernel; Extension-Capabilities werden separat gewährt. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -274,6 +278,7 @@ Priorisierte Abhängigkeiten:
 | Ein Browser Tool erhält einen freien CDP-Kanal oder löscht beim Disable ein Profil | Credential-Leak, beliebige Seiteneingabe oder Verlust angemeldeter Sitzungen | Manifest erlaubt nur sieben feste Operationen; Provider benötigen hochprivilegierten Grant, Broker prüft Ownership und Operation erneut, Disable entfernt keine Session- oder Profildaten | offen |
 | Ein Agent Tool deutet Registrierung als Grant oder umgeht Approval über einen Adapter | Unautorisierte Mutationen, Secret-Leak oder agentenübergreifende Dauerfreigabe | `agents.tools.register` erlaubt nur Registrierung; Input und Output werden validiert, Capabilities separat geprüft, Approval sessiongebunden durch Host Policy entschieden und Adapter führen stabile Audit-ID mit | offen |
 | Ein Extension-Skill kollidiert mit globalen Regeln oder bleibt nach Disable unbemerkt aktiv | Verändertes Agentenverhalten, falsche Provenance oder unkontrollierbare Instructions | Extensiongebundene Namen, paketinterne Realpath-Prüfung, serverseitig abgeleitete Provenance und getrenntes Enablement; Disable entfernt nur verwaltete Sichtbarkeit und verändert keine User-Skills | offen |
+| Ein Background Service blockiert Bootstrap oder gerät in eine Restart-Schleife | Nicht erreichbare Workbench, hohe Last oder Zombie-Handles nach Disable | Start und Health je Provider isolieren; Restarts durch Versuche, Fenster und Backoff begrenzen; Stop mit Abort und Frist genau einmal ausführen, danach Quarantäne statt Endlosschleife | offen |
 
 ## Compatibility Matrix
 
@@ -302,6 +307,7 @@ Priorisierte Abhängigkeiten:
 | Browser Contributions | 1 bis 128 Tools oder Actions, sieben Broker-Operationen und vier Host-Surfaces | Tools benötigen Provider, Entrypoint und `browser.control`; Manifest enthält keine URLs, Profile, Cookies, Downloadpfade oder freien CDP-Methoden |
 | Agent Tool Contributions | 1 bis 128 Command- oder Provider-Tools mit lokalem Input- und optionalem Output-Schema | Server-Entrypoint und `agents.tools.register` sind Pflicht; Host Policy kann nur durch `always` verschärft werden, Capabilities und Approvals bleiben getrennt |
 | Agent Skill Contributions | 1 bis 128 lokale `SKILL.md`-Pakete für Codex, Claude Code, OpenCode oder Hermes | `agents.skills.register`, extensiongebundene Namen und serverseitige Provenance sind Pflicht; tatsächliches Enablement bleibt je Skill und Ziel getrennt, globale Regeln und User-Skills unverändert |
+| Background Service Contributions | 1 bis 128 serverweite Provider mit Health, Enablement, Restart Policy und Shutdown-Frist | Server-Entrypoint und eigener Provider sind Pflicht; Host kontrolliert Lifecycle, Observability und Cleanup, während systemd, Prozesse und user-owned Runtimes außerhalb des Manifests bleiben |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -313,10 +319,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.22, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.22, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 387 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1080 | Subgoal 1.22, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.22, vollständiger Build einschließlich aktualisiertem JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.23, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.23, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 394 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1087 | Subgoal 1.23, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.23, vollständiger Build einschließlich aktualisiertem JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -387,7 +393,8 @@ Keine.
 | `13d78a2` | Subgoal 1.19, Preview Contributions V1 |
 | `340755d` | Subgoal 1.20, Browser Contributions V1 |
 | `a7a305f` | Subgoal 1.21, Agent Tool Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.22, Agent Skill Contributions V1 |
+| `3abffe0` | Subgoal 1.22, Agent Skill Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.23, Background Service Contributions V1 |
 
 ## Subgoal Log
 
@@ -418,4 +425,5 @@ Keine.
 | 1.20 Browser Contributions V1 | done | Tools und Actions, sieben Broker-Operationen, vier Host-Surfaces, Permission-, Entrypoint-, Command-, Provider-, Icon-, Context- und ID-Prüfungen, JSON Schema und 1065 grüne Repository-Tests | Subgoal 1.21, Agent Tool Contributions V1 |
 | 1.21 Agent Tool Contributions V1 | done | Command- und Provider-Tools, lokale Ein-/Ausgabeschemas, Host-Approval-Policy, Permission-, Entrypoint-, Command-, Provider- und ID-Prüfungen, JSON Schema und 1073 grüne Repository-Tests | Subgoal 1.22, Agent Skill Contributions V1 |
 | 1.22 Agent Skill Contributions V1 | done | Paketinterne `SKILL.md`, vier Harness-Ziele, Extension-Namensraum, Permission-, Pfad-, Provenance- und Enablement-Vertrag, JSON Schema und 1080 grüne Repository-Tests | Subgoal 1.23, Background Service Contributions V1 |
-| 1.23 Background Service Contributions V1 | planning | Hintergrunddienste, Timer, Synchronisierer und Runtime-Grenzen aus Phase 0 liegen vor | Bootstrap-Lifecycle, Provider, Health, Restart Policy und deterministisches Cleanup erneut inventarisieren |
+| 1.23 Background Service Contributions V1 | done | Hostverwaltete Provider, Enablement, Health-Grenzen, begrenzte Restart Policy, Shutdown-Frist, Entrypoint-, Provider- und ID-Prüfungen, JSON Schema und 1087 grüne Repository-Tests | Subgoal 1.24, Scheduled Job Contributions V1 |
+| 1.24 Scheduled Job Contributions V1 | planning | Timer, Synchronisierer, manuelle Sync-Endpunkte und Scheduler-Anforderungen aus dem Goal liegen vor | Zeitpläne, Provider, Timeout, Concurrency, Missed Runs, Retries, Idempotency, Cancellation und History erneut inventarisieren |

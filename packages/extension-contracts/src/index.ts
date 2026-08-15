@@ -1,6 +1,7 @@
 export * from "./activation-events.js";
 export * from "./agent-skill-contributions.js";
 export * from "./agent-tool-contributions.js";
+export * from "./background-service-contributions.js";
 export * from "./browser-contributions.js";
 export * from "./contributions.js";
 export * from "./context-expressions.js";

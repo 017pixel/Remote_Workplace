@@ -2556,6 +2556,75 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  const backgroundService = {
+    id: "workbench.agent-tasks.background-service.sync",
+    title: "Agent Tasks synchronisieren",
+    description: "Synchronisiert Agent Tasks im Hintergrund.",
+    provider: "workbench.agent-tasks.background-service-provider.sync",
+    enabledByDefault: true,
+    restart: {
+      mode: "on-failure",
+      maxAttempts: 3,
+      windowMilliseconds: 300_000,
+      backoffMilliseconds: 1_000,
+    },
+    health: {
+      intervalMilliseconds: 30_000,
+      timeoutMilliseconds: 5_000,
+      failureThreshold: 3,
+    },
+    shutdownTimeoutMilliseconds: 10_000,
+  } as const;
+
+  it("akzeptiert hostverwaltete Background Services", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: { backgroundServices: [backgroundService] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("verlangt für Background Services eigene Provider und Server-Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          backgroundServices: [
+            {
+              ...backgroundService,
+              provider: "workbench.other.background-service-provider.sync",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { ui: "./dist/ui.js" },
+        contributes: { backgroundServices: [backgroundService] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist manifestweit doppelte Background Service IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          backgroundServices: [
+            {
+              ...backgroundService,
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -2714,8 +2783,16 @@ describe("Extension Manifest V1", () => {
       extensionContributionsV1Schema.safeParse({ agentSkills: [] }).success,
     ).toBe(false);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        backgroundServices: [backgroundService],
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ backgroundServices: [] })
         .success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ scheduledJobs: [] }).success,
     ).toBe(false);
   });
 });

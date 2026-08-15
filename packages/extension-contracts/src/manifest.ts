@@ -9,6 +9,7 @@ import {
   agentSkillNameBelongsToExtension,
 } from "./agent-skill-contributions.js";
 import { agentToolContributionsSchema } from "./agent-tool-contributions.js";
+import { backgroundServiceContributionsSchema } from "./background-service-contributions.js";
 import {
   commandContributionsSchema,
   dashboardContributionsSchema,
@@ -189,6 +190,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   browser: browserContributionsSchema.optional(),
   agentTools: agentToolContributionsSchema.optional(),
   agentSkills: agentSkillContributionsSchema.optional(),
+  backgroundServices: backgroundServiceContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -374,6 +376,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.agentSkills ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "agentSkills", index, "id"] as const,
+      })),
+      ...(manifest.contributes.backgroundServices ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "backgroundServices", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -1000,6 +1006,18 @@ export const extensionManifestV1Schema = z
       });
     }
 
+    for (const [index, item] of (
+      manifest.contributes.backgroundServices ?? []
+    ).entries()) {
+      if (contributionBelongsToExtension(manifest.id, item.provider)) continue;
+      context.addIssue({
+        code: "custom",
+        message:
+          "Eine Background Service Provider ID muss zur deklarierenden Extension gehören.",
+        path: ["contributes", "backgroundServices", index, "provider"],
+      });
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1174,6 +1192,18 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "Agent Tool Contributions benötigen einen Server-Entrypoint für ihre Handler.",
+        path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.backgroundServices !== undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Background Service Contributions benötigen einen Server-Entrypoint für ihre Provider.",
         path: ["entrypoints", "server"],
       });
     }

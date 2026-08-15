@@ -1096,6 +1096,63 @@ Der bestehende Skill Editor bleibt für globale, nutzerverwaltete Skills zustän
 Skills werden dort später mit Provenance und getrenntem Enablement sichtbar, aber nicht still in
 globale Regeln eingebettet oder als User-Skill überschrieben.
 
+#### Background Service Contributions
+
+Background Service Contributions beschreiben langlebige, serverweite Arbeit innerhalb einer
+aktivierten Extension. Der Host besitzt Start, Health, Restart, Stop und Observability:
+
+```json
+{
+  "contributes": {
+    "backgroundServices": [
+      {
+        "id": "workbench.agent-tasks.background-service.sync",
+        "title": "Agent Tasks synchronisieren",
+        "description": "Synchronisiert Agent Tasks im Hintergrund.",
+        "provider": "workbench.agent-tasks.background-service-provider.sync",
+        "enabledByDefault": true,
+        "restart": {
+          "mode": "on-failure",
+          "maxAttempts": 3,
+          "windowMilliseconds": 300000,
+          "backoffMilliseconds": 1000
+        },
+        "health": {
+          "intervalMilliseconds": 30000,
+          "timeoutMilliseconds": 5000,
+          "failureThreshold": 3
+        },
+        "shutdownTimeoutMilliseconds": 10000
+      }
+    ]
+  }
+}
+```
+
+- Jeder Service benötigt einen namespaced Provider und einen Server-Entrypoint. Der Provider
+  registriert genau einen hostkontrollierten Lifecycle aus `start`, `health` und `stop`. Die
+  spätere Runtime reicht Abort Signals, Logger und ausschließlich separat gewährte Capability
+  Broker ein; Manifestfelder für Command, Script, Working Directory oder Environment existieren
+  nicht.
+- `enabledByDefault` ist nur der Installationsvorschlag. Der tatsächliche serverweite Zustand,
+  letzter Start, Health, Fehler und Restart-Zähler liegen autoritativ in der Extension Registry.
+  Browser-Storage und Extension-Code dürfen diesen Zustand nicht vortäuschen oder direkt ändern.
+- Health-Prüfungen laufen mit kontrolliertem Intervall, Timeout und Fehlerschwelle. Antworten
+  bleiben klein und strukturiert. Ein Timeout, Throw oder Prozessabbruch wird je Service isoliert
+  erfasst und darf weder den Kernel-Bootstrap noch andere Extensions blockieren.
+- Automatische Restarts sind entweder ausgeschaltet oder durch Versuche, Zeitfenster und Backoff
+  begrenzt. Nach ausgeschöpftem Budget bleibt der Service sichtbar fehlerhaft; wiederholte
+  Extension-Crashes führen später über den Manager in Quarantäne statt in eine Endlosschleife.
+- Disable stoppt neue Arbeit, bricht Health und Restart ab, ruft `stop` genau einmal mit Frist auf
+  und entfernt alle registrierten Listener und Handles. Ein hängender Provider wird isoliert und
+  protokolliert. User-owned tmux-, Preview-, Chromium-, T3-, Hermes- und Agentensitzungen werden
+  dabei nicht beendet oder gelöscht.
+
+systemd-Units, Core-Runtimes, Preview-Watchdog, Browser Manager und Service Control bleiben
+Kernel. Bestehende direkt in `app.ts` gestartete Synchronisierer werden erst nach Einführung des
+Extension Managers einzeln über Legacy Adapter migriert; dieses Contract-Subgoal startet oder
+stoppt keinen laufenden Dienst.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

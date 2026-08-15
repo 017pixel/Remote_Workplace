@@ -204,6 +204,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Registrierung an eigene Berechtigung, sichtbare Provenance und getrenntes Enablement gebunden
 - Schreibzugriffe auf globale Regeln, User-Skills und fremde Extension-Skills ausgeschlossen
 
+### Extension-Hintergrunddienste
+
+- Serverseitige Background Services als hostverwaltete Provider Contributions definiert
+- Health-Prüfungen mit festen Intervall-, Timeout- und Fehlerschwellen begrenzt
+- Automatische Restarts auf ein nachvollziehbares Budget mit Zeitfenster und Backoff beschränkt
+- Aktivierungszustand, Fehler und Neustartzähler als serverseitig autoritative Fakten festgelegt
+- Freie Prozesse, systemd-Units und das Beenden nutzereigener Runtimes aus Manifesten ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
