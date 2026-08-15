@@ -177,18 +177,19 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
+Phase 3, `in-progress`. Phasen 0 bis 2 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.8, Orbit-Registry-Metadaten implementieren.
+Subgoal 3.1, Route Host aus der Page-/Route-Registry ableiten.
 
 ## Next Concrete Action
 
-Subgoal 2.8 registriert die bestehende Orbit-Palette (Werkzeuge, Blöcke, Preview-Layouts),
-Renderer- und Größenmetadaten als Legacy Built-ins mit stabilen Contribution-IDs, ohne
-Dokumentversion, geschlossene Knotentypen oder `panelTypeSchema` zu verändern. Phase 4
-erhält damit verifizierte Runtime-Bindings für den generischen Extension-Knoten.
+Subgoal 3.1 leitet den statischen Router in `App.tsx` aus dem PageRouteRegistry-Snapshot ab:
+Pages werden über ihre Runtime-Loader lazy gehostet, Host-Routen und 404 bleiben Kernel,
+`PersistentOutlet` und Stale-Chunk-Recovery bleiben erhalten. Paritätstests sichern URL-
+Muster, Aliase, Shell-Modi und Prefetch; danach gilt: Eine Test-Extension kann eine neue
+Seite hinzufügen, ohne Core-Featurelisten zu editieren.
 
 ## Phase Table
 
@@ -196,8 +197,8 @@ erhält damit verifizierte Runtime-Bindings für den generischen Extension-Knote
 | --- | --- | --- |
 | 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
 | 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | done |
-| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | in-progress |
-| 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | not-started |
+| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | done |
+| 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | in-progress |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
 | 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | not-started |
 | 6 | Capability Layer für Files, Process, Network, Storage, Events, Jobs, Secrets und weitere Broker | not-started |
