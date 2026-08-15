@@ -2,20 +2,24 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router";
 import { CloseIcon } from "./icons";
-import { navSections, type NavItem } from "../routes/navigation";
+import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
+import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
 import { workbenchQueries } from "../lib/queryOptions";
 import { isPageVisibleIn, useSidebarPreferences, type PageRouteId } from "../stores/sidebarPreferences";
 
-const pathToRouteId = (path: string): PageRouteId | null => {
-  const map: Record<string, PageRouteId> = {
-    "/": "dashboard", "/inbox": "inbox", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
-    "/t3-code": "t3-code", "/hermes-agent": "hermes-agent", "/codex": "codex", "/opencode": "opencode", "/claude": "claude", "/code-editor": "code-editor",
-    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/files": "files", "/ki-skills": "ki-skills",
-    "/usage": "usage", "/settings": "settings",
-  };
-  return map[path] ?? null;
-};
+const navigationGroupKickers: ReadonlyArray<{ group: "workspace" | "tools" | "account"; kicker: string }> = [
+  { group: "workspace", kicker: "Workspace" },
+  { group: "tools", kicker: "Werkzeuge" },
+  { group: "account", kicker: "Account und System" },
+];
+
+function isNavigationItemVisible(item: OwnedNavigationItem, hiddenPages: ReadonlySet<string>): boolean {
+  const visibilityKey = item.value.runtime.legacyVisibilityKey;
+  return visibilityKey === undefined
+    ? item.value.contribution.visibleByDefault
+    : isPageVisibleIn(hiddenPages, visibilityKey as PageRouteId);
+}
 
 interface MobileNavProps {
   open: boolean;
@@ -43,14 +47,12 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   const [phase, setPhase] = useState<"closed" | "open" | "closing">(open ? "open" : "closed");
   // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
   const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
+  const navigation = useNavigationRegistry();
   const notifications = useQuery(workbenchQueries.notifications());
-  const filteredSections = useMemo(() => navSections.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => {
-      const routeId = pathToRouteId(item.to);
-      return routeId === null || isPageVisibleIn(hiddenPages, routeId);
-    }),
-  })).filter((section) => section.items.length > 0), [hiddenPages]);
+  const filteredSections = useMemo(() => navigationGroupKickers.map(({ group, kicker }) => ({
+    kicker,
+    items: navigation.byGroup[group].filter((item) => isNavigationItemVisible(item, hiddenPages)),
+  })).filter((section) => section.items.length > 0), [navigation, hiddenPages]);
 
   useEffect(() => {
     const changed = previousPath.current !== location.pathname;
@@ -166,7 +168,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
           <div key={section.kicker} className="mobile-navigation-section">
             <p className="mobile-navigation-section-kicker">{section.kicker}</p>
             <div className="mobile-navigation-grid">
-              {section.items.map((item) => <NavigationLink key={item.to} item={item} badge={item.to === "/inbox" ? notifications.data?.unreadCount ?? 0 : 0} />)}
+              {section.items.map((item) => <NavigationLink key={item.contributionId} item={item} badge={item.value.route.path === "/inbox" ? notifications.data?.unreadCount ?? 0 : 0} />)}
             </div>
           </div>
         ))}
@@ -175,13 +177,15 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   );
 }
 
-function NavigationLink({ item, badge = 0 }: { item: NavItem; badge?: number }) {
+function NavigationLink({ item, badge = 0 }: { item: OwnedNavigationItem; badge?: number }) {
   const client = useQueryClient();
-  const prefetch = () => prefetchRouteTarget(client, item.to);
+  const { label, icon: Icon } = { label: item.value.contribution.label, icon: item.value.runtime.icon };
+  const to = item.value.route.path;
+  const prefetch = () => prefetchRouteTarget(client, to);
   return (
     <NavLink
-      to={item.to}
-      end={item.to === "/"}
+      to={to}
+      end={to === "/"}
       className={({ isActive }) => `mobile-navigation-item ${isActive ? "is-active" : ""}`}
       onPointerEnter={prefetch}
       // Auf dem Handy ist `pointerdown` der früheste sichere Zeitpunkt.
@@ -189,10 +193,10 @@ function NavigationLink({ item, badge = 0 }: { item: NavItem; badge?: number }) 
       onFocus={prefetch}
     >
       <span className="mobile-navigation-icon-slot">
-        <item.icon className="mobile-navigation-icon" aria-hidden />
+        {Icon ? <Icon className="mobile-navigation-icon" aria-hidden /> : null}
       </span>
       <span className="mobile-navigation-highlight">
-        <span className="mobile-navigation-label">{item.label}</span>
+        <span className="mobile-navigation-label">{label}</span>
         {badge > 0 ? <span className="mobile-navigation-badge" aria-label={`${badge} ungelesen`}>{badge > 99 ? "99+" : badge}</span> : null}
       </span>
     </NavLink>

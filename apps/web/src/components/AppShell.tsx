@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRightIcon, MenuIcon, RestoreIcon } from "./icons";
@@ -15,15 +15,13 @@ import { TerminalWorkspaceSync } from "./terminal/TerminalWorkspaceSync";
 import { TerminalSessionsSync } from "./terminal/TerminalSessionsSync";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell, useVisualViewportVariables } from "../lib/useResponsiveShell";
-import { navItems } from "../routes/navigation";
+import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import { addBreadcrumb } from "../lib/crashReport";
 import type { ProjectsResponse, TerminalKind } from "@workbench/contracts";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { NotificationCenter } from "./NotificationCenter";
 import { WorkbenchNotice } from "./WorkbenchNotice";
 import { useViewPresence } from "../lib/useViewPresence";
-
-const routeTitles = Object.fromEntries(navItems.map((item) => [item.to, item.label]));
 
 function ContextProjectPicker() {
   const location = useLocation();
@@ -160,6 +158,11 @@ function StandaloneRouteActions({ terminalFocus, onTerminalFocusChange }: { term
 
 export function AppShell() {
   const location = useLocation();
+  const navigation = useNavigationRegistry();
+  const routeTitles = useMemo(
+    () => Object.fromEntries(navigation.items.map((item) => [item.value.route.path, item.value.contribution.label])),
+    [navigation],
+  );
   const title = routeTitles[location.pathname] ?? "Remote Workplace";
   const isProjectDetail = location.pathname.startsWith("/projects/");
   const isOrbit = location.pathname === "/workbench";

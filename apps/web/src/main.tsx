@@ -10,12 +10,14 @@ import { addBreadcrumb, installGlobalErrorHandlers, subscribeToCrash } from "./l
 import { apiClient } from "./lib/apiClient";
 import { synchronizeExistingPushDevice } from "./lib/webPushDevice";
 import { bootstrapLegacyPageRoutes } from "./extensions/legacyPageRoutes";
+import { bootstrapLegacyNavigation } from "./extensions/legacyNavigation";
 import "./index.css";
 import "./components/usage/usage-mobile.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
 installGlobalErrorHandlers();
 bootstrapLegacyPageRoutes();
+bootstrapLegacyNavigation();
 
 const root = document.querySelector<HTMLDivElement>("#root");
 if (root === null) throw new Error("Der Frontend-Mount-Punkt #root fehlt.");

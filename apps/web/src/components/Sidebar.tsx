@@ -6,7 +6,8 @@ import type { OrbitNode } from "@workbench/contracts";
 import { BrowserIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CodeFileIcon, CodeServerIcon, CodexIcon, EyeIcon, FinderIcon, FolderCodeIcon, FolderSearchIcon, FrameIcon, HermesIcon, NoteIcon, NutzungIcon, OpenCodeIcon, RemoteWorkbenchIcon, T3CodeIcon, TerminalIcon, TodoIcon } from "./icons";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
 import { workbenchQueries } from "../lib/queryOptions";
-import { footerNavItems, primaryNavItems, toolRouteItems, type NavItem } from "../routes/navigation";
+import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
+import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
 import { isOrbitItemVisibleIn, isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
 import { useOrbitStore } from "../stores/orbit";
 import { PromptDialog } from "./ModalDialog";
@@ -14,15 +15,12 @@ import { previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePrevie
 import { openPreviewGroupWindow } from "../lib/previewWindow";
 import { requestOrbitNode, type OrbitPalettePayload } from "../lib/orbitPalette";
 
-const pathToRouteId = (path: string): PageRouteId | null => {
-  const map: Record<string, PageRouteId> = {
-    "/": "dashboard", "/inbox": "inbox", "/workbench": "workbench", "/tech-tldrs": "tech-tldrs", "/projects": "projects",
-    "/t3-code": "t3-code", "/hermes-agent": "hermes-agent", "/codex": "codex", "/opencode": "opencode", "/claude": "claude", "/code-editor": "code-editor",
-    "/previews": "previews", "/browser": "browser", "/terminal": "terminal", "/files": "files", "/ki-skills": "ki-skills",
-    "/usage": "usage", "/settings": "settings",
-  };
-  return map[path] ?? null;
-};
+function isNavigationItemVisible(item: OwnedNavigationItem, hiddenPages: ReadonlySet<string>): boolean {
+  const visibilityKey = item.value.runtime.legacyVisibilityKey;
+  return visibilityKey === undefined
+    ? item.value.contribution.visibleByDefault
+    : isPageVisibleIn(hiddenPages, visibilityKey as PageRouteId);
+}
 
 export type { OrbitPalettePayload } from "../lib/orbitPalette";
 
@@ -56,24 +54,26 @@ function useSectionCollapsed(sectionKey: SidebarSectionKey) {
 
 // Ein Eintrag für beide Sidebar-Breiten. Eingeklappt bleibt nur das Icon stehen,
 // der Text steckt weiterhin in aria-label/title — deshalb genau eine Variante statt zwei Zweigen.
-function SidebarNavLink({ item, collapsed, badge = 0 }: { item: NavItem; collapsed: boolean; badge?: number }) {
+function SidebarNavLink({ item, collapsed, badge = 0 }: { item: OwnedNavigationItem; collapsed: boolean; badge?: number }) {
   const client = useQueryClient();
-  const prefetch = () => prefetchRouteTarget(client, item.to);
+  const { label, icon: Icon } = { label: item.value.contribution.label, icon: item.value.runtime.icon };
+  const to = item.value.route.path;
+  const prefetch = () => prefetchRouteTarget(client, to);
   return (
     <NavLink
-      to={item.to}
-      end={item.to === "/"}
+      to={to}
+      end={to === "/"}
       className="sidebar-item"
       onPointerEnter={prefetch}
       // Touch kennt kein Überfahren: `pointerdown` feuert vor dem Klick und
       // verschafft Bündel und Daten den entscheidenden Vorsprung.
       onPointerDown={prefetch}
       onFocus={prefetch}
-      aria-label={item.label}
-      title={item.label}
+      aria-label={label}
+      title={label}
     >
-      <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed ? item.label : null}
+      {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+      {!collapsed ? label : null}
       {badge > 0 ? <span className="sidebar-notification-badge" aria-label={`${badge} ungelesen`}>{badge > 99 ? "99+" : badge}</span> : null}
     </NavLink>
   );
@@ -229,14 +229,15 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
   // Das Set abonnieren, nicht die (stabile) Methode: sonst rechnen die Memos unten
   // beim Umschalten der Seiten-Sichtbarkeit nie neu.
   const hiddenPages = useSidebarPreferences((s) => s.hiddenPages);
+  const navigation = useNavigationRegistry();
   // Alle Sektions-Hooks bedingungslos und ganz oben: früher standen sie hinter `!collapsed &&`
   // im JSX, wodurch beim Ein-/Ausklappen die Hook-Anzahl sprang und React die Seite abbrach.
   const workspaceSectionCollapsed = useSectionCollapsed("workspace");
   const orbitProjectsSectionCollapsed = useSectionCollapsed("orbit-projects");
   const footerSectionCollapsed = useSectionCollapsed("footer");
-  const visiblePrimaryNavItems = useMemo(() => primaryNavItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
-  const visibleToolRouteItems = useMemo(() => toolRouteItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
-  const visibleFooterNavItems = useMemo(() => footerNavItems.filter((item) => { const routeId = pathToRouteId(item.to); return routeId ? isPageVisibleIn(hiddenPages, routeId) : true; }), [hiddenPages]);
+  const visiblePrimaryNavItems = useMemo(() => navigation.byGroup.workspace.filter((item) => isNavigationItemVisible(item, hiddenPages)), [navigation, hiddenPages]);
+  const visibleToolRouteItems = useMemo(() => navigation.byGroup.tools.filter((item) => isNavigationItemVisible(item, hiddenPages)), [navigation, hiddenPages]);
+  const visibleFooterNavItems = useMemo(() => navigation.byGroup.account.filter((item) => isNavigationItemVisible(item, hiddenPages)), [navigation, hiddenPages]);
   const availableProjects = useMemo(
     () => (projects.data?.projects ?? []).filter((project) => project.availability === "available"),
     [projects.data?.projects],
@@ -293,7 +294,7 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
           <div className="sidebar-section">
             <SectionHeader label="Workspace" sectionKey="workspace" collapsed={collapsed} />
             {!workspaceSectionCollapsed ? visiblePrimaryNavItems.map((item) => (
-              <SidebarNavLink key={item.to} item={item} collapsed={collapsed} badge={item.to === "/inbox" ? notifications.data?.unreadCount ?? 0 : 0} />
+              <SidebarNavLink key={item.contributionId} item={item} collapsed={collapsed} badge={item.value.route.path === "/inbox" ? notifications.data?.unreadCount ?? 0 : 0} />
             )) : null}
           </div>
           <div className="sidebar-section">
@@ -318,7 +319,7 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
               {!collapsed ? <><span className="truncate">Alle Projekte</span><small>{availableProjects.length}</small></> : null}
             </button>
           </>) : visibleToolRouteItems.map((item) => (
-            <SidebarNavLink key={item.to} item={item} collapsed={collapsed} />
+            <SidebarNavLink key={item.contributionId} item={item} collapsed={collapsed} />
           ))) : null}
           </div>
           {orbitMode ? (
@@ -331,7 +332,7 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
           <div className="sidebar-footer sidebar-section">
             <SectionHeader label="Account und System" sectionKey="footer" collapsed={collapsed} />
             {!footerSectionCollapsed ? visibleFooterNavItems.map((item) => (
-              <SidebarNavLink key={item.to} item={item} collapsed={collapsed} />
+              <SidebarNavLink key={item.contributionId} item={item} collapsed={collapsed} />
             )) : null}
           </div>
         </nav>

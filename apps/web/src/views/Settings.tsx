@@ -8,9 +8,10 @@ import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
 import { WORKBENCH_LIMITS, type DashboardConfig, type DashboardSection, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
-import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem, type PageRouteId } from "../stores/sidebarPreferences";
+import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem } from "../stores/sidebarPreferences";
+import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import { allDashboardSections, dashboardSectionMeta, useDashboardPreferences } from "../stores/dashboardPreferences";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useWebPushDevice } from "../lib/useWebPushDevice";
@@ -633,30 +634,18 @@ function OrbitItemToggles() {
   );
 }
 
-const pageRouteLabels: Record<PageRouteId, string> = {
-  "dashboard": "Dashboard",
-  "inbox": "Inbox",
-  "workbench": "Workbench",
-  "tech-tldrs": "Tech TLDRs",
-  "projects": "Projekte",
-  "t3-code": "T3 Code",
-  "hermes-agent": "Hermes Agent",
-  "codex": "Codex",
-  "opencode": "OpenCode",
-  "claude": "Claude Code",
-  "code-editor": "Code-Server",
-  "previews": "Previews",
-  "browser": "Browser",
-  "terminal": "Terminal",
-  "files": "Dateien",
-  "ki-skills": "KI-Skills",
-  "usage": "Nutzung",
-  "settings": "Einstellungen",
-};
-
 function PageVisibilityToggles() {
   const togglePage = useSidebarPreferences((s) => s.togglePage);
   const hiddenPages = useSidebarPreferences((s) => s.hiddenPages);
+  const navigation = useNavigationRegistry();
+  const labels = useMemo(() => {
+    const fromRegistry = new Map<string, string>();
+    for (const item of navigation.items) {
+      const key = item.value.runtime.legacyVisibilityKey;
+      if (key !== undefined) fromRegistry.set(key, item.value.contribution.label);
+    }
+    return fromRegistry;
+  }, [navigation]);
   return (
     <div className="space-y-1">
       <p className="mb-2 text-[12px] text-muted">Deaktivierte Seiten werden in der Sidebar, der Dashboard-Navigation und der mobilen Navigation ausgeblendet.</p>
@@ -664,10 +653,11 @@ function PageVisibilityToggles() {
         // Die Einstellungen selbst bleiben sichtbar — sonst gäbe es keinen Weg zurück.
         const isLocked = page === "settings";
         const isHidden = !isLocked && hiddenPages.has(page);
+        const label = labels.get(page) ?? page;
         return (
           <button key={page} type="button" className="settings-toggle-row" disabled={isLocked} onClick={() => togglePage(page)} title={isLocked ? "Diese Seite bleibt immer sichtbar" : undefined}>
-            <span className="text-[13px] text-text">{pageRouteLabels[page]}{isLocked ? <span className="ml-2 text-[11px] text-faint">, immer sichtbar</span> : null}</span>
-            <span className={`settings-toggle-switch ${isHidden ? "" : "is-on"} ${isLocked ? "is-locked" : ""}`} role="switch" aria-checked={!isHidden} aria-disabled={isLocked} aria-label={pageRouteLabels[page]}>
+            <span className="text-[13px] text-text">{label}{isLocked ? <span className="ml-2 text-[11px] text-faint">, immer sichtbar</span> : null}</span>
+            <span className={`settings-toggle-switch ${isHidden ? "" : "is-on"} ${isLocked ? "is-locked" : ""}`} role="switch" aria-checked={!isHidden} aria-disabled={isLocked} aria-label={label}>
               <span className="settings-toggle-thumb" />
             </span>
           </button>
