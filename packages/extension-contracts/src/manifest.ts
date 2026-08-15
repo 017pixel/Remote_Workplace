@@ -17,6 +17,10 @@ import {
   contextKeyBelongsToExtension,
 } from "./context-expressions.js";
 import {
+  contextMenuContributionsSchema,
+  contextMenuSurfaceBelongsToExtension,
+} from "./context-menus.js";
+import {
   extensionConflictsSchema,
   extensionDependencyMapSchema,
 } from "./dependencies.js";
@@ -165,6 +169,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   dashboard: dashboardContributionsSchema.optional(),
   settings: settingsContributionsSchema.optional(),
   keyboardShortcuts: keyboardShortcutContributionsSchema.optional(),
+  contextMenus: contextMenuContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -315,6 +320,10 @@ export const extensionManifestV1Schema = z
           path: ["contributes", "keyboardShortcuts", index, "id"] as const,
         }),
       ),
+      ...(manifest.contributes.contextMenus ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "contextMenus", index, "id"] as const,
+      })),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
@@ -511,6 +520,57 @@ export const extensionManifestV1Schema = z
           message:
             "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
           path: ["contributes", "keyboardShortcuts", index, "when"],
+        });
+      }
+    }
+
+    for (const [index, item] of (
+      manifest.contributes.contextMenus ?? []
+    ).entries()) {
+      if (!commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Context Menu Item muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "contextMenus", index, "commandId"],
+        });
+      }
+      if (!contextMenuSurfaceBelongsToExtension(manifest.id, item.surface)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Extension Context-Menu-Surface muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "contextMenus", index, "surface"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Context Menu Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "contextMenus", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "contextMenus", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "contextMenus", index, "when"],
         });
       }
     }

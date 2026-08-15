@@ -536,6 +536,69 @@ Der bestehende Orbit-Handler für `/` und `Ctrl/Cmd+K` bleibt in diesem Subgoal 
 Phase 2 registriert vorhandene Tastaturaktionen zunächst als Legacy Built-in Contributions und
 führt erst dann eine zentrale Registry und Konfliktoberfläche ein.
 
+#### Context Menu Contributions
+
+Context Menu Contributions hängen vorhandene Commands an eine stabile Host- oder
+Extension-Surface. Rechtsklick, Touch-Long-Press, Menütaste und `Shift+F10` verwenden später
+dieselbe Registry:
+
+```json
+{
+  "contributes": {
+    "contextMenus": [
+      {
+        "id": "workbench.agent-tasks.context-menu.create",
+        "surface": "host.context-menu.project",
+        "commandId": "workbench.agent-tasks.command.create",
+        "group": "create",
+        "order": 100,
+        "icon": "workbench.agent-tasks.icon.tasks",
+        "when": {
+          "all": [
+            {
+              "key": "host.project.open",
+              "operator": "equals",
+              "value": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+- V1 definiert Host-Surfaces für Project, File, Directory, Orbit Node, Orbit Pane, Preview,
+  Terminal, Git, Agent Session, Browser und generische Tool-Flächen. Ihre stabilen IDs beginnen
+  mit `host.context-menu.`. Unbekannte Host-Surfaces werden fail-closed abgewiesen.
+- Native Extension-UIs können eine eigene Surface-ID in ihrem Namespace an den Host übergeben.
+  Eine Extension darf weder eine fremde Surface verwenden noch eine Host-Surface vortäuschen.
+- Jedes Item referenziert ein tatsächlich deklariertes Command. Titel, Disabled Reason,
+  Berechtigungsprüfung und Business Logic bleiben im Command-System; das Manifest enthält weder
+  Handler noch frei geformte Ausführungspayloads.
+- Die Gruppen `navigation`, `open`, `create`, `edit`, `run`, `view`, `share` und `danger` geben
+  kontrollierte Abschnitte vor. Der Host sortiert nach dieser Gruppenreihenfolge, `order`,
+  Extension-ID und Contribution-ID. Dateisystemreihenfolge besitzt keine Semantik.
+- `danger` wird als letzter, zurückhaltend markierter Abschnitt gerendert. Die Gruppe erteilt
+  keine Berechtigung. Mutierende Commands durchlaufen weiterhin Capability, Identity,
+  Same-Origin, Audit und gegebenenfalls eine Bestätigung.
+- `when` verwendet dieselben strikt begrenzten Context Expressions wie Keyboard Shortcuts.
+  False blendet das Item aus. Ein sichtbares, aber nicht ausführbares Command bleibt mit dem
+  zentral gelieferten Disabled Reason erkennbar, statt still zu verschwinden.
+- Icons verwenden das lokale Manifest-Icon oder eine namespaced Runtime-Referenz. Der Host kann
+  bei fehlendem Runtime-Icon auf die Command-Darstellung ohne Icon zurückfallen.
+- Der Host übergibt dem Command eine typisierte, auf die Surface begrenzte Auswahlreferenz und
+  niemals DOM-Events oder ungeprüfte Capability-Objekte. Pfade, Prozesse und Runtime-Aktionen
+  werden bei Ausführung erneut durch die zuständigen Broker geprüft.
+- Kernel-eigene Sicherheits-, Recovery- und Datenlöschaktionen können als dokumentierte
+  `hostOnly`-Items bestehen bleiben. Extensions dürfen bestehende Host-Items weder entfernen
+  noch durch identische IDs oder Registrierungsreihenfolge überschreiben.
+
+Die heutigen Menüs in `ProjectCard`, `FileManagerPanel`, `OrbitWorkbench`, `Sidebar`,
+`TerminalArea`, `ChromiumBrowser` und `ToolActionMenu` werden in diesem Subgoal nicht verändert.
+Phase 2 adaptiert sie schrittweise als Legacy Built-in Contributions und bewahrt dabei
+Fokusführung, Touch-Bottom-Sheets, Bestätigungsdialoge und laufende Runtime-Sitzungen.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

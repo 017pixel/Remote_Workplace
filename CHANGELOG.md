@@ -132,6 +132,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Editierbare Flächen, Tastaturwiederholung und plattformspezifische Overrides sicher begrenzt
 - Sichtbare Konfliktbehandlung ohne stilles Überschreiben als Registry-Vertrag festgelegt
 
+### Extension-Kontextmenüs
+
+- Elf stabile Host-Surfaces und namespaced Extension-Surfaces für Kontextmenüs definiert
+- Menüeinträge an tatsächlich deklarierte Commands und kontrollierte Gruppen gebunden
+- Deterministische Reihenfolge unabhängig von Dateisystem und Registrierungszeit festgelegt
+- Sichtbarkeit über die gemeinsamen strikt typisierten Context Expressions ermöglicht
+- Fremde Surfaces, Icons, Context Keys und manifestweite ID-Kollisionen werden abgewiesen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

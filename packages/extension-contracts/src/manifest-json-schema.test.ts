@@ -9,6 +9,7 @@ import {
   PAGE_CONTRIBUTIONS_MAX_COUNT,
   ROUTE_CONTRIBUTIONS_MAX_COUNT,
 } from "./contributions.js";
+import { CONTEXT_MENU_CONTRIBUTIONS_MAX_COUNT } from "./context-menus.js";
 import {
   EXTENSION_CONFLICTS_MAX_COUNT,
   EXTENSION_DEPENDENCIES_MAX_COUNT,
@@ -134,6 +135,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               type: "array",
               minItems: 1,
               maxItems: KEYBOARD_SHORTCUTS_MAX_COUNT,
+              uniqueItems: true,
+              items: { type: "object", additionalProperties: false },
+            },
+            contextMenus: {
+              type: "array",
+              minItems: 1,
+              maxItems: CONTEXT_MENU_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { type: "object", additionalProperties: false },
             },

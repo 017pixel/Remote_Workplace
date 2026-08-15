@@ -175,6 +175,25 @@ const validManifest = {
         allowRepeat: false,
       },
     ],
+    contextMenus: [
+      {
+        id: "workbench.agent-tasks.context-menu.create",
+        surface: "host.context-menu.project",
+        commandId: "workbench.agent-tasks.command.create",
+        group: "create",
+        order: 100,
+        icon: "workbench.agent-tasks.icon.tasks",
+        when: {
+          all: [
+            {
+              key: "host.project.open",
+              operator: "equals",
+              value: true,
+            },
+          ],
+        },
+      },
+    ],
   },
 };
 
@@ -1134,6 +1153,144 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("bindet Context Menu Items an tatsächliche Commands und Host-Surfaces", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: validManifest.contributes.contextMenus,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              commandId: "workbench.agent-tasks.command.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("begrenzt eigene Context-Menu-Surfaces und Context Keys auf den Extension-Namespace", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              surface: "workbench.agent-tasks.context-menu.task",
+              when: {
+                all: [
+                  {
+                    key: "workbench.agent-tasks.context.task-selected",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              surface: "workbench.other.context-menu.task",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              when: {
+                all: [
+                  {
+                    key: "workbench.other.context.task-selected",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde Icons und manifestweit doppelte Context Menu IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              icon: "workbench.other.icon.task",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+
+    const manifestWithoutIcon: Partial<typeof validManifest> = {
+      ...validManifest,
+    };
+    delete manifestWithoutIcon.icon;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...manifestWithoutIcon,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          contextMenus: [
+            {
+              ...validManifest.contributes.contextMenus[0],
+              icon: "extension",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -1184,6 +1341,11 @@ describe("Extension Manifest V1", () => {
       }).success,
     ).toBe(true);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        contextMenus: validManifest.contributes.contextMenus,
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ pages: [] }).success,
     ).toBe(false);
     expect(
@@ -1202,6 +1364,9 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
     expect(
       extensionContributionsV1Schema.safeParse({ contextMenus: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ statusBar: [] }).success,
     ).toBe(false);
   });
 });
