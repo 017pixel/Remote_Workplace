@@ -65,12 +65,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Abschluss von Subgoal 0.2 einen lokalen Goal-Commit vor `origin/master`.
+`master`, beim Start von Subgoal 0.3 zwei lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`7662f2c8152755d5745166e022d8edae4a88854e` als analysierter Ausgangspunkt von Subgoal 0.2.
-Der Ergebniscommit enthält diese Tracker-Aktualisierung.
+`7117e6f60cdc31c0140107facadcf77e51b56e95` als analysierter Ausgangspunkt von Subgoal 0.3.
+Der Ergebniscommit enthält die ADRs und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -86,25 +86,26 @@ Noch nicht eingeführt. Ziel für V1: `1`.
 
 ## Current Phase
 
-Phase 0, `in-progress`.
+Phase 1, `planning`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 0.3, Kernel Boundary und bindende Phase-1-Entscheidungen als ADRs festhalten.
+Subgoal 1.1, Extension-ID-, Contribution-ID- und Versionsgrundlagen in
+`@workbench/extension-contracts` einführen.
 
 ## Next Concrete Action
 
-Subgoal 0.3: Auf Basis des Inventars die ADRs für Kernel Boundary, Server Authority, Local
-Catalog V1 und die Trennung von Remote-Workplace-, Extension-API- und Manifest-Version
-erstellen. Danach werden die Entscheidungen gegen aktuelle Security-, Runtime- und
-Persistenzgrenzen geprüft, bevor Phase 1 Contracts implementiert.
+Vor Phase 1 den vorgeschriebenen Repository-Check erneut ausführen. Danach in Subgoal 1.1 das
+Package `@workbench/extension-contracts` mit den kanonischen Konstanten und Zod-Schemas für
+Extension IDs, Contribution IDs, Remote-Workplace-Version, Extension API Version und Manifest
+Version anlegen. Noch keine Contributions, Runtime oder Featuremigration einführen.
 
 ## Phase Table
 
 | Phase | Ergebnis | Status |
 | --- | --- | --- |
-| 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | in-progress |
-| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | not-started |
+| 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
+| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | planning |
 | 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | not-started |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | not-started |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
@@ -167,13 +168,13 @@ Priorisierte Abhängigkeiten:
 
 | Datum | Entscheidung | Begründung und Alternativen |
 | --- | --- | --- |
-| 2026-08-15 | V1 verwendet nur lokale Quellen. | Bundled Catalog, Entwicklerverzeichnis und `.rwext` prüfen den echten Installationspfad. Remote Registry, Git, npm und HTTP bleiben ausdrücklich außerhalb des Scopes. |
-| 2026-08-15 | Der Server ist für Extension-State autoritativ. | Installation, Aktivierung, Grants, Settings, Health, Jobs und Logs dürfen nicht von Browser-Storage abhängen. Browser-Storage bleibt nur für ephemere Darstellung und kompatible Drafts. |
-| 2026-08-15 | Runtime Broker bleiben Kernel, sichtbare Features werden Extensions. | Dadurch bleiben die bestehenden Sicherheits- und Prozessgrenzen erhalten, während UI und Contributions dogfooding-fähig werden. |
-| 2026-08-15 | First-Party Extensions verwenden dieselben öffentlichen Registries. | Feature-spezifische Host-Verzweigungen sind nur für Security, Bootstrap oder Recovery zulässig und werden als `hostOnly` dokumentiert. |
+| 2026-08-15 | V1 verwendet nur lokale Quellen. | Bundled Catalog, Entwicklerverzeichnis und `.rwext` prüfen den echten Installationspfad. Remote Registry, Git, npm und HTTP bleiben ausdrücklich außerhalb des Scopes. Siehe [`extension-local-catalog-v1.md`](../adr/extension-local-catalog-v1.md). |
+| 2026-08-15 | Der Server ist für Extension-State autoritativ. | Installation, Aktivierung, Grants, Settings, Health, Jobs und Logs dürfen nicht von Browser-Storage abhängen. Browser-Storage bleibt nur für ephemere Darstellung und kompatible Drafts. Siehe [`extension-server-authority.md`](../adr/extension-server-authority.md). |
+| 2026-08-15 | Runtime Broker bleiben Kernel, sichtbare Features werden Extensions. | Dadurch bleiben die bestehenden Sicherheits- und Prozessgrenzen erhalten, während UI und Contributions dogfooding-fähig werden. Siehe [`extension-kernel-boundary.md`](../adr/extension-kernel-boundary.md). |
+| 2026-08-15 | First-Party Extensions verwenden dieselben öffentlichen Registries. | Feature-spezifische Host-Verzweigungen sind nur für Security, Bootstrap oder Recovery zulässig und werden als `hostOnly` dokumentiert. Siehe [`extension-kernel-boundary.md`](../adr/extension-kernel-boundary.md). |
 | 2026-08-15 | Migration erfolgt inkrementell mit Legacy Adaptern. | Ein Big-Bang würde Persistenz, laufende Sessions und Preview-Runtimes unnötig gefährden. Legacy wird erst nach nachgewiesener Migration entfernt. |
-| 2026-08-15 | Node-Prozesse unter demselben Linux-Benutzer gelten nicht als Sandbox. | V1 führt nur vertrauenswürdigen First-Party- oder expliziten Developer-Code aus. Beliebiger Third-Party-Servercode benötigt später OS-Isolation oder einen eingeschränkten Runtime-Typ. |
-| 2026-08-15 | Extension Contracts erhalten ein eigenes Workspace-Package. | Die bestehende zentrale Contracts-Datei ist bereits breit gekoppelt. Ein eigenes Package hält Manifest und öffentliche Extension API versionierbar, ohne Core-Verträge zu duplizieren. |
+| 2026-08-15 | Node-Prozesse unter demselben Linux-Benutzer gelten nicht als Sandbox. | V1 führt nur vertrauenswürdigen First-Party- oder expliziten Developer-Code aus. Beliebiger Third-Party-Servercode benötigt später OS-Isolation oder einen eingeschränkten Runtime-Typ. Siehe [`extension-kernel-boundary.md`](../adr/extension-kernel-boundary.md). |
+| 2026-08-15 | Extension Contracts erhalten ein eigenes Workspace-Package. | Die bestehende zentrale Contracts-Datei ist bereits breit gekoppelt. Ein eigenes Package hält Manifest und öffentliche Extension API versionierbar, ohne Core-Verträge zu duplizieren. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -207,9 +208,9 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 0.2 |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 0.2 |
-| `pnpm test` | bestanden am 2026-08-15, 18 Contracts, 396 Server, 279 Web | Subgoal 0.2 |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 0.3 |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 0.3 |
+| `pnpm test` | bestanden am 2026-08-15, 18 Contracts, 396 Server, 279 Web | Subgoal 0.3 |
 | `pnpm build` | bestanden am 2026-08-15 | Subgoal 0.2, Produktionsbuild für Baseline |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
@@ -252,7 +253,8 @@ Keine.
 | --- | --- |
 | `479bfa7` | Ausgangscommit, korrigiert Routen-Synchronisierung in inaktiven Flächen |
 | `7662f2c` | Subgoal 0.1, Goal-Tracker und Repository-Baseline |
-| Ergebniscommit dieser Aktualisierung | Subgoal 0.2, Detailinventar und Performance-Baseline |
+| `7117e6f` | Subgoal 0.2, Detailinventar und Performance-Baseline |
+| Ergebniscommit dieser Aktualisierung | Subgoal 0.3, Kernel Boundary und bindende Phase-1-ADRs |
 
 ## Subgoal Log
 
@@ -260,4 +262,5 @@ Keine.
 | --- | --- | --- | --- |
 | 0.1 Goal-Tracker und Baseline | done | Git, Konfiguration, Architektur, Router, Navigation, Orbit und Server Bootstrap gelesen; Typecheck, Lint und 693 Tests grün | Subgoal 0.2, vollständiges Inventar |
 | 0.2 Vollständiges Phase-0-Inventar | done | Vollständiges Detailinventar, Produktionsbuild, isolierte Browser-/API-Baseline, Typecheck, Lint und 693 Tests grün | Subgoal 0.3, Kernel Boundary und ADRs |
-| 0.3 Kernel Boundary und Phase-1-ADRs | planning | Inventar und priorisierte Migration Matrix liegen vor | ADRs gegen aktuelle Grenzen entwerfen |
+| 0.3 Kernel Boundary und Phase-1-ADRs | done | Vier akzeptierte ADRs gegen Security-, Runtime- und Persistenzgrenzen geprüft; Typecheck, Lint und 693 Tests grün | Subgoal 1.1, ID- und Versionsgrundlagen |
+| 1.1 ID- und Versionsgrundlagen | planning | Phase-0-Verträge und ADRs liegen vor | Repository neu prüfen und Contract-Package additiv anlegen |

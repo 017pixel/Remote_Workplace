@@ -20,6 +20,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Sichere Ausgangswerte für Startzeit, Routenwechsel, Speicherbedarf und API-Latenz gemessen
 - Migrationsreihenfolge anhand realer Kopplungen und bestehender Runtime-Grenzen priorisiert
 
+### Extension-Plattform-Entscheidungen
+
+- Kernel und sichtbare Extension-Flächen mit klaren Verantwortungen voneinander abgegrenzt
+- Serverseitige Autorität für Installation, Berechtigungen und synchronisierte Präferenzen festgelegt
+- Lokalen First-Party-Catalog ohne Remote-Registry als einzigen V1-Catalog beschlossen
+- Einheitlichen atomaren Installations-, Update-, Rollback- und Deinstallationspfad definiert
+- Manifest-, Extension-API- und Workbench-Version als getrennte Verträge festgelegt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
