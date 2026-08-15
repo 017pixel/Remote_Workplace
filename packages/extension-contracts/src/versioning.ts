@@ -8,6 +8,9 @@ export const EXTENSION_API_SEMVER = "1.0.0" as const;
 export const MANIFEST_VERSION_MINIMUM = MANIFEST_VERSION;
 export const MANIFEST_VERSION_MAXIMUM = MANIFEST_VERSION;
 
+export const semanticVersionPattern =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
 export const manifestVersionSchema = z.literal(MANIFEST_VERSION);
 export type ManifestVersion = z.infer<typeof manifestVersionSchema>;
 
@@ -18,8 +21,9 @@ export const semanticVersionSchema = z
   .string()
   .min(1)
   .max(256)
+  .regex(semanticVersionPattern, "Eine kanonische Semantic Version wird erwartet.")
   .refine(
-    (value) => valid(value) !== null && !/^[v=]/i.test(value),
+    (value) => valid(value) !== null,
     "Eine kanonische Semantic Version wird erwartet.",
   )
   .brand<"SemanticVersion">();
@@ -30,6 +34,7 @@ export const semanticVersionRangeSchema = z
   .string()
   .min(1)
   .max(512)
+  .regex(/^\S(?:.*\S)?$/, "Ein Semantic-Version-Range darf keine äußeren Leerzeichen enthalten.")
   .refine(
     (value) => value === value.trim() && validRange(value) !== null,
     "Ein gültiger Semantic-Version-Range wird erwartet.",

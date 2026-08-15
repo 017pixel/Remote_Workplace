@@ -36,6 +36,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Workbench- und API-Kompatibilität mit kanonischen Semantic Versions und Ranges geprüft
 - Build, Typecheck und Tests um das neue Contract-Package erweitert
 
+### Extension-Manifest
+
+- Striktes Grundformat für lokale Extension-Pakete eingeführt
+- Kompatibilität mit Workbench und Extension API verbindlich prüfbar gemacht
+- Vertrauensstufen für System-, Built-in-, Catalog-, Developer- und Webview-Extensions festgelegt
+- Lokale Entrypoints, Icons, README und Changelog gegen unsichere Pfade abgesichert
+- Versioniertes JSON Schema für Editoren und künftige Extension-Werkzeuge bereitgestellt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

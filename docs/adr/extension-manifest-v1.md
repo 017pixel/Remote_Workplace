@@ -60,7 +60,9 @@ Extension API 1 nicht brechen. Eine unbekannte Manifestversion wird fail-closed 
     "extensionApi": "^1"
   },
   "trust": "catalog-first-party",
-  "entrypoints": {},
+  "entrypoints": {
+    "server": "./dist/server.js"
+  },
   "permissions": [],
   "activationEvents": [],
   "contributes": {}
@@ -69,6 +71,12 @@ Extension API 1 nicht brechen. Eine unbekannte Manifestversion wird fail-closed 
 
 V1 unterstützt zusätzlich Kategorie, Keywords, lokale Icon-/README-/Changelog-Pfade,
 Data-Schema-Version, Dependencies, Optional Dependencies und Conflicts.
+
+Das initiale Grundschema hält `permissions`, `activationEvents` und `contributes` bis zu ihren
+jeweiligen Phase-1-Subgoals bewusst leer. Dadurch werden noch nicht spezifizierte Inhalte nicht
+als untypisierte Übergangsdaten akzeptiert. Die Bereiche werden innerhalb Manifest V1 additiv
+erweitert. `$schema` dient ausschließlich Editoren; Server und Installer laden darüber keine
+entfernten Verträge nach.
 
 ### IDs
 
@@ -85,10 +93,14 @@ einmalig definiert und durch Schema- sowie Fixture-Tests belegt.
 
 ### Lokale Assets und Entrypoints
 
-- `entrypoints.ui` und `entrypoints.server` sind optionale relative Paketpfade.
+- `entrypoints.ui` und `entrypoints.server` sind optionale relative Paketpfade mit führendem `./`.
 - Eine rein deklarative Extension darf ohne JavaScript-Entrypoint Contributions liefern.
 - Absolute Pfade, `..`, Symlink Escapes und Pfade außerhalb des Pakets sind unzulässig.
-- Icon, README, Changelog und Screenshots sind lokale, größenbegrenzte Dateien.
+- Das Manifest prüft die lexikalische Pfadform. Der spätere Installer prüft zusätzlich
+  `realpath`, Symlinks und Paketgrenzen im Staging-Verzeichnis.
+- Manifest V1 akzeptiert Icons zunächst nur als lokales PNG, WebP oder JPEG. SVG und HTML sind
+  bis zu einem eigenen Sanitizing- und Rendering-Vertrag nicht erlaubt.
+- README und Changelog sind lokale, größenbegrenzte Markdown-Dateien.
 - Normale Extensions dürfen kein beliebiges globales CSS oder HTML als Icon injizieren.
 - Mindestens eine Contribution oder ein gültiger Entrypoint muss vorhanden sein.
 

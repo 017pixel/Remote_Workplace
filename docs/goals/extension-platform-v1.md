@@ -33,8 +33,9 @@ lokale `.rwext`-Pakete.
 ## Current Repository State
 
 - pnpm-Monorepo mit Node >= 22 und TypeScript 6 im strikten Modus.
-- `apps/server` ist ein Fastify-5-Backend, `apps/web` eine React-19-/Vite-8-Anwendung und
-  `packages/contracts` die einzige bestehende geteilte Zod-Vertragsbibliothek.
+- `apps/server` ist ein Fastify-5-Backend, `apps/web` eine React-19-/Vite-8-Anwendung,
+  `packages/contracts` enthält Core-Verträge und `packages/extension-contracts` die neue
+  öffentliche Extension-Vertragsgrenze.
 - Das Workspace-Globbing umfasst bisher nur `apps/*` und `packages/*`. Ein `extensions/`
   Workspace und Extension-Packages existieren noch nicht.
 - `App.tsx` enthält drei standalone Routen und 22 App-Shell-Routendeklarationen einschließlich
@@ -55,10 +56,11 @@ lokale `.rwext`-Pakete.
 - Orbit, Usage, Notifications, Preview-Metadaten, Terminal-Metadaten, Browser-Metadaten,
   Projekte und News verwenden aktuell die gemeinsame externe Workbench-SQLite oder eigene
   Datenbankmodule. Extension-Fachdaten sind noch nicht getrennt provisioniert.
-- `packages/extension-contracts` enthält jetzt die additiven Grundlagen für stabile Extension-
-  und Contribution-IDs, Manifest V1, Extension API 1, kanonische Semantic Versions und
-  Compatibility Ranges. Vollständiges Manifest, Manager, Contribution Registry, Capability
-  Broker, SDK und Local Catalog existieren noch nicht.
+- `packages/extension-contracts` enthält stabile Extension- und Contribution-IDs, Manifest V1,
+  Extension API 1, kanonische Semantic Versions und Compatibility Ranges. Das strikte
+  Manifest-Grundschema validiert Metadaten, Engines, Trust, lokale Assets und JavaScript-
+  Entrypoints und erzeugt ein versioniertes Draft-2020-12-JSON-Schema. Permissions, Activation
+  Events, Contributions, Manager, Capability Broker, SDK und Local Catalog folgen additiv.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -67,12 +69,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.1 drei lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.2 vier lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`2899706d15fedb29fac4726762f4e722807b84e9` als analysierter Ausgangspunkt von Subgoal 1.1.
-Der Ergebniscommit enthält die Contract-Grundlagen und diese Tracker-Aktualisierung.
+`d40cb91bf7ab8added464b4088345bb723bf0f8e` als analysierter Ausgangspunkt von Subgoal 1.2.
+Der Ergebniscommit enthält das Manifest-Grundschema und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -85,8 +87,8 @@ späteren Phasen.
 
 ## Manifest Version
 
-`1`; Versionskonstante und fail-closed Zod-Literal sind eingeführt. Das vollständige Manifest-
-Schema folgt in den nächsten Phase-1-Subgoals.
+`1`; das strikte Zod-Grundschema und sein reproduzierbares JSON-Schema sind eingeführt.
+Permissions, Activation Events, Contributions und Abhängigkeiten folgen additiv in Phase 1.
 
 ## Current Phase
 
@@ -94,15 +96,13 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.2, Manifest-V1-Metadaten, Engines, Trust, lokale Assets und Entrypoints als kanonisches
-Zod-Schema einführen.
+Subgoal 1.3, Permission Requests V1 mit stabilen Permission IDs und expliziten Scopes planen.
 
 ## Next Concrete Action
 
-Subgoal 1.2 ergänzt das bestehende Package um ein striktes Manifest-Grundschema mit Metadaten,
-Compatibility Engines, Trust-Hinweis, lokalen Assetpfaden und optionalen UI-/Server-Entrypoints.
-TypeScript Types und JSON Schema werden aus derselben Zod-Quelle abgeleitet. Permissions,
-Activation Events und Contributions bleiben getrennte spätere Subgoals.
+Subgoal 1.3 definiert die V1-Permission-IDs, ihre zulässigen Scope-Formen und strukturierte
+Permission Requests. Das Manifest fordert Rechte nur an; Grants und effektiver Trust bleiben
+serverseitig und können durch Manifest oder Agent niemals erhöht werden.
 
 ## Phase Table
 
@@ -179,6 +179,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Migration erfolgt inkrementell mit Legacy Adaptern. | Ein Big-Bang würde Persistenz, laufende Sessions und Preview-Runtimes unnötig gefährden. Legacy wird erst nach nachgewiesener Migration entfernt. |
 | 2026-08-15 | Node-Prozesse unter demselben Linux-Benutzer gelten nicht als Sandbox. | V1 führt nur vertrauenswürdigen First-Party- oder expliziten Developer-Code aus. Beliebiger Third-Party-Servercode benötigt später OS-Isolation oder einen eingeschränkten Runtime-Typ. Siehe [`extension-kernel-boundary.md`](../adr/extension-kernel-boundary.md). |
 | 2026-08-15 | Extension Contracts erhalten ein eigenes Workspace-Package. | Die bestehende zentrale Contracts-Datei ist bereits breit gekoppelt. Ein eigenes Package hält Manifest und öffentliche Extension API versionierbar, ohne Core-Verträge zu duplizieren. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Lokale Manifestpfade sind eng und hostunabhängig. | Das Schema akzeptiert nur POSIX-Paketpfade mit `./`, JavaScript-Entrypoints, Markdown-Dokumente und nicht ausführbare Raster-Icons. Realpath- und Symlink-Prüfung bleibt Aufgabe des Installers. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -193,6 +194,7 @@ Priorisierte Abhängigkeiten:
 | Browser-Preferences gehen bei Servermigration verloren | Veränderte Navigation und Layouts | Versionierter einmaliger Import, Dual Read und unangetasteter Fallback | offen |
 | Initial Bundle lädt alle Extensions | Start- und Speicherregression | Server-Metadaten, Lazy Activation, Route Chunks und Performance Gates | offen |
 | Extension UI verwässert das Designsystem | Inkonsistente Desktop-/Mobile-UX | Bestehende Tokens, gemeinsames UI Kit und visuelle Browser-Abnahme | offen |
+| Ein lexikalisch gültiger Paketpfad folgt einem Symlink aus dem Staging-Verzeichnis | Lesen oder Aktivieren fremder Host-Dateien | Installer löst `realpath` innerhalb einer kanonischen Paketwurzel auf und lehnt Escapes fail-closed ab | offen |
 
 ## Compatibility Matrix
 
@@ -200,7 +202,7 @@ Priorisierte Abhängigkeiten:
 | --- | --- | --- |
 | Remote Workplace | 0.44.0 | SemVer bleibt getrennt von Extension API und Manifest |
 | Extension API | Version 1 als Contract-Grundlage | Runtime bleibt innerhalb Major 1 kompatibel; Compatibility Range wird im Manifest geprüft |
-| Manifest | Version 1 als Contract-Grundlage | Vollständiges V1-Schema folgt additiv; unbekannte Versionen werden fail-closed abgelehnt |
+| Manifest | Version 1 mit strengem Grundschema und generiertem JSON Schema | Neue V1-Bereiche werden nur additiv geöffnet; unbekannte Versionen und Felder bleiben fail-closed |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -212,10 +214,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.1, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.1 |
-| `pnpm test` | bestanden am 2026-08-15, 45 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.1, 738 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.1, vollständiger Produktionsbuild |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.2, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.2 |
+| `pnpm test` | bestanden am 2026-08-15, 75 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.2, 768 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.2, vollständiger Produktionsbuild und reproduzierbares JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -265,7 +267,8 @@ Keine.
 | `7662f2c` | Subgoal 0.1, Goal-Tracker und Repository-Baseline |
 | `7117e6f` | Subgoal 0.2, Detailinventar und Performance-Baseline |
 | `2899706` | Subgoal 0.3, Kernel Boundary und bindende Phase-1-ADRs |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.1, ID- und Versionsgrundlagen |
+| `d40cb91` | Subgoal 1.1, ID- und Versionsgrundlagen |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.2, Manifest-Grundschema und JSON Schema |
 
 ## Subgoal Log
 
@@ -275,4 +278,5 @@ Keine.
 | 0.2 Vollständiges Phase-0-Inventar | done | Vollständiges Detailinventar, Produktionsbuild, isolierte Browser-/API-Baseline, Typecheck, Lint und 693 Tests grün | Subgoal 0.3, Kernel Boundary und ADRs |
 | 0.3 Kernel Boundary und Phase-1-ADRs | done | Vier akzeptierte ADRs gegen Security-, Runtime- und Persistenzgrenzen geprüft; Typecheck, Lint und 693 Tests grün | Subgoal 1.1, ID- und Versionsgrundlagen |
 | 1.1 ID- und Versionsgrundlagen | done | Neues Contract-Package, stabile Namespaces, SemVer Compatibility, 45 Tests und vollständige Quality Gates grün | Subgoal 1.2, Manifest-Grundschema |
-| 1.2 Manifest-Grundschema | planning | ID- und Versionsschemas sowie Manifest-ADR liegen vor | Metadaten, Engines, Trust, lokale Assets, Entrypoints und JSON Schema ergänzen |
+| 1.2 Manifest-Grundschema | done | Striktes Zod-Schema, Draft-2020-12-Artefakt, Drift-Prüfung, Path-Escape-Tests und 768 grüne Repository-Tests | Subgoal 1.3, Permission Requests V1 |
+| 1.3 Permission Requests V1 | planning | Permission- und Trust-Modell im Goal und Manifest-ADR festgelegt | Permission IDs, Scope-Schemas und fail-closed Manifest Requests implementieren |

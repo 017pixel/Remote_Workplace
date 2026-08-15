@@ -7,10 +7,11 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./schema/extension-manifest-v1.schema.json": "./schema/extension-manifest-v1.schema.json"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/generate-json-schema.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -20,6 +21,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/node": "26.1.2",
     "@types/semver": "7.8.0",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
