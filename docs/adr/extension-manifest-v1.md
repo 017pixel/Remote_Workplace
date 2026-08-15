@@ -926,6 +926,65 @@ Phase 2 registriert die bestehende lokale Projekt-Preview als Legacy Built-in Ta
 Preview Slot Manager, der getrennte tmux-Socket der Devserver und alle laufenden Nutzersessions
 werden in diesem Contract-Subgoal nicht verändert.
 
+#### Browser Contributions
+
+Browser Contributions registrieren hostgerenderte Tools oder Command-basierte Aktionen. Tools
+deklarieren ausschließlich die benötigten Broker-Operationen und kontrollierte Host-Surfaces:
+
+```json
+{
+  "contributes": {
+    "browser": [
+      {
+        "id": "workbench.accessibility.browser.tool.audit",
+        "kind": "tool",
+        "title": "Barrierefreiheit prüfen",
+        "icon": "workbench.accessibility.icon.audit",
+        "order": 100,
+        "provider": "workbench.accessibility.browser-provider.audit",
+        "projectContext": true,
+        "operations": ["state.read", "page.source", "page.capture"],
+        "surfaces": ["toolbar", "side-panel", "mobile-actions"],
+        "visibleByDefault": true
+      },
+      {
+        "id": "workbench.accessibility.browser.action.audit",
+        "kind": "action",
+        "title": "Seite prüfen",
+        "order": 200,
+        "commandId": "workbench.accessibility.command.audit",
+        "group": "inspect",
+        "surfaces": ["context-menu", "mobile-actions"],
+        "requiresSession": true
+      }
+    ]
+  }
+}
+```
+
+- Tools benötigen einen eigenen namespaced Provider, einen UI- oder Server-Entrypoint und den
+  hochprivilegierten Request `browser.control`. Der Request ist kein Grant. Ownership,
+  Same-Origin, aktive Session und jede konkrete Operation werden am Broker erneut geprüft.
+- Die Operationen sind auf State, Selektion, Seitenquelle, Screenshot, Navigation, Eingabe und
+  DevTools beschränkt. Eine Erweiterung erhält weder einen freien CDP-Kanal noch ungefilterte
+  Chromium-Startargumente. Der Broker darf einen Grant enger als diese Liste ausstellen.
+- Manifestfelder für URL, Suchmaschine, Header, Cookies, Profilpfad, Downloadpfad, Session-ID,
+  Target-ID, WebSocket-URL oder CDP-Methode sind nicht erlaubt. Solche Laufzeitwerte entstehen
+  ausschließlich aus Nutzeraktion und Kernelzustand.
+- Actions referenzieren Commands und erscheinen nur in Toolbar, Kontextmenü, Seitenpanel oder
+  mobiler Aktionsleiste. Sie erhalten bei Ausführung einen validierten Browserkontext, aber
+  keine implizite Control Capability.
+- Chromium-Prozess, Profile, Tabs, History, Cookies, Downloads, Stream, Zwischenablage,
+  DevTools-Proxy, Session-Ownership, Controller Arbitration, Limits und Idle Cleanup bleiben
+  Kernel. Downloads werden niemals über einen vom Manifest gewählten Dateipfad gespeichert.
+- Disable entfernt Tool und Actions, beendet aber keine user-owned Chromium-Session und löscht
+  kein Profil, keine Cookies und keine Browser-Metadaten. Eine eigene Lösch- oder Beenden-Aktion
+  bleibt explizit, berechtigungsgeprüft und auditierbar.
+
+Phase 2 registriert Screenshot, Seitenquelle und DevTools zunächst als Legacy Built-in Actions.
+Der bestehende Chromium Manager, seine Profile und laufende Sessions werden in diesem
+Contract-Subgoal nicht verändert.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

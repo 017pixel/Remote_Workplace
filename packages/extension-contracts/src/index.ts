@@ -1,4 +1,5 @@
 export * from "./activation-events.js";
+export * from "./browser-contributions.js";
 export * from "./contributions.js";
 export * from "./context-expressions.js";
 export * from "./context-menus.js";

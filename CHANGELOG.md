@@ -180,6 +180,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - URLs, Ports, Slots, Storage-Profile und Devserver-Befehle aus Manifesten ausgeschlossen
 - Laufende Previews, Devserver, Diagnose, Quarantäne und Storage-Reset im sicheren Kernel belassen
 
+### Extension-Browser
+
+- Hostgerenderte Browser-Tools und Command-basierte Browser-Aktionen als Contributions definiert
+- Toolzugriffe auf sieben explizite Browser-Broker-Operationen begrenzt
+- Browser-Tools an Entrypoint und hochprivilegierte Browser-Berechtigung gebunden
+- URLs, Profile, Cookies, Header, Downloadpfade und freie CDP-Methoden aus Manifesten ausgeschlossen
+- Chromium, Sessions, DevTools-Proxy, Downloads und Idle-Cleanup im sicheren Kernel belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
