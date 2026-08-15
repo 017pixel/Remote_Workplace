@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoals 2.3 bis 2.5 abgeschlossen, Subgoal 2.6 als Nächstes.
+Status: `in-progress`; Subgoals 2.3 bis 2.7 abgeschlossen, Subgoal 2.8 als Nächstes.
 
 ## Ergebnis
 
@@ -80,23 +80,31 @@ Status: `done`.
 
 ### 2.6 Context-Menu-, Status-Bar- und Topbar-Registry
 
-Status: `in-progress`.
+Status: `done`.
 
 - `statusBarRegistry.ts`, `topbarRegistry.ts` und `contextMenuRegistry.ts` bilden die drei
   Registry-Kerne: Vertragsvalidierung, Command-/Provider-/Surface-/Context-Referenzen gegen
-  die Command Registry und deterministisch sortierte Snapshots mit Alignment-,
-  Platzierungs- und Gruppenansichten. Kernel Health und Recovery bleiben hostgeschützt.
-- Offen: Legacy Built-in-Kataloge der bestehenden Menü-, Statusleisten- und Topbar-Aktionen
-  sowie die Consumer-Migration mit Paritäts- und Browserprüfung. Bestehendes Desktop-,
-  Touch-, Focus- und Bottom-Sheet-Verhalten bleibt bis dahin unverändert.
+  die Command Registry, Route-Prüfung und deterministisch sortierte Snapshots mit
+  Alignment-, Platzierungs- und Gruppenansichten.
+- Legacy Built-ins: die drei Usage Provider der Statusleiste (Consumer ist bereits auf die
+  Registry umgestellt, Darstellung identisch), Topbar-Aktionen Vollbild und Neuladen auf der
+  Dateien-Route sowie der Projektbrowser-Menüpunkt auf der Orbit-Fläche.
+- Kernel Health und Recovery bleiben hostgeschützt; Desktop-, Touch-, Focus- und
+  Bottom-Sheet-Verhalten der bestehenden Menüs ist unverändert.
 
 ### 2.7 Dashboard- und Settings-Registry
 
-- Neun Dashboard-Bereiche sowie featurebezogene Settings-Cards mit stabilen IDs registrieren.
-- Bestehende Config und LocalStorage-Werte über Legacy-Aliase weiter lesen.
-- Security, Version, Extension Recovery und Installationsverwaltung bleiben Hostflächen.
+Status: `done`.
+
+- `dashboardRegistry.ts` registriert die neun Bereiche als Legacy Built-ins mit
+  Legacy-Aliasen; die Sichtbarkeitsliste in den Einstellungen konsumiert die Registry zur
+  Renderzeit, Config und LocalStorage bleiben unverändert lesbar.
+- `settingsCardRegistry.ts` katalogisiert die elf Settings-Bereiche mit stabilen IDs;
+  Security, Version, Recovery und Installationsverwaltung bleiben als `hostOnly` markiert.
 
 ### 2.8 Orbit-Registry-Metadaten
+
+Status: `planning`.
 
 - Bestehende Palette, Renderer, Inspector und Größenmetadaten als Built-ins registrieren.
 - Dokumentversion, geschlossene Legacy-Knoten und `panelTypeSchema` noch nicht verändern.

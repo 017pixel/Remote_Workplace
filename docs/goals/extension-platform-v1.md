@@ -121,8 +121,14 @@ lokale `.rwext`-Pakete.
 - `apps/web/src/extensions/statusBarRegistry.ts`, `topbarRegistry.ts` und
   `contextMenuRegistry.ts` bilden die Status-Bar-, Topbar- und Context-Menu-Registry-Kerne
   mit Command-/Provider-/Surface-/Context-Referenzprüfungen und deterministischen
-  Snapshots. Built-in-Kataloge und Consumer-Migration folgen mit Paritäts- und
-  Browserprüfung; Kernel Health und Recovery bleiben hostgeschützt.
+  Snapshots. Legacy Built-ins registrieren die drei Usage Provider (Statusbar-Konsum
+  bereits umgestellt), Topbar-Aktionen auf der Dateien-Route und den Projektbrowser auf der
+  Orbit-Fläche; Kernel Health und Recovery bleiben hostgeschützt.
+- `apps/web/src/extensions/dashboardRegistry.ts` und `settingsCardRegistry.ts`
+  registrieren die neun Dashboard-Bereiche und die elf Settings-Bereiche als Legacy
+  Built-ins. Die Dashboard-Sichtbarkeitsliste liest die Registry zur Renderzeit über
+  Legacy-Aliase; Security, Version, Recovery und Installation bleiben als `hostOnly`
+  markiert.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -142,12 +148,11 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Stand nach den Subgoal-2.6-Registry-Kernen neununddreißig lokale Goal-Commits
-vor `origin/master`.
+`master`, beim Stand nach Subgoal 2.7 vierzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`b56004f` — Status-Bar-, Topbar- und Context-Menu-Registry-Kerne mit Tests.
+`6fb4ba0` — Dashboard- und Settings-Registry mit Legacy Built-ins.
 
 ## Current Remote Workplace Version
 
@@ -176,16 +181,14 @@ Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.6, Context-Menu-, Status-Bar- und Topbar-Registry implementieren.
+Subgoal 2.8, Orbit-Registry-Metadaten implementieren.
 
 ## Next Concrete Action
 
-Subgoal 2.6 führt die Legacy Built-in-Kataloge für Status Bar (drei Usage Provider),
-Topbar (ProjectPicker, Standalone-Aktionen) und Context Menus (Orbit, Files, Browser,
-Preview, Terminal, Tool-Menüs) über die drei neuen Registry-Kerne ein und stellt die
-Consumer nach Paritäts- und Browserprüfung nacheinander um. Hostzustände und
-Recovery-Aktionen bleiben geschützt; Desktop-, Touch-, Focus- und Bottom-Sheet-Verhalten
-dürfen sich nicht ändern.
+Subgoal 2.8 registriert die bestehende Orbit-Palette (Werkzeuge, Blöcke, Preview-Layouts),
+Renderer- und Größenmetadaten als Legacy Built-ins mit stabilen Contribution-IDs, ohne
+Dokumentversion, geschlossene Knotentypen oder `panelTypeSchema` zu verändern. Phase 4
+erhält damit verifizierte Runtime-Bindings für den generischen Extension-Knoten.
 
 ## Phase Table
 
