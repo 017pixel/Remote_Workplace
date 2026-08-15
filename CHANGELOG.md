@@ -68,6 +68,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Abhängigkeits- und Konfliktlisten auf nachvollziehbare Höchstgrößen begrenzt
 - Dependency-Verträge im versionierten JSON Schema für Manager, CLI und Werkzeuge bereitgestellt
 
+### Extension-Lifecycle
+
+- 17 eindeutige Zustände für Installation, Aktivierung, Updates und Recovery definiert
+- Erlaubte Zustandswechsel zentral und strikt prüfbar gemacht
+- Install-, Permission-, Enable-, Disable-, Update- und Uninstall-Pfade abgesichert
+- Crash, Quarantäne, Inkompatibilität und fehlgeschlagene Migrationen klar getrennt
+- Laufende Operationen für spätere Restart-Recovery und atomare Fortsetzung gekennzeichnet
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
