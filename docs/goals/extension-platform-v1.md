@@ -57,14 +57,20 @@ lokale `.rwext`-Pakete.
   Datenbankmodule. Extension-Fachdaten sind noch nicht getrennt provisioniert.
 - Es gibt noch kein Extension Manifest, keine Extension API Version, keinen Manager, keine
   Contribution Registry, keinen Capability Broker, kein Extension SDK und keinen Local Catalog.
+- Das vollständige Detailinventar liegt in
+  [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
+  öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
+  Fastify-Endpunkte, fünf WebSocket-Flächen, drei Reverse Proxies, die Preview-Gateways,
+  Hintergrunddienste, Timer, SQLite-Tabellen, Browser-Storage, Config, Env Vars und Skills.
 
 ## Current Branch
 
-`master`, sauber und synchron zu `origin/master` beim Start von Subgoal 0.1.
+`master`, beim Abschluss von Subgoal 0.2 einen lokalen Goal-Commit vor `origin/master`.
 
 ## Current Commit
 
-`479bfa7e4703d7a8d437bb395eb9381acb5e6181`
+`7662f2c8152755d5745166e022d8edae4a88854e` als analysierter Ausgangspunkt von Subgoal 0.2.
+Der Ergebniscommit enthält diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -84,16 +90,14 @@ Phase 0, `in-progress`.
 
 ## Current Subgoal
 
-Subgoal 0.2, vollständiges Extension-relevantes Phase-0-Inventar und Migration Matrix
-vervollständigen.
+Subgoal 0.3, Kernel Boundary und bindende Phase-1-Entscheidungen als ADRs festhalten.
 
 ## Next Concrete Action
 
-Subgoal 0.2: Das vollständige Phase-0-Inventar aus Code und Konfiguration erzeugen. Dabei werden
-Routes, Pages, Navigation, Orbit, Dashboard, Settings, APIs, WebSockets, Hintergrunddienste,
-Timer, SQLite-Tabellen, Browser-Storage, Konfiguration, Env Vars, Proxies, Dienste, Runtimes,
-Skills, Notifications, globale CSS-Abhängigkeiten und Serverinitialisierung erfasst. Danach wird
-die Migration Matrix anhand der tatsächlichen Kopplung priorisiert.
+Subgoal 0.3: Auf Basis des Inventars die ADRs für Kernel Boundary, Server Authority, Local
+Catalog V1 und die Trennung von Remote-Workplace-, Extension-API- und Manifest-Version
+erstellen. Danach werden die Entscheidungen gegen aktuelle Security-, Runtime- und
+Persistenzgrenzen geprüft, bevor Phase 1 Contracts implementiert.
 
 ## Phase Table
 
@@ -120,9 +124,12 @@ Statuswerte: `not-started`, `planning`, `in-progress`, `blocked`, `verification`
 
 ## Migration Matrix
 
-Die Zielreihenfolge wird nach dem vollständigen Inventar in Subgoal 0.2 finalisiert.
+Die Reihenfolge ist nach dem vollständigen Inventar priorisiert. Die Phasen 1 bis 3 schaffen
+zuerst additive Verträge und UI-Registries ohne Datenmigration. Orbit folgt wegen seiner
+persistierten Revisionen separat. Server Manager und Capability Broker werden danach aufgebaut,
+bevor der Canary oder andere sichtbare Features migrieren.
 
-| Bereich | Aktueller Zustand | Ziel | Vorläufige Phase | Status |
+| Bereich | Aktueller Zustand | Ziel | Phase | Status |
 | --- | --- | --- | --- | --- |
 | App Shell und Router | Statische Routen, Lazy Loader und Pfad-Sonderlogik | Kernel Route Host plus Extension Route Contributions | 2-3 | planning |
 | Desktop/Mobile Navigation | Statische Arrays, zusätzliche Mobile Path Map | Eine Registry mit serverseitig synchronisierten User Preferences | 2-3 | planning |
@@ -147,6 +154,15 @@ Die Zielreihenfolge wird nach dem vollständigen Inventar in Subgoal 0.2 finalis
 | Projects/Inbox/Dashboard | Zentrale sichtbare Features | Built-in Extensions auf Workspace- und Notification-Substrat | 10 | not-started |
 | Local Catalog | Nicht vorhanden | Lokaler Bundled Catalog mit echtem Installationspfad | 5, 11-12 | not-started |
 
+Priorisierte Abhängigkeiten:
+
+1. Contracts und stabile IDs vor jeder Registry oder Persistenz.
+2. Legacy Built-in Contributions vor dem dynamischen Shell-Umbau.
+3. Dynamische Shell mit Persistenztests vor Orbit- oder Featuremigrationen.
+4. Extension Manager vor Capability Brokern und Local-Catalog-UI.
+5. Capabilities, SDK, Test Harness und Agent Skills vor dem Tech-TLDRs-Canary.
+6. Sicherheitskritische Runtime-UIs erst nach erfolgreichem Canary einzeln migrieren.
+
 ## Decision Log
 
 | Datum | Entscheidung | Begründung und Alternativen |
@@ -157,6 +173,7 @@ Die Zielreihenfolge wird nach dem vollständigen Inventar in Subgoal 0.2 finalis
 | 2026-08-15 | First-Party Extensions verwenden dieselben öffentlichen Registries. | Feature-spezifische Host-Verzweigungen sind nur für Security, Bootstrap oder Recovery zulässig und werden als `hostOnly` dokumentiert. |
 | 2026-08-15 | Migration erfolgt inkrementell mit Legacy Adaptern. | Ein Big-Bang würde Persistenz, laufende Sessions und Preview-Runtimes unnötig gefährden. Legacy wird erst nach nachgewiesener Migration entfernt. |
 | 2026-08-15 | Node-Prozesse unter demselben Linux-Benutzer gelten nicht als Sandbox. | V1 führt nur vertrauenswürdigen First-Party- oder expliziten Developer-Code aus. Beliebiger Third-Party-Servercode benötigt später OS-Isolation oder einen eingeschränkten Runtime-Typ. |
+| 2026-08-15 | Extension Contracts erhalten ein eigenes Workspace-Package. | Die bestehende zentrale Contracts-Datei ist bereits breit gekoppelt. Ein eigenes Package hält Manifest und öffentliche Extension API versionierbar, ohne Core-Verträge zu duplizieren. |
 
 ## Risk Register
 
@@ -190,18 +207,32 @@ Die Zielreihenfolge wird nach dem vollständigen Inventar in Subgoal 0.2 finalis
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 0.1 |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 0.1 |
-| `pnpm test` | bestanden am 2026-08-15, 18 Contracts, 396 Server, 279 Web | Subgoal 0.1 |
-| `pnpm build` | noch nicht in diesem Goal ausgeführt | erster Milestone |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 0.2 |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 0.2 |
+| `pnpm test` | bestanden am 2026-08-15, 18 Contracts, 396 Server, 279 Web | Subgoal 0.2 |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 0.2, Produktionsbuild für Baseline |
+| Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | noch nicht in diesem Goal ausgeführt | erster Milestone |
 
 ## Performance Baseline
 
-Noch nicht gemessen. Subgoal 0.2 erfasst Messmethode und Ausgangswerte für Server Boot,
-initiales JavaScript, Route Change, Orbit Load, Sidebar Render, Speicher und API p95, ohne
-laufende Nutzer-Previews oder Preview-Slots zu verändern.
+Die vollständige Messtabelle und Methodik stehen im
+[`Phase-0-Inventar`](extension-platform-v1-inventory.md#9-performance-baseline). Gemessen wurde
+mit Produktionsbuild und isoliertem Testserver, ohne Nutzer-Previews oder produktive Dienste zu
+verändern.
+
+| Kennzahl | Baseline |
+| --- | ---: |
+| Server Boot bis Health | 1.061 ms |
+| Main JS | 477,33 kB raw, 143,90 kB gzip |
+| Global CSS | 496,78 kB raw, 100,61 kB gzip |
+| First Contentful Paint | 472 ms |
+| Kalter Orbit Load | 416 ms |
+| Bereits gemountete Rückroute | 61 ms |
+| Server RSS | 288,24 MB |
+| Health API p95 | 1,746 ms |
+| Projects API p95 | 1,379 ms |
 
 ## Known Regressions
 
@@ -220,11 +251,13 @@ Keine.
 | Commit | Bedeutung |
 | --- | --- |
 | `479bfa7` | Ausgangscommit, korrigiert Routen-Synchronisierung in inaktiven Flächen |
-| ausstehend | Subgoal 0.1, Goal-Tracker und Repository-Baseline |
+| `7662f2c` | Subgoal 0.1, Goal-Tracker und Repository-Baseline |
+| Ergebniscommit dieser Aktualisierung | Subgoal 0.2, Detailinventar und Performance-Baseline |
 
 ## Subgoal Log
 
 | Subgoal | Status | Nachweis | Nächster Schritt |
 | --- | --- | --- | --- |
 | 0.1 Goal-Tracker und Baseline | done | Git, Konfiguration, Architektur, Router, Navigation, Orbit und Server Bootstrap gelesen; Typecheck, Lint und 693 Tests grün | Subgoal 0.2, vollständiges Inventar |
-| 0.2 Vollständiges Phase-0-Inventar | in-progress | ausstehend | Alle Inventarkategorien aus Code und Konfiguration erfassen |
+| 0.2 Vollständiges Phase-0-Inventar | done | Vollständiges Detailinventar, Produktionsbuild, isolierte Browser-/API-Baseline, Typecheck, Lint und 693 Tests grün | Subgoal 0.3, Kernel Boundary und ADRs |
+| 0.3 Kernel Boundary und Phase-1-ADRs | planning | Inventar und priorisierte Migration Matrix liegen vor | ADRs gegen aktuelle Grenzen entwerfen |

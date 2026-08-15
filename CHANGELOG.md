@@ -12,6 +12,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Kompatibilitätsregeln für bestehende Daten, Bookmarks und laufende Sitzungen festgelegt
 - Zeitabhängige Usage-Testfixture für dauerhaft reproduzierbare Testläufe stabilisiert
 
+### Extension-Plattform-Inventar
+
+- Alle sichtbaren Routen, Navigationen und persistenten Flächen als Migrationsbasis erfasst
+- Orbit-, Dashboard-, Settings- und Browserzustände mit ihren Kompatibilitätsgrenzen dokumentiert
+- Server-APIs, WebSockets, Proxies, Hintergrunddienste und Datenbanken vollständig inventarisiert
+- Sichere Ausgangswerte für Startzeit, Routenwechsel, Speicherbedarf und API-Latenz gemessen
+- Migrationsreihenfolge anhand realer Kopplungen und bestehender Runtime-Grenzen priorisiert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
