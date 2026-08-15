@@ -1430,6 +1430,75 @@ Datenmigration ergänzt stabile Source- und Kategorie-IDs additiv; alte Zeilen u
 Benutzereinstellungen behalten ihre Fallback-Darstellung. Dieses Contract-Subgoal verändert die
 produktive Notification-Datenbank und ihre geschlossenen Contracts noch nicht.
 
+#### Theme Contributions
+
+Theme Contributions verändern ausschließlich einen kontrollierten Ausschnitt semantischer
+Farbrollen. Sie laden weder CSS noch Code und erhalten keinen Zugriff auf den globalen
+Stylesheet-Baum:
+
+```json
+{
+  "contributes": {
+    "themes": [
+      {
+        "id": "workbench.appearance.theme.nightly",
+        "title": "Workbench Nightly",
+        "description": "Neutrales dunkles Workbench-Theme.",
+        "variants": {
+          "dark": {
+            "surfaceBase": "#0a0a0a",
+            "surfaceRaised": "#111111",
+            "surfaceOverlay": "#191919",
+            "surfaceSunken": "#060606",
+            "text": "#f5f5f5",
+            "textMuted": "#a0a0a0",
+            "textFaint": "#737373",
+            "accent": "#3666c2",
+            "accentContrast": "#ffffff",
+            "success": "#4bb38b",
+            "warning": "#d4a940",
+            "danger": "#cf7478",
+            "info": "#79a5df"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+- Eine Theme Contribution besitzt mindestens eine `dark`- oder `light`-Variante. Beide unter
+  derselben stabilen ID ermöglichen später `dark`, `light` und `system` als serverseitig
+  synchronisierte Nutzerpräferenz, ohne IDs oder Themes beim Betriebssystemwechsel auszutauschen.
+  Fehlt die passende Variante, verwendet der Host seine kompatible Standardpalette.
+- V1 akzeptiert ausschließlich opake sechsstellige Hex-RGB-Werte. Dadurch kann der Host alle
+  Transparenzen, Linien, Soft-Flächen, Fokuszustände, Glass-Tints und Browser-Metafelder selbst
+  ableiten. `var()`, `url()`, `color-mix()`, Gradients, Alpha, Remote Assets, Fonts und Data URLs
+  sind keine Theme-Eingaben.
+- Geöffnet werden vier Surface-Rollen, drei Textrollen, Akzent plus Kontrastinhalt und vier
+  Statusrollen. Typografie, Spacing, Radien, Schatten, Motion, Z-Index, Safe Areas, Touchziele,
+  Terminal-ANSI-, Syntax-, Orbit- und geschützte Recovery-Farben bleiben Host-Tokens. Ein Theme
+  kann damit weder Layout noch Bedienbarkeit oder sicherheitsrelevante Zustände verändern.
+- Die Contract-Validierung berechnet relative Luminanz und WCAG-Kontrast deterministisch. Normaler
+  und sekundärer Text sowie Akzentinhalt benötigen mindestens 4,5:1, schwacher Text, Akzent gegen
+  die Basis und Statusfarben mindestens 3:1. Dark und Light müssen ihrer Luminanzrichtung
+  entsprechen; mindestens drei Surface-Rollen müssen unterscheidbar bleiben. Der Host darf vor
+  Aktivierung strengere Accessibility-Prüfungen anwenden.
+- Die Runtime schreibt nur die erlaubten Variablen auf den Workbench-Theme-Container, setzt
+  `color-scheme` und die PWA-/Browser-Chrome-Farbe und entfernt sie beim Wechsel atomar. Ein
+  ungültiges, fehlendes oder deaktiviertes Theme fällt auf die gebündelte T3-Nightly-Palette
+  zurück. Die Auswahl ist serverseitige User-Präferenz; localStorage bleibt höchstens ein
+  kurzlebiger Bootstrap-Cache.
+- Die bewusst abgegrenzte `.hermes-shell`-Farbwelt und die eingebettete Hermes-SPA übernehmen
+  keine allgemeinen Theme-Variablen. Built-in native Extensions dürfen später reviewtes,
+  feature-scoped CSS mitbringen. Für normale Theme Contributions bleiben globale Selektoren,
+  Stylesheets, Shadow-DOM-Escapes und freie CSS Custom Properties verboten.
+
+Der bestehende `@theme`-Block wird nicht in diesem Subgoal umgeschrieben. Die schrittweise
+Migration bleibt `bestehende Styles → semantische Tokens → UI-Primitives → extension-ui →
+feature-scoped Styles`. Dieses Contract-Subgoal verändert weder aktuelle T3-Nightly-Farben noch
+PWA-Metadaten oder die produktive Oberfläche.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

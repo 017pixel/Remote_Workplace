@@ -57,6 +57,7 @@ import { scheduledJobContributionsSchema } from "./scheduled-job-contributions.j
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
 import { terminalContributionsSchema } from "./terminal-contributions.js";
+import { themeContributionsSchema } from "./theme-contributions.js";
 import { topbarContributionsSchema } from "./topbar.js";
 
 export * from "./package-paths.js";
@@ -203,6 +204,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   rpc: rpcContributionsSchema.optional(),
   realtime: realtimeContributionsSchema.optional(),
   notifications: notificationContributionsSchema.optional(),
+  themes: themeContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -451,6 +453,10 @@ export const extensionManifestV1Schema = z
           ] as const,
         })),
       ]),
+      ...(manifest.contributes.themes ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "themes", index, "id"] as const,
+      })),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {

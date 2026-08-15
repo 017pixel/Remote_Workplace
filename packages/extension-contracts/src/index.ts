@@ -22,5 +22,6 @@ export * from "./scheduled-job-contributions.js";
 export * from "./settings-contributions.js";
 export * from "./status-bar.js";
 export * from "./terminal-contributions.js";
+export * from "./theme-contributions.js";
 export * from "./topbar.js";
 export * from "./versioning.js";

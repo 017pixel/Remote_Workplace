@@ -2976,7 +2976,71 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
-  it("hält noch nicht definierte Contributions geschlossen", () => {
+  const darkThemePalette = {
+    surfaceBase: "#0a0a0a",
+    surfaceRaised: "#111111",
+    surfaceOverlay: "#191919",
+    surfaceSunken: "#060606",
+    text: "#f5f5f5",
+    textMuted: "#a0a0a0",
+    textFaint: "#737373",
+    accent: "#3666c2",
+    accentContrast: "#ffffff",
+    success: "#4bb38b",
+    warning: "#d4a940",
+    danger: "#cf7478",
+    info: "#79a5df",
+  } as const;
+
+  const themeContribution = {
+    id: "workbench.agent-tasks.theme.nightly",
+    title: "Agent Tasks Nightly",
+    description: "Dunkles Theme für die Workbench.",
+    variants: { dark: darkThemePalette },
+  } as const;
+
+  it("akzeptiert statische Theme Contributions ohne Entrypoint oder Permission", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: {},
+        permissions: [],
+        contributes: { themes: [themeContribution] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("verlangt für Themes eigene und manifestweit eindeutige IDs", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          themes: [
+            {
+              ...themeContribution,
+              id: "workbench.other.theme.nightly",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          themes: [
+            {
+              ...themeContribution,
+              id: validManifest.contributes.commands[0]!.id,
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("hält unbekannte Contributions geschlossen und verlangt nichtleere Listen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
     expect(
@@ -3180,7 +3244,15 @@ describe("Extension Manifest V1", () => {
       extensionContributionsV1Schema.safeParse({ notifications: [] }).success,
     ).toBe(false);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        themes: [themeContribution],
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ themes: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ unknown: [] }).success,
     ).toBe(false);
   });
 });

@@ -244,6 +244,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Optionale Deduplizierung mit begrenzten Schlüsseln und zwei Update-Verhalten beschrieben
 - Erstellung an `notifications.create` gebunden und freie HTML-, URL- und Push-Ziele ausgeschlossen
 
+### Extension-Themes
+
+- Kontrollierte Theme Contributions mit stabilen IDs und Dark-/Light-Varianten definiert
+- Vier Surface-, drei Text-, Akzent- und vier Statusrollen als einzige veränderbare Tokens geöffnet
+- Theme-Farben auf opake Hex-RGB-Werte ohne CSS-, Font-, Asset- oder URL-Injection begrenzt
+- WCAG-Kontrast, Darstellungsrichtung und unterscheidbare Surface-Rollen direkt validiert
+- Systemmodus, PWA-Chrome, Hermes und alle Layout-, Motion- und Accessibility-Tokens beim Host belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
