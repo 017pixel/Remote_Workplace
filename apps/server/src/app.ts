@@ -78,6 +78,9 @@ import { NotificationDatabase } from "./notifications/database.js";
 import { registerNotificationRoutes } from "./notifications/routes.js";
 import { NotificationPushService } from "./notifications/push.js";
 import { T3StatusSync } from "./notifications/t3-status-sync.js";
+import { ExtensionDatabase } from "./extensions/database.js";
+import { ExtensionManager } from "./extensions/manager.js";
+import { registerExtensionRoutes } from "./extensions/routes.js";
 import { TerminalStatusSync } from "./notifications/terminal-status-sync.js";
 import { AgentSessionSync } from "./notifications/agent-session-sync.js";
 
@@ -208,6 +211,8 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const projects = createProjectService(projectsConfig, servicesConfig.services, undefined, projectActivity, projectRegistryDatabase);
   const terminalDatabase = new TerminalDatabase(settings.databasePath);
   const notificationDatabase = new NotificationDatabase(settings.databasePath, settings.notifications.pruneAfterHours);
+  const extensionDatabase = new ExtensionDatabase(join(settings.dataDirectory, "extensions.sqlite"));
+  const extensionManager = new ExtensionManager(extensionDatabase);
   const notificationPush = new NotificationPushService({
     databasePath: settings.databasePath,
     dataDirectory: settings.dataDirectory,
@@ -531,6 +536,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     },
   });
   await app.register(registerNotificationRoutes, { prefix: "/api/v1", database: notificationDatabase, push: notificationPush, configDirectory: settings.configDirectory, identity: identityOptions });
+  await app.register(registerExtensionRoutes, { prefix: "/api/v1", manager: extensionManager });
   const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
   const terminals = new TerminalManager({
     allowedRoots: settings.terminalAllowedRoots,

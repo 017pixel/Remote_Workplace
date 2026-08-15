@@ -74,6 +74,9 @@ importers:
       '@workbench/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@workbench/extension-contracts':
+        specifier: workspace:*
+        version: link:../../packages/extension-contracts
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
