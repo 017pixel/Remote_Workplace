@@ -2781,6 +2781,73 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  const realtimeChannel = {
+    id: "workbench.agent-tasks.realtime.tasks",
+    description: "Synchronisiert Agent Tasks in Echtzeit.",
+    provider: "workbench.agent-tasks.realtime-provider.tasks",
+    scope: "project",
+    maxMessageBytes: 64_000,
+    maxConnectionsPerUser: 4,
+    queue: {
+      delivery: "reliable",
+      highWaterMarkBytes: 128_000,
+      maxQueueBytes: 1_000_000,
+    },
+    rateLimit: { maxMessages: 120, windowMilliseconds: 60_000 },
+    heartbeat: {
+      intervalMilliseconds: 30_000,
+      timeoutMilliseconds: 10_000,
+    },
+    closeTimeoutMilliseconds: 2_000,
+    direction: "bidirectional",
+    clientMessageSchema: "./schemas/task-client-message.json",
+    serverMessageSchema: "./schemas/task-server-message.json",
+  } as const;
+
+  it("akzeptiert typisierte Realtime Channels", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: { realtime: [realtimeChannel] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("verlangt für Realtime eigene Provider und Server-Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          realtime: [
+            {
+              ...realtimeChannel,
+              provider: "workbench.other.realtime-provider.tasks",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { ui: "./dist/ui.js" },
+        contributes: { realtime: [realtimeChannel] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist manifestweit doppelte Realtime IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          http: [httpEndpoint],
+          realtime: [{ ...realtimeChannel, id: httpEndpoint.id }],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -2969,7 +3036,15 @@ describe("Extension Manifest V1", () => {
       extensionContributionsV1Schema.safeParse({ rpc: [] }).success,
     ).toBe(false);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        realtime: [realtimeChannel],
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ realtime: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ notifications: [] }).success,
     ).toBe(false);
   });
 });

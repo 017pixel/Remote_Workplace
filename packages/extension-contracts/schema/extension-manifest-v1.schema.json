@@ -14562,6 +14562,452 @@
             "additionalProperties": false
           },
           "uniqueItems": true
+        },
+        "realtime": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "provider": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "project"
+                    ]
+                  },
+                  "maxMessageBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "maxConnectionsPerUser": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                  },
+                  "queue": {
+                    "type": "object",
+                    "properties": {
+                      "delivery": {
+                        "type": "string",
+                        "enum": [
+                          "reliable",
+                          "latest"
+                        ]
+                      },
+                      "highWaterMarkBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      },
+                      "maxQueueBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      }
+                    },
+                    "required": [
+                      "delivery",
+                      "highWaterMarkBytes",
+                      "maxQueueBytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rateLimit": {
+                    "type": "object",
+                    "properties": {
+                      "maxMessages": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "windowMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 3600000
+                      }
+                    },
+                    "required": [
+                      "maxMessages",
+                      "windowMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "heartbeat": {
+                    "type": "object",
+                    "properties": {
+                      "intervalMilliseconds": {
+                        "type": "integer",
+                        "minimum": 5000,
+                        "maximum": 120000
+                      },
+                      "timeoutMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 60000
+                      }
+                    },
+                    "required": [
+                      "intervalMilliseconds",
+                      "timeoutMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "closeTimeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 250,
+                    "maximum": 10000
+                  },
+                  "direction": {
+                    "type": "string",
+                    "const": "server-to-client"
+                  },
+                  "serverMessageSchema": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "allOf": [
+                      {
+                        "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+                      },
+                      {
+                        "pattern": "\\.json$"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "provider",
+                  "scope",
+                  "maxMessageBytes",
+                  "maxConnectionsPerUser",
+                  "queue",
+                  "rateLimit",
+                  "heartbeat",
+                  "closeTimeoutMilliseconds",
+                  "direction",
+                  "serverMessageSchema"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "provider": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "project"
+                    ]
+                  },
+                  "maxMessageBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "maxConnectionsPerUser": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                  },
+                  "queue": {
+                    "type": "object",
+                    "properties": {
+                      "delivery": {
+                        "type": "string",
+                        "enum": [
+                          "reliable",
+                          "latest"
+                        ]
+                      },
+                      "highWaterMarkBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      },
+                      "maxQueueBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      }
+                    },
+                    "required": [
+                      "delivery",
+                      "highWaterMarkBytes",
+                      "maxQueueBytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rateLimit": {
+                    "type": "object",
+                    "properties": {
+                      "maxMessages": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "windowMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 3600000
+                      }
+                    },
+                    "required": [
+                      "maxMessages",
+                      "windowMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "heartbeat": {
+                    "type": "object",
+                    "properties": {
+                      "intervalMilliseconds": {
+                        "type": "integer",
+                        "minimum": 5000,
+                        "maximum": 120000
+                      },
+                      "timeoutMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 60000
+                      }
+                    },
+                    "required": [
+                      "intervalMilliseconds",
+                      "timeoutMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "closeTimeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 250,
+                    "maximum": 10000
+                  },
+                  "direction": {
+                    "type": "string",
+                    "const": "client-to-server"
+                  },
+                  "clientMessageSchema": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "allOf": [
+                      {
+                        "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+                      },
+                      {
+                        "pattern": "\\.json$"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "provider",
+                  "scope",
+                  "maxMessageBytes",
+                  "maxConnectionsPerUser",
+                  "queue",
+                  "rateLimit",
+                  "heartbeat",
+                  "closeTimeoutMilliseconds",
+                  "direction",
+                  "clientMessageSchema"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "provider": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "project"
+                    ]
+                  },
+                  "maxMessageBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "maxConnectionsPerUser": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                  },
+                  "queue": {
+                    "type": "object",
+                    "properties": {
+                      "delivery": {
+                        "type": "string",
+                        "enum": [
+                          "reliable",
+                          "latest"
+                        ]
+                      },
+                      "highWaterMarkBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      },
+                      "maxQueueBytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 8000000
+                      }
+                    },
+                    "required": [
+                      "delivery",
+                      "highWaterMarkBytes",
+                      "maxQueueBytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rateLimit": {
+                    "type": "object",
+                    "properties": {
+                      "maxMessages": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "windowMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 3600000
+                      }
+                    },
+                    "required": [
+                      "maxMessages",
+                      "windowMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "heartbeat": {
+                    "type": "object",
+                    "properties": {
+                      "intervalMilliseconds": {
+                        "type": "integer",
+                        "minimum": 5000,
+                        "maximum": 120000
+                      },
+                      "timeoutMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 60000
+                      }
+                    },
+                    "required": [
+                      "intervalMilliseconds",
+                      "timeoutMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "closeTimeoutMilliseconds": {
+                    "type": "integer",
+                    "minimum": 250,
+                    "maximum": 10000
+                  },
+                  "direction": {
+                    "type": "string",
+                    "const": "bidirectional"
+                  },
+                  "clientMessageSchema": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "allOf": [
+                      {
+                        "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+                      },
+                      {
+                        "pattern": "\\.json$"
+                      }
+                    ]
+                  },
+                  "serverMessageSchema": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "allOf": [
+                      {
+                        "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+                      },
+                      {
+                        "pattern": "\\.json$"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "provider",
+                  "scope",
+                  "maxMessageBytes",
+                  "maxConnectionsPerUser",
+                  "queue",
+                  "rateLimit",
+                  "heartbeat",
+                  "closeTimeoutMilliseconds",
+                  "direction",
+                  "clientMessageSchema",
+                  "serverMessageSchema"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

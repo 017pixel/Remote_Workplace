@@ -1292,6 +1292,73 @@ Die bestehenden 167 Core-Endpunkte bleiben unverändert. Erst der Extension Mana
 diese Contributions atomar und prüft globale Kollisionen; dieses Contract-Subgoal mountet keine
 neuen produktiven Routen.
 
+#### Realtime Contributions
+
+Realtime Contributions öffnen typisierte JSON-Kanäle über einen vom Host kontrollierten
+WebSocket-Endpunkt. Pfad, Handshake, Identity, Queue und Lifecycle werden nicht an die Extension
+delegiert:
+
+```json
+{
+  "contributes": {
+    "realtime": [
+      {
+        "id": "workbench.agent-tasks.realtime.tasks",
+        "description": "Synchronisiert Agent Tasks in Echtzeit.",
+        "provider": "workbench.agent-tasks.realtime-provider.tasks",
+        "scope": "project",
+        "maxMessageBytes": 64000,
+        "maxConnectionsPerUser": 4,
+        "queue": {
+          "delivery": "reliable",
+          "highWaterMarkBytes": 128000,
+          "maxQueueBytes": 1000000
+        },
+        "rateLimit": { "maxMessages": 120, "windowMilliseconds": 60000 },
+        "heartbeat": {
+          "intervalMilliseconds": 30000,
+          "timeoutMilliseconds": 10000
+        },
+        "closeTimeoutMilliseconds": 2000,
+        "direction": "bidirectional",
+        "clientMessageSchema": "./schemas/task-client-message.json",
+        "serverMessageSchema": "./schemas/task-server-message.json"
+      }
+    ]
+  }
+}
+```
+
+- Kanäle sind `server-to-client`, `client-to-server` oder `bidirectional` und müssen exakt die
+  dafür benötigten lokalen Nachrichtenschemas deklarieren. Die Runtime löst selbstenthaltene
+  Schemas per Realpath im Paket auf und validiert jede JSON-Nachricht vor Zustellung oder Versand.
+  Binärframes, Streams und rohe Socket-Objekte sind ausgeschlossen.
+- Der Host leitet die URL aus Extension- und Contribution-ID ab. Jeder Upgrade benötigt eine
+  erlaubte Workbench-Identität und Same-Origin. `user` isoliert Verbindungen je Benutzer;
+  `project` verlangt zusätzlich einen existierenden, für diesen Benutzer zugänglichen
+  Projektkontext. Eigene Origins, Cookies, Tickets, Tokens und Query-Authentifizierung sind keine
+  Manifestfelder.
+- Nachrichtengröße, Verbindungen je Benutzer und Nachrichtenrate sind hart begrenzt und werden
+  mit strengeren globalen Limits kombiniert. Inbound Flood schließt die Verbindung kontrolliert.
+  Extensions können die Limits weder abschalten noch durch mehrere Provider-Registrierungen
+  umgehen.
+- `reliable` behält Nachrichten bis zur begrenzten Queue und schließt langsame Empfänger bei
+  Überlauf mit Retry-Hinweis. `latest` ersetzt nur das noch nicht gesendete Zustandsbild dieses
+  Kanals. High Water Mark und Gesamtqueue schützen den Node-Prozess; kein Modus erzeugt eine
+  unbegrenzte Queue oder stillen Verlust zuverlässiger Events.
+- Ping, Pong, Heartbeat Timeout und Close Codes gehören dem Host und liegen außerhalb der
+  Extension-Nachrichtenschemas. Provider erhalten typisierte Send-/Receive-Funktionen,
+  Verbindungsidentität, Scope, Abort Signal und separat gewährte Capabilities, aber keinen Zugriff
+  auf Fastify, `ws`, fremde Verbindungen oder Runtime-Proxies.
+- Disable verweigert neue Upgrades, signalisiert dem Provider Abbruch, entfernt Listener und
+  Queue-Timer und schließt Extension-Kanäle nach der begrenzten Frist. Terminal-, Browser-,
+  DevTools-, Hermes-, T3-, code-server- und Preview-Verbindungen bleiben user-owned oder Kernel
+  und werden nicht über diese Registry beendet.
+
+Die fünf bestehenden Workbench-WebSocket-Flächen und alle Runtime-Proxies bleiben unverändert.
+Der Extension Manager führt Realtime Channels später atomar ein; dieses Contract-Subgoal öffnet
+keinen neuen produktiven Socket.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

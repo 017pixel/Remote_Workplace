@@ -228,6 +228,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Workbench-Identität, Same-Origin, Audit und globale Rate Limits als unveränderliche Hostregeln festgelegt
 - Rohe Requests, Replies, Header, Cookies, Redirects, Streams und Core-Routen ausgeschlossen
 
+### Extension-Realtime
+
+- Gerichtete und bidirektionale JSON-Kanäle als typisierte Realtime Contributions definiert
+- Benutzer- und Projekt-Scope an zentrale Identity-, Origin- und Ownership-Prüfung gebunden
+- Nachrichtengröße, Verbindungen, Nachrichtenrate, Queue und Heartbeat hart begrenzt
+- Reliable- und Latest-Delivery mit expliziter Backpressure-Semantik festgelegt
+- Rohe WebSockets, Binärframes, eigene Authentifizierung und fremde Runtime-Kanäle ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

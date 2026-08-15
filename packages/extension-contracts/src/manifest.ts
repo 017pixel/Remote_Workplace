@@ -51,6 +51,7 @@ import {
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 import { browserContributionsSchema } from "./browser-contributions.js";
 import { previewContributionsSchema } from "./preview-contributions.js";
+import { realtimeContributionsSchema } from "./realtime-contributions.js";
 import { scheduledJobContributionsSchema } from "./scheduled-job-contributions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
@@ -199,6 +200,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   scheduledJobs: scheduledJobContributionsSchema.optional(),
   http: httpContributionsSchema.optional(),
   rpc: rpcContributionsSchema.optional(),
+  realtime: realtimeContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -414,6 +416,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.rpc ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "rpc", index, "id"] as const,
+      })),
+      ...(manifest.contributes.realtime ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "realtime", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -1081,6 +1087,18 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.realtime ?? []
+    ).entries()) {
+      if (contributionBelongsToExtension(manifest.id, item.provider)) continue;
+      context.addIssue({
+        code: "custom",
+        message:
+          "Eine Realtime Provider ID muss zur deklarierenden Extension gehören.",
+        path: ["contributes", "realtime", index, "provider"],
+      });
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1292,6 +1310,18 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "HTTP/RPC Contributions benötigen einen Server-Entrypoint für ihre Provider.",
+        path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.realtime !== undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Realtime Contributions benötigen einen Server-Entrypoint für ihre Provider.",
         path: ["entrypoints", "server"],
       });
     }

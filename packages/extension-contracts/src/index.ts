@@ -16,6 +16,7 @@ export * from "./manifest-json-schema.js";
 export * from "./manifest.js";
 export * from "./permissions.js";
 export * from "./preview-contributions.js";
+export * from "./realtime-contributions.js";
 export * from "./scheduled-job-contributions.js";
 export * from "./settings-contributions.js";
 export * from "./status-bar.js";
