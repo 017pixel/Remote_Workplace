@@ -89,7 +89,9 @@ lokale `.rwext`-Pakete.
   hostgerenderte Tools und Actions mit sieben expliziten Broker-Operationen, ohne Profile,
   Cookies, Downloads oder freie CDP-Kanäle zu öffnen. Agent Tool Contributions teilen Commands
   oder namespaced Server-Provider über lokale Ein- und Ausgabeschemas, ohne Grants, Approvals
-  oder ausführbaren Code im Manifest zu erlauben. Weitere Contributions, Manager, Capability
+  oder ausführbaren Code im Manifest zu erlauben. Agent Skill Contributions referenzieren lokale
+  `SKILL.md`-Pakete für vier kontrollierte Harness-Ziele, mit extensiongebundenen Namen,
+  sichtbarer Provenance und getrenntem Enablement. Weitere Contributions, Manager, Capability
   Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
@@ -99,12 +101,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.21 dreiundzwanzig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.22 vierundzwanzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`340755dc87a7db71d402d1f52929d7d2872ffc9a` als analysierter Ausgangspunkt von Subgoal 1.21.
-Der Ergebniscommit enthält Agent Tool Contributions V1 und diese Tracker-Aktualisierung.
+`a7a305fecdf584a2db081b80937ceeca2ef73152` als analysierter Ausgangspunkt von Subgoal 1.22.
+Der Ergebniscommit enthält Agent Skill Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -120,8 +122,8 @@ Der Ergebniscommit enthält Agent Tool Contributions V1 und diese Tracker-Aktual
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
-Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser- sowie Agent-Tool-
-Contributions sind geöffnet. Weitere Contributions und Catalog Contracts folgen.
+Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool- sowie
+Agent-Skill-Contributions sind geöffnet. Weitere Contributions und Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -129,14 +131,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.22, Agent Skill Contributions V1 planen.
+Subgoal 1.23, Background Service Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.22 untersucht den globalen Skill Editor, Harness-Verzeichnisse, Symlink-Propagation und
-Skill-Metadaten. Es definiert Agent Skill Contributions mit lokaler `SKILL.md`, stabiler Provenance
-und separatem Enablement, ohne globale Agent Rules still zu überschreiben. Installation oder
-Skill-Registry-Migration ist noch nicht Teil dieses Vertrags.
+Subgoal 1.23 inventarisiert die direkt in `app.ts` gestarteten Synchronisierer, Timer und
+Service-Manager erneut. Es definiert Background Service Contributions mit stabilem Provider,
+kontrollierter Startart, Health, Restart Policy und deterministischem Cleanup, ohne systemd,
+Kernel-Runtimes oder frei deklarierbare Prozesse in Extension-Manifeste zu verschieben.
 
 ## Phase Table
 
@@ -185,7 +187,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Storage | Featuretabellen in Workbench-DB | Registry-Metadaten zentral, Fachdaten je Extension getrennt | 5-6 | planning |
 | Permissions | Zentrale Security, aber keine Extension Grants | Permission Manager und Capability Broker mit Scopes | 1, 6 | planning |
 | Events und Jobs | Direkte Listener, Timer und Service-Start-Aufrufe | Typisierter Event Bus und Scheduler mit Cleanup | 5-6 | planning |
-| Agent Integration | Globaler Skill Editor und featuregebundene Agentenflächen; Agent-Tool-Vertrag eingeführt | Provenance-basierte Skills, Tools und Agent Contributions | 2, 6, 8 | planning |
+| Agent Integration | Globaler Skill Editor und featuregebundene Agentenflächen; Agent-Tool- und Agent-Skill-Verträge eingeführt | Provenance-basierte Skills, Tools und Agent Contributions | 2, 6, 8 | planning |
 | Tech TLDRs | UI, API, SQLite, Sync und Network fest eingebaut | `workbench.tech-tldrs` Canary Extension | 9 | not-started |
 | Usage | UI und Services fest eingebaut | `workbench.usage` Built-in Extension | 10 | not-started |
 | Skills UI | Route und Serverdienst fest eingebaut | `workbench.skills` Built-in Extension auf bestehender Infrastruktur | 10 | not-started |
@@ -237,6 +239,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Preview Contributions enthalten keine URLs, Ports oder Runtime-Steuerung. | Targets verwenden Provider mit `preview.read` und bei Verwaltung zusätzlich `preview.manage`; Actions teilen Commands. Gateway, Slots, Sessions, Storage, Diagnose, Quarantäne und Devserver bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Browser Contributions öffnen keinen freien Chromium- oder CDP-Zugriff. | Tools deklarieren sieben begrenzte Broker-Operationen, benötigen einen Provider und `browser.control`; Actions teilen Commands. Profile, Cookies, Downloads, Session-Ownership, DevTools-Proxy und Lifecycle bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Agent Tools registrieren Schemas und Handler, keine Agentenrechte. | Command- und Provider-Tools benötigen lokalen Input Contract, Server-Entrypoint und `agents.tools.register`. Approval bleibt Host Policy oder wird durch `always` verschärft; weitere Fähigkeiten werden separat gewährt und pro Aufruf geprüft. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Extension-Skills bleiben getrennt von globalen User-Skills und Regeln. | Lokale `SKILL.md`-Pakete verwenden einen extensiongebundenen Namen, serverseitig abgeleitete Provenance und separates Enablement je Skill. Harness-Ziele sind nur Kompatibilitätsangaben; globale Regeln, User-Skills und fremde Extension-Skills bleiben schreibgeschützt. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -270,6 +273,7 @@ Priorisierte Abhängigkeiten:
 | Ein Preview Target übernimmt Slots, externe URLs oder aktive Devserver | Sessionverlust, SSRF, Storage-Leak oder unterbrochene Nutzerarbeit | Manifest enthält keine Runtime-Ziele; Provider benötigen Grants, Host klassifiziert jede URL und Disable verändert weder Sessions, Slots, Storage noch Devserver | offen |
 | Ein Browser Tool erhält einen freien CDP-Kanal oder löscht beim Disable ein Profil | Credential-Leak, beliebige Seiteneingabe oder Verlust angemeldeter Sitzungen | Manifest erlaubt nur sieben feste Operationen; Provider benötigen hochprivilegierten Grant, Broker prüft Ownership und Operation erneut, Disable entfernt keine Session- oder Profildaten | offen |
 | Ein Agent Tool deutet Registrierung als Grant oder umgeht Approval über einen Adapter | Unautorisierte Mutationen, Secret-Leak oder agentenübergreifende Dauerfreigabe | `agents.tools.register` erlaubt nur Registrierung; Input und Output werden validiert, Capabilities separat geprüft, Approval sessiongebunden durch Host Policy entschieden und Adapter führen stabile Audit-ID mit | offen |
+| Ein Extension-Skill kollidiert mit globalen Regeln oder bleibt nach Disable unbemerkt aktiv | Verändertes Agentenverhalten, falsche Provenance oder unkontrollierbare Instructions | Extensiongebundene Namen, paketinterne Realpath-Prüfung, serverseitig abgeleitete Provenance und getrenntes Enablement; Disable entfernt nur verwaltete Sichtbarkeit und verändert keine User-Skills | offen |
 
 ## Compatibility Matrix
 
@@ -297,6 +301,7 @@ Priorisierte Abhängigkeiten:
 | Preview Contributions | 1 bis 128 Targets oder Actions, drei Open Modes und fünf Host-Surfaces | Targets benötigen Provider, Entrypoint und passende Preview-Grants; Gateway, Slots, Storage, Diagnose und Devserver bleiben Kernel |
 | Browser Contributions | 1 bis 128 Tools oder Actions, sieben Broker-Operationen und vier Host-Surfaces | Tools benötigen Provider, Entrypoint und `browser.control`; Manifest enthält keine URLs, Profile, Cookies, Downloadpfade oder freien CDP-Methoden |
 | Agent Tool Contributions | 1 bis 128 Command- oder Provider-Tools mit lokalem Input- und optionalem Output-Schema | Server-Entrypoint und `agents.tools.register` sind Pflicht; Host Policy kann nur durch `always` verschärft werden, Capabilities und Approvals bleiben getrennt |
+| Agent Skill Contributions | 1 bis 128 lokale `SKILL.md`-Pakete für Codex, Claude Code, OpenCode oder Hermes | `agents.skills.register`, extensiongebundene Namen und serverseitige Provenance sind Pflicht; tatsächliches Enablement bleibt je Skill und Ziel getrennt, globale Regeln und User-Skills unverändert |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -308,10 +313,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.21, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.21, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 380 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1073 | Subgoal 1.21, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.21, vollständiger Build einschließlich aktualisiertem JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.22, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.22, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 387 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1080 | Subgoal 1.22, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.22, vollständiger Build einschließlich aktualisiertem JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -381,7 +386,8 @@ Keine.
 | `0647fb0` | Subgoal 1.18, Terminal Contributions V1 |
 | `13d78a2` | Subgoal 1.19, Preview Contributions V1 |
 | `340755d` | Subgoal 1.20, Browser Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.21, Agent Tool Contributions V1 |
+| `a7a305f` | Subgoal 1.21, Agent Tool Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.22, Agent Skill Contributions V1 |
 
 ## Subgoal Log
 
@@ -411,4 +417,5 @@ Keine.
 | 1.19 Preview Contributions V1 | done | Targets und Actions, Open Modes, fünf Host-Surfaces, Permission-, Entrypoint-, Command-, Provider-, Icon-, Context- und ID-Prüfungen, JSON Schema und 1057 grüne Repository-Tests | Subgoal 1.20, Browser Contributions V1 |
 | 1.20 Browser Contributions V1 | done | Tools und Actions, sieben Broker-Operationen, vier Host-Surfaces, Permission-, Entrypoint-, Command-, Provider-, Icon-, Context- und ID-Prüfungen, JSON Schema und 1065 grüne Repository-Tests | Subgoal 1.21, Agent Tool Contributions V1 |
 | 1.21 Agent Tool Contributions V1 | done | Command- und Provider-Tools, lokale Ein-/Ausgabeschemas, Host-Approval-Policy, Permission-, Entrypoint-, Command-, Provider- und ID-Prüfungen, JSON Schema und 1073 grüne Repository-Tests | Subgoal 1.22, Agent Skill Contributions V1 |
-| 1.22 Agent Skill Contributions V1 | planning | Globaler Skill Editor und Harness-Inventar aus Phase 0 liegen vor | Skill-Verzeichnisse, Frontmatter, Symlink-Propagation, Provenance und separates Enablement erneut inventarisieren |
+| 1.22 Agent Skill Contributions V1 | done | Paketinterne `SKILL.md`, vier Harness-Ziele, Extension-Namensraum, Permission-, Pfad-, Provenance- und Enablement-Vertrag, JSON Schema und 1080 grüne Repository-Tests | Subgoal 1.23, Background Service Contributions V1 |
+| 1.23 Background Service Contributions V1 | planning | Hintergrunddienste, Timer, Synchronisierer und Runtime-Grenzen aus Phase 0 liegen vor | Bootstrap-Lifecycle, Provider, Health, Restart Policy und deterministisches Cleanup erneut inventarisieren |

@@ -196,6 +196,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Approval Policy auf zentrale Hostentscheidung oder strengere Einzelfreigabe begrenzt
 - Prompts, Grants, Shell-Text, Tokens, Session-IDs und ausführbaren Code aus Manifesten ausgeschlossen
 
+### Extension-Agent-Skills
+
+- Lokale SKILL.md-Pakete als versionierte Agent Skill Contributions definiert
+- Kollisionsfreie Skill-Namen verbindlich an den normalisierten Extension-Namensraum gebunden
+- Codex, Claude Code, OpenCode und Hermes als kontrollierte Ziel-Harnesses festgelegt
+- Registrierung an eigene Berechtigung, sichtbare Provenance und getrenntes Enablement gebunden
+- Schreibzugriffe auf globale Regeln, User-Skills und fremde Extension-Skills ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

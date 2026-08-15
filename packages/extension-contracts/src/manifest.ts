@@ -4,6 +4,10 @@ import {
   activationEventContributionId,
   activationEventsV1Schema,
 } from "./activation-events.js";
+import {
+  agentSkillContributionsSchema,
+  agentSkillNameBelongsToExtension,
+} from "./agent-skill-contributions.js";
 import { agentToolContributionsSchema } from "./agent-tool-contributions.js";
 import {
   commandContributionsSchema,
@@ -184,6 +188,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   previews: previewContributionsSchema.optional(),
   browser: browserContributionsSchema.optional(),
   agentTools: agentToolContributionsSchema.optional(),
+  agentSkills: agentSkillContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -365,6 +370,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.agentTools ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "agentTools", index, "id"] as const,
+      })),
+      ...(manifest.contributes.agentSkills ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "agentSkills", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -979,6 +988,18 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.agentSkills ?? []
+    ).entries()) {
+      if (agentSkillNameBelongsToExtension(manifest.id, item.name)) continue;
+      context.addIssue({
+        code: "custom",
+        message:
+          "Ein Agent Skill Name muss mit dem normalisierten Extension-Namespace beginnen.",
+        path: ["contributes", "agentSkills", index, "name"],
+      });
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1154,6 +1175,20 @@ export const extensionManifestV1Schema = z
         message:
           "Agent Tool Contributions benötigen einen Server-Entrypoint für ihre Handler.",
         path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.agentSkills !== undefined &&
+      !manifest.permissions.some(
+        (request) => request.permission === "agents.skills.register",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Agent Skill Contributions müssen die Permission agents.skills.register anfordern.",
+        path: ["permissions"],
       });
     }
 

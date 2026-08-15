@@ -1047,6 +1047,55 @@ Phase 2 führt zunächst nur die Registry und Legacy-Metadaten ein. Hermes ACP, 
 Claude Code, deren Approvals und laufende Sessions werden in diesem Contract-Subgoal nicht
 verändert.
 
+#### Agent Skill Contributions
+
+Agent Skill Contributions liefern versionierte `SKILL.md`-Pakete aus einer Extension an die
+vom Host verwalteten Agent-Harnesses aus. Der Extension Manager bleibt dabei die einzige Quelle
+für Installation, Provenance und Aktivierungszustand:
+
+```json
+{
+  "permissions": [{ "permission": "agents.skills.register" }],
+  "contributes": {
+    "agentSkills": [
+      {
+        "id": "workbench.agent-tasks.agent-skill.task-management",
+        "name": "workbench-agent-tasks-task-management",
+        "description": "Verwaltet Agent Tasks in Remote Workplace.",
+        "path": "./skills/workbench-agent-tasks-task-management/SKILL.md",
+        "targets": ["codex", "claude-code", "opencode", "hermes"],
+        "enabledByDefault": false
+      }
+    ]
+  }
+}
+```
+
+- Jede Agent-Skill-Extension benötigt den Request `agents.skills.register`. `path` zeigt exakt
+  auf `./skills/<name>/SKILL.md`; absolute Pfade, Pfadescapes und rohe Instructions im Manifest
+  sind ausgeschlossen. Installer und Runtime lösen Verzeichnis und Datei per Realpath innerhalb
+  der kanonischen Paketwurzel auf und weisen fehlende, verlinkte, zu große oder ungültig kodierte
+  Inhalte ab.
+- Der Skill-Name beginnt mit der normalisierten Extension-ID, zum Beispiel
+  `workbench-agent-tasks-`. So kollidiert er weder mit User-Skills noch mit einer anderen
+  Extension. Name und Beschreibung im `SKILL.md`-Frontmatter müssen dem Manifest entsprechen;
+  weitere Skill-Ressourcen bleiben vollständig im zugehörigen Skill-Verzeichnis.
+- `targets` sind ausschließlich Kompatibilitätsangaben. Der Server entscheidet, welche
+  Harness-Wurzeln verfügbar sind, und erzeugt dort verwaltete Verweise oder Kopien. Manifest und
+  Extension-Code erhalten weder absolute Harness-Pfade noch Schreibzugriff auf globale
+  Agenten-Regeln, User-Skills oder Skills anderer Extensions.
+- Provenance wird nicht aus Extension-Inhalt übernommen, sondern aus dem verifizierten Paket als
+  `extensionId`, `extensionVersion`, `publisher` und `skillId` abgeleitet. Installation,
+  Berechtigungsprüfung und Skill-Verwaltung zeigen diese Herkunft sichtbar und auditierbar an.
+- `enabledByDefault` ist nur der Erstinstallationsvorschlag. Der tatsächliche Zustand wird
+  serverseitig pro Skill und Ziel getrennt gespeichert und kann unabhängig von der Extension
+  geändert werden. Disable entfernt nur die verwaltete Sichtbarkeit, behält Paket und Zustand und
+  löscht niemals globale User-Skills oder Agentendaten.
+
+Der bestehende Skill Editor bleibt für globale, nutzerverwaltete Skills zuständig. Extension-
+Skills werden dort später mit Provenance und getrenntem Enablement sichtbar, aber nicht still in
+globale Regeln eingebettet oder als User-Skill überschrieben.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

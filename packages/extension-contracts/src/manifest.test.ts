@@ -2479,6 +2479,83 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert permission-gebundene Agent Skills ohne Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: {},
+        permissions: [{ permission: "agents.skills.register" }],
+        contributes: {
+          agentSkills: [
+            {
+              id: "workbench.agent-tasks.agent-skill.task-management",
+              name: "workbench-agent-tasks-task-management",
+              description: "Verwaltet Agent Tasks in Remote Workplace.",
+              path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
+              targets: ["codex", "claude-code", "opencode"],
+              enabledByDefault: false,
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("verlangt für Agent Skills Permission und eigenen Namensraum", () => {
+    const agentSkill = {
+      id: "workbench.agent-tasks.agent-skill.task-management",
+      name: "workbench-agent-tasks-task-management",
+      description: "Verwaltet Agent Tasks in Remote Workplace.",
+      path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
+      targets: ["codex", "claude-code", "opencode"],
+      enabledByDefault: false,
+    } as const;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [],
+        contributes: { agentSkills: [agentSkill] },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [{ permission: "agents.skills.register" }],
+        contributes: {
+          agentSkills: [
+            {
+              ...agentSkill,
+              name: "workbench-other-task-management",
+              path: "./skills/workbench-other-task-management/SKILL.md",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist manifestweit doppelte Agent Skill IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [{ permission: "agents.skills.register" }],
+        contributes: {
+          commands: validManifest.contributes.commands,
+          agentSkills: [
+            {
+              id: "workbench.agent-tasks.command.create",
+              name: "workbench-agent-tasks-task-management",
+              description: "Verwaltet Agent Tasks in Remote Workplace.",
+              path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
+              targets: ["codex"],
+              enabledByDefault: false,
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -2620,7 +2697,25 @@ describe("Extension Manifest V1", () => {
       extensionContributionsV1Schema.safeParse({ agentTools: [] }).success,
     ).toBe(false);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        agentSkills: [
+          {
+            id: "workbench.agent-tasks.agent-skill.task-management",
+            name: "workbench-agent-tasks-task-management",
+            description: "Verwaltet Agent Tasks in Remote Workplace.",
+            path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
+            targets: ["codex"],
+            enabledByDefault: false,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ agentSkills: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ backgroundServices: [] })
+        .success,
     ).toBe(false);
   });
 });
