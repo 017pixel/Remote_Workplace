@@ -101,8 +101,10 @@ lokale `.rwext`-Pakete.
   Scope und begrenzten Queue-, Backpressure-, Rate-, Heartbeat- und Cleanup-Policies.
   Notification Contributions öffnen stabile Sources, Kategorien und Command-Actions mit
   hostverwalteter Retention und Deduplizierung. Theme Contributions öffnen ausschließlich
-  kontrastgeprüfte semantische Farbrollen in Dark-/Light-Varianten. Catalog Contracts, Manager,
-  Capability Broker, SDK und Local Catalog folgen.
+  kontrastgeprüfte semantische Farbrollen in Dark-/Light-Varianten. Catalog Contracts binden
+  validierte Manifeste an serverseitige Provider, effektiven Trust und vollständige lokale
+  Package-Inventare mit Größen und SHA-256. Manager, Capability Broker, SDK und Local Catalog
+  folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -111,12 +113,13 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.28 dreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.29 einunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`c8a7a2d72d96b39fad4e5a3f4b6992ef5b5a931a` als analysierter Ausgangspunkt von Subgoal 1.28.
-Der Ergebniscommit enthält Theme Contributions V1 und diese Tracker-Aktualisierung.
+`25e01b91264c140d09c985e9ac6235b41c1727fb` als analysierter Ausgangspunkt von Subgoal 1.29.
+Der Ergebniscommit enthält Catalog Metadata und Package Contracts V1 sowie diese
+Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -135,7 +138,8 @@ Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
 Context-Menu-, Status-Bar-, Topbar-, File-, Terminal-, Preview-, Browser-, Agent-Tool-,
 Agent-Skill-, Background-Service- sowie Scheduled-Job-Contributions sind geöffnet. HTTP-, RPC-,
 Realtime-, Notification- und Theme-Contributions sind ebenfalls geöffnet. Damit sind alle für V1
-geplanten Contribution-Bereiche typisiert; Catalog Contracts folgen.
+geplanten Contribution-Bereiche typisiert. Catalog Snapshot, Catalog Entry und Package Descriptor
+V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
@@ -143,14 +147,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.29, Catalog Metadata und Package Contracts V1 planen.
+Subgoal 1.30, Installations- und Update-API Contracts V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.29 gleicht den akzeptierten Local-Catalog-ADR, Manifestmetadaten, Paketassets,
-Provenance, Integrity, Kompatibilität und die drei lokalen Source-Arten erneut ab. Es definiert
-serverseitige Catalog Entries und sichere `.rwext`-Package-Deskriptoren ohne Remote Registry,
-Netzwerkquelle oder vom Manifest selbst erhöhten Trust.
+Subgoal 1.30 gleicht Server Authority, Lifecycle, Catalog, Permissions und Recovery erneut ab.
+Es definiert die serverseitig autoritativen Listen-, Detail-, Installations-, Update-,
+Enable-/Disable-, Uninstall-, Rollback- und Reload-Verträge, ohne Browserzustand als Wahrheit
+oder freie Paketquellen zuzulassen.
 
 ## Phase Table
 
@@ -213,7 +217,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Hermes | Eigene SPA, Proxy, Bridge und Services | Kernel Runtime/Proxy, UI Contributions als `workbench.hermes` | 10 | not-started |
 | Browser/Previews/Files | Sicherheitskritische Broker plus statische UI; File-, Terminal-, Preview- und Browser-Verträge eingeführt | Broker im Kernel, sichtbare UI als Built-in Extensions | 2, 6, 10 | planning |
 | Projects/Inbox/Dashboard | Zentrale sichtbare Features | Built-in Extensions auf Workspace- und Notification-Substrat | 10 | not-started |
-| Local Catalog | Nicht vorhanden | Lokaler Bundled Catalog mit echtem Installationspfad | 5, 11-12 | not-started |
+| Local Catalog | Catalog- und Package-Verträge eingeführt, Provider und Installation fehlen | Lokaler Bundled Catalog mit echtem Installationspfad | 5, 11-12 | planning |
 
 Priorisierte Abhängigkeiten:
 
@@ -262,6 +266,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Realtime öffnet typisierte Hostkanäle, keine rohen WebSockets. | Richtungsspezifische lokale JSON-Schemas, User-/Projekt-Scope, Verbindungs- und Nachrichtenlimits, Reliable-/Latest-Backpressure und Host-Heartbeat bilden den Vertrag. Bestehende Runtime-Kanäle bleiben Kernel. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Notification Contributions registrieren Sources, keine Zustellwege. | Stabile Source-, Kategorie- und Action-IDs, kontrollierte Icons, Retention-Klassen und begrenzte Deduplizierung bilden den Vertrag. Capability Broker, Redaction, Deep-Link-Prüfung, Push und Persistenz bleiben Hostaufgaben. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Themes verändern nur kontrastgeprüfte semantische Farbrollen. | Opake Hex-RGB-Werte für Dark-/Light-Varianten werden auf Darstellung, Surface-Unterscheidung und WCAG-Kontrast geprüft. CSS, Fonts, Layout, Motion, Safe Areas, Hermes und geschützte Hostzustände bleiben außerhalb des Vertrags. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Catalog-Metadaten sind serverseitig abgeleitete, lokale Prüfverträge. | Entries binden Manifest, Provider und effektiven Trust an ein vollständiges Größen- und SHA-256-Inventar. Der Installer verifiziert das Material erneut; Hostpfade, URLs, Git, GitHub und npm bleiben undarstellbar. Siehe [`extension-local-catalog-v1.md`](../adr/extension-local-catalog-v1.md). |
 
 ## Risk Register
 
@@ -302,6 +307,7 @@ Priorisierte Abhängigkeiten:
 | Ein Realtime Channel flutet den Server, verliert zuverlässige Events oder greift fremde Verbindungen ab | Speicheranstieg, inkonsistenter Clientzustand oder Datenleck | Schema und Größe je Nachricht, User-/Projekt-Ownership, harte Verbindungs- und Ratelimits, begrenzte Queue, Reliable-Close statt Drop, Host-Heartbeat und deterministischer Disconnect beim Disable | offen |
 | Eine Extension erzeugt Notification-Spam, schleust Secrets ein oder öffnet unsichere Links | Überlastete Inbox, Datenleck oder Navigation außerhalb der Workbench | Permission und Rate Limit je Erstellung, begrenzte Klartextfelder, Redaction vor Persistenz und Push, deklarierte Kategorien/Actions sowie zentrale Prüfung interner Deep Links | offen |
 | Ein Theme injiziert CSS oder macht Text, Fokus und Status unlesbar | UI-Manipulation, unbedienbare Recovery oder fehlende Barrierefreiheit | Nur feste opake Farbrollen, Kontrast- und Darstellungsprüfung, hostabgeleitete Zustände, geschützte Recovery-Tokens und atomarer Fallback ohne fremde Stylesheets | offen |
+| Ein manipuliertes Paket täuscht Descriptor, Größen oder Hashes vor | Path Escape, Zip Bomb, unvollständige Assets oder Ausführung anderer Bytes | Installer akzeptiert nur reguläre Dateien, prüft Archiv und Inventar erneut, begrenzt Anzahl sowie Größen und löst jeden Realpath innerhalb des Staging-Roots auf | offen |
 
 ## Compatibility Matrix
 
@@ -336,6 +342,7 @@ Priorisierte Abhängigkeiten:
 | Realtime Contributions | 1 bis 128 gerichtete oder bidirektionale JSON-Kanäle mit User-/Projekt-Scope | Server-Entrypoint, Provider und Richtungsschemas sind Pflicht; Host besitzt URL, Identity, Origin, Queue, Rate, Heartbeat, Close und Runtime-Isolation |
 | Notification Contributions | 1 bis 128 Sources mit je 1 bis 32 Kategorien, bis zu 16 Command-Actions, drei Retention-Klassen und optionaler Schlüssel-Deduplizierung | `notifications.create`, eigener Namespace und kontrollierte Icons sind Pflicht; bestehende geschlossene Sources, Kategorien und gespeicherte Meldungen bleiben über Legacy-Fallbacks lesbar |
 | Theme Contributions | 1 bis 32 Themes mit mindestens einer Dark-/Light-Variante und 13 kontrollierten Farbrollen | Opake Hex-RGB-Werte, eindeutige IDs sowie Kontrast- und Darstellungsprüfung sind Pflicht; Systemmodus, Auswahl, PWA-Metadaten, Hermes und alle nichtfarblichen Tokens bleiben Hostzustand |
+| Catalog und Package Descriptor | Maximal 256 lokale Entries, Formatversion 1, vollständige reguläre Dateien mit Größen und SHA-256 | Manifest, ID, Version, Trust und Assets müssen übereinstimmen; Installer verifiziert erneut, Remote- und Hostquellen bleiben ausgeschlossen, Fehler werden isoliert gemeldet |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -347,10 +354,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.28, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.28, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 436 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1129 | Subgoal 1.28, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.28, vollständiger Build einschließlich aktualisiertem JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.29, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.29, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 447 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1140 | Subgoal 1.29, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.29, vollständiger Build einschließlich drei versionierter JSON Schemas |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -427,7 +434,8 @@ Keine.
 | `9746419` | Subgoal 1.25, HTTP/RPC Contributions V1 |
 | `1ad52d7` | Subgoal 1.26, Realtime Contributions V1 |
 | `c8a7a2d` | Subgoal 1.27, Notification Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.28, Theme Contributions V1 |
+| `25e01b9` | Subgoal 1.28, Theme Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
 
 ## Subgoal Log
 
@@ -464,4 +472,5 @@ Keine.
 | 1.26 Realtime Contributions V1 | done | Drei Richtungen, lokale Nachrichtenschemas, User-/Projekt-Scope, Provider, Queue, Delivery, Rate, Heartbeat, Close, Entrypoint- und ID-Prüfungen, JSON Schema und 1109 grüne Repository-Tests | Subgoal 1.27, Notification Contributions V1 |
 | 1.27 Notification Contributions V1 | done | Sources, Kategorien, Command-Actions, kontrollierte Icons, drei Retention-Klassen, optionale Schlüssel-Deduplizierung, Permission-, Namespace- und ID-Prüfungen, JSON Schema und 1120 grüne Repository-Tests | Subgoal 1.28, Theme Contributions V1 |
 | 1.28 Theme Contributions V1 | done | Dark-/Light-Varianten, 13 semantische Farbrollen, opake Hex-RGB-Werte, WCAG-Kontrast, Darstellungs-, Surface-, Namespace- und ID-Prüfungen, JSON Schema und 1129 grüne Repository-Tests | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
-| 1.29 Catalog Metadata und Package Contracts V1 | planning | Local-Catalog-ADR, Manifestmetadaten, lokale Source-Arten, Assets, Trust- und Installationsgrenzen aus Phase 0 liegen vor | Catalog Entry, Package Descriptor, Provenance, Integrity, Compatibility, Assets und Offline-Verhalten erneut inventarisieren |
+| 1.29 Catalog Metadata und Package Contracts V1 | done | Catalog Snapshot und Entry, Package Descriptor, Provider, effektiver Trust, vollständiges Größen-/SHA-256-Inventar, Asset-Abgleich, isolierte Scan-Probleme, zwei JSON Schemas und 1140 grüne Repository-Tests | Subgoal 1.30, Installations- und Update-API Contracts V1 |
+| 1.30 Installations- und Update-API Contracts V1 | planning | Server-Authority-, Runtime-, Local-Catalog- und Permission-ADRs sowie Lifecycle- und Package-Verträge liegen vor | Autoritative Zustandsansichten und strikt typisierte Mutationsverträge inventarisieren |

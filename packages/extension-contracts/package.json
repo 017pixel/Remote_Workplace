@@ -8,7 +8,9 @@
       "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
-    "./schema/extension-manifest-v1.schema.json": "./schema/extension-manifest-v1.schema.json"
+    "./schema/extension-manifest-v1.schema.json": "./schema/extension-manifest-v1.schema.json",
+    "./schema/extension-catalog-v1.schema.json": "./schema/extension-catalog-v1.schema.json",
+    "./schema/extension-package-descriptor-v1.schema.json": "./schema/extension-package-descriptor-v1.schema.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/generate-json-schema.mjs",

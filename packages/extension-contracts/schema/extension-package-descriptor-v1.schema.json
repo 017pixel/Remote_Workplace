@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "extensionId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+    },
+    "manifestPath": {
+      "type": "string",
+      "const": "./extension.json"
+    },
+    "archiveBytes": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 536870912
+    },
+    "unpackedBytes": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 1073741824
+    },
+    "integrity": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-fA-F]{64}$"
+    },
+    "files": {
+      "minItems": 1,
+      "maxItems": 20000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 67108864
+          },
+          "integrity": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-fA-F]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "bytes",
+          "integrity"
+        ],
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "formatVersion",
+    "extensionId",
+    "version",
+    "manifestPath",
+    "archiveBytes",
+    "unpackedBytes",
+    "integrity",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "urn:remote-workplace:extension-package-descriptor:v1",
+  "title": "Remote Workplace Extension Package Descriptor V1"
+}

@@ -41,6 +41,53 @@ V1 implementiert ausschließlich `LocalCatalogProvider`. Der Vertrag hält Disco
 getrennt, ist aber keine Vorwegnahme eines Remote Providers. Ein späterer Catalog Provider
 benötigt einen neuen Security-, Trust- und Distribution-ADR.
 
+### Catalog- und Package-Verträge
+
+Die kanonischen Laufzeitverträge liegen in
+`packages/extension-contracts/src/catalog.ts`. Zusätzlich werden zwei versionierte
+Draft-2020-12-Artefakte erzeugt:
+
+- `extension-catalog-v1.schema.json` für den vollständigen serverseitigen Snapshot,
+- `extension-package-descriptor-v1.schema.json` für ein einzelnes `.rwext`-Paket.
+
+Ein Catalog Entry enthält das bereits validierte Manifest, die serverseitig abgeleitete
+Provider-ID, den effektiven Trust `catalog-first-party`, optionale lokale Screenshots und einen
+Package Descriptor. Der Descriptor bindet Extension-ID und Version an das Manifest und führt
+Archivgröße, entpackte Größe, Archiv-SHA-256 sowie jede reguläre Paketdatei mit sicherem
+`./`-Pfad, Größe und SHA-256 auf. `./extension.json` ist verpflichtend; doppelte Pfade,
+fehlende sichtbare Assets und widersprüchliche Größen werden abgewiesen.
+
+```json
+{
+  "formatVersion": 1,
+  "extensionId": "workbench.agent-tasks",
+  "version": "1.0.0",
+  "manifestPath": "./extension.json",
+  "archiveBytes": 900,
+  "unpackedBytes": 1200,
+  "integrity": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "files": [
+    {
+      "path": "./extension.json",
+      "bytes": 1200,
+      "integrity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}
+```
+
+Catalog Snapshots besitzen eine inhaltsgebundene Revision, den Scan-Zeitpunkt, maximal 256
+eindeutige Entries und begrenzte, pfadfreie Scan-Probleme. Ein fehlerhaftes Paket erscheint
+nicht als installierbarer Entry und blockiert den Workbench-Start nicht. Catalog-Daten werden
+serverseitig erzeugt; Browser und Manifest dürfen weder Provider, Trust noch Provenance setzen.
+
+Der Descriptor ist Prüfmaterial, kein Vertrauensbeweis. Der Installer berechnet Archiv- und
+Datei-Hashes erneut, akzeptiert nur reguläre Dateien, löst Realpaths innerhalb des Staging-Roots
+auf und weist Symlinks, Traversal, Größenüberschreitungen, Zip Bombs und Abweichungen fail-closed
+ab. Hostpfade, Download-URLs sowie Git-, GitHub- und npm-Quellen sind in den Verträgen nicht
+darstellbar. Assets werden später ausschließlich über Extension-ID, Version und Hash ausgeliefert
+und gecacht.
+
 ### Paketablage
 
 - Source Extensions liegen im Monorepo unter `extensions/catalog/<name>`.
@@ -51,6 +98,8 @@ benötigt einen neuen Security-, Trust- und Distribution-ADR.
 - `.rwext` ist ein lokales, versioniertes Archivformat mit `extension.json` an einer festen
   Wurzel. Archivpfade werden vor dem Entpacken gegen absolute Pfade, Traversal und Symlinks
   geprüft.
+- Package Descriptor und Catalog Snapshot beschreiben Discovery und Verifikation. Sie installieren,
+  aktivieren oder migrieren selbst nichts; diese Mutationen bleiben beim Extension Manager.
 
 ### Einheitlicher Installationspfad
 

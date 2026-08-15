@@ -252,6 +252,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - WCAG-Kontrast, Darstellungsrichtung und unterscheidbare Surface-Rollen direkt validiert
 - Systemmodus, PWA-Chrome, Hermes und alle Layout-, Motion- und Accessibility-Tokens beim Host belassen
 
+### Extension-Catalog
+
+- Lokale Catalog Entries mit validiertem Manifest und versioniertem Package Descriptor definiert
+- Paketdateien über sichere Pfade, Größen und SHA-256-Integritätswerte vollständig inventarisiert
+- Extension-ID, Version, Trust und sichtbare Assets zwischen Manifest und Paket verbindlich abgeglichen
+- Revisionsgebundene Offline-Snapshots mit begrenzten, pfadfreien Scan-Problemen eingeführt
+- Hostpfade, Download-URLs sowie Git-, GitHub- und npm-Quellen aus Catalog-Verträgen ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
