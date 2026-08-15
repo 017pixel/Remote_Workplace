@@ -7318,6 +7318,1274 @@
             ]
           },
           "uniqueItems": true
+        },
+        "topbar": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "routeId": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "icon": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "extension"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 192,
+                        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "type": "string",
+                    "enum": [
+                      "primary",
+                      "secondary",
+                      "overflow"
+                    ]
+                  },
+                  "order": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "presentation": {
+                    "type": "string",
+                    "enum": [
+                      "icon",
+                      "label",
+                      "icon-label"
+                    ]
+                  },
+                  "compact": {
+                    "type": "string",
+                    "enum": [
+                      "overflow",
+                      "icon",
+                      "hide"
+                    ]
+                  },
+                  "when": {
+                    "type": "object",
+                    "properties": {
+                      "all": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "any": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "none": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "action"
+                  },
+                  "commandId": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "routeId",
+                  "placement",
+                  "order",
+                  "priority",
+                  "presentation",
+                  "compact",
+                  "kind",
+                  "commandId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "routeId": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "icon": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "extension"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 192,
+                        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "type": "string",
+                    "enum": [
+                      "primary",
+                      "secondary",
+                      "overflow"
+                    ]
+                  },
+                  "order": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "presentation": {
+                    "type": "string",
+                    "enum": [
+                      "icon",
+                      "label",
+                      "icon-label"
+                    ]
+                  },
+                  "compact": {
+                    "type": "string",
+                    "enum": [
+                      "overflow",
+                      "icon",
+                      "hide"
+                    ]
+                  },
+                  "when": {
+                    "type": "object",
+                    "properties": {
+                      "all": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "any": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "none": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exists",
+                                    "not-exists"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "equals",
+                                    "not-equals"
+                                  ]
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": -1000000000000000,
+                                      "maximum": 1000000000000000
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "host.input.focused",
+                                        "host.modal.open",
+                                        "host.route.id",
+                                        "host.project.open",
+                                        "host.surface",
+                                        "host.platform",
+                                        "host.orbit.focused",
+                                        "host.terminal.focused",
+                                        "host.preview.focused",
+                                        "host.browser.focused",
+                                        "host.agent.focused"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "maxLength": 192,
+                                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                    }
+                                  ]
+                                },
+                                "operator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "in",
+                                    "not-in"
+                                  ]
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 32,
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                      },
+                                      {
+                                        "type": "number",
+                                        "minimum": -1000000000000000,
+                                        "maximum": 1000000000000000
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  },
+                                  "uniqueItems": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "operator",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "selector"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "provider": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  },
+                  "commandId": {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "routeId",
+                  "placement",
+                  "order",
+                  "priority",
+                  "presentation",
+                  "compact",
+                  "kind",
+                  "title",
+                  "provider",
+                  "commandId"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

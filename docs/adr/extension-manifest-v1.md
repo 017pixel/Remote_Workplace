@@ -662,6 +662,77 @@ Die heutige `StatusBar.tsx` mit Workbench Health, Orbit-Kontext, Projekt und Usa
 bleibt in diesem Subgoal unverändert. Phase 2 registriert diese Bereiche zunächst als Legacy
 Built-in Contributions und führt dabei eine gemeinsame Aktualisierungs- und Overflow-Policy ein.
 
+#### Topbar Contributions
+
+Topbar Contributions hängen eine kleine Aktion oder einen hostgerenderten Selector an genau eine
+deklarierte Route:
+
+```json
+{
+  "contributes": {
+    "topbar": [
+      {
+        "id": "workbench.agent-tasks.topbar.create",
+        "kind": "action",
+        "routeId": "workbench.agent-tasks.route.main",
+        "commandId": "workbench.agent-tasks.command.create",
+        "icon": "workbench.agent-tasks.icon.tasks",
+        "placement": "primary",
+        "order": 100,
+        "priority": 80,
+        "presentation": "icon-label",
+        "compact": "icon"
+      },
+      {
+        "id": "workbench.agent-tasks.topbar.project",
+        "kind": "selector",
+        "title": "Projekt",
+        "routeId": "workbench.agent-tasks.route.main",
+        "provider": "workbench.agent-tasks.topbar-provider.projects",
+        "commandId": "workbench.agent-tasks.command.select-project",
+        "placement": "secondary",
+        "order": 110,
+        "priority": 60,
+        "presentation": "label",
+        "compact": "overflow"
+      }
+    ]
+  }
+}
+```
+
+- V1 kennt `action` und `selector`. Beide referenzieren ein tatsächlich deklariertes Command und
+  genau eine tatsächlich deklarierte Route derselben Extension. Die Zielroute muss `topbar: true`
+  besitzen.
+- Actions beziehen Titel, Disabled Reason, Berechtigungsprüfung und Business Logic aus dem
+  Command-System. Selector Provider liefern später eine begrenzte Options- und Auswahlstruktur;
+  Änderungen laufen ebenfalls über das referenzierte Command. Das Manifest enthält keine
+  Callback-Funktion, freie React-Komponente oder HTML-Struktur.
+- `primary`, `secondary` und `overflow` sind die kontrollierten Platzierungen. Der Host sortiert
+  innerhalb einer Platzierung nach `order`, Extension-ID und Contribution-ID. Navigation,
+  Breadcrumbs, Route-Titel und Recovery-Flächen sind keine öffentlichen Topbar-Platzierungen.
+- `presentation` ist `icon`, `label` oder `icon-label`. Bei enger Breite verschiebt `compact:
+  "overflow"` das Item in das zugängliche Host-Menü, `icon` reduziert es auf das Icon und `hide`
+  blendet nur diese zusätzliche Sicht aus. Jede icon-basierte Darstellung benötigt eine lokale
+  oder namespaced Icon-Referenz.
+- `priority` liegt zwischen 0 und 100. Niedrigere Prioritäten wechseln zuerst in ihren Compact-
+  Modus. Platzierung und Priorität erteilen keine Berechtigung und können geschützte Host-Aktionen
+  nicht verdrängen.
+- Selector Provider gehören zur deklarierenden Extension und benötigen einen UI- oder
+  Server-Entrypoint. Der spätere Runtime-Vertrag begrenzt Optionszahl, Textlänge,
+  Aktualisierungsrate und Payload, isoliert Fehler und entfernt Provider beim Disable.
+- `when` verwendet die gemeinsamen strikt typisierten Context Expressions. Der Host prüft den
+  Context und die Command-Ausführbarkeit erneut, bevor er ein Item zeigt oder ausführt.
+- Auf Touch-Flächen behält der Host 44-Pixel-Ziele, Keyboard-Navigation, Focus Management und
+  Reduced Motion. Ein wichtiges Feature darf nicht ausschließlich als ausgeblendete Topbar-
+  Aktion erreichbar sein; Command Palette oder Seite bleiben der zugängliche Fallback.
+
+Die aktuelle Topbar in `AppShell.tsx`, `ContextProjectPicker`, `StandaloneRouteActions` und der
+Portal-Zielpunkt `topbar-tool-actions` bleiben in diesem Subgoal unverändert. Phase 2 übernimmt
+sie kontrolliert als Route-Metadaten, `hostOnly`-Elemente und Legacy Built-in Contributions. Die
+Route-Activity-Prüfung des Portals muss dabei erhalten bleiben, damit persistente T3- und
+code-server-Flächen nicht gleichzeitig Aktionen in die aktive Topbar schreiben.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

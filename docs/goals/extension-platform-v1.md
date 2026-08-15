@@ -79,8 +79,9 @@ lokale `.rwext`-Pakete.
   Contributions binden Commands an elf Host- oder namespaced Extension-Surfaces mit
   kontrollierten Gruppen und deterministischer Reihenfolge. Status Bar Contributions stellen
   fünf kompakte, hostgerenderte Typen mit kontrollierten Bereichen, Prioritäten und Compact-
-  Verhalten bereit. Weitere Contributions, Manager, Capability Broker, SDK und Local Catalog
-  folgen.
+  Verhalten bereit. Topbar Contributions binden Actions und hostgerenderte Selector an eigene
+  Routes, Commands und sichere Platzierungsregeln. Weitere Contributions, Manager, Capability
+  Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -89,12 +90,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.15 siebzehn lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.16 achtzehn lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`38072f2c6cf9f692496049b5a9c6a6c7a368636d` als analysierter Ausgangspunkt von Subgoal 1.15.
-Der Ergebniscommit enthält Status Bar Contributions V1 und diese Tracker-Aktualisierung.
+`99189d3de65ec55d643843aa8308a92da896ed31` als analysierter Ausgangspunkt von Subgoal 1.16.
+Der Ergebniscommit enthält Topbar Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -110,8 +111,8 @@ Der Ergebniscommit enthält Status Bar Contributions V1 und diese Tracker-Aktual
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
 Route-, Navigation-, Orbit-, Dashboard-, Settings-, Keyboard-Shortcut- und
-Context-Menu- sowie Status-Bar-Contributions sind geöffnet. Weitere Contributions und Catalog
-Contracts folgen.
+Context-Menu-, Status-Bar- sowie Topbar-Contributions sind geöffnet. Weitere Contributions und
+Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -119,14 +120,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.16, Topbar Contributions V1 planen.
+Subgoal 1.17, File Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.16 untersucht App-Shell-Topbar, routeabhängige Aktionen und bestehende Portalflächen.
-Es definiert sparsame Topbar Contributions mit stabilen Platzierungen, Commands, Providern und
-Context Expressions. Eine Runtime Registry oder UI-Migration ist noch nicht Teil dieses
-Vertrags.
+Subgoal 1.17 untersucht File Manager, Quick Look, Dateitypen, Open-Flows und die bestehende
+Filesystem-Sicherheitsgrenze. Es definiert sichere File Contributions für Erkennung, Anzeige
+und Commands, ohne Berechtigungen oder den Filesystem Broker zu umgehen. Eine Runtime Registry
+oder UI-Migration ist noch nicht Teil dieses Vertrags.
 
 ## Phase Table
 
@@ -169,6 +170,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Commands | Config-/Feature-spezifische Ausführung | Gemeinsame Command Registry für UI, Agenten, Jobs und API | 2, 6 | planning |
 | Context Menus | Direkt implementierte Project-, File-, Orbit-, Preview-, Terminal-, Browser- und Tool-Menüs; gemeinsamer Manifestvertrag eingeführt | Eine Registry mit stabilen Surfaces, Commands, Context Expressions und zugänglicher Desktop-/Touch-Darstellung | 2, 10 | planning |
 | Status Bar | Desktopleiste mit direkt verdrahteten Health-, Orbit-, Projekt- und Usage-Zuständen; gemeinsamer Manifestvertrag eingeführt | Hostgeschützte Kernzustände plus kompakte, priorisierte Extension Contributions mit isolierten Providern | 2, 10 | planning |
+| Topbar | Pfadabfragen, Projektpicker, Standalone-Aktionen und persistenzgeschütztes Tool-Portal direkt in `AppShell` verdrahtet; gemeinsamer Manifestvertrag eingeführt | Route-Metadaten und hostgeschützte Flächen plus sparsame, priorisierte Action-/Selector-Contributions | 2-3, 10 | planning |
 | Server Bootstrap | Dienste und Routen direkt in `app.ts` | Kernel Bootstrap plus deterministischer Extension Manager | 5 | planning |
 | Storage | Featuretabellen in Workbench-DB | Registry-Metadaten zentral, Fachdaten je Extension getrennt | 5-6 | planning |
 | Permissions | Zentrale Security, aber keine Extension Grants | Permission Manager und Capability Broker mit Scopes | 1, 6 | planning |
@@ -219,6 +221,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Keyboard Shortcuts verwenden Commands und strikt begrenzte Context Expressions. | Physische `KeyboardEvent.code`-Werte, `primary`, maximal zweistufige Chords und optionale Plattform-Overrides bilden sichere Defaults. Host- und eigene Context Keys ersetzen freie Ausdruckssprache. Kollisionen werden später sichtbar deaktiviert statt durch Registrierungsreihenfolge überschrieben. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Context Menus sind additive Command-Sichten auf stabilen Surfaces. | Elf Host-Surfaces und extensioneigene Surface-IDs ersetzen feature-spezifische Menüzweige. Kontrollierte Gruppen, Reihenfolge, Icons und Context Expressions enthalten keine zweite Business Logic. Host-Items bleiben geschützt und Runtime-Kontext durchläuft erneut die Capability-Prüfung. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Status Bar Contributions sind kompakte hostgerenderte Zustände und Aktionen. | Fünf kontrollierte Typen referenzieren Provider oder Commands statt beliebiger Komponenten. Bereiche, Reihenfolge, Priorität und Compact-Modus steuern nur die Darstellung; Kernel Health und Recovery bleiben geschützte `hostOnly`-Elemente. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Öffentliche Topbar Contributions bleiben routegebunden und hostgerendert. | Actions verwenden Commands, Selector verwenden begrenzte Provider plus Commands. Freie Komponenten, Navigation und Breadcrumbs bleiben außerhalb der Surface; Platzierung, Priorität und Compact-Modus sichern Desktop und Mobile. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -246,6 +249,7 @@ Priorisierte Abhängigkeiten:
 | Ein globaler Shortcut kollidiert oder übernimmt Eingaben aus Terminal, Browser oder Formularen | Falscher Command, verlorene Eingabe oder unbedienbare Runtime-Fläche | Lokale Surface-Handler behalten Vorrang; editierbare Flächen und Wiederholung sind standardmäßig gesperrt, Konflikte werden sichtbar deaktiviert und Nutzer-Overrides serverseitig gespeichert | offen |
 | Ein Context Menu umgeht Host-Aktionen, Capabilities oder mobile Bediengrenzen | Verdeckte Recovery-Aktion, unautorisierte Mutation oder unbedienbares Touch-Menü | Extension-Items sind additiv; Host-Items bleiben geschützt, Commands prüfen den typisierten Surface-Kontext erneut und dieselbe Registry rendert zugängliche Menüs beziehungsweise Bottom Sheets | offen |
 | Ein Status Provider überlastet die Leiste oder verdrängt Kernel Health | Unlesbare UI, Aktualisierungsflut oder verdeckter Recovery-Zustand | Maximal 128 Items, kontrollierte Priorität und Compact-Modi, hostgeschützte Kernbereiche sowie Runtime-Grenzen für Timeout, Payload und Aktualisierungsrate | offen |
+| Topbar Contributions überladen kleine Viewports oder konkurrieren mit persistenten inaktiven Routes | Unbedienbare Aktionen, falscher Route-Kontext oder doppelte Portal-Inhalte | Routebindung, Route-Activity-Prüfung, maximal 128 Items, feste Platzierungen, Priority/Compact-Policy, 44-Pixel-Touchziele und geschützte Host-Flächen | offen |
 
 ## Compatibility Matrix
 
@@ -267,6 +271,7 @@ Priorisierte Abhängigkeiten:
 | Keyboard Shortcut Contributions | 1 bis 256 Einträge, ein- oder zweistufige Chords, drei Plattform-Overrides und strikt begrenzte Context Expressions | Defaults referenzieren Commands; lokale Surface-Eingabe behält Vorrang, Konflikte werden nie still überschrieben und User Overrides folgen später serverseitig der stabilen Shortcut-ID |
 | Context Menu Contributions | 1 bis 256 Einträge, elf Host-Surfaces, extensioneigene Surfaces und acht kontrollierte Gruppen | Items referenzieren Commands und gemeinsame Context Expressions; Host sortiert deterministisch, schützt eigene Aktionen und validiert Surface-Kontext bei Ausführung erneut |
 | Status Bar Contributions | 1 bis 128 Einträge, fünf Typen, zwei Bereiche, Priorität und drei Compact-Modi | Provider und Commands bleiben namespaced; Host rendert kontrollierte Payloads, schützt Kernelzustände und isoliert Aktualisierung sowie Fehler je Contribution |
+| Topbar Contributions | 1 bis 128 routegebundene Actions oder Selector, drei Platzierungen, drei Darstellungen und drei Compact-Modi | Route und Command müssen deklariert sein; Selector Provider bleiben namespaced, Host sortiert und überführt niedrige Prioritäten kontrolliert in Compact oder Overflow |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -278,10 +283,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.15, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.15 |
-| `pnpm test` | bestanden am 2026-08-15, 312 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.15, 1005 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.15, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.16, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.16 |
+| `pnpm test` | bestanden am 2026-08-15, 322 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.16, 1015 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.16, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -345,7 +350,8 @@ Keine.
 | `9018f98` | Subgoal 1.12, Settings Contributions V1 |
 | `4640dac` | Subgoal 1.13, Keyboard Shortcut Contributions V1 |
 | `38072f2` | Subgoal 1.14, Context Menu Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.15, Status Bar Contributions V1 |
+| `99189d3` | Subgoal 1.15, Status Bar Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.16, Topbar Contributions V1 |
 
 ## Subgoal Log
 
@@ -369,4 +375,5 @@ Keine.
 | 1.13 Keyboard Shortcut Contributions V1 | done | Plattformübergreifende physische Tasten, zweistufige Chords, Context Expressions, Command-/Namespace-Prüfungen, Konfliktvertrag, JSON Schema und 973 grüne Repository-Tests | Subgoal 1.14, Context Menu Contributions V1 |
 | 1.14 Context Menu Contributions V1 | done | Elf Host-Surfaces, extensioneigene Surfaces, acht Gruppen, deterministische Reihenfolge, Command-/Icon-/Context-Prüfungen, JSON Schema und 992 grüne Repository-Tests | Subgoal 1.15, Status Bar Contributions V1 |
 | 1.15 Status Bar Contributions V1 | done | Fünf kompakte Typen, Bereiche, Prioritäten, Compact-Modi, Command-/Provider-/Icon-/Context-Prüfungen, JSON Schema und 1005 grüne Repository-Tests | Subgoal 1.16, Topbar Contributions V1 |
-| 1.16 Topbar Contributions V1 | planning | Command-, Provider-, Icon- und Context-Grundverträge liegen vor | Bestehende Topbar und Portalflächen inventarisieren und sparsamen Contribution-Vertrag definieren |
+| 1.16 Topbar Contributions V1 | done | Routegebundene Actions und Selector, Platzierungen, Priority/Compact, Command-/Provider-/Icon-/Context-Prüfungen, JSON Schema und 1015 grüne Repository-Tests | Subgoal 1.17, File Contributions V1 |
+| 1.17 File Contributions V1 | planning | Command-, Context-Menu-, Page- und Filesystem-Permission-Grundverträge liegen vor | File Manager, Quick Look und Open-Flows inventarisieren und sicheren Contribution-Vertrag definieren |

@@ -22,6 +22,7 @@ import { KEYBOARD_SHORTCUTS_MAX_COUNT } from "./keyboard-shortcuts.js";
 import { extensionPermissionIds } from "./permissions.js";
 import { SETTINGS_CONTRIBUTIONS_MAX_COUNT } from "./settings-contributions.js";
 import { STATUS_BAR_CONTRIBUTIONS_MAX_COUNT } from "./status-bar.js";
+import { TOPBAR_CONTRIBUTIONS_MAX_COUNT } from "./topbar.js";
 
 const trackedSchema = JSON.parse(
   readFileSync(
@@ -150,6 +151,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               type: "array",
               minItems: 1,
               maxItems: STATUS_BAR_CONTRIBUTIONS_MAX_COUNT,
+              uniqueItems: true,
+              items: { oneOf: expect.any(Array) },
+            },
+            topbar: {
+              type: "array",
+              minItems: 1,
+              maxItems: TOPBAR_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { oneOf: expect.any(Array) },
             },

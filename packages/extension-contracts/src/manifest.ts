@@ -40,6 +40,7 @@ import {
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
+import { topbarContributionsSchema } from "./topbar.js";
 
 export * from "./package-paths.js";
 
@@ -172,6 +173,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   keyboardShortcuts: keyboardShortcutContributionsSchema.optional(),
   contextMenus: contextMenuContributionsSchema.optional(),
   statusBar: statusBarContributionsSchema.optional(),
+  topbar: topbarContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -329,6 +331,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.statusBar ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "statusBar", index, "id"] as const,
+      })),
+      ...(manifest.contributes.topbar ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "topbar", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -635,6 +641,76 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (manifest.contributes.topbar ?? []).entries()) {
+      if (!commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Topbar Contribution muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "topbar", index, "commandId"],
+        });
+      }
+      const targetRoute = (manifest.contributes.routes ?? []).find(
+        (route) => route.id === item.routeId,
+      );
+      if (targetRoute === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Topbar Contribution muss eine deklarierte Route Contribution referenzieren.",
+          path: ["contributes", "topbar", index, "routeId"],
+        });
+      } else if (!targetRoute.topbar) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Topbar Contribution kann nur eine Route mit aktivierter Topbar referenzieren.",
+          path: ["contributes", "topbar", index, "routeId"],
+        });
+      }
+      if (
+        item.kind === "selector" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Topbar Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "topbar", index, "provider"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Topbar Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "topbar", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "topbar", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "topbar", index, "when"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -697,6 +773,20 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "Providerbasierte Status Bar Contributions benötigen einen UI- oder Server-Entrypoint.",
+        path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.topbar?.some((item) => item.kind === "selector") ===
+        true &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Providerbasierte Topbar Contributions benötigen einen UI- oder Server-Entrypoint.",
         path: ["entrypoints"],
       });
     }

@@ -148,6 +148,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Platzmangel über kontrollierte Compact-Modi ohne Verdrängung geschützter Hostzustände geregelt
 - Beliebiges Markup, unkontrolliertes Polling und Statusleisten als alleiniger Fehlerkanal ausgeschlossen
 
+### Extension-Topbar
+
+- Routegebundene Command-Aktionen und hostgerenderte Selector Contributions definiert
+- Primäre, sekundäre und reine Overflow-Platzierungen kontrolliert geöffnet
+- Icon-, Label- und Compact-Darstellungen mit klaren Platzgrenzen ergänzt
+- Routes, Commands, Provider, Icons und Context Keys strikt auf gültige Contributions begrenzt
+- Navigation, Breadcrumbs, Recovery-Flächen und beliebige Komponenten unter Hostkontrolle belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
