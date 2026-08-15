@@ -100,6 +100,10 @@ describe("OrbitDatabase", () => {
       color: null,
       hermesSourceFilter: "all",
       hermesStatusFilter: "all",
+      extensionId: null,
+      contributionId: null,
+      stateVersion: null,
+      state: {},
       locked: false,
       zIndex: index,
     }));

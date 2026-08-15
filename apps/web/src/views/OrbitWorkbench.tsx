@@ -77,6 +77,7 @@ const typeLabels: Record<OrbitNode["type"], string> = {
   hermesTasks: "Hermes Aufgaben",
   hermesCron: "Hermes Automatisierungen",
   hermesResults: "Hermes Ergebnisse",
+  extension: "Extension",
 };
 
 type MobileCanvasMode = "navigate" | "interact";

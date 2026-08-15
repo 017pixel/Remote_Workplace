@@ -94,6 +94,10 @@ export interface AddOrbitNodeInput {
   language?: string | null;
   hermesSourceFilter?: "all" | "web" | "telegram" | "cron";
   hermesStatusFilter?: "all" | "success" | "failed";
+  extensionId?: string | null;
+  contributionId?: string | null;
+  stateVersion?: number | null;
+  state?: Record<string, unknown>;
 }
 
 interface OrbitState {
@@ -326,6 +330,10 @@ function nodeFromInput(input: AddOrbitNodeInput, zIndex: number): OrbitNode {
     color: null,
     hermesSourceFilter: input.hermesSourceFilter ?? "all",
     hermesStatusFilter: input.hermesStatusFilter ?? "all",
+    extensionId: input.type === "extension" ? (input.extensionId ?? null) : null,
+    contributionId: input.type === "extension" ? (input.contributionId ?? null) : null,
+    stateVersion: input.type === "extension" ? (input.stateVersion ?? 1) : null,
+    state: input.type === "extension" ? (input.state ?? {}) : {},
     locked: false,
     zIndex,
   };

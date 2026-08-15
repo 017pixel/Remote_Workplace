@@ -23,6 +23,7 @@ import { openPreviewGroupWindow } from "../../lib/previewWindow";
 import { previewSlotReleasedOnTargetChange, previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePreviewSessions, releasePreviewSlots } from "../../lib/previewSlotLifecycle";
 import { elementContainsEventTarget } from "../../lib/domEvents";
 import { useRouteActivity } from "../../lib/routeActivity";
+import { orbitNodeRendererRegistry } from "../../extensions/orbitNodeRendererRegistry";
 import { hermesSourceLabels } from "../../lib/hermesPresentation";
 
 function hermesSessionRoute(sessionId: string): string {
@@ -603,8 +604,32 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
   );
 }
 
-function OrbitNodeComponent(props: NodeProps) {
-  const id = props.id;
+/**
+ * Generischer Extension-Knoten: Der UI-Entrypoint registriert Renderer gegen
+ * die Contribution-ID. Fehlt der Renderer (Extension nicht installiert,
+ * deaktiviert oder fehlgeschlagen), zeigt der Host einen kernelgehosteten
+ * Placeholder — der State bleibt dabei vollständig erhalten.
+ */
+function ExtensionOrbitNode({ id, selected }: { id: string; selected: boolean }) {
+  const node = useOrbitStore((state) => {
+    const board = state.document.boards.find((candidate) => candidate.id === state.document.activeBoardId);
+    return board ? nodeMap(board.nodes).get(id) : undefined;
+  });
+  if (node === undefined) return null;
+  const renderer = orbitNodeRendererRegistry.getRenderer(node.contributionId);
+  if (renderer !== undefined) return renderer.render(node);
+  return (
+    <NodeChrome id={id} title={node.title} selected={selected}>
+      <div className="orbit-extension-missing">
+        <strong>Extension nicht verfügbar</strong>
+        <span className="font-mono">{node.extensionId ?? "unbekannt"}</span>
+        <p>Die Daten dieses Elements bleiben erhalten.</p>
+      </div>
+    </NodeChrome>
+  );
+}
+
+function OrbitNodeComponent(props: NodeProps) {  const id = props.id;
   const selected = Boolean(props.selected);
   const type = useOrbitStore((state) => {
     const board = state.document.boards.find((candidate) => candidate.id === state.document.activeBoardId);
@@ -628,6 +653,7 @@ function OrbitNodeComponent(props: NodeProps) {
     if (type === "hermesCron") return <HermesCronNode id={id} selected={selected} />;
     if (type === "hermesResults") return <HermesResultsNode id={id} selected={selected} />;
     if (type === "frame") return <FrameNode id={id} selected={selected} />;
+    if (type === "extension") return <ExtensionOrbitNode id={id} selected={selected} />;
     return null;
   }, [id, selected, type]);
   return content;

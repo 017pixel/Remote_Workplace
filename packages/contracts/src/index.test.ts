@@ -3,6 +3,7 @@ import {
   apiErrorSchema,
   createProjectFileRequestSchema,
   hermesClientMessageSchema,
+  orbitNodeSchema,
   orbitWorkspaceSchema,
   operationalMetricsSchema,
   panelTypeSchema,
@@ -52,6 +53,42 @@ describe("öffentliche API-Verträge", () => {
     expect(hermesClientMessageSchema.parse({ v: 1, type: "ping" })).toMatchObject({ type: "ping" });
     expect(orbitWorkspaceSchema.parse({ version: 6, activeBoardId: "board", focusedNodeId: null, boards: [{ id: "board", name: "Board", viewport: { x: 0, y: 0, zoom: 1 }, worldBounds: { minX: -100, minY: -100, maxX: 100, maxY: 100 }, nodes: [], edges: [] }] }).version).toBe(6);
     expect(orbitWorkspaceSchema.parse({ version: 8, activeBoardId: "board", focusedNodeId: null, boards: [{ id: "board", name: "Board", viewport: { x: 0, y: 0, zoom: 1 }, worldBounds: { minX: -100, minY: -100, maxX: 100, maxY: 100 }, nodes: [], edges: [] }] }).version).toBe(8);
+  });
+
+  it("hält Extension-Knoten strikt und Legacy-Knoten kompatibel", () => {
+    const base = {
+      id: "node-1",
+      type: "note",
+      title: "Notiz",
+      position: { x: 0, y: 0 },
+      size: { width: 300, height: 200 },
+      projectId: null,
+      parentId: null,
+      runtimeId: null,
+      toolType: null,
+      previewId: null,
+      provider: null,
+      content: "",
+      language: null,
+      locked: false,
+      zIndex: 0,
+    };
+    const legacy = orbitNodeSchema.parse(base);
+    expect(legacy.extensionId).toBeNull();
+    expect(legacy.state).toEqual({});
+
+    const extension = orbitNodeSchema.parse({
+      ...base,
+      type: "extension",
+      extensionId: "workbench.agent-tasks",
+      contributionId: "workbench.agent-tasks.orbit.task-board",
+      stateVersion: 3,
+      state: { columns: ["offen", "fertig"] },
+    });
+    expect(extension.state).toEqual({ columns: ["offen", "fertig"] });
+
+    expect(orbitNodeSchema.safeParse({ ...base, type: "extension", extensionId: "workbench.agent-tasks" }).success).toBe(false);
+    expect(orbitNodeSchema.safeParse({ ...base, extensionId: "workbench.agent-tasks" }).success).toBe(false);
   });
 
   it("rejects oversized preview-storage values and malformed metrics", () => {

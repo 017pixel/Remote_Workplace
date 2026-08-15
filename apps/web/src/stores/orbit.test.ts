@@ -199,6 +199,29 @@ describe("Orbit store", () => {
     expect("scenes" in migrated.boards[0]!).toBe(false);
   });
 
+  it("legt Extension-Knoten mit vollständiger Identität und State an", () => {
+    const id = useOrbitStore.getState().addNode({
+      type: "extension",
+      title: "Agent Tasks",
+      position: { x: 100, y: 200 },
+      extensionId: "workbench.agent-tasks",
+      contributionId: "workbench.agent-tasks.orbit.task-board",
+      stateVersion: 3,
+      state: { columns: ["offen"] },
+    });
+    expect(id).toBeTruthy();
+    const board = useOrbitStore.getState().document.boards.find((candidate) => candidate.id === useOrbitStore.getState().document.activeBoardId);
+    const node = board?.nodes.find((candidate) => candidate.id === id);
+    expect(node).toMatchObject({
+      type: "extension",
+      extensionId: "workbench.agent-tasks",
+      contributionId: "workbench.agent-tasks.orbit.task-board",
+      stateVersion: 3,
+      state: { columns: ["offen"] },
+    });
+    expect(useOrbitStore.getState().dirty).toBe(true);
+  });
+
   it("persists labels, connection sides and manually routed waypoints", () => {
     const first = useOrbitStore.getState().addNode({ type: "note", title: "A", position: { x: 0, y: 0 } });
     const second = useOrbitStore.getState().addNode({ type: "note", title: "B", position: { x: 500, y: 200 } });

@@ -3,7 +3,7 @@ import type { OrbitNode } from "@workbench/contracts";
 import { nearestEdgeSides, projectColor } from "./orbitAppearance";
 
 function node(id: string, x: number): OrbitNode {
-  return { id, type: "note", title: id, position: { x, y: 0 }, size: { width: 200, height: 100 }, projectId: null, parentId: null, runtimeId: null, toolType: null, previewId: null, previewLayout: null, previewTarget: null, previewPath: "/", previewDeviceId: null, previewOrientation: "portrait", previewSlotId: null, previewStorageProfileId: null, previewIsolation: true, previewRuntime: "iframe", previewReferenceId: null, previewLastUsedAt: null, assetId: null, assetMimeType: null, assetBytes: null, provider: null, content: "", language: null, color: null, hermesSourceFilter: "all", hermesStatusFilter: "all", locked: false, zIndex: 1 };
+  return { id, type: "note", title: id, position: { x, y: 0 }, size: { width: 200, height: 100 }, projectId: null, parentId: null, runtimeId: null, toolType: null, previewId: null, previewLayout: null, previewTarget: null, previewPath: "/", previewDeviceId: null, previewOrientation: "portrait", previewSlotId: null, previewStorageProfileId: null, previewIsolation: true, previewRuntime: "iframe", previewReferenceId: null, previewLastUsedAt: null, assetId: null, assetMimeType: null, assetBytes: null, provider: null, content: "", language: null, color: null, hermesSourceFilter: "all", hermesStatusFilter: "all", extensionId: null, contributionId: null, stateVersion: null, state: {}, locked: false, zIndex: 1 };
 }
 
 describe("Orbit appearance", () => {

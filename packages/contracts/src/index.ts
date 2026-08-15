@@ -1649,6 +1649,7 @@ export const orbitNodeTypeSchema = z.enum([
   "hermesTasks",
   "hermesCron",
   "hermesResults",
+  "extension",
 ]);
 export const orbitEdgeKindSchema = z.enum(["project", "manual", "runtime"]);
 export const orbitPointSchema = z.object({
@@ -1705,6 +1706,13 @@ export const orbitNodeSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().default(null),
   hermesSourceFilter: z.enum(["all", "web", "telegram", "cron"]).default("all"),
   hermesStatusFilter: z.enum(["all", "success", "failed"]).default("all"),
+  // Generischer Extension-Knoten (Phase 4): Extension- und Contribution-ID
+  // bilden die Identität, der State bleibt vollständig erhalten, auch wenn
+  // der Code fehlt oder deaktiviert ist.
+  extensionId: z.string().max(128).nullable().default(null),
+  contributionId: z.string().max(192).nullable().default(null),
+  stateVersion: z.number().int().positive().nullable().default(null),
+  state: z.record(z.string(), z.unknown()).default({}),
   locked: z.boolean(),
   zIndex: z.number().int().min(0).max(10_000),
 }).superRefine((node, context) => {
@@ -1716,6 +1724,12 @@ export const orbitNodeSchema = z.object({
   }
   if (node.type === "usage" && node.provider === null) {
     context.addIssue({ code: "custom", message: "Nutzungsknoten benötigen einen Provider." });
+  }
+  if (node.type === "extension" && (node.extensionId === null || node.contributionId === null || node.stateVersion === null)) {
+    context.addIssue({ code: "custom", message: "Extension-Knoten benötigen Extension-ID, Contribution-ID und State-Version." });
+  }
+  if (node.type !== "extension" && (node.extensionId !== null || node.contributionId !== null || node.stateVersion !== null)) {
+    context.addIssue({ code: "custom", message: "Nur Extension-Knoten dürfen Extension-Metadaten besitzen." });
   }
   if (node.type === "asset" && (node.assetId === null || node.assetMimeType === null || node.assetBytes === null)) {
     context.addIssue({ code: "custom", message: "Medienknoten benötigen vollständige Asset-Metadaten." });
