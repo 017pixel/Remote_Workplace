@@ -92,6 +92,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Doppelte IDs, fehlende Pages und kollidierende URL-Muster werden abgewiesen
 - onRoute-Aktivierung an tatsächlich deklarierte Routes gebunden
 
+### Extension-Navigation
+
+- Gemeinsame Navigation Contributions für Desktop und Mobile definiert
+- Navigationseinträge an tatsächlich deklarierte Extension-Routen gebunden
+- Stabile Gruppen, Reihenfolge und Standardsichtbarkeit als Metadaten ergänzt
+- Lokale Extension-Icons und namespaced Runtime-Referenzen sicher getrennt
+- Fremde Icon-, Badge- und Route-Referenzen werden abgewiesen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

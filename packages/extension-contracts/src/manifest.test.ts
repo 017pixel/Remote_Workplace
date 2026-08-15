@@ -76,6 +76,19 @@ const validManifest = {
         mobileNavigation: true,
       },
     ],
+    navigation: [
+      {
+        id: "workbench.agent-tasks.navigation.main",
+        routeId: "workbench.agent-tasks.route.main",
+        label: "Agent Tasks",
+        description: "Aufgaben und Agent Runs verwalten.",
+        icon: "workbench.agent-tasks.icon.main",
+        group: "tools",
+        order: 120,
+        badgeProvider: "workbench.agent-tasks.badge.open-tasks",
+        visibleByDefault: true,
+      },
+    ],
   },
 };
 
@@ -390,6 +403,20 @@ describe("Extension Manifest V1", () => {
         },
       }).success,
     ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("verlangt für Pages einen UI-Entrypoint", () => {
@@ -397,6 +424,88 @@ describe("Extension Manifest V1", () => {
       extensionManifestV1Schema.safeParse({
         ...validManifest,
         entrypoints: { server: "./dist/server.js" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("akzeptiert Navigation mit tatsächlichem Route-Ziel und sicherem Extension-Icon", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              icon: "extension",
+              visibleByDefault: false,
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende Navigation-Routen und fremde Runtime-Referenzen ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              routeId: "workbench.agent-tasks.route.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              icon: "workbench.other.icon.main",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              badgeProvider: "workbench.other.badge.open-tasks",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt für die Extension-Icon-Referenz ein lokales Manifest-Icon", () => {
+    const manifestWithoutIcon: Partial<typeof validManifest> = { ...validManifest };
+    delete manifestWithoutIcon.icon;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...manifestWithoutIcon,
+        contributes: {
+          ...validManifest.contributes,
+          navigation: [
+            {
+              ...validManifest.contributes.navigation[0],
+              icon: "extension",
+            },
+          ],
+        },
       }).success,
     ).toBe(false);
   });
@@ -409,7 +518,11 @@ describe("Extension Manifest V1", () => {
     expect(extensionActivationEventsV1Schema.safeParse(["onStartup"]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ pages: validManifest.contributes.pages }).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ routes: validManifest.contributes.routes }).success).toBe(true);
+    expect(extensionContributionsV1Schema.safeParse({ navigation: validManifest.contributes.navigation }).success).toBe(
+      true,
+    );
     expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
     expect(extensionContributionsV1Schema.safeParse({ navigation: [] }).success).toBe(false);
+    expect(extensionContributionsV1Schema.safeParse({ mobileNavigation: [] }).success).toBe(false);
   });
 });

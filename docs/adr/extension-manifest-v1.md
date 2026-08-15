@@ -144,7 +144,7 @@ normalisiert und sortiert sie deterministisch für Vergleich und Persistenz.
 `contributes` besitzt in V1 bekannte, strikt validierte Bereiche für:
 
 ```text
-pages, routes, navigation, mobileNavigation, orbit, dashboard, settings,
+pages, routes, navigation, orbit, dashboard, settings,
 commands, keyboardShortcuts, contextMenus, topbar, statusbar, files,
 terminal, previews, browser, agentTools, agentSkills, backgroundServices,
 scheduledJobs, rpc, realtime, notifications, themes
@@ -237,6 +237,57 @@ lokalen Workbench-URLs bereit:
 
 Der spätere Route Host erhält persistente Pages beim Routenwechsel gemountet. Disable entfernt
 Renderer und UI-Ressourcen kontrolliert, beendet aber keine user-owned Runtime.
+
+#### Navigation Contributions
+
+Eine Navigation Contribution bindet eine deklarierte Route an die gemeinsame Desktop- und
+Mobile-Navigation. Sie enthält nur sichere Metadaten und keine React-Komponente:
+
+```json
+{
+  "contributes": {
+    "navigation": [
+      {
+        "id": "workbench.agent-tasks.navigation.main",
+        "routeId": "workbench.agent-tasks.route.main",
+        "label": "Agent Tasks",
+        "description": "Aufgaben und Agent Runs verwalten.",
+        "icon": "workbench.agent-tasks.icon.main",
+        "group": "tools",
+        "order": 120,
+        "badgeProvider": "workbench.agent-tasks.badge.open-tasks",
+        "visibleByDefault": true
+      }
+    ]
+  }
+}
+```
+
+- Navigation IDs sind im Manifest eindeutig und gehören zum Namespace der Extension.
+- `routeId` referenziert eine tatsächlich deklarierte Route derselben Extension. Pfade werden
+  nicht erneut in Navigationseinträgen gespeichert.
+- V1 kennt die stabilen Default-Gruppen `workspace`, `tools`, `extensions`, `account` und
+  `system`. Serverseitige Benutzerpräferenzen dürfen Gruppe und Reihenfolge später überschreiben,
+  ohne das Manifest oder die Contribution-ID zu verändern.
+- `order` liegt zwischen 0 und 10.000. Gleiche Werte werden später deterministisch nach stabiler
+  Navigation-ID sortiert.
+- `visibleByDefault` ist nur der Initialwert. Installation, Enablement und benutzerbezogene
+  Sichtbarkeit bleiben serverseitige Fakten. Recovery und Extension Manager dürfen durch Host
+  Policy nicht ausgeblendet werden.
+- Mobile verwendet dieselbe Navigation Contribution. Ob ein Ziel mobil erscheint, entscheidet
+  `route.mobileNavigation`; eine zweite Path-to-Route-Map oder eigene Manifestliste existiert
+  nicht.
+- `icon: "extension"` verwendet das lokale, nicht ausführbare Manifest-Icon. Alternativ darf
+  eine namespaced Icon-ID angegeben werden, die der UI-Entrypoint später über eine kontrollierte
+  Registry auflöst. Fehlt die Registrierung, rendert der Host ein generisches Icon statt HTML,
+  Remote-Assets oder beliebiges SVG zu übernehmen.
+- `badgeProvider` ist eine namespaced Runtime-Referenz. Die Runtime muss Registrierung,
+  Fehlerisolation, Timeout und Cleanup prüfen; ausführbarer Provider-Code steht nicht im
+  Manifest.
+
+Die heutigen 18 geschlossenen `PageRouteId`-Werte und die duplizierten Pfadzuordnungen werden
+erst in Phase 2 und 3 über Legacy Built-in Contributions adaptiert. Dieser Contract ändert noch
+keine Sidebar-Präferenz und keine bestehende Mobile-Navigation.
 
 ### Dependencies und Conflicts
 

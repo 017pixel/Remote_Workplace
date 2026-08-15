@@ -4,7 +4,12 @@ import {
   activationEventContributionId,
   activationEventsV1Schema,
 } from "./activation-events.js";
-import { commandContributionsSchema, pageContributionsSchema, routeContributionsSchema } from "./contributions.js";
+import {
+  commandContributionsSchema,
+  navigationContributionsSchema,
+  pageContributionsSchema,
+  routeContributionsSchema,
+} from "./contributions.js";
 import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import {
@@ -155,6 +160,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   commands: commandContributionsSchema.optional(),
   pages: pageContributionsSchema.optional(),
   routes: routeContributionsSchema.optional(),
+  navigation: navigationContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -238,6 +244,10 @@ export const extensionManifestV1Schema = z
         id: route.id,
         path: ["contributes", "routes", index, "id"] as const,
       })),
+      ...(manifest.contributes.navigation ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "navigation", index, "id"] as const,
+      })),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
@@ -265,6 +275,44 @@ export const extensionManifestV1Schema = z
         message: "Eine Route muss eine deklarierte Page Contribution derselben Extension referenzieren.",
         path: ["contributes", "routes", index, "pageId"],
       });
+    }
+
+    for (const [index, item] of (manifest.contributes.navigation ?? []).entries()) {
+      if (!routeIds.has(item.routeId)) {
+        context.addIssue({
+          code: "custom",
+          message: "Navigation muss eine deklarierte Route Contribution derselben Extension referenzieren.",
+          path: ["contributes", "navigation", index, "routeId"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Eine Navigation Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "navigation", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message: "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "navigation", index, "icon"],
+        });
+      }
+      if (
+        item.badgeProvider !== undefined &&
+        !contributionBelongsToExtension(manifest.id, item.badgeProvider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Eine Navigation Badge Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "navigation", index, "badgeProvider"],
+        });
+      }
     }
 
     if (

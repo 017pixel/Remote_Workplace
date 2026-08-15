@@ -7,8 +7,11 @@ export const CONTRIBUTION_CATEGORY_MAX_LENGTH = 80;
 export const COMMAND_CONTRIBUTIONS_MAX_COUNT = 256;
 export const PAGE_CONTRIBUTIONS_MAX_COUNT = 128;
 export const ROUTE_CONTRIBUTIONS_MAX_COUNT = 128;
+export const NAVIGATION_CONTRIBUTIONS_MAX_COUNT = 256;
 export const ROUTE_ALIASES_MAX_COUNT = 16;
 export const ROUTE_PATH_MAX_LENGTH = 256;
+export const NAVIGATION_ORDER_MIN = 0;
+export const NAVIGATION_ORDER_MAX = 10_000;
 
 function containsControlCharacter(value: string): boolean {
   return Array.from(value).some((character) => {
@@ -217,3 +220,47 @@ export const routeContributionsSchema = z
   .meta({ uniqueItems: true });
 
 export type RouteContributions = z.infer<typeof routeContributionsSchema>;
+
+export const navigationGroups = ["workspace", "tools", "extensions", "account", "system"] as const;
+export const navigationGroupSchema = z.enum(navigationGroups);
+export type NavigationGroup = z.infer<typeof navigationGroupSchema>;
+
+// `extension` verwendet das sichere lokale Manifest-Icon. Eine namespaced ID wird später
+// durch den UI-Entrypoint gegen die kontrollierte Icon Registry aufgelöst.
+export const navigationIconReferenceSchema = z.union([z.literal("extension"), contributionIdSchema]);
+export type NavigationIconReference = z.infer<typeof navigationIconReferenceSchema>;
+
+export const navigationContributionSchema = z.strictObject({
+  id: contributionIdSchema,
+  routeId: contributionIdSchema,
+  label: contributionTitleSchema,
+  description: contributionDescriptionSchema.optional(),
+  icon: navigationIconReferenceSchema.optional(),
+  group: navigationGroupSchema,
+  order: z.number().int().min(NAVIGATION_ORDER_MIN).max(NAVIGATION_ORDER_MAX),
+  badgeProvider: contributionIdSchema.optional(),
+  visibleByDefault: z.boolean().default(true),
+});
+
+export type NavigationContribution = z.infer<typeof navigationContributionSchema>;
+
+export const navigationContributionsSchema = z
+  .array(navigationContributionSchema)
+  .min(1)
+  .max(NAVIGATION_CONTRIBUTIONS_MAX_COUNT)
+  .superRefine((items, context) => {
+    const seen = new Set<string>();
+    for (const [index, item] of items.entries()) {
+      if (seen.has(item.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Jede Navigation Contribution ID darf nur einmal vorkommen.",
+          path: [index, "id"],
+        });
+      }
+      seen.add(item.id);
+    }
+  })
+  .meta({ uniqueItems: true });
+
+export type NavigationContributions = z.infer<typeof navigationContributionsSchema>;
