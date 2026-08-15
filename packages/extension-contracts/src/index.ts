@@ -1,4 +1,5 @@
 export * from "./activation-events.js";
+export * from "./contributions.js";
 export * from "./dependencies.js";
 export * from "./ids.js";
 export * from "./lifecycle.js";

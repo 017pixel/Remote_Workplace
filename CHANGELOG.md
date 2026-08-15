@@ -76,6 +76,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Crash, Quarantäne, Inkompatibilität und fehlgeschlagene Migrationen klar getrennt
 - Laufende Operationen für spätere Restart-Recovery und atomare Fortsetzung gekennzeichnet
 
+### Extension-Commands
+
+- Commands als erste ausführbare Contribution Surface im Manifest geöffnet
+- Stabile Command IDs mit Titel, Beschreibung und Kategorie definiert
+- Fremde Namespaces, doppelte IDs und handlerlose Deklarationen werden abgewiesen
+- Command-Aktivierung an ein tatsächlich deklariertes Ziel gebunden
+- Command-Verträge im versionierten JSON Schema für künftige Registries bereitgestellt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

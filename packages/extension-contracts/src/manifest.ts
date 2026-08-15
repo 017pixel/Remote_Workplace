@@ -1,7 +1,12 @@
 import { z } from "zod";
-import { activationEventBelongsToExtension, activationEventsV1Schema } from "./activation-events.js";
+import {
+  activationEventBelongsToExtension,
+  activationEventContributionId,
+  activationEventsV1Schema,
+} from "./activation-events.js";
+import { commandContributionsSchema } from "./contributions.js";
 import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
-import { extensionIdSchema } from "./ids.js";
+import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import {
   extensionApiCompatibilitySchema,
   manifestVersionSchema,
@@ -146,7 +151,9 @@ export type ExtensionEntrypoints = z.infer<typeof extensionEntrypointsSchema>;
 // zu ihrem Phase-1-Subgoal fail-closed.
 export const extensionPermissionsV1Schema = extensionPermissionRequestsSchema;
 export const extensionActivationEventsV1Schema = activationEventsV1Schema;
-export const extensionContributionsV1Schema = z.strictObject({});
+export const extensionContributionsV1Schema = z.strictObject({
+  commands: commandContributionsSchema.optional(),
+});
 
 export const extensionManifestV1Schema = z
   .strictObject({
@@ -186,11 +193,43 @@ export const extensionManifestV1Schema = z
   )
   .superRefine((manifest, context) => {
     for (const [index, event] of manifest.activationEvents.entries()) {
-      if (activationEventBelongsToExtension(manifest.id, event)) continue;
+      if (!activationEventBelongsToExtension(manifest.id, event)) {
+        context.addIssue({
+          code: "custom",
+          message: "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
+          path: ["activationEvents", index],
+        });
+        continue;
+      }
+
+      if (!event.startsWith("onCommand:")) continue;
+      const commandId = activationEventContributionId(event);
+      if (commandId !== null && manifest.contributes.commands?.some((command) => command.id === commandId)) continue;
       context.addIssue({
         code: "custom",
-        message: "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
+        message: "Ein onCommand Activation Event benötigt eine deklarierte Command Contribution.",
         path: ["activationEvents", index],
+      });
+    }
+
+    for (const [index, command] of (manifest.contributes.commands ?? []).entries()) {
+      if (contributionBelongsToExtension(manifest.id, command.id)) continue;
+      context.addIssue({
+        code: "custom",
+        message: "Command Contributions müssen zur deklarierenden Extension gehören.",
+        path: ["contributes", "commands", index, "id"],
+      });
+    }
+
+    if (
+      manifest.contributes.commands !== undefined &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Command Contributions benötigen einen UI- oder Server-Entrypoint für ihren Handler.",
+        path: ["entrypoints"],
       });
     }
 

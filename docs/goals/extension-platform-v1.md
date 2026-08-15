@@ -66,8 +66,9 @@ lokale `.rwext`-Pakete.
   Conflicts verwenden stabile Extension IDs, Semantic-Version-Ranges und manifestweite
   Widerspruchsprüfungen. Der öffentliche Lifecycle-Vertrag definiert 17 Zustände, erlaubte
   Übergänge und transiente Operationsphasen, während Version, Enablement und aktive Runtime
-  getrennte Registry-Fakten bleiben. Contributions, Manager, Capability Broker, SDK und Local
-  Catalog folgen.
+  getrennte Registry-Fakten bleiben. Commands sind als erste Manifest Contribution mit stabiler
+  ID, Anzeigemetadaten, eigenem Namespace und echten `onCommand`-Zielen geöffnet. Weitere
+  Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -76,12 +77,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.6 acht lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.7 neun lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`9dc6a9f7319bf9b7f05b5c33a281e59a4ecec0db` als analysierter Ausgangspunkt von Subgoal 1.6.
-Der Ergebniscommit enthält Lifecycle Types und Übergangsregeln V1 sowie diese
+`b85a68779e39e6b0bbe6ddee68c7edd9f278fbcb` als analysierter Ausgangspunkt von Subgoal 1.7.
+Der Ergebniscommit enthält Contribution-Basis und Command Contributions V1 sowie diese
 Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
@@ -96,8 +97,9 @@ Tracker-Aktualisierung.
 ## Manifest Version
 
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
-Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Lifecycle,
-Contributions und Catalog Contracts folgen.
+Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command
+Contributions bilden den ersten geöffneten `contributes`-Bereich. Weitere Contributions und
+Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -105,13 +107,13 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.7, Contribution-Basis und Command Contributions V1 planen.
+Subgoal 1.8, Page und Route Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.7 öffnet den ersten strikt typisierten `contributes`-Bereich für Commands. Gemeinsame
-Contribution-Metadaten, Namespace- und Deduplizierungsregeln werden eingeführt; referenzierte
-`onCommand` Activation Events müssen danach eine tatsächlich deklarierte Command ID treffen.
+Subgoal 1.8 definiert Pages und Routes mit stabilen IDs, sicheren Pfaden und der benötigten
+Shell-, Persistenz-, Prefetch- und Projektmetadaten. Route-Ziele und `onRoute` Activation Events
+werden innerhalb des Manifests auf tatsächlich deklarierte Contributions geprüft.
 
 ## Phase Table
 
@@ -193,6 +195,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Activation Events besitzen eine geschlossene V1-Grammatik. | Statische Trigger, Contribution-Referenzen und Event IDs werden getrennt validiert. Command-, Route-, Orbit- und Schedule-Referenzen müssen im eigenen Extension-Namespace liegen; fremde öffentliche Events bleiben über `onEvent` möglich. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Dependencies sind Maps, Conflicts eine eindeutige Liste. | Pflicht- und optionale Beziehungen erhalten SemVer-Ranges pro stabiler ID. Conflict-Einträge erlauben eine optionale Range, wobei eine fehlende Range alle Versionen meint. Selbstbezüge und widersprüchliche Bereiche werden im Manifest abgewiesen; transitive Graphprüfung bleibt beim Manager. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Lifecycle-Phase und Registry-Fakten bleiben getrennt. | Die 17 primären Phasen steuern Operation und Recovery, verdecken aber weder aktive Version noch gewünschtes Enablement oder verfügbares Update. Direkte Statusänderungen bleiben dem Manager vorbehalten. Siehe [`extension-runtime-v1.md`](../adr/extension-runtime-v1.md). |
+| 2026-08-15 | Command Manifeste enthalten Metadaten, keinen ausführbaren Code. | Stabile IDs, Titel, Beschreibung und Kategorie ermöglichen Discovery und Lazy Activation. Handler werden später über einen UI- oder Server-Entrypoint registriert; Shell-Text, Secrets und `execute` bleiben außerhalb des Manifests. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -211,6 +214,7 @@ Priorisierte Abhängigkeiten:
 | Ein fehlender Permission Scope wird als harmloser Default missverstanden | Unbeabsichtigt breiter Grant | UI kennzeichnet globale Requests ausdrücklich; Grants können serverseitig auf eine Scope-Teilmenge reduziert werden | offen |
 | Dependency Graph enthält Zyklen oder versionsabhängige Konflikte | Nichtdeterministische oder unmögliche Aktivierung | Manager löst den vollständigen Graphen vor Aktivierung auf, meldet stabile ID-Pfade und nutzt feste Sortierung | offen |
 | Primäre Lifecycle-Phase verdeckt eine weiterlaufende alte Version | UI beendet oder meldet falsche Runtime | Registry hält installierte/aktive Version, Enablement, Update und Operation getrennt; UI liest nicht nur den Phasenstring | offen |
+| Deklariertes Command registriert nach Activation keinen Handler | Command Palette zeigt eine nicht ausführbare Aktion | Manifest verlangt Entrypoint; Runtime prüft später genau einen Handler und meldet Activation als fehlerhaft | offen |
 
 ## Compatibility Matrix
 
@@ -223,6 +227,7 @@ Priorisierte Abhängigkeiten:
 | Activation Events | Neun V1-Formen, maximal 128 eindeutige Einträge | Syntax und Namespace sind stabil; Contribution-Existenz wird nach deren Einführung zusätzlich geprüft |
 | Dependencies und Conflicts | Je 64 Pflicht-/optionale Beziehungen und 64 eindeutige Konflikte | Einzelmanifest prüft IDs, Ranges und Widersprüche; Manager prüft installierte Versionen, Transitivität und Zyklen |
 | Lifecycle | 17 Zustände und geschlossene direkte Übergänge | Manager ist einzige Schreibinstanz; transiente Phasen werden später über ein persistiertes Operationsjournal abgeglichen |
+| Command Contributions | 1 bis 256 eindeutige Commands mit Metadaten | IDs bleiben im Extension-Namespace; onCommand trifft ein deklariertes Ziel, Handler folgt über Runtime Registry |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -234,10 +239,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.6, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.6 |
-| `pnpm test` | bestanden am 2026-08-15, 160 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.6, 853 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.6, vollständiger Produktionsbuild |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.7, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.7 |
+| `pnpm test` | bestanden am 2026-08-15, 169 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.7, 862 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.7, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -292,7 +297,8 @@ Keine.
 | `9ab710e` | Subgoal 1.3, Permission Requests V1 und Permission-ADR |
 | `d198d35` | Subgoal 1.4, Activation Events V1 |
 | `9dc6a9f` | Subgoal 1.5, Dependencies und Conflicts V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.6, Lifecycle Types und Übergangsregeln V1 |
+| `b85a687` | Subgoal 1.6, Lifecycle Types und Übergangsregeln V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.7, Contribution-Basis und Commands V1 |
 
 ## Subgoal Log
 
@@ -307,4 +313,5 @@ Keine.
 | 1.4 Activation Events V1 | done | Neun Eventformen, Event IDs, Deduplizierung, Namespace-Prüfung, JSON Schema und 832 grüne Repository-Tests | Subgoal 1.5, Dependencies und Conflicts V1 |
 | 1.5 Dependencies und Conflicts V1 | done | Dependency Maps, versionierbare Conflict Requests, Manifest-Cross-Checks, JSON Schema und 845 grüne Repository-Tests | Subgoal 1.6, Lifecycle Types und Übergangsregeln V1 |
 | 1.6 Lifecycle Types und Übergangsregeln V1 | done | 17 Zustände, vollständige Übergangsmatrix, transiente Recovery-Phasen, Runtime-ADR und 853 grüne Repository-Tests | Subgoal 1.7, Contribution-Basis und Commands V1 |
-| 1.7 Contribution-Basis und Command Contributions V1 | planning | Stabile Contribution IDs und Activation-Referenzen liegen vor | Command-Schema öffnen, Namespaces und tatsächliche onCommand-Ziele validieren |
+| 1.7 Contribution-Basis und Command Contributions V1 | done | Command-Metadaten, Namespace-, Deduplizierungs-, Entrypoint- und onCommand-Zielprüfung, JSON Schema und 862 grüne Repository-Tests | Subgoal 1.8, Pages und Routes V1 |
+| 1.8 Page und Route Contributions V1 | planning | Persistenzanforderungen, bestehende Routen und stabile Contribution IDs liegen vor | Page-/Route-Schemas und tatsächliche onRoute-Ziele definieren |

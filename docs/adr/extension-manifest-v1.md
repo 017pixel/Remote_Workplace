@@ -153,6 +153,38 @@ scheduledJobs, rpc, realtime, notifications, themes
 Die einzelnen Contribution-Schemas werden in Phase 1 additiv eingeführt. Unbekannte Bereiche
 oder doppelte IDs sind Validierungsfehler statt still ignorierter Tippfehler.
 
+#### Command Contributions
+
+Commands bilden die erste geöffnete Contribution Surface. Ein Manifest beschreibt nur stabile
+Identität und Anzeigemetadaten:
+
+```json
+{
+  "contributes": {
+    "commands": [
+      {
+        "id": "workbench.agent-tasks.command.create",
+        "title": "Agent Tasks: Aufgabe erstellen",
+        "description": "Erstellt eine neue Aufgabe im aktuellen Projekt.",
+        "category": "Agent Tasks"
+      }
+    ]
+  }
+}
+```
+
+- Command IDs gehören zum Namespace der deklarierenden Extension und sind im Manifest eindeutig.
+- Ein vorhandener Commands-Bereich enthält mindestens einen und höchstens 256 Commands.
+- `onCommand:<id>` muss auf einen tatsächlich deklarierten Command derselben Extension zeigen.
+- Command Contributions benötigen einen UI- oder Server-Entrypoint, der den Handler später über
+  die öffentliche Runtime Registry registriert.
+- `execute`-Code, Shell-Befehle, Secrets und beliebige Payloads gehören nicht ins Manifest.
+- Conditions, Disabled Reason, Shortcuts und Menüs werden über eigene typisierte Contracts
+  additiv ergänzt und referenzieren dieselbe Command ID.
+
+Die heutige Dashboard Command Reference mit kopierbaren Serverbefehlen ist kein Ersatz für diese
+Registry und wird erst in einer späteren Featuremigration adaptiert.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

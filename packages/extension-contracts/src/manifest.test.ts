@@ -46,7 +46,16 @@ const validManifest = {
     { id: "workbench.legacy-agent-tasks", range: "<2.0.0" },
     { id: "workbench.agent-board" },
   ],
-  contributes: {},
+  contributes: {
+    commands: [
+      {
+        id: "workbench.agent-tasks.command.create",
+        title: "Agent Tasks: Aufgabe erstellen",
+        description: "Erstellt eine neue Aufgabe im aktuellen Projekt.",
+        category: "Agent Tasks",
+      },
+    ],
+  },
 };
 
 describe("Extension Manifest V1", () => {
@@ -75,7 +84,7 @@ describe("Extension Manifest V1", () => {
   });
 
   it("verlangt mindestens einen Entrypoint oder später eine Contribution", () => {
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {} }).success).toBe(false);
+    expect(extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {}, contributes: {} }).success).toBe(false);
   });
 
   it("weist unbekannte Felder auf allen definierten Ebenen ab", () => {
@@ -256,9 +265,58 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert strikt deklarierte Command Contributions", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onCommand:workbench.agent-tasks.command.create"],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fremde, doppelte und handlerlose Command Contributions ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: [{ id: "workbench.other.command.create", title: "Aufgabe erstellen" }],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: [
+            { id: "workbench.agent-tasks.command.create", title: "Aufgabe erstellen" },
+            { id: "workbench.agent-tasks.command.create", title: "Andere Anzeige" },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {} }).success).toBe(false);
+  });
+
+  it("verlangt für onCommand ein tatsächlich deklariertes Command-Ziel", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onCommand:workbench.agent-tasks.command.missing"],
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onRoute:workbench.agent-tasks.route.main"],
+      }).success,
+    ).toBe(true);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
+    expect(extensionContributionsV1Schema.safeParse({ commands: validManifest.contributes.commands }).success).toBe(true);
+    expect(extensionContributionsV1Schema.safeParse({ commands: [] }).success).toBe(false);
     expect(extensionActivationEventsV1Schema.safeParse(["onStartup"]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
   });
