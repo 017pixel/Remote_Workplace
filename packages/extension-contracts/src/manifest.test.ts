@@ -55,6 +55,27 @@ const validManifest = {
         category: "Agent Tasks",
       },
     ],
+    pages: [
+      {
+        id: "workbench.agent-tasks.page.main",
+        title: "Agent Tasks",
+      },
+    ],
+    routes: [
+      {
+        id: "workbench.agent-tasks.route.main",
+        pageId: "workbench.agent-tasks.page.main",
+        path: "/agent-tasks",
+        shell: "standard",
+        persistent: true,
+        prefetch: "idle",
+        projectContext: true,
+        topbar: true,
+        breadcrumbs: true,
+        standaloneActions: false,
+        mobileNavigation: true,
+      },
+    ],
   },
 };
 
@@ -312,12 +333,83 @@ describe("Extension Manifest V1", () => {
     ).toBe(true);
   });
 
+  it("akzeptiert Pages, Routes und onRoute mit tatsächlichen Manifestzielen", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onRoute:workbench.agent-tasks.route.main"],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende Page- und onRoute-Ziele ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          routes: [
+            {
+              ...validManifest.contributes.routes[0],
+              pageId: "workbench.agent-tasks.page.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onRoute:workbench.agent-tasks.route.missing"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde und manifestweit doppelte Contribution IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          pages: [{ id: "workbench.other.page.main", title: "Fremde Page" }],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          pages: [{ id: "workbench.agent-tasks.command.create", title: "Doppelte ID" }],
+          routes: [
+            {
+              ...validManifest.contributes.routes[0],
+              pageId: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt für Pages einen UI-Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { server: "./dist/server.js" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ commands: validManifest.contributes.commands }).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ commands: [] }).success).toBe(false);
     expect(extensionActivationEventsV1Schema.safeParse(["onStartup"]).success).toBe(true);
+    expect(extensionContributionsV1Schema.safeParse({ pages: validManifest.contributes.pages }).success).toBe(true);
+    expect(extensionContributionsV1Schema.safeParse({ routes: validManifest.contributes.routes }).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
+    expect(extensionContributionsV1Schema.safeParse({ navigation: [] }).success).toBe(false);
   });
 });

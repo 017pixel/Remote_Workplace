@@ -579,6 +579,126 @@
             "additionalProperties": false
           },
           "uniqueItems": true
+        },
+        "pages": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
+        },
+        "routes": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "pageId": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 256,
+                "pattern": "^(?:\\/|\\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|:[a-z][A-Za-z0-9]*)(?:\\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|:[a-z][A-Za-z0-9]*))*)$"
+              },
+              "aliases": {
+                "minItems": 1,
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^(?:\\/|\\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|:[a-z][A-Za-z0-9]*)(?:\\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|:[a-z][A-Za-z0-9]*))*)$"
+                },
+                "uniqueItems": true
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "shell": {
+                "default": "standard",
+                "type": "string",
+                "enum": [
+                  "standard",
+                  "full-bleed",
+                  "standalone"
+                ]
+              },
+              "persistent": {
+                "default": false,
+                "type": "boolean"
+              },
+              "prefetch": {
+                "default": "none",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "idle"
+                ]
+              },
+              "projectContext": {
+                "default": false,
+                "type": "boolean"
+              },
+              "topbar": {
+                "default": true,
+                "type": "boolean"
+              },
+              "breadcrumbs": {
+                "default": true,
+                "type": "boolean"
+              },
+              "standaloneActions": {
+                "default": false,
+                "type": "boolean"
+              },
+              "mobileNavigation": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "pageId",
+              "path"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

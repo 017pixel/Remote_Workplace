@@ -185,6 +185,59 @@ Identität und Anzeigemetadaten:
 Die heutige Dashboard Command Reference mit kopierbaren Serverbefehlen ist kein Ersatz für diese
 Registry und wird erst in einer späteren Featuremigration adaptiert.
 
+#### Page und Route Contributions
+
+Pages beschreiben renderbare UI-Flächen. Routes stellen eine Page unter einer oder mehreren
+lokalen Workbench-URLs bereit:
+
+```json
+{
+  "contributes": {
+    "pages": [
+      {
+        "id": "workbench.agent-tasks.page.main",
+        "title": "Agent Tasks"
+      }
+    ],
+    "routes": [
+      {
+        "id": "workbench.agent-tasks.route.main",
+        "pageId": "workbench.agent-tasks.page.main",
+        "path": "/agent-tasks",
+        "aliases": ["/tasks"],
+        "shell": "standard",
+        "persistent": true,
+        "prefetch": "idle",
+        "projectContext": true,
+        "topbar": true,
+        "breadcrumbs": true,
+        "standaloneActions": false,
+        "mobileNavigation": true
+      }
+    ]
+  }
+}
+```
+
+- Page- und Route-IDs gehören zum Extension-Namespace und sind manifestweit eindeutig.
+- Jede Route referenziert eine deklarierte Page derselben Extension. Pages benötigen einen
+  UI-Entrypoint, der ihren Renderer später über die öffentliche Registry bereitstellt.
+- Pfade sind absolute lokale URLs ohne Query, Fragment, Encoding, Wildcard oder Traversal.
+  Statische Segmente sind kleingeschrieben; dynamische Segmente sind benannte Pflichtparameter.
+- Optionale Parameter werden als eigener Alias modelliert. So bleiben Matcher und Bookmarks
+  eindeutig, etwa `/orbit` als Alias zu `/orbit/:boardId`.
+- Parameternamen besitzen für Kollisionen keine Semantik. `/projects/:id` kollidiert deshalb mit
+  `/projects/:projectId`. Das Manifest prüft eigene Routes und Aliases; der Manager prüft später
+  Kollisionen über alle installierten Extensions und reservierte Hostpfade.
+- `onRoute:<id>` muss eine tatsächlich deklarierte Route derselben Extension referenzieren.
+- Ohne explizite Werte gelten `standard`, nicht persistent, kein Prefetch, kein Project Context,
+  Topbar und Breadcrumbs sichtbar sowie keine Standalone Actions oder Mobile Navigation.
+- Ein lokaler, kontrollierter Icon-Vertrag folgt separat. Beliebige SVG-, HTML- oder Remote-Icon-
+  Quellen werden nicht vorzeitig in Route-Metadaten geöffnet.
+
+Der spätere Route Host erhält persistente Pages beim Routenwechsel gemountet. Disable entfernt
+Renderer und UI-Ressourcen kontrolliert, beendet aber keine user-owned Runtime.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

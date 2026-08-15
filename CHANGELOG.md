@@ -84,6 +84,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Command-Aktivierung an ein tatsächlich deklariertes Ziel gebunden
 - Command-Verträge im versionierten JSON Schema für künftige Registries bereitgestellt
 
+### Extension-Routen
+
+- Pages und Routes als getrennte, stabil referenzierbare Contributions definiert
+- Lokale Pfade und Bookmarks mit sicheren Alias-Regeln abgesichert
+- Shell, Persistenz, Prefetch und Projektkontext als einheitliche Metadaten ergänzt
+- Doppelte IDs, fehlende Pages und kollidierende URL-Muster werden abgewiesen
+- onRoute-Aktivierung an tatsächlich deklarierte Routes gebunden
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

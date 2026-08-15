@@ -4,7 +4,7 @@ import {
   activationEventContributionId,
   activationEventsV1Schema,
 } from "./activation-events.js";
-import { commandContributionsSchema } from "./contributions.js";
+import { commandContributionsSchema, pageContributionsSchema, routeContributionsSchema } from "./contributions.js";
 import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import {
@@ -153,6 +153,8 @@ export const extensionPermissionsV1Schema = extensionPermissionRequestsSchema;
 export const extensionActivationEventsV1Schema = activationEventsV1Schema;
 export const extensionContributionsV1Schema = z.strictObject({
   commands: commandContributionsSchema.optional(),
+  pages: pageContributionsSchema.optional(),
+  routes: routeContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -192,6 +194,10 @@ export const extensionManifestV1Schema = z
     },
   )
   .superRefine((manifest, context) => {
+    const commandIds = new Set((manifest.contributes.commands ?? []).map((command) => command.id));
+    const pageIds = new Set((manifest.contributes.pages ?? []).map((page) => page.id));
+    const routeIds = new Set((manifest.contributes.routes ?? []).map((route) => route.id));
+
     for (const [index, event] of manifest.activationEvents.entries()) {
       if (!activationEventBelongsToExtension(manifest.id, event)) {
         context.addIssue({
@@ -202,22 +208,62 @@ export const extensionManifestV1Schema = z
         continue;
       }
 
-      if (!event.startsWith("onCommand:")) continue;
-      const commandId = activationEventContributionId(event);
-      if (commandId !== null && manifest.contributes.commands?.some((command) => command.id === commandId)) continue;
-      context.addIssue({
-        code: "custom",
-        message: "Ein onCommand Activation Event benötigt eine deklarierte Command Contribution.",
-        path: ["activationEvents", index],
-      });
+      const contributionId = activationEventContributionId(event);
+      if (event.startsWith("onCommand:") && (contributionId === null || !commandIds.has(contributionId))) {
+        context.addIssue({
+          code: "custom",
+          message: "Ein onCommand Activation Event benötigt eine deklarierte Command Contribution.",
+          path: ["activationEvents", index],
+        });
+      }
+      if (event.startsWith("onRoute:") && (contributionId === null || !routeIds.has(contributionId))) {
+        context.addIssue({
+          code: "custom",
+          message: "Ein onRoute Activation Event benötigt eine deklarierte Route Contribution.",
+          path: ["activationEvents", index],
+        });
+      }
     }
 
-    for (const [index, command] of (manifest.contributes.commands ?? []).entries()) {
-      if (contributionBelongsToExtension(manifest.id, command.id)) continue;
+    const declaredContributions = [
+      ...(manifest.contributes.commands ?? []).map((command, index) => ({
+        id: command.id,
+        path: ["contributes", "commands", index, "id"] as const,
+      })),
+      ...(manifest.contributes.pages ?? []).map((page, index) => ({
+        id: page.id,
+        path: ["contributes", "pages", index, "id"] as const,
+      })),
+      ...(manifest.contributes.routes ?? []).map((route, index) => ({
+        id: route.id,
+        path: ["contributes", "routes", index, "id"] as const,
+      })),
+    ];
+    const seenContributionIds = new Set<string>();
+    for (const contribution of declaredContributions) {
+      if (!contributionBelongsToExtension(manifest.id, contribution.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Contribution IDs müssen zur deklarierenden Extension gehören.",
+          path: [...contribution.path],
+        });
+      }
+      if (seenContributionIds.has(contribution.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Contribution IDs müssen manifestweit eindeutig sein.",
+          path: [...contribution.path],
+        });
+      }
+      seenContributionIds.add(contribution.id);
+    }
+
+    for (const [index, route] of (manifest.contributes.routes ?? []).entries()) {
+      if (pageIds.has(route.pageId)) continue;
       context.addIssue({
         code: "custom",
-        message: "Command Contributions müssen zur deklarierenden Extension gehören.",
-        path: ["contributes", "commands", index, "id"],
+        message: "Eine Route muss eine deklarierte Page Contribution derselben Extension referenzieren.",
+        path: ["contributes", "routes", index, "pageId"],
       });
     }
 
@@ -230,6 +276,14 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message: "Command Contributions benötigen einen UI- oder Server-Entrypoint für ihren Handler.",
         path: ["entrypoints"],
+      });
+    }
+
+    if (manifest.contributes.pages !== undefined && manifest.entrypoints.ui === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Page Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
+        path: ["entrypoints", "ui"],
       });
     }
 
