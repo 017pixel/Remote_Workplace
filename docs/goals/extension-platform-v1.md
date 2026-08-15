@@ -177,18 +177,19 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 5, `in-progress`. Phasen 0 bis 4 sind abgeschlossen.
+Phase 6, `in-progress`. Phasen 0 bis 5 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 5.3, Catalog- und Extensions-API für Updates und Frontend.
+Subgoal 6.1, Capability Broker mit Projects-, Files- und Storage-Fähigkeiten.
 
 ## Next Concrete Action
 
-Subgoal 5.3 öffnet die Catalog-Lese-API (GET /api/v1/extensions/catalog), setzt
-`availableVersion`/`update-available` aus Catalog-Versionen und verlinkt Updates auf den
-Catalog-Installationspfad. Danach folgen Capability Layer (Phase 6), SDK/UI Kit/CLI
-(Phase 7) und der Tech-TLDRs-Canary (Phase 9).
+Subgoal 6.1 baut den serverseitigen Capability Broker: projects.read, files.read/write und
+storage.kv/sql werden als namespaced Capability-Aufrufe mit Identity-, Scope-, Realpath-,
+Symlink-, Größen- und Audit-Prüfung bereitgestellt. Grants bleiben Teilmenge der Manifest-
+Requests; jede Nutzung wird erneut geprüft, nie vorab erteilt. Danach folgen process,
+network, events, jobs und secrets (6.2 ff.).
 
 ## Phase Table
 
@@ -199,8 +200,8 @@ Catalog-Installationspfad. Danach folgen Capability Layer (Phase 6), SDK/UI Kit/
 | 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | done |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | done |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | done |
-| 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | in-progress |
-| 6 | Capability Layer für Files, Process, Network, Storage, Events, Jobs, Secrets und weitere Broker | not-started |
+| 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | done |
+| 6 | Capability Layer für Files, Process, Network, Storage, Events, Jobs, Secrets und weitere Broker | in-progress |
 | 7 | Extension SDK, UI Kit, CLI, Scaffolds, Beispiele und Test Harness | not-started |
 | 8 | Extension Development Skills und Agent Acceptance Test | not-started |
 | 9 | Tech TLDRs als vollständige Canary Extension | not-started |
