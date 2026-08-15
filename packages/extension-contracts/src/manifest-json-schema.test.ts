@@ -4,6 +4,7 @@ import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
 } from "./manifest-json-schema.js";
+import { extensionPermissionIds } from "./permissions.js";
 
 const trackedSchema = JSON.parse(
   readFileSync(new URL("../schema/extension-manifest-v1.schema.json", import.meta.url), "utf8"),
@@ -21,6 +22,12 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
         trust: {
           type: "string",
           enum: ["system", "builtin", "catalog-first-party", "developer", "sandboxed-webview"],
+        },
+        permissions: {
+          type: "array",
+          maxItems: extensionPermissionIds.length,
+          uniqueItems: true,
+          items: { oneOf: expect.any(Array) },
         },
       },
     });

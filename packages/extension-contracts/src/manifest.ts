@@ -6,6 +6,7 @@ import {
   remoteWorkplaceCompatibilitySchema,
   semanticVersionSchema,
 } from "./versioning.js";
+import { extensionPermissionRequestsSchema } from "./permissions.js";
 
 export const EXTENSION_NAME_MAX_LENGTH = 80;
 export const EXTENSION_DESCRIPTION_MAX_LENGTH = 500;
@@ -139,9 +140,9 @@ export const extensionEntrypointsSchema = z.strictObject({
 
 export type ExtensionEntrypoints = z.infer<typeof extensionEntrypointsSchema>;
 
-// Die späteren Phase-1-Subgoals erweitern diese drei Surfaces. Bis dahin sind sie
-// fail-closed: Das Manifest kann sie deklarieren, aber noch keine Inhalte einschleusen.
-export const extensionPermissionsV1Schema = z.array(z.never()).max(0);
+// Manifest V1 öffnet Surfaces erst mit ihrem typisierten Contract. Activation Events und
+// Contributions bleiben bis zu ihren Phase-1-Subgoals fail-closed.
+export const extensionPermissionsV1Schema = extensionPermissionRequestsSchema;
 export const extensionActivationEventsV1Schema = z.array(z.never()).max(0);
 export const extensionContributionsV1Schema = z.strictObject({});
 

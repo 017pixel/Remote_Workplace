@@ -162,11 +162,286 @@
       "additionalProperties": false
     },
     "permissions": {
-      "maxItems": 0,
+      "maxItems": 23,
       "type": "array",
       "items": {
-        "not": {}
-      }
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "enum": [
+                  "projects.read",
+                  "projects.write",
+                  "files.read",
+                  "files.write",
+                  "git.read",
+                  "git.write",
+                  "terminal.create",
+                  "terminal.input",
+                  "preview.read",
+                  "preview.manage",
+                  "agents.invoke"
+                ]
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "projects": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "current"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^id:[a-z0-9]+(?:-[a-z0-9]+)*$"
+                        }
+                      ]
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "projects"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "const": "process.execute"
+              },
+              "scope": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "projects": {
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "current"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^id:[a-z0-9]+(?:-[a-z0-9]+)*$"
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "commands": {
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+                        },
+                        "uniqueItems": true
+                      }
+                    },
+                    "required": [
+                      "projects"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "projects": {
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "current"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^id:[a-z0-9]+(?:-[a-z0-9]+)*$"
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      },
+                      "commands": {
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+                        },
+                        "uniqueItems": true
+                      }
+                    },
+                    "required": [
+                      "commands"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "const": "network.fetch"
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "hosts": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253,
+                      "pattern": "^(?=.*[a-z])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "hosts"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "enum": [
+                  "notifications.create",
+                  "browser.control",
+                  "agents.tools.register",
+                  "agents.skills.register",
+                  "storage.read",
+                  "storage.write",
+                  "system.metrics.read"
+                ]
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "const": "secrets.request"
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "names": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "names"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permission": {
+                "type": "string",
+                "enum": [
+                  "system.services.read",
+                  "system.services.control"
+                ]
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "services": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9@_.-]*[A-Za-z0-9@_-])?\\.service$"
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "services"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "permission"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "uniqueItems": true
     },
     "activationEvents": {
       "maxItems": 0,

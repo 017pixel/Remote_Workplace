@@ -72,11 +72,12 @@ Extension API 1 nicht brechen. Eine unbekannte Manifestversion wird fail-closed 
 V1 unterstützt zusätzlich Kategorie, Keywords, lokale Icon-/README-/Changelog-Pfade,
 Data-Schema-Version, Dependencies, Optional Dependencies und Conflicts.
 
-Das initiale Grundschema hält `permissions`, `activationEvents` und `contributes` bis zu ihren
-jeweiligen Phase-1-Subgoals bewusst leer. Dadurch werden noch nicht spezifizierte Inhalte nicht
-als untypisierte Übergangsdaten akzeptiert. Die Bereiche werden innerhalb Manifest V1 additiv
-erweitert. `$schema` dient ausschließlich Editoren; Server und Installer laden darüber keine
-entfernten Verträge nach.
+Das Grundschema hält `activationEvents` und `contributes` bis zu ihren jeweiligen
+Phase-1-Subgoals bewusst leer. `permissions` akzeptiert inzwischen ausschließlich strukturierte
+V1-Requests. Dadurch werden noch nicht spezifizierte Inhalte nicht als untypisierte
+Übergangsdaten akzeptiert. Die übrigen Bereiche werden innerhalb Manifest V1 additiv erweitert.
+`$schema` dient ausschließlich Editoren; Server und Installer laden darüber keine entfernten
+Verträge nach.
 
 ### IDs
 
@@ -108,7 +109,9 @@ einmalig definiert und durch Schema- sowie Fixture-Tests belegt.
 
 Permissions sind strukturierte Requests mit stabiler Permission ID und optionalem Scope. Das
 Manifest fordert Rechte an; Grants liegen ausschließlich serverseitig. Ein Update vergleicht
-normalisierte Permission Requests semantisch.
+normalisierte Permission Requests semantisch. Der genaue V1-Katalog, die Scope-Typen und die
+Grenze zwischen Request, Grant und Trust stehen in
+[`extension-permission-model.md`](extension-permission-model.md).
 
 `trust` beschreibt den erwarteten Runtime-Typ, ist aber kein Grant. Der Extension Manager leitet
 den effektiven Trust aus Source, Paketprovenance und Host Policy ab. Ein Manifest kann sich nicht

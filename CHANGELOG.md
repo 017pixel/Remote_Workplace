@@ -44,6 +44,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Lokale Entrypoints, Icons, README und Changelog gegen unsichere Pfade abgesichert
 - Versioniertes JSON Schema für Editoren und künftige Extension-Werkzeuge bereitgestellt
 
+### Extension-Berechtigungen
+
+- 23 stabile Berechtigungen für Projekte, Dateien, Runtimes, Agenten und Systemzugriffe definiert
+- Projekt-, Netzwerk-, Prozess-, Secret- und Service-Zugriffe gezielt einschränkbar gemacht
+- Globale und eingeschränkte Rechte als verständlich prüfbare Anfragen getrennt
+- Risikostufen zentral durch Remote Workplace statt durch Extensions festgelegt
+- Doppelte, unbekannte und nicht passende Berechtigungsanfragen werden sicher abgewiesen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

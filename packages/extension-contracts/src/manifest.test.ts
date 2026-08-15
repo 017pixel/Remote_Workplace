@@ -136,11 +136,24 @@ describe("Extension Manifest V1", () => {
     expect(extensionManifestV1Schema.safeParse({ ...validManifest, readme: "./README.html" }).success).toBe(false);
   });
 
-  it("hält noch nicht definierte Manifest-Surfaces geschlossen", () => {
+  it("akzeptiert ausschließlich strukturierte Permission Requests", () => {
     expect(extensionPermissionsV1Schema.safeParse([]).success).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        permissions: [
+          { permission: "files.read", scope: { projects: ["current"] } },
+          { permission: "network.fetch", scope: { hosts: ["api.example.com"] } },
+          { permission: "notifications.create" },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(extensionPermissionsV1Schema.safeParse(["files.read"]).success).toBe(false);
+  });
+
+  it("hält noch nicht definierte Manifest-Surfaces geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
-    expect(extensionPermissionsV1Schema.safeParse(["files.read"]).success).toBe(false);
     expect(extensionActivationEventsV1Schema.safeParse(["onStartup"]).success).toBe(false);
     expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
   });
