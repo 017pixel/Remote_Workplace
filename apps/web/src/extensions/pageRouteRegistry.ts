@@ -22,6 +22,11 @@ export interface PageRuntimeBinding {
   readonly loading: "eager" | "lazy";
   readonly recovery: "none" | "stale-chunk";
   readonly load: PageModuleLoader;
+  /**
+   * Bei `loading: "eager"` das bereits importierte Modul, damit der Route
+   * Host die Komponente ohne Suspense-Zwischenrahmen synchron auflösen kann.
+   */
+  readonly eagerModule?: unknown;
 }
 
 export interface RouteRuntimeBinding {
@@ -104,7 +109,9 @@ function isValidPageRuntime(runtime: PageRuntimeBinding): boolean {
     /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(runtime.chunkId) &&
     /^[A-Z][A-Za-z0-9]*$/.test(runtime.exportName) &&
     typeof runtime.load === "function" &&
-    ((runtime.loading === "eager" && runtime.recovery === "none") ||
+    ((runtime.loading === "eager" &&
+      runtime.recovery === "none" &&
+      runtime.eagerModule !== undefined) ||
       (runtime.loading === "lazy" && runtime.recovery === "stale-chunk"))
   );
 }

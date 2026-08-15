@@ -63,6 +63,7 @@ function eagerPageRuntime(exportName: string): PageRuntimeBinding {
     loading: "eager",
     recovery: "none",
     load: () => Promise.resolve(dashboardModule),
+    eagerModule: dashboardModule,
   });
 }
 
