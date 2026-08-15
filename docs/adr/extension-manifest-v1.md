@@ -102,6 +102,7 @@ einmalig definiert und durch Schema- sowie Fixture-Tests belegt.
 - Manifest V1 akzeptiert Icons zunächst nur als lokales PNG, WebP oder JPEG. SVG und HTML sind
   bis zu einem eigenen Sanitizing- und Rendering-Vertrag nicht erlaubt.
 - README und Changelog sind lokale, größenbegrenzte Markdown-Dateien.
+- Contribution State-Schemas sind lokale JSON-Dateien; Remote-Schema-URLs werden nicht geladen.
 - Normale Extensions dürfen kein beliebiges globales CSS oder HTML als Icon injizieren.
 - Mindestens eine Contribution oder ein gültiger Entrypoint muss vorhanden sein.
 
@@ -288,6 +289,58 @@ Mobile-Navigation. Sie enthält nur sichere Metadaten und keine React-Komponente
 Die heutigen 18 geschlossenen `PageRouteId`-Werte und die duplizierten Pfadzuordnungen werden
 erst in Phase 2 und 3 über Legacy Built-in Contributions adaptiert. Dieser Contract ändert noch
 keine Sidebar-Präferenz und keine bestehende Mobile-Navigation.
+
+#### Orbit Contributions
+
+Orbit Contributions beschreiben einen versionierten, persistenten Node-Typ, ohne Renderer oder
+Migrationscode in das Manifest zu legen:
+
+```json
+{
+  "contributes": {
+    "orbit": [
+      {
+        "id": "workbench.agent-tasks.orbit.task-board",
+        "title": "Agent Tasks",
+        "description": "Aufgaben eines Projekts im Orbit verwalten.",
+        "category": "Productivity",
+        "icon": "workbench.agent-tasks.icon.task-board",
+        "stateVersion": 3,
+        "stateSchema": "./schemas/task-board-state.schema.json",
+        "defaultSize": { "width": 720, "height": 480 },
+        "resizable": true,
+        "projectContext": true,
+        "inspector": true,
+        "connections": "bidirectional",
+        "visibleByDefault": true
+      }
+    ]
+  }
+}
+```
+
+- Orbit IDs sind manifestweit eindeutig und gehören zum Namespace der Extension.
+- `stateSchema` ist ein lokales JSON-Dokument im Paket. Installer und Runtime prüfen später
+  Paketgrenze, JSON-Schema-Syntax, Größe und verbotene Remote-Referenzen.
+- `stateVersion` liegt zwischen 1 und 1.000.000. Erhöhungen benötigen vor Aktivierung eine
+  lückenlose, validierte Runtime-Migrationskette.
+- Default-Größen entsprechen den bestehenden Hostgrenzen von 160 x 96 bis 20.000 x 20.000
+  Pixeln. Gespeicherte individuelle Größen werden dadurch nicht verändert.
+- Ohne explizite Werte sind Nodes veränderbar, ohne Projektkontext und Inspector, in beide
+  Richtungen verbindbar und in der Palette sichtbar.
+- Connection-Modi sind `none`, `incoming`, `outgoing` und `bidirectional`.
+- Orbit Contributions benötigen einen UI-Entrypoint. Dieser registriert Renderer und den
+  optional angekündigten Inspector über dieselbe öffentliche Runtime Registry.
+- `onOrbitNode:<id>` muss auf eine tatsächlich deklarierte Orbit Contribution derselben
+  Extension zeigen.
+- Icons verwenden den kontrollierten lokalen oder namespaced Vertrag. Fehlende Runtime-Icons
+  fallen auf die generische Hostdarstellung zurück.
+
+State Schema, Default State, Migration, Renderer, Inspector, Context-/Toolbar-Aktionen,
+Connections und Serialize/Deserialize bilden zusammen den späteren Runtime-Vertrag. Das
+Manifest enthält davon nur statisch validierbare Discovery-Metadaten. Das persistierte
+Extension-Node-Modell, Missing-Extension-Verhalten und Legacy-Migration sind in
+[`extension-orbit-model.md`](extension-orbit-model.md) festgelegt.
 
 ### Dependencies und Conflicts
 

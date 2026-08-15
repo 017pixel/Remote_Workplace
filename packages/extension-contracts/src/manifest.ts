@@ -7,11 +7,17 @@ import {
 import {
   commandContributionsSchema,
   navigationContributionsSchema,
+  orbitContributionsSchema,
   pageContributionsSchema,
   routeContributionsSchema,
 } from "./contributions.js";
 import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
+import {
+  extensionEntrypointPathSchema,
+  extensionIconPathSchema,
+  extensionMarkdownPathSchema,
+} from "./package-paths.js";
 import {
   extensionApiCompatibilitySchema,
   manifestVersionSchema,
@@ -20,6 +26,8 @@ import {
 } from "./versioning.js";
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 
+export * from "./package-paths.js";
+
 export const EXTENSION_NAME_MAX_LENGTH = 80;
 export const EXTENSION_DESCRIPTION_MAX_LENGTH = 500;
 export const EXTENSION_PUBLISHER_MAX_LENGTH = 64;
@@ -27,15 +35,9 @@ export const EXTENSION_LICENSE_MAX_LENGTH = 128;
 export const EXTENSION_CATEGORY_MAX_LENGTH = 64;
 export const EXTENSION_KEYWORD_MAX_LENGTH = 48;
 export const EXTENSION_KEYWORDS_MAX_COUNT = 20;
-export const EXTENSION_LOCAL_PATH_MAX_LENGTH = 512;
 export const EXTENSION_SCHEMA_REFERENCE_MAX_LENGTH = 512;
 
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
-
-// Pfade in einem Extension-Paket sind absichtlich unabhängig vom Host-Dateisystem.
-// Das enge POSIX-Format verhindert absolute Pfade, Traversal, URL-Sonderzeichen und Backslashes.
-export const extensionPackagePathPattern =
-  /^\.\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$/;
 
 function containsControlCharacter(value: string): boolean {
   return Array.from(value).some((character) => {
@@ -100,33 +102,6 @@ export const extensionKeywordsSchema = z
     }
   });
 
-const extensionPackagePathBaseSchema = z
-  .string()
-  .max(EXTENSION_LOCAL_PATH_MAX_LENGTH)
-  .regex(
-    extensionPackagePathPattern,
-    "Ein lokaler Paketpfad im POSIX-Format mit führendem ./ wird erwartet.",
-  );
-
-export const extensionPackagePathSchema = extensionPackagePathBaseSchema.brand<"ExtensionPackagePath">();
-
-export type ExtensionPackagePath = z.infer<typeof extensionPackagePathSchema>;
-
-export const extensionEntrypointPathSchema = extensionPackagePathBaseSchema
-  .regex(/\.(?:c|m)?js$/, "Ein Extension-Entrypoint muss auf .js, .mjs oder .cjs enden.")
-  .brand<"ExtensionEntrypointPath">();
-
-export const extensionIconPathSchema = extensionPackagePathBaseSchema
-  .regex(
-    /\.(?:png|webp|jpe?g)$/,
-    "Manifest V1 erlaubt für Icons nur lokale PNG-, WebP- oder JPEG-Dateien.",
-  )
-  .brand<"ExtensionIconPath">();
-
-export const extensionMarkdownPathSchema = extensionPackagePathBaseSchema
-  .regex(/\.md$/, "README und Changelog müssen lokale Markdown-Dateien sein.")
-  .brand<"ExtensionMarkdownPath">();
-
 export const extensionTrustLevels = [
   "system",
   "builtin",
@@ -161,6 +136,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   pages: pageContributionsSchema.optional(),
   routes: routeContributionsSchema.optional(),
   navigation: navigationContributionsSchema.optional(),
+  orbit: orbitContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -203,6 +179,7 @@ export const extensionManifestV1Schema = z
     const commandIds = new Set((manifest.contributes.commands ?? []).map((command) => command.id));
     const pageIds = new Set((manifest.contributes.pages ?? []).map((page) => page.id));
     const routeIds = new Set((manifest.contributes.routes ?? []).map((route) => route.id));
+    const orbitIds = new Set((manifest.contributes.orbit ?? []).map((node) => node.id));
 
     for (const [index, event] of manifest.activationEvents.entries()) {
       if (!activationEventBelongsToExtension(manifest.id, event)) {
@@ -229,6 +206,13 @@ export const extensionManifestV1Schema = z
           path: ["activationEvents", index],
         });
       }
+      if (event.startsWith("onOrbitNode:") && (contributionId === null || !orbitIds.has(contributionId))) {
+        context.addIssue({
+          code: "custom",
+          message: "Ein onOrbitNode Activation Event benötigt eine deklarierte Orbit Contribution.",
+          path: ["activationEvents", index],
+        });
+      }
     }
 
     const declaredContributions = [
@@ -247,6 +231,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.navigation ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "navigation", index, "id"] as const,
+      })),
+      ...(manifest.contributes.orbit ?? []).map((node, index) => ({
+        id: node.id,
+        path: ["contributes", "orbit", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -315,6 +303,27 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, node] of (manifest.contributes.orbit ?? []).entries()) {
+      if (
+        node.icon !== undefined &&
+        node.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, node.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Eine Orbit Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "orbit", index, "icon"],
+        });
+      }
+      if (node.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message: "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "orbit", index, "icon"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -331,6 +340,14 @@ export const extensionManifestV1Schema = z
       context.addIssue({
         code: "custom",
         message: "Page Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
+        path: ["entrypoints", "ui"],
+      });
+    }
+
+    if (manifest.contributes.orbit !== undefined && manifest.entrypoints.ui === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Orbit Contributions benötigen einen UI-Entrypoint für Renderer und State Contract.",
         path: ["entrypoints", "ui"],
       });
     }

@@ -4,6 +4,7 @@ import { ACTIVATION_EVENTS_MAX_COUNT } from "./activation-events.js";
 import {
   COMMAND_CONTRIBUTIONS_MAX_COUNT,
   NAVIGATION_CONTRIBUTIONS_MAX_COUNT,
+  ORBIT_CONTRIBUTIONS_MAX_COUNT,
   PAGE_CONTRIBUTIONS_MAX_COUNT,
   ROUTE_CONTRIBUTIONS_MAX_COUNT,
 } from "./contributions.js";
@@ -90,6 +91,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               type: "array",
               minItems: 1,
               maxItems: NAVIGATION_CONTRIBUTIONS_MAX_COUNT,
+              uniqueItems: true,
+              items: { type: "object", additionalProperties: false },
+            },
+            orbit: {
+              type: "array",
+              minItems: 1,
+              maxItems: ORBIT_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { type: "object", additionalProperties: false },
             },

@@ -100,6 +100,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Lokale Extension-Icons und namespaced Runtime-Referenzen sicher getrennt
 - Fremde Icon-, Badge- und Route-Referenzen werden abgewiesen
 
+### Extension-Orbit
+
+- Versionierte Orbit Contributions mit stabiler Extension-Identität definiert
+- Lokale State-Schemas und bestehende Orbit-Größengrenzen verbindlich gemacht
+- Renderer, Inspector, Projektkontext und Verbindungen deklarativ beschreibbar gemacht
+- onOrbitNode-Aktivierung an tatsächlich deklarierte Ziele gebunden
+- Fehlende Extensions behalten Node State, Revisionen und Backups unverändert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

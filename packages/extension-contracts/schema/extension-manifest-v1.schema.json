@@ -775,6 +775,121 @@
             "additionalProperties": false
           },
           "uniqueItems": true
+        },
+        "orbit": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "category": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "icon": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "extension"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 192,
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                  }
+                ]
+              },
+              "stateVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000
+              },
+              "stateSchema": {
+                "type": "string",
+                "maxLength": 512,
+                "allOf": [
+                  {
+                    "pattern": "^\\.\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?(?:\\/[A-Za-z0-9_](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?)*$"
+                  },
+                  {
+                    "pattern": "\\.json$"
+                  }
+                ]
+              },
+              "defaultSize": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": 160,
+                    "maximum": 20000
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 96,
+                    "maximum": 20000
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "resizable": {
+                "default": true,
+                "type": "boolean"
+              },
+              "projectContext": {
+                "default": false,
+                "type": "boolean"
+              },
+              "inspector": {
+                "default": false,
+                "type": "boolean"
+              },
+              "connections": {
+                "default": "bidirectional",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "incoming",
+                  "outgoing",
+                  "bidirectional"
+                ]
+              },
+              "visibleByDefault": {
+                "default": true,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "stateVersion",
+              "stateSchema",
+              "defaultSize"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

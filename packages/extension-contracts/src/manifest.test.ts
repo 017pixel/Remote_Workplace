@@ -89,6 +89,23 @@ const validManifest = {
         visibleByDefault: true,
       },
     ],
+    orbit: [
+      {
+        id: "workbench.agent-tasks.orbit.task-board",
+        title: "Agent Tasks",
+        description: "Aufgaben eines Projekts im Orbit verwalten.",
+        category: "Productivity",
+        icon: "workbench.agent-tasks.icon.task-board",
+        stateVersion: 3,
+        stateSchema: "./schemas/task-board-state.schema.json",
+        defaultSize: { width: 720, height: 480 },
+        resizable: true,
+        projectContext: true,
+        inspector: true,
+        connections: "bidirectional",
+        visibleByDefault: true,
+      },
+    ],
   },
 };
 
@@ -417,6 +434,20 @@ describe("Extension Manifest V1", () => {
         },
       }).success,
     ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          orbit: [
+            {
+              ...validManifest.contributes.orbit[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("verlangt für Pages einen UI-Entrypoint", () => {
@@ -424,6 +455,7 @@ describe("Extension Manifest V1", () => {
       extensionManifestV1Schema.safeParse({
         ...validManifest,
         entrypoints: { server: "./dist/server.js" },
+        contributes: { pages: validManifest.contributes.pages },
       }).success,
     ).toBe(false);
   });
@@ -510,6 +542,64 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert Orbit Contributions und bindet onOrbitNode an ein tatsächliches Ziel", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onOrbitNode:workbench.agent-tasks.orbit.task-board"],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende onOrbitNode-Ziele und fremde Orbit-Icons ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        activationEvents: ["onOrbitNode:workbench.agent-tasks.orbit.missing"],
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          orbit: [
+            {
+              ...validManifest.contributes.orbit[0],
+              icon: "workbench.other.icon.task-board",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    const manifestWithoutIcon: Partial<typeof validManifest> = { ...validManifest };
+    delete manifestWithoutIcon.icon;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...manifestWithoutIcon,
+        contributes: {
+          ...validManifest.contributes,
+          orbit: [
+            {
+              ...validManifest.contributes.orbit[0],
+              icon: "extension",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt für Orbit Renderer einen UI-Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: { server: "./dist/server.js" },
+        contributes: { orbit: validManifest.contributes.orbit },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -521,8 +611,10 @@ describe("Extension Manifest V1", () => {
     expect(extensionContributionsV1Schema.safeParse({ navigation: validManifest.contributes.navigation }).success).toBe(
       true,
     );
+    expect(extensionContributionsV1Schema.safeParse({ orbit: validManifest.contributes.orbit }).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
     expect(extensionContributionsV1Schema.safeParse({ navigation: [] }).success).toBe(false);
     expect(extensionContributionsV1Schema.safeParse({ mobileNavigation: [] }).success).toBe(false);
+    expect(extensionContributionsV1Schema.safeParse({ dashboard: [] }).success).toBe(false);
   });
 });

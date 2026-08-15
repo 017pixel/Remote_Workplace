@@ -3,12 +3,16 @@ import {
   COMMAND_CONTRIBUTIONS_MAX_COUNT,
   CONTRIBUTION_TITLE_MAX_LENGTH,
   NAVIGATION_CONTRIBUTIONS_MAX_COUNT,
+  ORBIT_CONTRIBUTIONS_MAX_COUNT,
+  ORBIT_STATE_VERSION_MAX,
   PAGE_CONTRIBUTIONS_MAX_COUNT,
   ROUTE_CONTRIBUTIONS_MAX_COUNT,
   commandContributionSchema,
   commandContributionsSchema,
   navigationContributionSchema,
   navigationContributionsSchema,
+  orbitContributionsSchema,
+  orbitNodeContributionSchema,
   pageContributionsSchema,
   routeContributionSchema,
   routeContributionsSchema,
@@ -250,6 +254,71 @@ describe("Navigation Contributions V1", () => {
           ...navigation,
           id: `workbench.agent-tasks.navigation.item-${index}`,
           order: index,
+        })),
+      ).success,
+    ).toBe(false);
+  });
+});
+
+describe("Orbit Contributions V1", () => {
+  const orbitNode = {
+    id: "workbench.agent-tasks.orbit.task-board",
+    title: "Agent Tasks",
+    description: "Aufgaben eines Projekts im Orbit verwalten.",
+    category: "Productivity",
+    icon: "workbench.agent-tasks.icon.task-board",
+    stateVersion: 3,
+    stateSchema: "./schemas/task-board-state.schema.json",
+    defaultSize: { width: 720, height: 480 },
+  } as const;
+
+  it("akzeptiert versionierten State und füllt sichere Host-Defaults", () => {
+    expect(orbitNodeContributionSchema.parse(orbitNode)).toEqual({
+      ...orbitNode,
+      resizable: true,
+      projectContext: false,
+      inspector: false,
+      connections: "bidirectional",
+      visibleByDefault: true,
+    });
+  });
+
+  it("akzeptiert kontrollierte Renderer-Metadaten für komplexe Knoten", () => {
+    expect(
+      orbitNodeContributionSchema.safeParse({
+        ...orbitNode,
+        icon: "extension",
+        resizable: false,
+        projectContext: true,
+        inspector: true,
+        connections: "incoming",
+        visibleByDefault: false,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist ungültige State-Versionen, Größen und Connection-Modi ab", () => {
+    expect(orbitNodeContributionSchema.safeParse({ ...orbitNode, stateVersion: 0 }).success).toBe(false);
+    expect(
+      orbitNodeContributionSchema.safeParse({ ...orbitNode, stateVersion: ORBIT_STATE_VERSION_MAX + 1 }).success,
+    ).toBe(false);
+    expect(
+      orbitNodeContributionSchema.safeParse({ ...orbitNode, defaultSize: { width: 159, height: 480 } }).success,
+    ).toBe(false);
+    expect(orbitNodeContributionSchema.safeParse({ ...orbitNode, connections: "custom" }).success).toBe(false);
+    expect(orbitNodeContributionSchema.safeParse({ ...orbitNode, stateSchema: "https://example.com/state.json" }).success).toBe(
+      false,
+    );
+  });
+
+  it("weist leere, doppelte und übergroße Orbit-Listen ab", () => {
+    expect(orbitContributionsSchema.safeParse([]).success).toBe(false);
+    expect(orbitContributionsSchema.safeParse([orbitNode, orbitNode]).success).toBe(false);
+    expect(
+      orbitContributionsSchema.safeParse(
+        Array.from({ length: ORBIT_CONTRIBUTIONS_MAX_COUNT + 1 }, (_, index) => ({
+          ...orbitNode,
+          id: `workbench.agent-tasks.orbit.node-${index}`,
         })),
       ).success,
     ).toBe(false);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { contributionIdSchema } from "./ids.js";
+import { extensionJsonPathSchema } from "./package-paths.js";
 
 export const CONTRIBUTION_TITLE_MAX_LENGTH = 120;
 export const CONTRIBUTION_DESCRIPTION_MAX_LENGTH = 500;
@@ -8,10 +9,18 @@ export const COMMAND_CONTRIBUTIONS_MAX_COUNT = 256;
 export const PAGE_CONTRIBUTIONS_MAX_COUNT = 128;
 export const ROUTE_CONTRIBUTIONS_MAX_COUNT = 128;
 export const NAVIGATION_CONTRIBUTIONS_MAX_COUNT = 256;
+export const ORBIT_CONTRIBUTIONS_MAX_COUNT = 128;
 export const ROUTE_ALIASES_MAX_COUNT = 16;
 export const ROUTE_PATH_MAX_LENGTH = 256;
 export const NAVIGATION_ORDER_MIN = 0;
 export const NAVIGATION_ORDER_MAX = 10_000;
+export const ORBIT_STATE_VERSION_MAX = 1_000_000;
+export const EXTENSION_ORBIT_SIZE_LIMITS = {
+  minWidth: 160,
+  minHeight: 96,
+  maxWidth: 20_000,
+  maxHeight: 20_000,
+} as const;
 
 function containsControlCharacter(value: string): boolean {
   return Array.from(value).some((character) => {
@@ -227,8 +236,10 @@ export type NavigationGroup = z.infer<typeof navigationGroupSchema>;
 
 // `extension` verwendet das sichere lokale Manifest-Icon. Eine namespaced ID wird später
 // durch den UI-Entrypoint gegen die kontrollierte Icon Registry aufgelöst.
-export const navigationIconReferenceSchema = z.union([z.literal("extension"), contributionIdSchema]);
-export type NavigationIconReference = z.infer<typeof navigationIconReferenceSchema>;
+export const contributionIconReferenceSchema = z.union([z.literal("extension"), contributionIdSchema]);
+export type ContributionIconReference = z.infer<typeof contributionIconReferenceSchema>;
+export const navigationIconReferenceSchema = contributionIconReferenceSchema;
+export type NavigationIconReference = ContributionIconReference;
 
 export const navigationContributionSchema = z.strictObject({
   id: contributionIdSchema,
@@ -264,3 +275,61 @@ export const navigationContributionsSchema = z
   .meta({ uniqueItems: true });
 
 export type NavigationContributions = z.infer<typeof navigationContributionsSchema>;
+
+export const orbitContributionSizeSchema = z.strictObject({
+  width: z
+    .number()
+    .int()
+    .min(EXTENSION_ORBIT_SIZE_LIMITS.minWidth)
+    .max(EXTENSION_ORBIT_SIZE_LIMITS.maxWidth),
+  height: z
+    .number()
+    .int()
+    .min(EXTENSION_ORBIT_SIZE_LIMITS.minHeight)
+    .max(EXTENSION_ORBIT_SIZE_LIMITS.maxHeight),
+});
+
+export type OrbitContributionSize = z.infer<typeof orbitContributionSizeSchema>;
+
+export const orbitConnectionModes = ["none", "incoming", "outgoing", "bidirectional"] as const;
+export const orbitConnectionModeSchema = z.enum(orbitConnectionModes);
+export type OrbitConnectionMode = z.infer<typeof orbitConnectionModeSchema>;
+
+export const orbitNodeContributionSchema = z.strictObject({
+  id: contributionIdSchema,
+  title: contributionTitleSchema,
+  description: contributionDescriptionSchema.optional(),
+  category: contributionCategorySchema.optional(),
+  icon: contributionIconReferenceSchema.optional(),
+  stateVersion: z.number().int().positive().max(ORBIT_STATE_VERSION_MAX),
+  stateSchema: extensionJsonPathSchema,
+  defaultSize: orbitContributionSizeSchema,
+  resizable: z.boolean().default(true),
+  projectContext: z.boolean().default(false),
+  inspector: z.boolean().default(false),
+  connections: orbitConnectionModeSchema.default("bidirectional"),
+  visibleByDefault: z.boolean().default(true),
+});
+
+export type OrbitNodeContribution = z.infer<typeof orbitNodeContributionSchema>;
+
+export const orbitContributionsSchema = z
+  .array(orbitNodeContributionSchema)
+  .min(1)
+  .max(ORBIT_CONTRIBUTIONS_MAX_COUNT)
+  .superRefine((nodes, context) => {
+    const seen = new Set<string>();
+    for (const [index, node] of nodes.entries()) {
+      if (seen.has(node.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Jede Orbit Contribution ID darf nur einmal vorkommen.",
+          path: [index, "id"],
+        });
+      }
+      seen.add(node.id);
+    }
+  })
+  .meta({ uniqueItems: true });
+
+export type OrbitContributions = z.infer<typeof orbitContributionsSchema>;
