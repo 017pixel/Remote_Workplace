@@ -81,6 +81,7 @@ import { T3StatusSync } from "./notifications/t3-status-sync.js";
 import { ExtensionDatabase } from "./extensions/database.js";
 import { ExtensionManager } from "./extensions/manager.js";
 import { registerExtensionRoutes } from "./extensions/routes.js";
+import { defaultCatalogProviderId, LocalExtensionCatalog } from "./extensions/catalog.js";
 import { TerminalStatusSync } from "./notifications/terminal-status-sync.js";
 import { AgentSessionSync } from "./notifications/agent-session-sync.js";
 
@@ -213,6 +214,9 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const notificationDatabase = new NotificationDatabase(settings.databasePath, settings.notifications.pruneAfterHours);
   const extensionDatabase = new ExtensionDatabase(join(settings.dataDirectory, "extensions.sqlite"));
   const extensionManager = new ExtensionManager(extensionDatabase);
+  const extensionCatalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+  extensionCatalog.addSourceDirectory(join(settings.dataDirectory, "extension-catalog"));
+  extensionManager.attachCatalog(extensionCatalog);
   const notificationPush = new NotificationPushService({
     databasePath: settings.databasePath,
     dataDirectory: settings.dataDirectory,

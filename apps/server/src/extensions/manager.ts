@@ -16,6 +16,7 @@ import {
   type ExtensionSource,
 } from "@workbench/extension-contracts";
 import { AppError } from "../utils/errors.js";
+import type { LocalExtensionCatalog } from "./catalog.js";
 import { defaultHealth, type ExtensionDatabase } from "./database.js";
 
 interface DiscoveredExtension {
@@ -70,8 +71,13 @@ function summaryOf(detail: ExtensionRegistryDetail): ExtensionRegistrySummary {
 export class ExtensionManager {
   private readonly discovered = new Map<string, DiscoveredExtension>();
   private readonly queues = new Map<string, Promise<unknown>>();
+  private catalog: LocalExtensionCatalog | undefined;
 
   constructor(private readonly database: ExtensionDatabase) {}
+
+  attachCatalog(catalog: LocalExtensionCatalog): void {
+    this.catalog = catalog;
+  }
 
   registerDiscovered(manifest: ExtensionManifestV1, source: ExtensionSource): void {
     const parsed = extensionManifestV1Schema.parse(manifest);
@@ -299,22 +305,34 @@ export class ExtensionManager {
       throw new AppError(409, "operation-conflict", "Die Extension ist bereits installiert.");
     }
 
-    const discovered = this.discovered.get(request.extensionId);
+    let discovered = this.discovered.get(request.extensionId);
+
+    if (request.source.kind === "catalog") {
+      if (this.catalog === undefined) {
+        throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
+      }
+      const manifest = this.catalog.resolvePackage(
+        request.extensionId,
+        request.source.version,
+        request.source.packageIntegrity,
+      );
+      discovered = {
+        manifest,
+        source: request.source,
+      };
+    } else if (request.source.kind === "local-package") {
+      throw new AppError(
+        501,
+        "staging-failed",
+        "Paketinstallationen aus .rwext folgen mit dem Paket-Installer.",
+      );
+    }
+
     if (discovered === undefined) {
       throw new AppError(404, "not-found", "Die Extension wurde nicht entdeckt.");
     }
     if (request.source.kind !== discovered.source.kind) {
       throw new AppError(409, "operation-conflict", "Die Installationsquelle passt nicht zur Discovery.");
-    }
-    if (
-      request.source.kind === "catalog" ||
-      request.source.kind === "local-package"
-    ) {
-      throw new AppError(
-        501,
-        "staging-failed",
-        "Catalog- und Paketinstallationen folgen mit dem Local Catalog.",
-      );
     }
 
     const manifest = discovered.manifest;

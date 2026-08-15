@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type {
@@ -6,6 +6,7 @@ import type {
   ExtensionManifestV1,
 } from "@workbench/extension-contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { defaultCatalogProviderId, LocalExtensionCatalog } from "./catalog.js";
 import { ExtensionDatabase } from "./database.js";
 import { ExtensionManager } from "./manager.js";
 
@@ -176,6 +177,42 @@ describe("Extension Manager Registry", () => {
         enableAfterInstall: true,
       } as ExtensionManagementRequest),
     ).rejects.toMatchObject({ code: "staging-failed" });
+  });
+
+  it("installiert Catalog-Pakete über den lokalen Catalog", async () => {
+    const catalogDirectory = mkdtempSync(join(directory, "catalog-"));
+    const packageDirectory = join(catalogDirectory, "agent-tasks");
+    mkdirSync(packageDirectory, { recursive: true });
+    writeFileSync(
+      join(packageDirectory, "extension.json"),
+      JSON.stringify({
+        ...testManifest("workbench.agent-tasks", { trust: "catalog-first-party" as never }),
+        permissions: [{ permission: "projects.read" }],
+      }),
+    );
+
+    const catalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+    catalog.addSourceDirectory(catalogDirectory);
+    manager.attachCatalog(catalog);
+    const integrity = catalog.integrityOf("workbench.agent-tasks");
+
+    const result = await manager.dispatch({
+      operation: "install",
+      extensionId: "workbench.agent-tasks",
+      expectedRevision: database.revision(),
+      source: {
+        kind: "catalog",
+        providerId: "workbench-catalog",
+        catalogRevision: integrity!,
+        version: "1.0.0",
+        packageIntegrity: integrity!,
+      },
+      enableAfterInstall: true,
+    } as ExtensionManagementRequest);
+
+    expect(result.operation.status).toBe("succeeded");
+    expect(result.extension.lifecycle).toBe("permissions-pending");
+    expect(database.getExtension("workbench.agent-tasks")?.source.kind).toBe("catalog");
   });
 
   it("meldet Health und hält das Operationsjournal", async () => {
