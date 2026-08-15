@@ -75,7 +75,9 @@ export class LocalExtensionCatalog {
     const nextIntegrity = new Map<string, string>();
     for (const source of this.sources) {
       if (!existsSync(source.directory)) continue;
-      for (const directoryEntry of readdirSync(source.directory, { withFileTypes: true })) {
+      const directoryEntries = readdirSync(source.directory, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name));
+      for (const directoryEntry of directoryEntries) {
         if (!directoryEntry.isDirectory()) continue;
         const packageDirectory = join(source.directory, directoryEntry.name);
         const manifestPath = join(packageDirectory, "extension.json");

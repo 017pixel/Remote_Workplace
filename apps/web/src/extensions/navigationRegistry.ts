@@ -271,8 +271,7 @@ export class NavigationRegistry {
       return value;
     });
 
-    for (const [id, cached] of this.valueCache) {
-      if (cached.contribution === undefined) continue;
+    for (const [id] of this.valueCache) {
       const contributionId = id as ContributionId;
       if (
         contributionBelongsToExtension(ownerId, contributionId) &&

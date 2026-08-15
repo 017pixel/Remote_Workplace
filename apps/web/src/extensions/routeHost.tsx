@@ -13,6 +13,7 @@ import type {
   OwnedPageRegistration,
   OwnedRouteRegistration,
   PageRouteRegistrySnapshot,
+  PageRuntimeBinding,
 } from "./pageRouteRegistry";
 
 export function RouteFallback() {
@@ -50,13 +51,20 @@ export function DeferredRoute({ children }: { children: ReactNode }) {
 
 type RouteModule = Record<string, ComponentType>;
 
-const lazyPageCache = new Map<string, LazyExoticComponent<ComponentType>>();
+interface CachedLazyPage {
+  load: PageRuntimeBinding["load"];
+  component: LazyExoticComponent<ComponentType>;
+}
+
+const lazyPageCache = new Map<string, CachedLazyPage>();
 
 /**
  * Löst die Page-Komponente einer Registrierung auf. Eager-Pages kommen aus
  * dem bereits importierten Modul (kein Suspense-Zwischenrahmen), Lazy-Pages
  * über eine pro Contribution-ID stabile lazy()-Komponente, damit die
  * Persistent-Route-Semantik beim Snapshot-Wechsel unangetastet bleibt.
+ * Ändert sich der Loader (Re-Registrierung nach Dispose), entsteht eine
+ * neue lazy()-Komponente statt einer veralteten Bindung.
  */
 export function pageComponent(page: OwnedPageRegistration): ComponentType {
   const runtime = page.value.runtime;
@@ -65,13 +73,15 @@ export function pageComponent(page: OwnedPageRegistration): ComponentType {
     return module[runtime.exportName] as ComponentType;
   }
   const cached = lazyPageCache.get(page.contributionId);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined && cached.load === runtime.load) {
+    return cached.component;
+  }
   const component = lazy(() =>
     runtime.load().then((module) => ({
       default: (module as RouteModule)[runtime.exportName] as ComponentType,
     })),
   );
-  lazyPageCache.set(page.contributionId, component);
+  lazyPageCache.set(page.contributionId, { load: runtime.load, component });
   return component;
 }
 

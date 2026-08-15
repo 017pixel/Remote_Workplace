@@ -24,6 +24,24 @@ interface DiscoveredExtension {
   source: ExtensionSource;
 }
 
+type PermissionLike = { permission: string; scope?: unknown };
+
+function grantIsWithinRequest(request: PermissionLike, grant: PermissionLike): boolean {
+  if (grant.scope === undefined) return true;
+  if (request.scope === undefined) return false;
+  const requested = request.scope as Record<string, unknown>;
+  const granted = grant.scope as Record<string, unknown>;
+  for (const [key, grantedValues] of Object.entries(granted)) {
+    const requestedValues = requested[key];
+    if (!Array.isArray(requestedValues) || !Array.isArray(grantedValues)) {
+      return false;
+    }
+    const allowed = new Set<unknown>(requestedValues);
+    if (grantedValues.some((value) => !allowed.has(value))) return false;
+  }
+  return true;
+}
+
 interface ApplyResult {
   detail: ExtensionRegistryDetail | null;
   review?: ExtensionPermissionReview;
@@ -205,29 +223,17 @@ export class ExtensionManager {
         } else {
           this.database.addOperation(request.extensionId, completed);
         }
+        this.database.bumpRevision();
+        this.syncCatalogUpdates();
       }
-      this.database.bumpRevision();
-      this.syncCatalogUpdates();
-      const summaryDetail =
-        result.detail ??
-        this.database.getExtension(request.extensionId) ??
-        (() => {
-          const rest = this.require(current);
-          delete (rest as { installedVersion?: unknown }).installedVersion;
-          delete (rest as { activeVersion?: unknown }).activeVersion;
-          delete (rest as { rollbackVersion?: unknown }).rollbackVersion;
-          delete (rest as { activeAssetRevision?: unknown }).activeAssetRevision;
-          return {
-            ...rest,
-            lifecycle: "available" as const,
-            runtimeActive: false,
-            desiredEnablement: "disabled" as const,
-          };
-        })();
       return {
         revision: this.database.revision(),
         operation: completed,
-        extension: summaryOf(this.withOpenReview(summaryDetail)),
+        extension: summaryOf(
+          this.withOpenReview(
+            result.detail ?? this.database.getExtension(request.extensionId)!,
+          ),
+        ),
       };
     } catch (error) {
       const publicError: ExtensionPublicError =
@@ -243,8 +249,8 @@ export class ExtensionManager {
       if (current !== null) {
         this.database.updateOperation(failed);
         this.database.upsertExtension({ ...current, lastError: publicError });
+        this.database.bumpRevision();
       }
-      this.database.bumpRevision();
       throw error;
     }
   }
@@ -445,7 +451,7 @@ export class ExtensionManager {
     };
   }
 
-  private uninstall(extensionId: string, detail: ExtensionRegistryDetail): ExtensionRegistryDetail | null {
+  private uninstall(extensionId: string, detail: ExtensionRegistryDetail): ExtensionRegistryDetail {
     const steps: ExtensionLifecycleState[] =
       detail.lifecycle === "active"
         ? ["deactivating", "disabled", "uninstalling"]
@@ -455,8 +461,22 @@ export class ExtensionManager {
       this.assertTransition(extensionId, previous, step);
       previous = step;
     }
-    this.database.removeExtension(extensionId);
-    return null;
+    // Die Extension bleibt als „available" in der Registry: Das
+    // Operationsjournal, Health und ein möglicher Permission Review bleiben
+    // lesbar, Installationsversionen werden zurückgesetzt.
+    return {
+      ...detail,
+      lifecycle: "available",
+      desiredEnablement: "disabled",
+      runtimeActive: false,
+      installedVersion: undefined,
+      activeVersion: undefined,
+      availableVersion: undefined,
+      rollbackVersion: undefined,
+      activeAssetRevision: undefined,
+      grantedPermissions: [],
+      health: defaultHealth,
+    };
   }
 
   private rollback(
@@ -518,6 +538,13 @@ export class ExtensionManager {
       const requestEntry = requestedIds.get(grant.permission);
       if (requestEntry === undefined) {
         throw new AppError(409, "permissions-denied", `Die Permission ${grant.permission} wurde nicht angefragt.`);
+      }
+      if (!grantIsWithinRequest(requestEntry, grant)) {
+        throw new AppError(
+          409,
+          "permissions-denied",
+          `Der Grant für ${grant.permission} erweitert den angefragten Scope.`,
+        );
       }
     }
     this.database.resolveReview(request.reviewId);

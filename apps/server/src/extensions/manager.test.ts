@@ -274,6 +274,55 @@ describe("Extension Manager Registry", () => {
     expect(updated.extension.rollbackVersion).toBe("1.0.0");
   });
 
+  it("lehnt Grants ab, die den angefragten Scope erweitern", async () => {
+    manager.registerDiscovered(
+      testManifest("workbench.test", {
+        permissions: [
+          {
+            permission: "projects.read",
+            scope: { projects: ["id:remote"] },
+          },
+        ],
+      }),
+      { kind: "developer", registrationId: "00000000-0000-4000-8000-000000000001" },
+    );
+    const installed = await manager.dispatch(requests("workbench.test", database.revision()).install);
+    const reviewId = installed.extension.permissionReview?.reviewId;
+
+    await expect(
+      manager.dispatch({
+        operation: "review-permissions",
+        extensionId: "workbench.test",
+        expectedRevision: database.revision(),
+        reviewId: reviewId!,
+        resolution: {
+          decision: "approve",
+          grants: [
+            {
+              permission: "projects.read",
+              scope: { projects: ["id:remote", "id:fremd"] },
+            },
+          ],
+        },
+      } as ExtensionManagementRequest),
+    ).rejects.toMatchObject({ code: "permissions-denied" });
+
+    const approved = await manager.dispatch({
+      operation: "review-permissions",
+      extensionId: "workbench.test",
+      expectedRevision: database.revision(),
+      reviewId: reviewId!,
+      resolution: {
+        decision: "approve",
+        grants: [
+          { permission: "projects.read", scope: { projects: ["id:remote"] } },
+        ],
+      },
+    } as ExtensionManagementRequest);
+    expect(approved.extension.lifecycle).toBe("active");
+    expect(database.getExtension("workbench.test")?.grantedPermissions).toHaveLength(1);
+  });
+
   it("meldet Health und hält das Operationsjournal", async () => {
     manager.registerDiscovered(testManifest("workbench.test"), {
       kind: "developer",
@@ -305,7 +354,10 @@ describe("Extension Manager Registry", () => {
     } as ExtensionManagementRequest);
 
     expect(result.operation.status).toBe("succeeded");
-    expect(database.getExtension("workbench.test")).toBeNull();
+    const afterUninstall = database.getExtension("workbench.test");
+    expect(afterUninstall?.lifecycle).toBe("available");
+    expect(afterUninstall?.installedVersion).toBeUndefined();
+    expect(database.listOperations("workbench.test")).toHaveLength(2);
   });
 
   afterEach(() => {
