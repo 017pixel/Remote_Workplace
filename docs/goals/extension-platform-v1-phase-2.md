@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoals 2.3 und 2.4 abgeschlossen, Subgoal 2.5 als Nächstes.
+Status: `in-progress`; Subgoals 2.3 bis 2.5 abgeschlossen, Subgoal 2.6 als Nächstes.
 
 ## Ergebnis
 
@@ -67,14 +67,20 @@ Status: `done`.
 
 ### 2.5 Command- und Shortcut-Registry
 
-Status: `planning`.
+Status: `done`.
 
-- Bestehende globale und surfacegebundene Aktionen mit stabilen `workbench.*`-IDs registrieren.
-- Handler-Lifecycle, Context, Konflikte und Dispose testen.
-- Terminal-, Browser- und Formulareingabe behalten Vorrang; keine lokalen Listener vorschnell
-  entfernen.
+- `commandRegistry.ts` registriert Command Contributions mit Handler-Lifecycle, Surface-Kontext,
+  Konflikt- und Dispose-Verhalten; drei globale Legacy Built-ins laufen über bestehende Kanäle
+  (`project-browser`, `fullscreen-toggle`, `reload`). Der Projektbrowser-Command ist in der Sidebar
+  bereits der aktive Consumer-Pfad.
+- `shortcutRegistry.ts` matcht ein- und zweistufige Chords gegen die Command Registry, wertet
+  Context Expressions aus und macht Chord-Kollisionen sichtbar statt still zu überschreiben.
+- Terminal-, Browser- und Formulareingabe behalten Vorrang über Surface-Kontext und
+  `allowInEditable`; bestehende lokale `keydown`-Listener sind bewusst nicht entfernt.
 
 ### 2.6 Context-Menu-, Status-Bar- und Topbar-Registry
+
+Status: `planning`.
 
 - Legacy-Aktionen und Items pro kontrollierter Surface registrieren.
 - Hostzustände und Recovery-Aktionen markieren und gegen Überschreiben schützen.

@@ -111,6 +111,13 @@ lokale `.rwext`-Pakete.
   Package-Inventare mit Größen und SHA-256. Revisionierte Management-Verträge trennen Lifecycle,
   Versionen, Enablement, Runtime, Health und Operationen und öffnen acht serverautoritativ
   ausgeführte Aktionen. Manager-Runtime, Capability Broker, SDK und Local Catalog folgen.
+- `apps/web/src/extensions/commandRegistry.ts` und `shortcutRegistry.ts` bilden die
+  Command- und Shortcut-Runtime-Grenze: Command Contributions mit Handler-Lifecycle,
+  Surface-Kontext und Dispose, dazu ein Shortcut-Matcher mit ein- und zweistufigen Chords,
+  Context-Expression-Auswertung und sichtbaren Chord-Kollisionen. `legacyCommands.ts`
+  registriert drei globale Legacy Built-ins; der Projektbrowser-Command läuft bereits als
+  aktiver Consumer-Pfad in der Sidebar. Bestehende lokale `keydown`-Listener bleiben
+  unverändert bestehen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -130,12 +137,11 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 2.5 siebenunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Abschluss von Subgoal 2.5 achtunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`a09d2752bf2d821a00c45efc60de6ee5d257e3ea` als Ergebniscommit von Subgoal 2.4. Er enthält
-die Navigation- und Prefetch-Registry, ihre Legacy Built-ins und die migrierten Consumer.
+`ddf370b970f9e32ccb2b4e32fe81947bdeb7d50f` — Command- und Shortcut-Registry mit Legacy Built-ins und Tests.
 
 ## Current Remote Workplace Version
 
@@ -164,15 +170,15 @@ Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.5, Command- und Shortcut-Registry implementieren.
+Subgoal 2.6, Context-Menu-, Status-Bar- und Topbar-Registry implementieren.
 
 ## Next Concrete Action
 
-Subgoal 2.5 registriert die bestehenden globalen und surfacegebundenen Aktionen mit stabilen
-`workbench.*`-Command-IDs. Handler-Lifecycle, Context, Konflikte und Dispose werden getestet;
-Terminal-, Browser- und Formulareingabe behalten Vorrang und lokale `keydown`-Listener bleiben
-bis zur Paritätsprüfung bestehen. Erst danach werden die Server-Command-Referenz und die lokale
-Orbit-Palette auf die gemeinsame Command Registry umgestellt.
+Subgoal 2.6 registriert die bestehenden Menü-, Statusleisten- und Topbar-Aktionen pro
+kontrollierter Surface als Legacy Built-ins. Hostzustände und Recovery-Aktionen werden
+gegen Überschreiben geschützt; bestehendes Desktop-, Touch-, Focus- und Bottom-Sheet-
+Verhalten bleibt unverändert. Erst nach Paritäts- und Browserprüfung werden die lokalen
+Implementierungen auf die Registry-Wege umgestellt.
 
 ## Phase Table
 
