@@ -4,6 +4,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ## [Unreleased]
 
+### Extension-Plattform
+
+- Langfristiges Ziel für eine lokale, serverzentrierte Extension-Plattform festgehalten
+- Ausgangszustand von Router, Navigation, Orbit und Serverstart dokumentiert
+- Migration in 16 kleine, überprüfbare Phasen gegliedert
+- Kompatibilitätsregeln für bestehende Daten, Bookmarks und laufende Sitzungen festgelegt
+- Zeitabhängige Usage-Testfixture für dauerhaft reproduzierbare Testläufe stabilisiert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

@@ -12,7 +12,8 @@ afterEach(() => { for (const database of databases.splice(0)) database.close(); 
 describe("usage history", () => {
   it("imports cost history idempotently and aggregates models", () => {
     const database = new UsageDatabase(":memory:"); databases.push(database);
-    const payload = [{ provider:"codex", source:"local", updatedAt:"2026-07-15T10:00:00Z", projects:[], daily:[{date:"2026-07-15",inputTokens:90,outputTokens:10,cacheReadTokens:50,cacheCreationTokens:0,totalTokens:100,totalCost:0.25,modelBreakdowns:[{modelName:"gpt-test",totalTokens:100,cost:0.25}]}] }];
+    const today = new Date().toISOString().slice(0, 10);
+    const payload = [{ provider:"codex", source:"local", updatedAt:`${today}T10:00:00Z`, projects:[], daily:[{date:today,inputTokens:90,outputTokens:10,cacheReadTokens:50,cacheCreationTokens:0,totalTokens:100,totalCost:0.25,modelBreakdowns:[{modelName:"gpt-test",totalTokens:100,cost:0.25}]}] }];
     database.importCost(payload); database.importCost(payload);
     const dashboard = database.dashboard("30d");
     expect(dashboard.totals.totalTokens).toBe(100);
