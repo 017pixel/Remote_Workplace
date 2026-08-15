@@ -27,6 +27,18 @@ describe("Extension API", () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it("liefert den lokalen Catalog als Lese-API", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/extensions/catalog",
+      headers: authenticatedHeaders,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ providerId: "workbench-catalog", entries: [] });
+  });
+
   it("validiert Mutations-Requests vor der Ausführung", async () => {
     const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);

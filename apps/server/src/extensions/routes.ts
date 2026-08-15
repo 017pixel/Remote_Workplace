@@ -4,12 +4,22 @@ import {
   extensionRegistrySnapshotSchema,
 } from "@workbench/extension-contracts";
 import { z } from "zod";
+import type { LocalExtensionCatalog } from "./catalog.js";
 import type { ExtensionManager } from "./manager.js";
 
 export async function registerExtensionRoutes(app: FastifyInstance, options: {
   manager: ExtensionManager;
+  catalog: LocalExtensionCatalog;
 }) {
   const manager = options.manager;
+  const catalog = options.catalog;
+
+  app.get("/extensions/catalog", async () => {
+    return {
+      providerId: "workbench-catalog",
+      entries: catalog.list(),
+    };
+  });
 
   app.get("/extensions", async () => {
     return extensionRegistrySnapshotSchema.parse(manager.snapshot());

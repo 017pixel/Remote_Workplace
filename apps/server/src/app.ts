@@ -540,7 +540,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     },
   });
   await app.register(registerNotificationRoutes, { prefix: "/api/v1", database: notificationDatabase, push: notificationPush, configDirectory: settings.configDirectory, identity: identityOptions });
-  await app.register(registerExtensionRoutes, { prefix: "/api/v1", manager: extensionManager });
+  await app.register(registerExtensionRoutes, { prefix: "/api/v1", manager: extensionManager, catalog: extensionCatalog });
   const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
   const terminals = new TerminalManager({
     allowedRoots: settings.terminalAllowedRoots,

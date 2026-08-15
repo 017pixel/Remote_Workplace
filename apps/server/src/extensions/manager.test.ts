@@ -215,6 +215,65 @@ describe("Extension Manager Registry", () => {
     expect(database.getExtension("workbench.agent-tasks")?.source.kind).toBe("catalog");
   });
 
+  it("setzt update-available aus dem Catalog und installiert das Update", async () => {
+    const catalogDirectory = mkdtempSync(join(directory, "catalog-update-"));
+    const packageDirectory = join(catalogDirectory, "agent-tasks");
+    mkdirSync(packageDirectory, { recursive: true });
+    writeFileSync(
+      join(packageDirectory, "extension.json"),
+      JSON.stringify({
+        ...testManifest("workbench.agent-tasks", { trust: "catalog-first-party" as never, version: "2.0.0" as never }),
+      }),
+    );
+
+    const catalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+    catalog.addSourceDirectory(catalogDirectory);
+    manager.attachCatalog(catalog);
+    const integrity = catalog.integrityOf("workbench.agent-tasks");
+
+    await manager.dispatch({
+      operation: "install",
+      extensionId: "workbench.agent-tasks",
+      expectedRevision: database.revision(),
+      source: {
+        kind: "catalog",
+        providerId: "workbench-catalog",
+        catalogRevision: integrity!,
+        version: "2.0.0",
+        packageIntegrity: integrity!,
+      },
+      enableAfterInstall: true,
+    } as ExtensionManagementRequest);
+
+    // ältere installierte Version simulieren, damit ein Update bereitsteht
+    const current = database.getExtension("workbench.agent-tasks");
+    database.upsertExtension({
+      ...current!,
+      installedVersion: "1.0.0" as never,
+      activeVersion: "1.0.0" as never,
+      lifecycle: "active",
+    });
+    manager.syncCatalogUpdates();
+    expect(database.getExtension("workbench.agent-tasks")?.lifecycle).toBe("update-available");
+
+    const updated = await manager.dispatch({
+      operation: "update",
+      extensionId: "workbench.agent-tasks",
+      expectedRevision: database.revision(),
+      target: {
+        providerId: "workbench-catalog",
+        catalogRevision: integrity!,
+        version: "2.0.0",
+        packageIntegrity: integrity!,
+      },
+    } as ExtensionManagementRequest);
+
+    expect(updated.operation.status).toBe("succeeded");
+    expect(updated.extension.lifecycle).toBe("active");
+    expect(updated.extension.installedVersion).toBe("2.0.0");
+    expect(updated.extension.rollbackVersion).toBe("1.0.0");
+  });
+
   it("meldet Health und hält das Operationsjournal", async () => {
     manager.registerDiscovered(testManifest("workbench.test"), {
       kind: "developer",

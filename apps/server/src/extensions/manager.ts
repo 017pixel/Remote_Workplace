@@ -114,6 +114,27 @@ export class ExtensionManager {
     };
   }
 
+  /** Gleicht installierte Versionen mit dem Local Catalog ab. */
+  syncCatalogUpdates(): void {
+    if (this.catalog === undefined) return;
+    for (const detail of this.database.listExtensions()) {
+      const entry = this.catalog.get(detail.id);
+      if (entry === undefined || detail.installedVersion === undefined) continue;
+      if (entry.package.version === detail.installedVersion) continue;
+      const next: ExtensionRegistryDetail = {
+        ...detail,
+        availableVersion: entry.package.version,
+        lifecycle: isExtensionLifecycleTransitionAllowed(
+          detail.lifecycle,
+          "update-available",
+        )
+          ? "update-available"
+          : detail.lifecycle,
+      };
+      this.database.upsertExtension(next);
+    }
+  }
+
   reportHealth(extensionId: string, status: ExtensionRegistryDetail["health"]["status"]): void {
     const detail = this.database.getExtension(extensionId);
     if (detail === null) {
@@ -186,6 +207,7 @@ export class ExtensionManager {
         }
       }
       this.database.bumpRevision();
+      this.syncCatalogUpdates();
       const summaryDetail =
         result.detail ??
         this.database.getExtension(request.extensionId) ??
@@ -390,13 +412,37 @@ export class ExtensionManager {
         "Für diese Extension steht kein Update bereit.",
       );
     }
-    // Der Update-Installationspfad folgt mit dem Local Catalog; der
-    // Lifecycle-Vertrag wird bereits vollständig geführt.
-    throw new AppError(
-      501,
-      "staging-failed",
-      `Update auf ${request.target.version} folgt mit dem Local Catalog.`,
+    if (this.catalog === undefined) {
+      throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
+    }
+    const manifest = this.catalog.resolvePackage(
+      request.extensionId,
+      request.target.version,
+      request.target.packageIntegrity,
     );
+
+    const steps: ExtensionLifecycleState[] =
+      detail.lifecycle === "active"
+        ? ["deactivating", "disabled", "staging", "updating", "activating", "active"]
+        : ["staging", "updating", "installed"];
+    let previous = detail.lifecycle;
+    for (const step of steps) {
+      this.assertTransition(request.extensionId, previous, step);
+      previous = step;
+    }
+
+    const rollbackVersion = detail.activeVersion ?? detail.installedVersion;
+    return {
+      ...detail,
+      manifest,
+      installedVersion: manifest.version,
+      activeVersion: detail.desiredEnablement === "enabled" ? manifest.version : undefined,
+      rollbackVersion,
+      availableVersion: undefined,
+      lifecycle: detail.desiredEnablement === "enabled" ? "active" : "installed",
+      runtimeActive: detail.desiredEnablement === "enabled",
+      health: defaultHealth,
+    };
   }
 
   private uninstall(extensionId: string, detail: ExtensionRegistryDetail): ExtensionRegistryDetail | null {
