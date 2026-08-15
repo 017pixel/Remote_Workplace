@@ -6,12 +6,16 @@ import {
 } from "./activation-events.js";
 import {
   commandContributionsSchema,
+  dashboardContributionsSchema,
   navigationContributionsSchema,
   orbitContributionsSchema,
   pageContributionsSchema,
   routeContributionsSchema,
 } from "./contributions.js";
-import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
+import {
+  extensionConflictsSchema,
+  extensionDependencyMapSchema,
+} from "./dependencies.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
 import {
   extensionEntrypointPathSchema,
@@ -74,15 +78,30 @@ export const extensionSchemaReferenceSchema = z
     "Die Schema-Referenz darf keine äußeren Leerzeichen oder Steuerzeichen enthalten.",
   );
 
-export const extensionNameSchema = boundedTextSchema(EXTENSION_NAME_MAX_LENGTH, "Der Name");
+export const extensionNameSchema = boundedTextSchema(
+  EXTENSION_NAME_MAX_LENGTH,
+  "Der Name",
+);
 export const extensionDescriptionSchema = boundedTextSchema(
   EXTENSION_DESCRIPTION_MAX_LENGTH,
   "Die Beschreibung",
 );
-export const extensionPublisherSchema = slugSchema(EXTENSION_PUBLISHER_MAX_LENGTH, "Der Publisher");
-export const extensionLicenseSchema = boundedTextSchema(EXTENSION_LICENSE_MAX_LENGTH, "Die Lizenz");
-export const extensionCategorySchema = slugSchema(EXTENSION_CATEGORY_MAX_LENGTH, "Die Kategorie");
-export const extensionKeywordSchema = boundedTextSchema(EXTENSION_KEYWORD_MAX_LENGTH, "Ein Keyword");
+export const extensionPublisherSchema = slugSchema(
+  EXTENSION_PUBLISHER_MAX_LENGTH,
+  "Der Publisher",
+);
+export const extensionLicenseSchema = boundedTextSchema(
+  EXTENSION_LICENSE_MAX_LENGTH,
+  "Die Lizenz",
+);
+export const extensionCategorySchema = slugSchema(
+  EXTENSION_CATEGORY_MAX_LENGTH,
+  "Die Kategorie",
+);
+export const extensionKeywordSchema = boundedTextSchema(
+  EXTENSION_KEYWORD_MAX_LENGTH,
+  "Ein Keyword",
+);
 
 export const extensionKeywordsSchema = z
   .array(extensionKeywordSchema)
@@ -137,6 +156,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   routes: routeContributionsSchema.optional(),
   navigation: navigationContributionsSchema.optional(),
   orbit: orbitContributionsSchema.optional(),
+  dashboard: dashboardContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -171,45 +191,67 @@ export const extensionManifestV1Schema = z
       manifest.entrypoints.server !== undefined ||
       Object.keys(manifest.contributes).length > 0,
     {
-      message: "Eine Extension benötigt mindestens einen Entrypoint oder eine Contribution.",
+      message:
+        "Eine Extension benötigt mindestens einen Entrypoint oder eine Contribution.",
       path: ["entrypoints"],
     },
   )
   .superRefine((manifest, context) => {
-    const commandIds = new Set((manifest.contributes.commands ?? []).map((command) => command.id));
-    const pageIds = new Set((manifest.contributes.pages ?? []).map((page) => page.id));
-    const routeIds = new Set((manifest.contributes.routes ?? []).map((route) => route.id));
-    const orbitIds = new Set((manifest.contributes.orbit ?? []).map((node) => node.id));
+    const commandIds = new Set(
+      (manifest.contributes.commands ?? []).map((command) => command.id),
+    );
+    const pageIds = new Set(
+      (manifest.contributes.pages ?? []).map((page) => page.id),
+    );
+    const routeIds = new Set(
+      (manifest.contributes.routes ?? []).map((route) => route.id),
+    );
+    const orbitIds = new Set(
+      (manifest.contributes.orbit ?? []).map((node) => node.id),
+    );
 
     for (const [index, event] of manifest.activationEvents.entries()) {
       if (!activationEventBelongsToExtension(manifest.id, event)) {
         context.addIssue({
           code: "custom",
-          message: "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
+          message:
+            "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
           path: ["activationEvents", index],
         });
         continue;
       }
 
       const contributionId = activationEventContributionId(event);
-      if (event.startsWith("onCommand:") && (contributionId === null || !commandIds.has(contributionId))) {
+      if (
+        event.startsWith("onCommand:") &&
+        (contributionId === null || !commandIds.has(contributionId))
+      ) {
         context.addIssue({
           code: "custom",
-          message: "Ein onCommand Activation Event benötigt eine deklarierte Command Contribution.",
+          message:
+            "Ein onCommand Activation Event benötigt eine deklarierte Command Contribution.",
           path: ["activationEvents", index],
         });
       }
-      if (event.startsWith("onRoute:") && (contributionId === null || !routeIds.has(contributionId))) {
+      if (
+        event.startsWith("onRoute:") &&
+        (contributionId === null || !routeIds.has(contributionId))
+      ) {
         context.addIssue({
           code: "custom",
-          message: "Ein onRoute Activation Event benötigt eine deklarierte Route Contribution.",
+          message:
+            "Ein onRoute Activation Event benötigt eine deklarierte Route Contribution.",
           path: ["activationEvents", index],
         });
       }
-      if (event.startsWith("onOrbitNode:") && (contributionId === null || !orbitIds.has(contributionId))) {
+      if (
+        event.startsWith("onOrbitNode:") &&
+        (contributionId === null || !orbitIds.has(contributionId))
+      ) {
         context.addIssue({
           code: "custom",
-          message: "Ein onOrbitNode Activation Event benötigt eine deklarierte Orbit Contribution.",
+          message:
+            "Ein onOrbitNode Activation Event benötigt eine deklarierte Orbit Contribution.",
           path: ["activationEvents", index],
         });
       }
@@ -236,13 +278,18 @@ export const extensionManifestV1Schema = z
         id: node.id,
         path: ["contributes", "orbit", index, "id"] as const,
       })),
+      ...(manifest.contributes.dashboard ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "dashboard", index, "id"] as const,
+      })),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
       if (!contributionBelongsToExtension(manifest.id, contribution.id)) {
         context.addIssue({
           code: "custom",
-          message: "Contribution IDs müssen zur deklarierenden Extension gehören.",
+          message:
+            "Contribution IDs müssen zur deklarierenden Extension gehören.",
           path: [...contribution.path],
         });
       }
@@ -256,20 +303,26 @@ export const extensionManifestV1Schema = z
       seenContributionIds.add(contribution.id);
     }
 
-    for (const [index, route] of (manifest.contributes.routes ?? []).entries()) {
+    for (const [index, route] of (
+      manifest.contributes.routes ?? []
+    ).entries()) {
       if (pageIds.has(route.pageId)) continue;
       context.addIssue({
         code: "custom",
-        message: "Eine Route muss eine deklarierte Page Contribution derselben Extension referenzieren.",
+        message:
+          "Eine Route muss eine deklarierte Page Contribution derselben Extension referenzieren.",
         path: ["contributes", "routes", index, "pageId"],
       });
     }
 
-    for (const [index, item] of (manifest.contributes.navigation ?? []).entries()) {
+    for (const [index, item] of (
+      manifest.contributes.navigation ?? []
+    ).entries()) {
       if (!routeIds.has(item.routeId)) {
         context.addIssue({
           code: "custom",
-          message: "Navigation muss eine deklarierte Route Contribution derselben Extension referenzieren.",
+          message:
+            "Navigation muss eine deklarierte Route Contribution derselben Extension referenzieren.",
           path: ["contributes", "navigation", index, "routeId"],
         });
       }
@@ -280,14 +333,16 @@ export const extensionManifestV1Schema = z
       ) {
         context.addIssue({
           code: "custom",
-          message: "Eine Navigation Icon ID muss zur deklarierenden Extension gehören.",
+          message:
+            "Eine Navigation Icon ID muss zur deklarierenden Extension gehören.",
           path: ["contributes", "navigation", index, "icon"],
         });
       }
       if (item.icon === "extension" && manifest.icon === undefined) {
         context.addIssue({
           code: "custom",
-          message: "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
           path: ["contributes", "navigation", index, "icon"],
         });
       }
@@ -297,7 +352,8 @@ export const extensionManifestV1Schema = z
       ) {
         context.addIssue({
           code: "custom",
-          message: "Eine Navigation Badge Provider ID muss zur deklarierenden Extension gehören.",
+          message:
+            "Eine Navigation Badge Provider ID muss zur deklarierenden Extension gehören.",
           path: ["contributes", "navigation", index, "badgeProvider"],
         });
       }
@@ -311,15 +367,61 @@ export const extensionManifestV1Schema = z
       ) {
         context.addIssue({
           code: "custom",
-          message: "Eine Orbit Icon ID muss zur deklarierenden Extension gehören.",
+          message:
+            "Eine Orbit Icon ID muss zur deklarierenden Extension gehören.",
           path: ["contributes", "orbit", index, "icon"],
         });
       }
       if (node.icon === "extension" && manifest.icon === undefined) {
         context.addIssue({
           code: "custom",
-          message: "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
           path: ["contributes", "orbit", index, "icon"],
+        });
+      }
+    }
+
+    for (const [index, item] of (
+      manifest.contributes.dashboard ?? []
+    ).entries()) {
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Dashboard Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "dashboard", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "dashboard", index, "icon"],
+        });
+      }
+      if (item.kind === "quick-action") {
+        if (!commandIds.has(item.commandId)) {
+          context.addIssue({
+            code: "custom",
+            message:
+              "Eine Dashboard Quick Action muss eine deklarierte Command Contribution referenzieren.",
+            path: ["contributes", "dashboard", index, "commandId"],
+          });
+        }
+        continue;
+      }
+      if (!contributionBelongsToExtension(manifest.id, item.provider)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Dashboard Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "dashboard", index, "provider"],
         });
       }
     }
@@ -331,24 +433,48 @@ export const extensionManifestV1Schema = z
     ) {
       context.addIssue({
         code: "custom",
-        message: "Command Contributions benötigen einen UI- oder Server-Entrypoint für ihren Handler.",
+        message:
+          "Command Contributions benötigen einen UI- oder Server-Entrypoint für ihren Handler.",
         path: ["entrypoints"],
       });
     }
 
-    if (manifest.contributes.pages !== undefined && manifest.entrypoints.ui === undefined) {
+    if (
+      manifest.contributes.pages !== undefined &&
+      manifest.entrypoints.ui === undefined
+    ) {
       context.addIssue({
         code: "custom",
-        message: "Page Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
+        message:
+          "Page Contributions benötigen einen UI-Entrypoint für ihren Renderer.",
         path: ["entrypoints", "ui"],
       });
     }
 
-    if (manifest.contributes.orbit !== undefined && manifest.entrypoints.ui === undefined) {
+    if (
+      manifest.contributes.orbit !== undefined &&
+      manifest.entrypoints.ui === undefined
+    ) {
       context.addIssue({
         code: "custom",
-        message: "Orbit Contributions benötigen einen UI-Entrypoint für Renderer und State Contract.",
+        message:
+          "Orbit Contributions benötigen einen UI-Entrypoint für Renderer und State Contract.",
         path: ["entrypoints", "ui"],
+      });
+    }
+
+    if (
+      manifest.contributes.dashboard?.some(
+        (item) => item.kind !== "quick-action",
+      ) === true &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Providerbasierte Dashboard Contributions benötigen einen UI- oder Server-Entrypoint.",
+        path: ["entrypoints"],
       });
     }
 
@@ -365,7 +491,8 @@ export const extensionManifestV1Schema = z
     if (Object.hasOwn(optionalDependencies, manifest.id)) {
       context.addIssue({
         code: "custom",
-        message: "Eine Extension darf sich nicht selbst als optionale Abhängigkeit deklarieren.",
+        message:
+          "Eine Extension darf sich nicht selbst als optionale Abhängigkeit deklarieren.",
         path: ["optionalExtensionDependencies", manifest.id],
       });
     }
@@ -374,25 +501,33 @@ export const extensionManifestV1Schema = z
       if (!Object.hasOwn(requiredDependencies, dependencyId)) continue;
       context.addIssue({
         code: "custom",
-        message: "Eine Extension darf nicht zugleich Pflicht- und optionale Abhängigkeit sein.",
+        message:
+          "Eine Extension darf nicht zugleich Pflicht- und optionale Abhängigkeit sein.",
         path: ["optionalExtensionDependencies", dependencyId],
       });
     }
 
-    for (const [index, conflict] of (manifest.extensionConflicts ?? []).entries()) {
+    for (const [index, conflict] of (
+      manifest.extensionConflicts ?? []
+    ).entries()) {
       if (conflict.id === manifest.id) {
         context.addIssue({
           code: "custom",
-          message: "Eine Extension darf keinen Konflikt mit sich selbst deklarieren.",
+          message:
+            "Eine Extension darf keinen Konflikt mit sich selbst deklarieren.",
           path: ["extensionConflicts", index, "id"],
         });
       }
-      if (!Object.hasOwn(requiredDependencies, conflict.id) && !Object.hasOwn(optionalDependencies, conflict.id)) {
+      if (
+        !Object.hasOwn(requiredDependencies, conflict.id) &&
+        !Object.hasOwn(optionalDependencies, conflict.id)
+      ) {
         continue;
       }
       context.addIssue({
         code: "custom",
-        message: "Eine Abhängigkeit darf nicht zugleich als Konflikt deklariert sein.",
+        message:
+          "Eine Abhängigkeit darf nicht zugleich als Konflikt deklariert sein.",
         path: ["extensionConflicts", index, "id"],
       });
     }

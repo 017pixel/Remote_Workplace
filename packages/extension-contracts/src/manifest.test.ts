@@ -11,7 +11,8 @@ import {
 } from "./manifest.js";
 
 const validManifest = {
-  $schema: "./node_modules/@workbench/extension-contracts/schema/extension-manifest-v1.schema.json",
+  $schema:
+    "./node_modules/@workbench/extension-contracts/schema/extension-manifest-v1.schema.json",
   manifestVersion: 1,
   id: "workbench.agent-tasks",
   name: "Agent Tasks",
@@ -106,12 +107,39 @@ const validManifest = {
         visibleByDefault: true,
       },
     ],
+    dashboard: [
+      {
+        id: "workbench.agent-tasks.dashboard.open-count",
+        kind: "metric",
+        title: "Offene Aufgaben",
+        icon: "workbench.agent-tasks.icon.tasks",
+        defaultSize: "small",
+        order: 100,
+        projectContext: true,
+        visibleByDefault: true,
+        provider: "workbench.agent-tasks.dashboard-provider.open-count",
+        refresh: { mode: "interval", intervalMilliseconds: 5_000 },
+        format: "number",
+      },
+      {
+        id: "workbench.agent-tasks.dashboard.create",
+        kind: "quick-action",
+        title: "Aufgabe erstellen",
+        defaultSize: "small",
+        order: 110,
+        projectContext: true,
+        visibleByDefault: true,
+        commandId: "workbench.agent-tasks.command.create",
+      },
+    ],
   },
 };
 
 describe("Extension Manifest V1", () => {
   it("akzeptiert ein vollständiges lokales Manifest", () => {
-    expect(extensionManifestV1Schema.parse(validManifest)).toEqual(validManifest);
+    expect(extensionManifestV1Schema.parse(validManifest)).toEqual(
+      validManifest,
+    );
   });
 
   it("akzeptiert ein Manifest ohne optionale Metadaten", () => {
@@ -135,51 +163,96 @@ describe("Extension Manifest V1", () => {
   });
 
   it("verlangt mindestens einen Entrypoint oder später eine Contribution", () => {
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {}, contributes: {} }).success).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: {},
+        contributes: {},
+      }).success,
+    ).toBe(false);
   });
 
   it("weist unbekannte Felder auf allen definierten Ebenen ab", () => {
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, remoteRegistry: "https://example.com" }).success).toBe(
-      false,
-    );
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        remoteRegistry: "https://example.com",
+      }).success,
+    ).toBe(false);
     expect(
       extensionManifestV1Schema.safeParse({
         ...validManifest,
         engines: { ...validManifest.engines, node: ">=22" },
       }).success,
     ).toBe(false);
-    expect(extensionEntrypointsSchema.safeParse({ ...validManifest.entrypoints, worker: "./dist/worker.js" }).success).toBe(
-      false,
-    );
+    expect(
+      extensionEntrypointsSchema.safeParse({
+        ...validManifest.entrypoints,
+        worker: "./dist/worker.js",
+      }).success,
+    ).toBe(false);
   });
 
   it.each([
     ["manifestVersion", { ...validManifest, manifestVersion: 2 }],
     ["ID", { ...validManifest, id: "Agent Tasks" }],
     ["Version", { ...validManifest, version: "v1.0.0" }],
-    ["Workbench Range", { ...validManifest, engines: { ...validManifest.engines, remoteWorkplace: "latest" } }],
-    ["Extension API Range", { ...validManifest, engines: { ...validManifest.engines, extensionApi: " ^1" } }],
+    [
+      "Workbench Range",
+      {
+        ...validManifest,
+        engines: { ...validManifest.engines, remoteWorkplace: "latest" },
+      },
+    ],
+    [
+      "Extension API Range",
+      {
+        ...validManifest,
+        engines: { ...validManifest.engines, extensionApi: " ^1" },
+      },
+    ],
     ["Trust", { ...validManifest, trust: "first-party" }],
     ["Data Schema Version", { ...validManifest, dataSchemaVersion: 0 }],
   ])("weist einen ungültigen Wert für %s ab", (_field, manifest) => {
     expect(extensionManifestV1Schema.safeParse(manifest).success).toBe(false);
   });
 
-  it.each(["system", "builtin", "catalog-first-party", "developer", "sandboxed-webview"])(
-    "akzeptiert das Trust Level %s",
-    (trust) => {
-      expect(extensionTrustLevelSchema.parse(trust)).toBe(trust);
-    },
-  );
+  it.each([
+    "system",
+    "builtin",
+    "catalog-first-party",
+    "developer",
+    "sandboxed-webview",
+  ])("akzeptiert das Trust Level %s", (trust) => {
+    expect(extensionTrustLevelSchema.parse(trust)).toBe(trust);
+  });
 
   it("weist nicht normalisierte Texte und doppelte Keywords ab", () => {
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, name: " Agent Tasks" }).success).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, description: "Agent\nTasks" }).success).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, keywords: ["Agent", "agent"] }).success).toBe(false);
     expect(
       extensionManifestV1Schema.safeParse({
         ...validManifest,
-        keywords: Array.from({ length: EXTENSION_KEYWORDS_MAX_COUNT + 1 }, (_, index) => `keyword-${index}`),
+        name: " Agent Tasks",
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        description: "Agent\nTasks",
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        keywords: ["Agent", "agent"],
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        keywords: Array.from(
+          { length: EXTENSION_KEYWORDS_MAX_COUNT + 1 },
+          (_, index) => `keyword-${index}`,
+        ),
       }).success,
     ).toBe(false);
   });
@@ -196,14 +269,33 @@ describe("Extension Manifest V1", () => {
     "file:///tmp/server.js",
   ])("weist den unsicheren oder nicht lokalen Paketpfad %s ab", (path) => {
     expect(extensionPackagePathSchema.safeParse(path).success).toBe(false);
-    expect(extensionEntrypointsSchema.safeParse({ server: path }).success).toBe(false);
+    expect(extensionEntrypointsSchema.safeParse({ server: path }).success).toBe(
+      false,
+    );
   });
 
   it("begrenzt Entrypoint- und Asset-Dateitypen", () => {
-    expect(extensionEntrypointsSchema.safeParse({ ui: "./dist/ui.ts" }).success).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, icon: "./assets/icon.svg" }).success).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, icon: "./assets/icon.PNG" }).success).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, readme: "./README.html" }).success).toBe(false);
+    expect(
+      extensionEntrypointsSchema.safeParse({ ui: "./dist/ui.ts" }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        icon: "./assets/icon.svg",
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        icon: "./assets/icon.PNG",
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        readme: "./README.html",
+      }).success,
+    ).toBe(false);
   });
 
   it("akzeptiert ausschließlich strukturierte Permission Requests", () => {
@@ -213,12 +305,17 @@ describe("Extension Manifest V1", () => {
         ...validManifest,
         permissions: [
           { permission: "files.read", scope: { projects: ["current"] } },
-          { permission: "network.fetch", scope: { hosts: ["api.example.com"] } },
+          {
+            permission: "network.fetch",
+            scope: { hosts: ["api.example.com"] },
+          },
           { permission: "notifications.create" },
         ],
       }).success,
     ).toBe(true);
-    expect(extensionPermissionsV1Schema.safeParse(["files.read"]).success).toBe(false);
+    expect(extensionPermissionsV1Schema.safeParse(["files.read"]).success).toBe(
+      false,
+    );
   });
 
   it("akzeptiert Activation Events im eigenen Contribution-Namespace", () => {
@@ -264,7 +361,9 @@ describe("Extension Manifest V1", () => {
         ...validManifest,
         extensionDependencies: { "workbench.projects": "^1.0.0" },
         optionalExtensionDependencies: { "workbench.git": "^1.0.0" },
-        extensionConflicts: [{ id: "workbench.legacy-agent-tasks", range: "<2.0.0" }],
+        extensionConflicts: [
+          { id: "workbench.legacy-agent-tasks", range: "<2.0.0" },
+        ],
       }).success,
     ).toBe(true);
   });
@@ -311,7 +410,9 @@ describe("Extension Manifest V1", () => {
         ...validManifest,
         extensionDependencies: {},
         optionalExtensionDependencies: { "workbench.notifications": "^1.0.0" },
-        extensionConflicts: [{ id: "workbench.notifications", range: "^1.0.0" }],
+        extensionConflicts: [
+          { id: "workbench.notifications", range: "^1.0.0" },
+        ],
       }).success,
     ).toBe(false);
   });
@@ -330,7 +431,12 @@ describe("Extension Manifest V1", () => {
       extensionManifestV1Schema.safeParse({
         ...validManifest,
         contributes: {
-          commands: [{ id: "workbench.other.command.create", title: "Aufgabe erstellen" }],
+          commands: [
+            {
+              id: "workbench.other.command.create",
+              title: "Aufgabe erstellen",
+            },
+          ],
         },
       }).success,
     ).toBe(false);
@@ -339,13 +445,22 @@ describe("Extension Manifest V1", () => {
         ...validManifest,
         contributes: {
           commands: [
-            { id: "workbench.agent-tasks.command.create", title: "Aufgabe erstellen" },
-            { id: "workbench.agent-tasks.command.create", title: "Andere Anzeige" },
+            {
+              id: "workbench.agent-tasks.command.create",
+              title: "Aufgabe erstellen",
+            },
+            {
+              id: "workbench.agent-tasks.command.create",
+              title: "Andere Anzeige",
+            },
           ],
         },
       }).success,
     ).toBe(false);
-    expect(extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {} }).success).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({ ...validManifest, entrypoints: {} })
+        .success,
+    ).toBe(false);
   });
 
   it("verlangt für onCommand ein tatsächlich deklariertes Command-Ziel", () => {
@@ -410,7 +525,12 @@ describe("Extension Manifest V1", () => {
         ...validManifest,
         contributes: {
           ...validManifest.contributes,
-          pages: [{ id: "workbench.agent-tasks.command.create", title: "Doppelte ID" }],
+          pages: [
+            {
+              id: "workbench.agent-tasks.command.create",
+              title: "Doppelte ID",
+            },
+          ],
           routes: [
             {
               ...validManifest.contributes.routes[0],
@@ -524,7 +644,9 @@ describe("Extension Manifest V1", () => {
   });
 
   it("verlangt für die Extension-Icon-Referenz ein lokales Manifest-Icon", () => {
-    const manifestWithoutIcon: Partial<typeof validManifest> = { ...validManifest };
+    const manifestWithoutIcon: Partial<typeof validManifest> = {
+      ...validManifest,
+    };
     delete manifestWithoutIcon.icon;
     expect(
       extensionManifestV1Schema.safeParse({
@@ -546,7 +668,9 @@ describe("Extension Manifest V1", () => {
     expect(
       extensionManifestV1Schema.safeParse({
         ...validManifest,
-        activationEvents: ["onOrbitNode:workbench.agent-tasks.orbit.task-board"],
+        activationEvents: [
+          "onOrbitNode:workbench.agent-tasks.orbit.task-board",
+        ],
       }).success,
     ).toBe(true);
   });
@@ -572,7 +696,9 @@ describe("Extension Manifest V1", () => {
         },
       }).success,
     ).toBe(false);
-    const manifestWithoutIcon: Partial<typeof validManifest> = { ...validManifest };
+    const manifestWithoutIcon: Partial<typeof validManifest> = {
+      ...validManifest,
+    };
     delete manifestWithoutIcon.icon;
     expect(
       extensionManifestV1Schema.safeParse({
@@ -600,21 +726,163 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert Dashboard Provider und bindet Quick Actions an tatsächliche Commands", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          dashboard: validManifest.contributes.dashboard,
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende Quick-Action-Commands und fremde Dashboard Provider ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          dashboard: [
+            {
+              ...validManifest.contributes.dashboard[1],
+              commandId: "workbench.agent-tasks.command.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          dashboard: [
+            {
+              ...validManifest.contributes.dashboard[0],
+              provider: "workbench.other.dashboard-provider.open-count",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde Dashboard Icons und eine unbelegte Extension-Icon-Referenz ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          dashboard: [
+            {
+              ...validManifest.contributes.dashboard[0],
+              icon: "workbench.other.icon.tasks",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+
+    const manifestWithoutIcon: Partial<typeof validManifest> = {
+      ...validManifest,
+    };
+    delete manifestWithoutIcon.icon;
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...manifestWithoutIcon,
+        contributes: {
+          ...validManifest.contributes,
+          dashboard: [
+            {
+              ...validManifest.contributes.dashboard[0],
+              icon: "extension",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt für providerbasierte Dashboard Contributions einen Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: {},
+        contributes: { dashboard: [validManifest.contributes.dashboard[0]] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist manifestweit doppelte Dashboard IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          ...validManifest.contributes,
+          dashboard: [
+            {
+              ...validManifest.contributes.dashboard[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ commands: validManifest.contributes.commands }).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ commands: [] }).success).toBe(false);
-    expect(extensionActivationEventsV1Schema.safeParse(["onStartup"]).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ pages: validManifest.contributes.pages }).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ routes: validManifest.contributes.routes }).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ navigation: validManifest.contributes.navigation }).success).toBe(
-      true,
-    );
-    expect(extensionContributionsV1Schema.safeParse({ orbit: validManifest.contributes.orbit }).success).toBe(true);
-    expect(extensionContributionsV1Schema.safeParse({ pages: [] }).success).toBe(false);
-    expect(extensionContributionsV1Schema.safeParse({ navigation: [] }).success).toBe(false);
-    expect(extensionContributionsV1Schema.safeParse({ mobileNavigation: [] }).success).toBe(false);
-    expect(extensionContributionsV1Schema.safeParse({ dashboard: [] }).success).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        commands: validManifest.contributes.commands,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({ commands: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionActivationEventsV1Schema.safeParse(["onStartup"]).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        pages: validManifest.contributes.pages,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        routes: validManifest.contributes.routes,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        navigation: validManifest.contributes.navigation,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        orbit: validManifest.contributes.orbit,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({
+        dashboard: validManifest.contributes.dashboard,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionContributionsV1Schema.safeParse({ pages: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ navigation: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ mobileNavigation: [] })
+        .success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ settings: [] }).success,
+    ).toBe(false);
   });
 });

@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import { ACTIVATION_EVENTS_MAX_COUNT } from "./activation-events.js";
 import {
   COMMAND_CONTRIBUTIONS_MAX_COUNT,
+  DASHBOARD_CONTRIBUTIONS_MAX_COUNT,
   NAVIGATION_CONTRIBUTIONS_MAX_COUNT,
   ORBIT_CONTRIBUTIONS_MAX_COUNT,
   PAGE_CONTRIBUTIONS_MAX_COUNT,
   ROUTE_CONTRIBUTIONS_MAX_COUNT,
 } from "./contributions.js";
-import { EXTENSION_CONFLICTS_MAX_COUNT, EXTENSION_DEPENDENCIES_MAX_COUNT } from "./dependencies.js";
+import {
+  EXTENSION_CONFLICTS_MAX_COUNT,
+  EXTENSION_DEPENDENCIES_MAX_COUNT,
+} from "./dependencies.js";
 import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
@@ -16,7 +20,10 @@ import {
 import { extensionPermissionIds } from "./permissions.js";
 
 const trackedSchema = JSON.parse(
-  readFileSync(new URL("../schema/extension-manifest-v1.schema.json", import.meta.url), "utf8"),
+  readFileSync(
+    new URL("../schema/extension-manifest-v1.schema.json", import.meta.url),
+    "utf8",
+  ),
 );
 
 describe("generiertes Extension-Manifest-JSON-Schema", () => {
@@ -30,7 +37,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
         manifestVersion: { type: "number", const: 1 },
         trust: {
           type: "string",
-          enum: ["system", "builtin", "catalog-first-party", "developer", "sandboxed-webview"],
+          enum: [
+            "system",
+            "builtin",
+            "catalog-first-party",
+            "developer",
+            "sandboxed-webview",
+          ],
         },
         permissions: {
           type: "array",
@@ -100,6 +113,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               maxItems: ORBIT_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { type: "object", additionalProperties: false },
+            },
+            dashboard: {
+              type: "array",
+              minItems: 1,
+              maxItems: DASHBOARD_CONTRIBUTIONS_MAX_COUNT,
+              uniqueItems: true,
+              items: expect.any(Object),
             },
           },
         },

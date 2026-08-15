@@ -108,6 +108,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - onOrbitNode-Aktivierung an tatsächlich deklarierte Ziele gebunden
 - Fehlende Extensions behalten Node State, Revisionen und Backups unverändert
 
+### Extension-Dashboard
+
+- Acht generische Dashboard Contribution-Typen ohne Produktsonderfälle definiert
+- Quick Actions an tatsächlich deklarierte Commands gebunden
+- Provider, Icons und IDs konsequent auf den Extension-Namespace begrenzt
+- Größe, Reihenfolge, Projektkontext und Standardsichtbarkeit als Host-Metadaten ergänzt
+- On-Demand-, Intervall- und Realtime-Aktualisierung mit sicheren Grenzen beschrieben
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

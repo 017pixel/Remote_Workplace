@@ -10,10 +10,15 @@ export const PAGE_CONTRIBUTIONS_MAX_COUNT = 128;
 export const ROUTE_CONTRIBUTIONS_MAX_COUNT = 128;
 export const NAVIGATION_CONTRIBUTIONS_MAX_COUNT = 256;
 export const ORBIT_CONTRIBUTIONS_MAX_COUNT = 128;
+export const DASHBOARD_CONTRIBUTIONS_MAX_COUNT = 256;
 export const ROUTE_ALIASES_MAX_COUNT = 16;
 export const ROUTE_PATH_MAX_LENGTH = 256;
 export const NAVIGATION_ORDER_MIN = 0;
 export const NAVIGATION_ORDER_MAX = 10_000;
+export const DASHBOARD_ORDER_MIN = 0;
+export const DASHBOARD_ORDER_MAX = 10_000;
+export const DASHBOARD_REFRESH_INTERVAL_MIN_MS = 1_000;
+export const DASHBOARD_REFRESH_INTERVAL_MAX_MS = 600_000;
 export const ORBIT_STATE_VERSION_MAX = 1_000_000;
 export const EXTENSION_ORBIT_SIZE_LIMITS = {
   minWidth: 160,
@@ -40,7 +45,10 @@ function contributionTextSchema(maxLength: number, fieldName: string) {
     );
 }
 
-export const contributionTitleSchema = contributionTextSchema(CONTRIBUTION_TITLE_MAX_LENGTH, "Der Titel");
+export const contributionTitleSchema = contributionTextSchema(
+  CONTRIBUTION_TITLE_MAX_LENGTH,
+  "Der Titel",
+);
 export const contributionDescriptionSchema = contributionTextSchema(
   CONTRIBUTION_DESCRIPTION_MAX_LENGTH,
   "Die Beschreibung",
@@ -127,7 +135,9 @@ export const routePathSchema = z
 
 export type ExtensionRoutePath = z.infer<typeof routePathSchema>;
 
-export function routePathCollisionKey(path: ExtensionRoutePath | string): string | null {
+export function routePathCollisionKey(
+  path: ExtensionRoutePath | string,
+): string | null {
   const parsedPath = routePathSchema.safeParse(path);
   if (!parsedPath.success) return null;
   if (parsedPath.data === "/") return "/";
@@ -148,7 +158,8 @@ export const routeAliasesSchema = z
       if (collisionKey !== null && seen.has(collisionKey)) {
         context.addIssue({
           code: "custom",
-          message: "Route Aliases dürfen keine identischen URL-Muster besitzen.",
+          message:
+            "Route Aliases dürfen keine identischen URL-Muster besitzen.",
           path: [index],
         });
       }
@@ -187,7 +198,8 @@ export const routeContributionSchema = z
       if (routePathCollisionKey(alias) !== primaryCollisionKey) continue;
       context.addIssue({
         code: "custom",
-        message: "Ein Route Alias darf nicht dasselbe URL-Muster wie der Hauptpfad besitzen.",
+        message:
+          "Ein Route Alias darf nicht dasselbe URL-Muster wie der Hauptpfad besitzen.",
         path: ["aliases", index],
       });
     }
@@ -213,13 +225,20 @@ export const routeContributionsSchema = z
       }
       seenIds.add(route.id);
 
-      for (const [pathIndex, path] of [route.path, ...(route.aliases ?? [])].entries()) {
+      for (const [pathIndex, path] of [
+        route.path,
+        ...(route.aliases ?? []),
+      ].entries()) {
         const collisionKey = routePathCollisionKey(path);
         if (collisionKey !== null && seenPaths.has(collisionKey)) {
           context.addIssue({
             code: "custom",
-            message: "Routes und Aliases dürfen keine kollidierenden URL-Muster besitzen.",
-            path: pathIndex === 0 ? [index, "path"] : [index, "aliases", pathIndex - 1],
+            message:
+              "Routes und Aliases dürfen keine kollidierenden URL-Muster besitzen.",
+            path:
+              pathIndex === 0
+                ? [index, "path"]
+                : [index, "aliases", pathIndex - 1],
           });
         }
         if (collisionKey !== null) seenPaths.add(collisionKey);
@@ -230,14 +249,25 @@ export const routeContributionsSchema = z
 
 export type RouteContributions = z.infer<typeof routeContributionsSchema>;
 
-export const navigationGroups = ["workspace", "tools", "extensions", "account", "system"] as const;
+export const navigationGroups = [
+  "workspace",
+  "tools",
+  "extensions",
+  "account",
+  "system",
+] as const;
 export const navigationGroupSchema = z.enum(navigationGroups);
 export type NavigationGroup = z.infer<typeof navigationGroupSchema>;
 
 // `extension` verwendet das sichere lokale Manifest-Icon. Eine namespaced ID wird später
 // durch den UI-Entrypoint gegen die kontrollierte Icon Registry aufgelöst.
-export const contributionIconReferenceSchema = z.union([z.literal("extension"), contributionIdSchema]);
-export type ContributionIconReference = z.infer<typeof contributionIconReferenceSchema>;
+export const contributionIconReferenceSchema = z.union([
+  z.literal("extension"),
+  contributionIdSchema,
+]);
+export type ContributionIconReference = z.infer<
+  typeof contributionIconReferenceSchema
+>;
 export const navigationIconReferenceSchema = contributionIconReferenceSchema;
 export type NavigationIconReference = ContributionIconReference;
 
@@ -253,7 +283,9 @@ export const navigationContributionSchema = z.strictObject({
   visibleByDefault: z.boolean().default(true),
 });
 
-export type NavigationContribution = z.infer<typeof navigationContributionSchema>;
+export type NavigationContribution = z.infer<
+  typeof navigationContributionSchema
+>;
 
 export const navigationContributionsSchema = z
   .array(navigationContributionSchema)
@@ -274,7 +306,9 @@ export const navigationContributionsSchema = z
   })
   .meta({ uniqueItems: true });
 
-export type NavigationContributions = z.infer<typeof navigationContributionsSchema>;
+export type NavigationContributions = z.infer<
+  typeof navigationContributionsSchema
+>;
 
 export const orbitContributionSizeSchema = z.strictObject({
   width: z
@@ -291,7 +325,12 @@ export const orbitContributionSizeSchema = z.strictObject({
 
 export type OrbitContributionSize = z.infer<typeof orbitContributionSizeSchema>;
 
-export const orbitConnectionModes = ["none", "incoming", "outgoing", "bidirectional"] as const;
+export const orbitConnectionModes = [
+  "none",
+  "incoming",
+  "outgoing",
+  "bidirectional",
+] as const;
 export const orbitConnectionModeSchema = z.enum(orbitConnectionModes);
 export type OrbitConnectionMode = z.infer<typeof orbitConnectionModeSchema>;
 
@@ -333,3 +372,164 @@ export const orbitContributionsSchema = z
   .meta({ uniqueItems: true });
 
 export type OrbitContributions = z.infer<typeof orbitContributionsSchema>;
+
+export const dashboardContributionKinds = [
+  "metric",
+  "status",
+  "card",
+  "quick-action",
+  "list",
+  "chart",
+  "error-indicator",
+  "health-indicator",
+] as const;
+export const dashboardContributionKindSchema = z.enum(
+  dashboardContributionKinds,
+);
+export type DashboardContributionKind = z.infer<
+  typeof dashboardContributionKindSchema
+>;
+
+export const dashboardContributionSizes = [
+  "small",
+  "medium",
+  "large",
+  "full",
+] as const;
+export const dashboardContributionSizeSchema = z.enum(
+  dashboardContributionSizes,
+);
+export type DashboardContributionSize = z.infer<
+  typeof dashboardContributionSizeSchema
+>;
+
+export const dashboardMetricFormats = [
+  "number",
+  "percentage",
+  "duration",
+  "bytes",
+  "text",
+] as const;
+export const dashboardMetricFormatSchema = z.enum(dashboardMetricFormats);
+export type DashboardMetricFormat = z.infer<typeof dashboardMetricFormatSchema>;
+
+export const dashboardChartTypes = ["line", "bar", "area", "donut"] as const;
+export const dashboardChartTypeSchema = z.enum(dashboardChartTypes);
+export type DashboardChartType = z.infer<typeof dashboardChartTypeSchema>;
+
+export const dashboardRefreshSchema = z.discriminatedUnion("mode", [
+  z.strictObject({ mode: z.literal("on-demand") }),
+  z.strictObject({
+    mode: z.literal("interval"),
+    intervalMilliseconds: z
+      .number()
+      .int()
+      .min(DASHBOARD_REFRESH_INTERVAL_MIN_MS)
+      .max(DASHBOARD_REFRESH_INTERVAL_MAX_MS),
+  }),
+  z.strictObject({ mode: z.literal("realtime") }),
+]);
+
+export type DashboardRefresh = z.infer<typeof dashboardRefreshSchema>;
+
+const dashboardContributionBaseShape = {
+  id: contributionIdSchema,
+  title: contributionTitleSchema,
+  description: contributionDescriptionSchema.optional(),
+  icon: contributionIconReferenceSchema.optional(),
+  defaultSize: dashboardContributionSizeSchema.default("medium"),
+  order: z.number().int().min(DASHBOARD_ORDER_MIN).max(DASHBOARD_ORDER_MAX),
+  projectContext: z.boolean().default(false),
+  visibleByDefault: z.boolean().default(true),
+};
+
+const dashboardProviderShape = {
+  provider: contributionIdSchema,
+  refresh: dashboardRefreshSchema.default({ mode: "on-demand" }),
+};
+
+export const dashboardMetricContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("metric"),
+  format: dashboardMetricFormatSchema.default("number"),
+});
+
+export const dashboardStatusContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("status"),
+});
+
+export const dashboardCardContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("card"),
+});
+
+export const dashboardQuickActionContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  kind: z.literal("quick-action"),
+  commandId: contributionIdSchema,
+});
+
+export const dashboardListContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("list"),
+});
+
+export const dashboardChartContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("chart"),
+  chartType: dashboardChartTypeSchema,
+});
+
+export const dashboardErrorIndicatorContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("error-indicator"),
+});
+
+export const dashboardHealthIndicatorContributionSchema = z.strictObject({
+  ...dashboardContributionBaseShape,
+  ...dashboardProviderShape,
+  kind: z.literal("health-indicator"),
+});
+
+export const dashboardContributionSchema = z.discriminatedUnion("kind", [
+  dashboardMetricContributionSchema,
+  dashboardStatusContributionSchema,
+  dashboardCardContributionSchema,
+  dashboardQuickActionContributionSchema,
+  dashboardListContributionSchema,
+  dashboardChartContributionSchema,
+  dashboardErrorIndicatorContributionSchema,
+  dashboardHealthIndicatorContributionSchema,
+]);
+
+export type DashboardContribution = z.infer<typeof dashboardContributionSchema>;
+
+export const dashboardContributionsSchema = z
+  .array(dashboardContributionSchema)
+  .min(1)
+  .max(DASHBOARD_CONTRIBUTIONS_MAX_COUNT)
+  .superRefine((items, context) => {
+    const seen = new Set<string>();
+    for (const [index, item] of items.entries()) {
+      if (seen.has(item.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Jede Dashboard Contribution ID darf nur einmal vorkommen.",
+          path: [index, "id"],
+        });
+      }
+      seen.add(item.id);
+    }
+  })
+  .meta({ uniqueItems: true });
+
+export type DashboardContributions = z.infer<
+  typeof dashboardContributionsSchema
+>;

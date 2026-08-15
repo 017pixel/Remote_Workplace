@@ -342,6 +342,66 @@ Manifest enthält davon nur statisch validierbare Discovery-Metadaten. Das persi
 Extension-Node-Modell, Missing-Extension-Verhalten und Legacy-Migration sind in
 [`extension-orbit-model.md`](extension-orbit-model.md) festgelegt.
 
+#### Dashboard Contributions
+
+Dashboard Contributions beschreiben kompakte, sortierbare Flächen. Der Host kennt dabei keine
+Produktnamen und erhält weder ausführbaren Code noch beliebige Komponenten aus dem Manifest:
+
+```json
+{
+  "contributes": {
+    "dashboard": [
+      {
+        "id": "workbench.agent-tasks.dashboard.open-count",
+        "kind": "metric",
+        "title": "Offene Aufgaben",
+        "defaultSize": "small",
+        "order": 100,
+        "projectContext": true,
+        "provider": "workbench.agent-tasks.dashboard-provider.open-count",
+        "refresh": {
+          "mode": "interval",
+          "intervalMilliseconds": 5000
+        },
+        "format": "number"
+      },
+      {
+        "id": "workbench.agent-tasks.dashboard.create",
+        "kind": "quick-action",
+        "title": "Aufgabe erstellen",
+        "defaultSize": "small",
+        "order": 110,
+        "commandId": "workbench.agent-tasks.command.create"
+      }
+    ]
+  }
+}
+```
+
+- V1 kennt `metric`, `status`, `card`, `quick-action`, `list`, `chart`, `error-indicator` und
+  `health-indicator`. Eine Extension darf 1 bis 256 Dashboard Contributions deklarieren.
+- IDs sind manifestweit eindeutig und gehören zur Extension. Runtime Provider und Icons müssen
+  ebenfalls im Extension-Namespace liegen; `icon: "extension"` verwendet das lokale
+  Manifest-Icon.
+- Quick Actions referenzieren ein tatsächlich deklariertes Command. Dadurch bleibt dieselbe
+  Business Logic aus Command Palette, Button, Orbit, Agent Tool oder API aufrufbar.
+- Alle übrigen Typen referenzieren einen Provider, der später über die öffentliche UI- oder
+  Server-Runtime registriert wird. Der Manifestvertrag enthält keine Abfrage, Komponente oder
+  ausführbare Funktion.
+- Provider verwenden `on-demand`, ein Intervall von 1 bis 600 Sekunden oder `realtime`.
+  Aktivierung bleibt lazy; die Runtime erzwingt später Timeout, Fehlerisolation und Cleanup.
+- `defaultSize` ist `small`, `medium`, `large` oder `full`. `order`, `visibleByDefault` und
+  `projectContext` beschreiben nur Defaults. Serverseitige Benutzerpräferenzen überschreiben
+  Sichtbarkeit, Reihenfolge und Größe anhand der stabilen Contribution-ID.
+- Metrics deklarieren ein Hostformat für Zahl, Prozent, Dauer, Bytes oder Text. Charts verwenden
+  einen kontrollierten Typ für Linie, Balken, Fläche oder Donut. Das Daten-Payload und seine
+  Größenlimits werden mit der Runtime Registry separat versioniert.
+
+Die heutigen neun produktbezogenen Bereiche in `Dashboard.tsx` und der Browser-Key
+`remote-workplace.dashboard-preferences.v1` ändern sich durch diesen Vertrag noch nicht. Phase 2
+adaptiert sie zunächst als Legacy Built-in Contributions; die serverseitige Präferenzmigration
+folgt kontrolliert mit Dual Read.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

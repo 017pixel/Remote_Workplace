@@ -71,8 +71,9 @@ lokale `.rwext`-Pakete.
   kontrollierte Aliase und deklarative Host-Metadaten. Navigation referenziert Routes statt
   Pfade zu kopieren und bildet eine gemeinsame Desktop-/Mobile-Surface. Orbit Contributions
   definieren lokale State-Schemas, State-Versionen, Größen und Runtime-Fähigkeiten, ohne das
-  persistierte Dokument bereits zu verändern. Weitere Contributions, Manager, Capability
-  Broker, SDK und Local Catalog folgen.
+  persistierte Dokument bereits zu verändern. Dashboard Contributions bilden acht generische
+  Typen mit sicheren Command-, Provider- und Icon-Referenzen ab. Weitere Contributions,
+  Manager, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -81,13 +82,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.10 zwölf lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.11 dreizehn lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`b7e4ab5a573bfae3bc9e07fe59870f61375de626` als analysierter Ausgangspunkt von Subgoal 1.10.
-Der Ergebniscommit enthält Orbit Contributions V1, die Orbit-Modell-ADR und diese
-Tracker-Aktualisierung.
+`676db5c8ee001fd9976d6a1b80a9415356de0f21` als analysierter Ausgangspunkt von Subgoal 1.11.
+Der Ergebniscommit enthält Dashboard Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -102,8 +102,8 @@ Tracker-Aktualisierung.
 
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
-Route-, Navigation- und Orbit Contributions sind geöffnet. Weitere Contributions und Catalog
-Contracts folgen.
+Route-, Navigation-, Orbit- und Dashboard Contributions sind geöffnet. Weitere Contributions
+und Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -111,13 +111,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.11, Dashboard Contributions V1 planen.
+Subgoal 1.12, Settings Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.11 definiert generische Dashboard Contributions für Metric, Status, Card, Quick Action,
-List, Chart, Error und Health. Der Vertrag referenziert vorhandene Commands und sichere Runtime-
-Provider, ohne Produktnamen oder Dashboard-UI umzubauen.
+Subgoal 1.12 untersucht die bestehenden Settings-Bereiche und definiert schema-driven Settings
+Contributions für skalare, Auswahl-, Pfad-, Secret-, Projekt- und Duration-Werte. Persistenz und
+Secrets bleiben serverseitige Runtime-Aufgaben; die bestehende Settings UI wird noch nicht
+umgebaut.
 
 ## Phase Table
 
@@ -155,7 +156,7 @@ bevor der Canary oder andere sichtbare Features migrieren.
 | Desktop/Mobile Navigation | Statische Arrays und zusätzliche Mobile Path Map; gemeinsamer Manifestvertrag eingeführt | Eine Registry mit serverseitig synchronisierten User Preferences | 2-3 | planning |
 | Persistente Routen | `PersistentOutlet` hält besuchte Routen gemountet | Metadata `persistent` mit sauberem Dispose bei Disable | 3 | planning |
 | Orbit | 17 geschlossene Knotentypen, Dokumentversion 8; Manifestvertrag und Ziel-ADR eingeführt | Generischer Extension Node, Missing State und versionierte Migration | 4 | planning |
-| Dashboard | Produktbezogene Sections in einer großen View | Declarative Metrics, Cards, Actions und Health Contributions | 2, 10 | planning |
+| Dashboard | Produktbezogene Sections in einer großen View; generischer Manifestvertrag eingeführt | Declarative Metrics, Cards, Actions und Health Contributions | 2, 10 | planning |
 | Settings | Featurebereiche direkt in `Settings.tsx` | Core Settings plus schema-driven Extension Settings | 2, 10 | planning |
 | Commands | Config-/Feature-spezifische Ausführung | Gemeinsame Command Registry für UI, Agenten, Jobs und API | 2, 6 | planning |
 | Server Bootstrap | Dienste und Routen direkt in `app.ts` | Kernel Bootstrap plus deterministischer Extension Manager | 5 | planning |
@@ -203,6 +204,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Page-Identität, Route-Identität und URL-Pfad bleiben getrennt. | Pages beschreiben renderbare Flächen, Routes deren Host-Einbindung. Pfade erlauben statische Segmente und erforderliche benannte Parameter; Aliase erhalten Bookmarks. Optionale Parameter und Wildcards bleiben in V1 ausgeschlossen, Parameternamen gelten bei Kollisionsprüfungen als gleichwertig. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Desktop und Mobile verwenden dieselbe Navigation Contribution. | Navigation referenziert stabile Route-IDs und kopiert keine Pfade. `route.mobileNavigation` steuert die mobile Eignung; fünf kontrollierte Default-Gruppen, Reihenfolge und Sichtbarkeit können später durch serverseitige Nutzerpräferenzen überschrieben werden. Eine zweite Manifestliste oder Path Map entsteht nicht. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Orbit erhält additiv einen generischen Extension-Knotentyp. | Extension- und Contribution-ID ersetzen Featuretypen als Identität. Lokale JSON-Schemas und monotone State-Versionen schützen persistierten State; fehlender Code löscht nichts. Historische Revisionen bleiben unverändert und Legacy-Knoten werden erst kontrolliert beim Lesen/Schreiben migriert. Siehe [`extension-orbit-model.md`](../adr/extension-orbit-model.md). |
+| 2026-08-15 | Dashboard Flächen verwenden generische Typen und referenzierte Provider. | Acht kontrollierte Typen decken Metrics, Status, Cards, Aktionen, Listen, Charts und Indikatoren ab. Quick Actions verwenden vorhandene Commands; andere Flächen registrieren Provider über die öffentliche Runtime. Produktnamen und ausführbarer Code bleiben aus dem Manifest und Host. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -225,6 +227,7 @@ Priorisierte Abhängigkeiten:
 | Extension Route kollidiert mit einer anderen Extension oder einer Recovery-Route | Falsche Fläche wird geöffnet oder Recovery ist nicht erreichbar | Manifest prüft lokale Matcher einschließlich Parameter und Aliase; der Manager muss globale sowie reservierte Host-Pfade atomar und fail-closed prüfen | offen |
 | Navigation Icon oder Badge Provider fehlt nach Activation | Leerer Eintrag oder Fehlerkaskade in Sidebar und Mobile Navigation | Host verwendet ein generisches Icon, isoliert Providerfehler und prüft Registrierung, Timeout und Cleanup in der Runtime | offen |
 | Orbit State Schema enthält entfernte Referenzen oder eine lückenhafte Migration | Netzwerkzugriff, nicht validierbarer State oder Datenverlust | V1 erlaubt nur lokale selbstenthaltene Schemas; Manager validiert jede Migrationsstufe und aktiviert bei Fehlern weder neue Version noch veränderten State | offen |
+| Dashboard Provider hängt, crasht oder liefert zu große Daten | Blockiertes Dashboard oder Speicherregression | Runtime aktiviert lazy, erzwingt Timeout und Payload-Grenzen, isoliert Fehler je Contribution und entfernt Provider beim Disable | offen |
 
 ## Compatibility Matrix
 
@@ -241,6 +244,7 @@ Priorisierte Abhängigkeiten:
 | Page und Route Contributions | Je 1 bis 128 Einträge, sichere Pfade und bis zu 16 Aliase je Route | IDs bleiben stabil; bestehende Bookmarks bleiben über Aliase erreichbar, persistente Flächen werden später ohne Remount gehostet |
 | Navigation Contributions | 1 bis 256 Einträge, fünf Default-Gruppen und stabile Route-/Runtime-Referenzen | Desktop und Mobile lesen dieselbe Registry; Nutzerüberschreibungen werden später serverseitig je Contribution-ID synchronisiert |
 | Orbit Contributions | 1 bis 128 Einträge mit lokalem State-Schema, Version, Größe und Runtime-Fähigkeiten | Phase 4 ergänzt `type: extension`; fehlende oder deaktivierte Extensions bewahren unbekannten State vollständig |
+| Dashboard Contributions | 1 bis 256 Einträge, acht Typen, vier Größen und drei Refresh-Modi | Quick Actions teilen Commands; Provider werden namespaced registriert und Benutzerpräferenzen später serverseitig je Contribution-ID gespeichert |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -252,10 +256,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.10, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.10 |
-| `pnpm test` | bestanden am 2026-08-15, 211 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.10, 904 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.10, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.11, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.11 |
+| `pnpm test` | bestanden am 2026-08-15, 228 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.11, 921 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.11, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -314,7 +318,8 @@ Keine.
 | `071d645` | Subgoal 1.7, Contribution-Basis und Commands V1 |
 | `769545d` | Subgoal 1.8, Page und Route Contributions V1 |
 | `b7e4ab5` | Subgoal 1.9, Navigation Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.10, Orbit Contributions V1 |
+| `676db5c` | Subgoal 1.10, Orbit Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.11, Dashboard Contributions V1 |
 
 ## Subgoal Log
 
@@ -333,4 +338,5 @@ Keine.
 | 1.8 Page und Route Contributions V1 | done | Page-/Route-Schemas, sichere Pfade, Matcher-Kollisionen, Aliase, Host-Metadaten, Entrypoint- und onRoute-Zielprüfung, JSON Schema und 891 grüne Repository-Tests | Subgoal 1.9, Navigation Contributions V1 |
 | 1.9 Navigation Contributions V1 | done | Gemeinsame Desktop-/Mobile-Metadaten, tatsächliche Route-Ziele, kontrollierte Gruppen, sichere Icon-/Badge-Referenzen, JSON Schema und 897 grüne Repository-Tests | Subgoal 1.10, Orbit Contributions V1 |
 | 1.10 Orbit Contributions V1 | done | Lokale State-Schemas, State-Version, Größen, Renderer-/Inspector-Fähigkeiten, Connection-Modi, Orbit-ADR, tatsächliche onOrbitNode-Ziele und 904 grüne Repository-Tests | Subgoal 1.11, Dashboard Contributions V1 |
-| 1.11 Dashboard Contributions V1 | planning | Dashboard-Inventar und stabile Contribution IDs liegen vor | Generische Dashboard-Typen und sichere Command-/Provider-Referenzen definieren |
+| 1.11 Dashboard Contributions V1 | done | Acht generische Typen, sichere Command-, Provider- und Icon-Referenzen, Refresh-Grenzen, JSON Schema und 921 grüne Repository-Tests | Subgoal 1.12, Settings Contributions V1 |
+| 1.12 Settings Contributions V1 | planning | Settings-Inventar und serverseitige Autoritätsgrenze liegen vor | Schema-driven Feldtypen, Secrets und benutzerbezogene Persistenz vertraglich definieren |
