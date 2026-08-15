@@ -865,6 +865,67 @@ Phase 2 registriert Shell, Codex, OpenCode und Claude Code zunächst als Legacy 
 Die dynamische Profilauflösung folgt erst mit Runtime Registry und Capability Broker. Bestehende
 Terminal- und Agentensitzungen bleiben bis dahin vollständig auf dem bisherigen Codepfad.
 
+#### Preview Contributions
+
+Preview Contributions registrieren hostgerenderte Targets oder Command-basierte Aktionen. URLs,
+Ports, Service-Graphen, Slot-IDs, Session-Keys und Storage-Profil-IDs gehören nicht ins Manifest:
+
+```json
+{
+  "contributes": {
+    "previews": [
+      {
+        "id": "workbench.storybook.preview.target.main",
+        "kind": "target",
+        "title": "Storybook",
+        "icon": "workbench.storybook.icon.preview",
+        "order": 100,
+        "provider": "workbench.storybook.preview-provider.main",
+        "projectContext": true,
+        "sessionAccess": "manage",
+        "openModes": ["embedded", "external"],
+        "diagnostics": true,
+        "storageProfiles": true,
+        "visibleByDefault": true
+      },
+      {
+        "id": "workbench.storybook.preview.action.reload",
+        "kind": "action",
+        "title": "Preview neu laden",
+        "order": 200,
+        "commandId": "workbench.storybook.command.reload",
+        "group": "view",
+        "surfaces": ["hub-toolbar", "mobile-actions"],
+        "requiresSession": true
+      }
+    ]
+  }
+}
+```
+
+- Targets benötigen einen namespaced Provider, einen UI- oder Server-Entrypoint und immer
+  `preview.read`. Ein Target mit `sessionAccess: manage` fordert zusätzlich `preview.manage` an.
+  Manifest Requests sind keine Grants; der Server schränkt sie weiterhin nach Projekt und
+  Identität ein.
+- `embedded`, `external` und `server-browser` beschreiben nur erlaubte Hostdarstellungen. Der
+  Provider kann keine iframe-Origin, Browsernavigation oder externe URL ungeprüft erzwingen.
+  Same-Origin, Tailscale-Identity, CSP, SSRF-Schutz und URL-Klassifizierung bleiben Kernel.
+- Diagnose- und Storage-Flags machen Hostfunktionen sichtbar, öffnen aber keine Rohlogs und keinen
+  Storagezugriff. Redaction, sieben Tage Aufbewahrung, Capability Token, Snapshot-Verschlüsselung,
+  Quarantäne und verifizierter Reset gelten unverändert.
+- Actions referenzieren Commands und erscheinen ausschließlich in Hub-Toolbar, Target-Menü,
+  Session-Menü, mobiler Aktionsleiste oder Diagnosefläche. Start, Stop, Restart, Session-Close und
+  Reparatur durchlaufen bei jeder Ausführung erneut Permission-, Ownership- und Origin-Prüfung.
+- Disable entfernt Target und Actions, schließt aber keine user-owned Preview-Session, gibt keinen
+  Slot frei, löscht kein Storage-Profil und stoppt keinen Devserver. Fehlende Contributions bleiben
+  als diagnostizierbarer Zustand erhalten.
+- Das Manifest enthält weder freie Komponenten noch Bridge-Skripte. Client Bridge, WebSocket,
+  Gateway Routing, Session Lease und Geräteframes bleiben unter Hostkontrolle.
+
+Phase 2 registriert die bestehende lokale Projekt-Preview als Legacy Built-in Target. Der
+Preview Slot Manager, der getrennte tmux-Socket der Devserver und alle laufenden Nutzersessions
+werden in diesem Contract-Subgoal nicht verändert.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

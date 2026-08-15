@@ -39,6 +39,7 @@ import {
   semanticVersionSchema,
 } from "./versioning.js";
 import { extensionPermissionRequestsSchema } from "./permissions.js";
+import { previewContributionsSchema } from "./preview-contributions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
 import { terminalContributionsSchema } from "./terminal-contributions.js";
@@ -178,6 +179,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   topbar: topbarContributionsSchema.optional(),
   files: fileContributionsSchema.optional(),
   terminal: terminalContributionsSchema.optional(),
+  previews: previewContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -347,6 +349,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.terminal ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "terminal", index, "id"] as const,
+      })),
+      ...(manifest.contributes.previews ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "previews", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -829,6 +835,60 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.previews ?? []
+    ).entries()) {
+      if (item.kind === "action" && !commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Preview Action muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "previews", index, "commandId"],
+        });
+      }
+      if (
+        item.kind === "target" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Preview Target Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "previews", index, "provider"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Preview Contribution Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "previews", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "previews", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "previews", index, "when"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -933,6 +993,51 @@ export const extensionManifestV1Schema = z
         message:
           "Terminal Profile Contributions benötigen einen UI- oder Server-Entrypoint für ihren Provider.",
         path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.previews?.some((item) => item.kind === "target") ===
+        true &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Preview Target Contributions benötigen einen UI- oder Server-Entrypoint für ihren Provider.",
+        path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.previews?.some((item) => item.kind === "target") ===
+        true &&
+      !manifest.permissions.some(
+        (request) => request.permission === "preview.read",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Preview Target Contributions müssen die Permission preview.read anfordern.",
+        path: ["permissions"],
+      });
+    }
+
+    if (
+      manifest.contributes.previews?.some(
+        (item) => item.kind === "target" && item.sessionAccess === "manage",
+      ) === true &&
+      !manifest.permissions.some(
+        (request) => request.permission === "preview.manage",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Verwaltende Preview Targets müssen die Permission preview.manage anfordern.",
+        path: ["permissions"],
       });
     }
 

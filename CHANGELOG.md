@@ -172,6 +172,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Beliebige Shell-Befehle, Zugangsdaten und direkte PTY-Steuerung aus Manifesten ausgeschlossen
 - Laufende Sitzungen, Reconnect, Split und Workspace-Sync vollständig im sicheren Kernel belassen
 
+### Extension-Previews
+
+- Lokale Preview-Ziele und Preview-Aktionen als kontrollierte Contributions definiert
+- Lesen und Verwalten von Sessions an getrennte Preview-Berechtigungen gebunden
+- Eingebettete, externe und serverseitige Browserdarstellung klar voneinander getrennt
+- URLs, Ports, Slots, Storage-Profile und Devserver-Befehle aus Manifesten ausgeschlossen
+- Laufende Previews, Devserver, Diagnose, Quarantäne und Storage-Reset im sicheren Kernel belassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
