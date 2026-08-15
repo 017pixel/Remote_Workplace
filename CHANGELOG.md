@@ -188,6 +188,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - URLs, Profile, Cookies, Header, Downloadpfade und freie CDP-Methoden aus Manifesten ausgeschlossen
 - Chromium, Sessions, DevTools-Proxy, Downloads und Idle-Cleanup im sicheren Kernel belassen
 
+### Extension-Agent-Tools
+
+- Command- und Provider-basierte Agent Tools als schema-validierte Contributions definiert
+- Lokale JSON-Schemas für Eingaben und optionale strukturierte Ergebnisse vorgeschrieben
+- Toolregistrierung an Server-Entrypoint und eigene Agent-Tool-Berechtigung gebunden
+- Approval Policy auf zentrale Hostentscheidung oder strengere Einzelfreigabe begrenzt
+- Prompts, Grants, Shell-Text, Tokens, Session-IDs und ausführbaren Code aus Manifesten ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

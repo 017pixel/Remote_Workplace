@@ -4,6 +4,7 @@ import {
   activationEventContributionId,
   activationEventsV1Schema,
 } from "./activation-events.js";
+import { agentToolContributionsSchema } from "./agent-tool-contributions.js";
 import {
   commandContributionsSchema,
   dashboardContributionsSchema,
@@ -182,6 +183,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   terminal: terminalContributionsSchema.optional(),
   previews: previewContributionsSchema.optional(),
   browser: browserContributionsSchema.optional(),
+  agentTools: agentToolContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -359,6 +361,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.browser ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "browser", index, "id"] as const,
+      })),
+      ...(manifest.contributes.agentTools ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "agentTools", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -949,6 +955,30 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.agentTools ?? []
+    ).entries()) {
+      if (item.kind === "command" && !commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Command-basiertes Agent Tool muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "agentTools", index, "commandId"],
+        });
+      }
+      if (
+        item.kind === "provider" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Agent Tool Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "agentTools", index, "provider"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1112,6 +1142,32 @@ export const extensionManifestV1Schema = z
         message:
           "Browser Tool Contributions benötigen einen UI- oder Server-Entrypoint für ihren Provider.",
         path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.agentTools !== undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Agent Tool Contributions benötigen einen Server-Entrypoint für ihre Handler.",
+        path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.agentTools !== undefined &&
+      !manifest.permissions.some(
+        (request) => request.permission === "agents.tools.register",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Agent Tool Contributions müssen die Permission agents.tools.register anfordern.",
+        path: ["permissions"],
       });
     }
 

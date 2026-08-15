@@ -985,6 +985,68 @@ Phase 2 registriert Screenshot, Seitenquelle und DevTools zunächst als Legacy B
 Der bestehende Chromium Manager, seine Profile und laufende Sessions werden in diesem
 Contract-Subgoal nicht verändert.
 
+#### Agent Tool Contributions
+
+Agent Tool Contributions machen Commands oder serverseitige Provider über eine stabile,
+schema-validierte Tool-Grenze für Agenten verfügbar:
+
+```json
+{
+  "permissions": [{ "permission": "agents.tools.register" }],
+  "contributes": {
+    "agentTools": [
+      {
+        "id": "workbench.agent-tasks.agent-tool.create",
+        "kind": "command",
+        "title": "Aufgabe erstellen",
+        "description": "Erstellt eine Aufgabe im aktuellen Projekt.",
+        "inputSchema": "./schemas/create-task-input.json",
+        "outputSchema": "./schemas/task-output.json",
+        "projectContext": true,
+        "approval": "host-policy",
+        "commandId": "workbench.agent-tasks.command.create"
+      },
+      {
+        "id": "workbench.agent-tasks.agent-tool.list",
+        "kind": "provider",
+        "title": "Aufgaben auflisten",
+        "description": "Liest Aufgaben aus dem aktuellen Projekt.",
+        "inputSchema": "./schemas/list-tasks-input.json",
+        "projectContext": true,
+        "approval": "always",
+        "provider": "workbench.agent-tasks.agent-tool-provider.list"
+      }
+    ]
+  }
+}
+```
+
+- Jeder Agent-Tool-Bereich benötigt einen Server-Entrypoint und den Request
+  `agents.tools.register`. Das registriert nur Metadaten und Handler. Es erteilt weder dem Agenten
+  noch der Extension Filesystem-, Process-, Network-, Secret- oder andere Capabilities.
+- Command-basierte Tools teilen vorhandene Business Logic. Provider-basierte Tools verwenden
+  eine namespaced Provider-ID. Tool-ID, referenzierter Command und Provider werden beim Laden
+  manifestweit und extensionbezogen geprüft.
+- Ein- und optionale Ausgabeschemas sind lokale JSON-Dokumente im Paket. Installer und Runtime
+  lösen sie innerhalb der kanonischen Paketwurzel auf, verbieten externe Referenzen und
+  validieren jeden Aufruf sowie jedes Ergebnis mit Hostgrenzen für Größe, Tiefe und Zeit.
+- `host-policy` überlässt die Approval-Entscheidung vollständig der zentralen Policy;
+  `always` darf sie nur verschärfen. Das Manifest kann Approval niemals abschalten, einen Grant
+  setzen oder `allow_session` über die konkrete Agentensession hinaus persistieren.
+- Der Host übersetzt die stabile Contribution-ID deterministisch in adaptersichere Toolnamen und
+  führt die Original-ID in Audit, Logs und Fehlern weiter. Adapter-spezifische Toolnamen,
+  MCP-Definitionen und Protokollfelder sind kein Manifestvertrag.
+- Projektpfade, Session-IDs, Prompts, Approval-Antworten, Shell-Text, ausführbarer Code,
+  Transportendpunkte, Tokens und Secrets sind nicht Teil der Contribution. Der Handler erhält
+  ausschließlich validierten Kontext und arbeitet über separat gewährte Capability Broker.
+- Disable entfernt die Toolregistrierung und wartet begrenzt auf laufende Aufrufe. Es beendet
+  keine Agentensession und löscht keinen Verlauf. Neue Invocations werden fail-closed abgewiesen;
+  Listener, Timer und offene Handles müssen beim Runtime-Cleanup entfernt werden.
+
+Phase 2 führt zunächst nur die Registry und Legacy-Metadaten ein. Hermes ACP, Codex, OpenCode,
+Claude Code, deren Approvals und laufende Sessions werden in diesem Contract-Subgoal nicht
+verändert.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine
