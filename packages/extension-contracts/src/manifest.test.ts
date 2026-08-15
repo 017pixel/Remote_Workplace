@@ -157,6 +157,24 @@ const validManifest = {
         ],
       },
     ],
+    keyboardShortcuts: [
+      {
+        id: "workbench.agent-tasks.shortcut.create",
+        commandId: "workbench.agent-tasks.command.create",
+        keybinding: [{ key: "KeyK", modifiers: ["primary", "shift"] }],
+        when: {
+          all: [
+            {
+              key: "host.input.focused",
+              operator: "equals",
+              value: false,
+            },
+          ],
+        },
+        allowInEditable: false,
+        allowRepeat: false,
+      },
+    ],
   },
 };
 
@@ -990,6 +1008,132 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("bindet Keyboard Shortcuts an tatsächlich deklarierte Commands", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: validManifest.contributes.keyboardShortcuts,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              commandId: "workbench.agent-tasks.command.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("begrenzt Extension Context Keys auf den eigenen Namespace", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              when: {
+                all: [
+                  {
+                    key: "workbench.agent-tasks.context.has-selection",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              when: {
+                all: [
+                  {
+                    key: "workbench.other.context.has-selection",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              when: {
+                all: [
+                  {
+                    key: "host.unknown.focused",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde und manifestweit doppelte Shortcut IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              id: "workbench.other.shortcut.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          keyboardShortcuts: [
+            {
+              ...validManifest.contributes.keyboardShortcuts[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -1035,6 +1179,11 @@ describe("Extension Manifest V1", () => {
       }).success,
     ).toBe(true);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        keyboardShortcuts: validManifest.contributes.keyboardShortcuts,
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ pages: [] }).success,
     ).toBe(false);
     expect(
@@ -1050,6 +1199,9 @@ describe("Extension Manifest V1", () => {
     expect(
       extensionContributionsV1Schema.safeParse({ keyboardShortcuts: [] })
         .success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ contextMenus: [] }).success,
     ).toBe(false);
   });
 });

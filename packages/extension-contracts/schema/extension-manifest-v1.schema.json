@@ -2533,6 +2533,1071 @@
             ]
           },
           "uniqueItems": true
+        },
+        "keyboardShortcuts": {
+          "minItems": 1,
+          "maxItems": 256,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "commandId": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "keybinding": {
+                "minItems": 1,
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "enum": [
+                        "KeyA",
+                        "KeyB",
+                        "KeyC",
+                        "KeyD",
+                        "KeyE",
+                        "KeyF",
+                        "KeyG",
+                        "KeyH",
+                        "KeyI",
+                        "KeyJ",
+                        "KeyK",
+                        "KeyL",
+                        "KeyM",
+                        "KeyN",
+                        "KeyO",
+                        "KeyP",
+                        "KeyQ",
+                        "KeyR",
+                        "KeyS",
+                        "KeyT",
+                        "KeyU",
+                        "KeyV",
+                        "KeyW",
+                        "KeyX",
+                        "KeyY",
+                        "KeyZ",
+                        "Digit0",
+                        "Digit1",
+                        "Digit2",
+                        "Digit3",
+                        "Digit4",
+                        "Digit5",
+                        "Digit6",
+                        "Digit7",
+                        "Digit8",
+                        "Digit9",
+                        "F1",
+                        "F2",
+                        "F3",
+                        "F4",
+                        "F5",
+                        "F6",
+                        "F7",
+                        "F8",
+                        "F9",
+                        "F10",
+                        "F11",
+                        "F12",
+                        "F13",
+                        "F14",
+                        "F15",
+                        "F16",
+                        "F17",
+                        "F18",
+                        "F19",
+                        "F20",
+                        "F21",
+                        "F22",
+                        "F23",
+                        "F24",
+                        "ArrowUp",
+                        "ArrowDown",
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "Enter",
+                        "Escape",
+                        "Space",
+                        "Tab",
+                        "Backspace",
+                        "Delete",
+                        "Insert",
+                        "Home",
+                        "End",
+                        "PageUp",
+                        "PageDown",
+                        "Slash",
+                        "Backslash",
+                        "BracketLeft",
+                        "BracketRight",
+                        "Semicolon",
+                        "Quote",
+                        "Comma",
+                        "Period",
+                        "Minus",
+                        "Equal",
+                        "Backquote"
+                      ]
+                    },
+                    "modifiers": {
+                      "default": [],
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "primary",
+                          "control",
+                          "meta",
+                          "alt",
+                          "shift"
+                        ]
+                      },
+                      "uniqueItems": true
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "platformOverrides": {
+                "type": "object",
+                "properties": {
+                  "mac": {
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "KeyA",
+                            "KeyB",
+                            "KeyC",
+                            "KeyD",
+                            "KeyE",
+                            "KeyF",
+                            "KeyG",
+                            "KeyH",
+                            "KeyI",
+                            "KeyJ",
+                            "KeyK",
+                            "KeyL",
+                            "KeyM",
+                            "KeyN",
+                            "KeyO",
+                            "KeyP",
+                            "KeyQ",
+                            "KeyR",
+                            "KeyS",
+                            "KeyT",
+                            "KeyU",
+                            "KeyV",
+                            "KeyW",
+                            "KeyX",
+                            "KeyY",
+                            "KeyZ",
+                            "Digit0",
+                            "Digit1",
+                            "Digit2",
+                            "Digit3",
+                            "Digit4",
+                            "Digit5",
+                            "Digit6",
+                            "Digit7",
+                            "Digit8",
+                            "Digit9",
+                            "F1",
+                            "F2",
+                            "F3",
+                            "F4",
+                            "F5",
+                            "F6",
+                            "F7",
+                            "F8",
+                            "F9",
+                            "F10",
+                            "F11",
+                            "F12",
+                            "F13",
+                            "F14",
+                            "F15",
+                            "F16",
+                            "F17",
+                            "F18",
+                            "F19",
+                            "F20",
+                            "F21",
+                            "F22",
+                            "F23",
+                            "F24",
+                            "ArrowUp",
+                            "ArrowDown",
+                            "ArrowLeft",
+                            "ArrowRight",
+                            "Enter",
+                            "Escape",
+                            "Space",
+                            "Tab",
+                            "Backspace",
+                            "Delete",
+                            "Insert",
+                            "Home",
+                            "End",
+                            "PageUp",
+                            "PageDown",
+                            "Slash",
+                            "Backslash",
+                            "BracketLeft",
+                            "BracketRight",
+                            "Semicolon",
+                            "Quote",
+                            "Comma",
+                            "Period",
+                            "Minus",
+                            "Equal",
+                            "Backquote"
+                          ]
+                        },
+                        "modifiers": {
+                          "default": [],
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "primary",
+                              "control",
+                              "meta",
+                              "alt",
+                              "shift"
+                            ]
+                          },
+                          "uniqueItems": true
+                        }
+                      },
+                      "required": [
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "windows": {
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "KeyA",
+                            "KeyB",
+                            "KeyC",
+                            "KeyD",
+                            "KeyE",
+                            "KeyF",
+                            "KeyG",
+                            "KeyH",
+                            "KeyI",
+                            "KeyJ",
+                            "KeyK",
+                            "KeyL",
+                            "KeyM",
+                            "KeyN",
+                            "KeyO",
+                            "KeyP",
+                            "KeyQ",
+                            "KeyR",
+                            "KeyS",
+                            "KeyT",
+                            "KeyU",
+                            "KeyV",
+                            "KeyW",
+                            "KeyX",
+                            "KeyY",
+                            "KeyZ",
+                            "Digit0",
+                            "Digit1",
+                            "Digit2",
+                            "Digit3",
+                            "Digit4",
+                            "Digit5",
+                            "Digit6",
+                            "Digit7",
+                            "Digit8",
+                            "Digit9",
+                            "F1",
+                            "F2",
+                            "F3",
+                            "F4",
+                            "F5",
+                            "F6",
+                            "F7",
+                            "F8",
+                            "F9",
+                            "F10",
+                            "F11",
+                            "F12",
+                            "F13",
+                            "F14",
+                            "F15",
+                            "F16",
+                            "F17",
+                            "F18",
+                            "F19",
+                            "F20",
+                            "F21",
+                            "F22",
+                            "F23",
+                            "F24",
+                            "ArrowUp",
+                            "ArrowDown",
+                            "ArrowLeft",
+                            "ArrowRight",
+                            "Enter",
+                            "Escape",
+                            "Space",
+                            "Tab",
+                            "Backspace",
+                            "Delete",
+                            "Insert",
+                            "Home",
+                            "End",
+                            "PageUp",
+                            "PageDown",
+                            "Slash",
+                            "Backslash",
+                            "BracketLeft",
+                            "BracketRight",
+                            "Semicolon",
+                            "Quote",
+                            "Comma",
+                            "Period",
+                            "Minus",
+                            "Equal",
+                            "Backquote"
+                          ]
+                        },
+                        "modifiers": {
+                          "default": [],
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "primary",
+                              "control",
+                              "meta",
+                              "alt",
+                              "shift"
+                            ]
+                          },
+                          "uniqueItems": true
+                        }
+                      },
+                      "required": [
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "linux": {
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "KeyA",
+                            "KeyB",
+                            "KeyC",
+                            "KeyD",
+                            "KeyE",
+                            "KeyF",
+                            "KeyG",
+                            "KeyH",
+                            "KeyI",
+                            "KeyJ",
+                            "KeyK",
+                            "KeyL",
+                            "KeyM",
+                            "KeyN",
+                            "KeyO",
+                            "KeyP",
+                            "KeyQ",
+                            "KeyR",
+                            "KeyS",
+                            "KeyT",
+                            "KeyU",
+                            "KeyV",
+                            "KeyW",
+                            "KeyX",
+                            "KeyY",
+                            "KeyZ",
+                            "Digit0",
+                            "Digit1",
+                            "Digit2",
+                            "Digit3",
+                            "Digit4",
+                            "Digit5",
+                            "Digit6",
+                            "Digit7",
+                            "Digit8",
+                            "Digit9",
+                            "F1",
+                            "F2",
+                            "F3",
+                            "F4",
+                            "F5",
+                            "F6",
+                            "F7",
+                            "F8",
+                            "F9",
+                            "F10",
+                            "F11",
+                            "F12",
+                            "F13",
+                            "F14",
+                            "F15",
+                            "F16",
+                            "F17",
+                            "F18",
+                            "F19",
+                            "F20",
+                            "F21",
+                            "F22",
+                            "F23",
+                            "F24",
+                            "ArrowUp",
+                            "ArrowDown",
+                            "ArrowLeft",
+                            "ArrowRight",
+                            "Enter",
+                            "Escape",
+                            "Space",
+                            "Tab",
+                            "Backspace",
+                            "Delete",
+                            "Insert",
+                            "Home",
+                            "End",
+                            "PageUp",
+                            "PageDown",
+                            "Slash",
+                            "Backslash",
+                            "BracketLeft",
+                            "BracketRight",
+                            "Semicolon",
+                            "Quote",
+                            "Comma",
+                            "Period",
+                            "Minus",
+                            "Equal",
+                            "Backquote"
+                          ]
+                        },
+                        "modifiers": {
+                          "default": [],
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "primary",
+                              "control",
+                              "meta",
+                              "alt",
+                              "shift"
+                            ]
+                          },
+                          "uniqueItems": true
+                        }
+                      },
+                      "required": [
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "when": {
+                "type": "object",
+                "properties": {
+                  "all": {
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "exists",
+                                "not-exists"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not-equals"
+                              ]
+                            },
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": -1000000000000000,
+                                  "maximum": 1000000000000000
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "in",
+                                "not-in"
+                              ]
+                            },
+                            "values": {
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                  },
+                                  {
+                                    "type": "number",
+                                    "minimum": -1000000000000000,
+                                    "maximum": 1000000000000000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              },
+                              "uniqueItems": true
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "values"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "uniqueItems": true
+                  },
+                  "any": {
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "exists",
+                                "not-exists"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not-equals"
+                              ]
+                            },
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": -1000000000000000,
+                                  "maximum": 1000000000000000
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "in",
+                                "not-in"
+                              ]
+                            },
+                            "values": {
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                  },
+                                  {
+                                    "type": "number",
+                                    "minimum": -1000000000000000,
+                                    "maximum": 1000000000000000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              },
+                              "uniqueItems": true
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "values"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "uniqueItems": true
+                  },
+                  "none": {
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "exists",
+                                "not-exists"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not-equals"
+                              ]
+                            },
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": -1000000000000000,
+                                  "maximum": 1000000000000000
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "host.input.focused",
+                                    "host.modal.open",
+                                    "host.route.id",
+                                    "host.project.open",
+                                    "host.surface",
+                                    "host.platform",
+                                    "host.orbit.focused",
+                                    "host.terminal.focused",
+                                    "host.preview.focused",
+                                    "host.browser.focused",
+                                    "host.agent.focused"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "maxLength": 192,
+                                  "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                                }
+                              ]
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "in",
+                                "not-in"
+                              ]
+                            },
+                            "values": {
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                  },
+                                  {
+                                    "type": "number",
+                                    "minimum": -1000000000000000,
+                                    "maximum": 1000000000000000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              },
+                              "uniqueItems": true
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "operator",
+                            "values"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "uniqueItems": true
+                  }
+                },
+                "additionalProperties": false
+              },
+              "allowInEditable": {
+                "default": false,
+                "type": "boolean"
+              },
+              "allowRepeat": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "commandId",
+              "keybinding"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

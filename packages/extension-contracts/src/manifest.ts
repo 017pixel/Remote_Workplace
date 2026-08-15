@@ -13,10 +13,15 @@ import {
   routeContributionsSchema,
 } from "./contributions.js";
 import {
+  contextExpressionKeys,
+  contextKeyBelongsToExtension,
+} from "./context-expressions.js";
+import {
   extensionConflictsSchema,
   extensionDependencyMapSchema,
 } from "./dependencies.js";
 import { contributionBelongsToExtension, extensionIdSchema } from "./ids.js";
+import { keyboardShortcutContributionsSchema } from "./keyboard-shortcuts.js";
 import {
   extensionEntrypointPathSchema,
   extensionIconPathSchema,
@@ -159,6 +164,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   orbit: orbitContributionsSchema.optional(),
   dashboard: dashboardContributionsSchema.optional(),
   settings: settingsContributionsSchema.optional(),
+  keyboardShortcuts: keyboardShortcutContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -303,6 +309,12 @@ export const extensionManifestV1Schema = z
             }))
           : []),
       ]),
+      ...(manifest.contributes.keyboardShortcuts ?? []).map(
+        (shortcut, index) => ({
+          id: shortcut.id,
+          path: ["contributes", "keyboardShortcuts", index, "id"] as const,
+        }),
+      ),
     ];
     const seenContributionIds = new Set<string>();
     for (const contribution of declaredContributions) {
@@ -476,6 +488,29 @@ export const extensionManifestV1Schema = z
           message:
             "Eine eigene Settings Page muss eine deklarierte Page Contribution referenzieren.",
           path: ["contributes", "settings", index, "pageId"],
+        });
+      }
+    }
+
+    for (const [index, shortcut] of (
+      manifest.contributes.keyboardShortcuts ?? []
+    ).entries()) {
+      if (!commandIds.has(shortcut.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Keyboard Shortcut muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "keyboardShortcuts", index, "commandId"],
+        });
+      }
+      if (shortcut.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(shortcut.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "keyboardShortcuts", index, "when"],
         });
       }
     }

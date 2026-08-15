@@ -74,7 +74,9 @@ lokale `.rwext`-Pakete.
   persistierte Dokument bereits zu verändern. Dashboard Contributions bilden acht generische
   Typen mit sicheren Command-, Provider- und Icon-Referenzen ab. Settings Contributions
   definieren zehn schema-driven Feldtypen, serverseitige Scopes und optionale eigene Pages.
-  Weitere Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
+  Keyboard Shortcut Contributions referenzieren Commands über plattformübergreifende
+  physische Tasten, begrenzte Chords und strikt typisierte Context Expressions. Weitere
+  Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -83,12 +85,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.12 vierzehn lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.13 fünfzehn lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`8e96875828aca6bd62a65a664f905550d0c4a9ae` als analysierter Ausgangspunkt von Subgoal 1.12.
-Der Ergebniscommit enthält Settings Contributions V1 und diese Tracker-Aktualisierung.
+`9018f98dc2dfc994fd6e8a8b903e50b5afe337b2` als analysierter Ausgangspunkt von Subgoal 1.13.
+Der Ergebniscommit enthält Keyboard Shortcut Contributions V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -103,8 +105,8 @@ Der Ergebniscommit enthält Settings Contributions V1 und diese Tracker-Aktualis
 
 `1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
 Requests, Activation Events, Dependencies und Conflicts V1 sind eingeführt. Command-, Page-,
-Route-, Navigation-, Orbit-, Dashboard- und Settings Contributions sind geöffnet. Weitere
-Contributions und Catalog Contracts folgen.
+Route-, Navigation-, Orbit-, Dashboard-, Settings- und Keyboard-Shortcut-Contributions sind
+geöffnet. Weitere Contributions und Catalog Contracts folgen.
 
 ## Current Phase
 
@@ -112,14 +114,14 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.13, Keyboard Shortcut Contributions V1 planen.
+Subgoal 1.14, Context Menu Contributions V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.13 untersucht bestehende Tastatursteuerung und definiert plattformübergreifende Default
-Shortcuts mit stabilen Command-Referenzen, Chord-Grenzen und Context Expressions. Konflikte
-bleiben sichtbar und werden niemals still überschrieben; eine Command Palette oder UI-Migration
-ist noch nicht Teil dieses Vertrags.
+Subgoal 1.14 definiert Context Menu Contributions für Projects, Files, Orbit Nodes, Preview,
+Terminal, Git und Agent Sessions. Die Beiträge referenzieren bestehende Commands, verwenden die
+eingeführten Context Expressions und erhalten kontrollierte Gruppen sowie Reihenfolgen. Eine
+Runtime Registry oder UI-Migration ist noch nicht Teil dieses Vertrags.
 
 ## Phase Table
 
@@ -207,6 +209,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Orbit erhält additiv einen generischen Extension-Knotentyp. | Extension- und Contribution-ID ersetzen Featuretypen als Identität. Lokale JSON-Schemas und monotone State-Versionen schützen persistierten State; fehlender Code löscht nichts. Historische Revisionen bleiben unverändert und Legacy-Knoten werden erst kontrolliert beim Lesen/Schreiben migriert. Siehe [`extension-orbit-model.md`](../adr/extension-orbit-model.md). |
 | 2026-08-15 | Dashboard Flächen verwenden generische Typen und referenzierte Provider. | Acht kontrollierte Typen decken Metrics, Status, Cards, Aktionen, Listen, Charts und Indikatoren ab. Quick Actions verwenden vorhandene Commands; andere Flächen registrieren Provider über die öffentliche Runtime. Produktnamen und ausführbarer Code bleiben aus dem Manifest und Host. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Schema-driven Settings trennen Definition, Wert und Secret. | Zehn Feldtypen beschreiben nur Host-Rendering und Validierung. Werte werden nach Server-, Benutzer- oder Projekt-Scope serverseitig gespeichert; Secrets besitzen keinen Manifest-Default und liegen außerhalb des normalen Settings JSON. Komplexe UIs referenzieren eine öffentliche Page Contribution. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
+| 2026-08-15 | Keyboard Shortcuts verwenden Commands und strikt begrenzte Context Expressions. | Physische `KeyboardEvent.code`-Werte, `primary`, maximal zweistufige Chords und optionale Plattform-Overrides bilden sichere Defaults. Host- und eigene Context Keys ersetzen freie Ausdruckssprache. Kollisionen werden später sichtbar deaktiviert statt durch Registrierungsreihenfolge überschrieben. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -231,6 +234,7 @@ Priorisierte Abhängigkeiten:
 | Orbit State Schema enthält entfernte Referenzen oder eine lückenhafte Migration | Netzwerkzugriff, nicht validierbarer State oder Datenverlust | V1 erlaubt nur lokale selbstenthaltene Schemas; Manager validiert jede Migrationsstufe und aktiviert bei Fehlern weder neue Version noch veränderten State | offen |
 | Dashboard Provider hängt, crasht oder liefert zu große Daten | Blockiertes Dashboard oder Speicherregression | Runtime aktiviert lazy, erzwingt Timeout und Payload-Grenzen, isoliert Fehler je Contribution und entfernt Provider beim Disable | offen |
 | Secret Setting erscheint in normalen Antworten, Logs oder Manifest-Defaults | Credential-Leak an Browser oder Diagnosepfade | Secret-Felder verbieten Defaults; Settings API liefert nur Belegungsstatus, Werte bleiben im getrennten Secret Store und alle Ausgaben werden redaktiert | offen |
+| Ein globaler Shortcut kollidiert oder übernimmt Eingaben aus Terminal, Browser oder Formularen | Falscher Command, verlorene Eingabe oder unbedienbare Runtime-Fläche | Lokale Surface-Handler behalten Vorrang; editierbare Flächen und Wiederholung sind standardmäßig gesperrt, Konflikte werden sichtbar deaktiviert und Nutzer-Overrides serverseitig gespeichert | offen |
 
 ## Compatibility Matrix
 
@@ -249,6 +253,7 @@ Priorisierte Abhängigkeiten:
 | Orbit Contributions | 1 bis 128 Einträge mit lokalem State-Schema, Version, Größe und Runtime-Fähigkeiten | Phase 4 ergänzt `type: extension`; fehlende oder deaktivierte Extensions bewahren unbekannten State vollständig |
 | Dashboard Contributions | 1 bis 256 Einträge, acht Typen, vier Größen und drei Refresh-Modi | Quick Actions teilen Commands; Provider werden namespaced registriert und Benutzerpräferenzen später serverseitig je Contribution-ID gespeichert |
 | Settings Contributions | 1 bis 64 Sections mit bis zu 128 Feldern, zehn Feldtypen und drei Scopes | Host rendert Schema Sections; eigene Pages verwenden die Page Registry, Secrets bleiben getrennt und Werte folgen serverseitiger Identity und Revision |
+| Keyboard Shortcut Contributions | 1 bis 256 Einträge, ein- oder zweistufige Chords, drei Plattform-Overrides und strikt begrenzte Context Expressions | Defaults referenzieren Commands; lokale Surface-Eingabe behält Vorrang, Konflikte werden nie still überschrieben und User Overrides folgen später serverseitig der stabilen Shortcut-ID |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -260,10 +265,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.12, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.12 |
-| `pnpm test` | bestanden am 2026-08-15, 257 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.12, 950 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.12, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.13, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.13 |
+| `pnpm test` | bestanden am 2026-08-15, 280 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.13, 973 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.13, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -324,7 +329,8 @@ Keine.
 | `b7e4ab5` | Subgoal 1.9, Navigation Contributions V1 |
 | `676db5c` | Subgoal 1.10, Orbit Contributions V1 |
 | `8e96875` | Subgoal 1.11, Dashboard Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.12, Settings Contributions V1 |
+| `9018f98` | Subgoal 1.12, Settings Contributions V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.13, Keyboard Shortcut Contributions V1 |
 
 ## Subgoal Log
 
@@ -345,4 +351,5 @@ Keine.
 | 1.10 Orbit Contributions V1 | done | Lokale State-Schemas, State-Version, Größen, Renderer-/Inspector-Fähigkeiten, Connection-Modi, Orbit-ADR, tatsächliche onOrbitNode-Ziele und 904 grüne Repository-Tests | Subgoal 1.11, Dashboard Contributions V1 |
 | 1.11 Dashboard Contributions V1 | done | Acht generische Typen, sichere Command-, Provider- und Icon-Referenzen, Refresh-Grenzen, JSON Schema und 921 grüne Repository-Tests | Subgoal 1.12, Settings Contributions V1 |
 | 1.12 Settings Contributions V1 | done | Zehn schema-driven Feldtypen, Server-/Benutzer-/Projekt-Scope, getrennte Secrets, eigene Page-Referenzen, JSON Schema und 950 grüne Repository-Tests | Subgoal 1.13, Keyboard Shortcut Contributions V1 |
-| 1.13 Keyboard Shortcut Contributions V1 | planning | Command-Vertrag und statische Tastatursteuerung liegen vor | Plattformübergreifende Chords, Context Expressions und konfliktfähige Defaults definieren |
+| 1.13 Keyboard Shortcut Contributions V1 | done | Plattformübergreifende physische Tasten, zweistufige Chords, Context Expressions, Command-/Namespace-Prüfungen, Konfliktvertrag, JSON Schema und 973 grüne Repository-Tests | Subgoal 1.14, Context Menu Contributions V1 |
+| 1.14 Context Menu Contributions V1 | planning | Command- und Context-Expression-Verträge liegen vor | Typisierte Surfaces, Gruppen, Reihenfolgen und Command-Referenzen definieren |

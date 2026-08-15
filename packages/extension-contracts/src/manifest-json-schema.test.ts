@@ -17,6 +17,7 @@ import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
 } from "./manifest-json-schema.js";
+import { KEYBOARD_SHORTCUTS_MAX_COUNT } from "./keyboard-shortcuts.js";
 import { extensionPermissionIds } from "./permissions.js";
 import { SETTINGS_CONTRIBUTIONS_MAX_COUNT } from "./settings-contributions.js";
 
@@ -128,6 +129,13 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
               maxItems: SETTINGS_CONTRIBUTIONS_MAX_COUNT,
               uniqueItems: true,
               items: { oneOf: expect.any(Array) },
+            },
+            keyboardShortcuts: {
+              type: "array",
+              minItems: 1,
+              maxItems: KEYBOARD_SHORTCUTS_MAX_COUNT,
+              uniqueItems: true,
+              items: { type: "object", additionalProperties: false },
             },
           },
         },

@@ -463,6 +463,79 @@ Security, Extensions und Recovery bleiben Core. T3, Usage und andere Featurebere
 erst über Legacy Built-in Contributions adaptiert; browserlokale Präferenzen bleiben bis zur
 getesteten Dual-Read-Migration erhalten.
 
+#### Keyboard Shortcut Contributions
+
+Keyboard Shortcuts verknüpfen plattformübergreifende Tastenkombinationen mit bereits
+deklarierten Commands. Das Manifest enthält nur Defaults und Context-Metadaten, keine zweite
+Ausführungslogik:
+
+```json
+{
+  "contributes": {
+    "keyboardShortcuts": [
+      {
+        "id": "workbench.agent-tasks.shortcut.create",
+        "commandId": "workbench.agent-tasks.command.create",
+        "keybinding": [
+          {
+            "key": "KeyK",
+            "modifiers": ["primary", "shift"]
+          }
+        ],
+        "platformOverrides": {
+          "mac": [
+            {
+              "key": "KeyK",
+              "modifiers": ["meta", "shift"]
+            }
+          ]
+        },
+        "when": {
+          "all": [
+            {
+              "key": "host.input.focused",
+              "operator": "equals",
+              "value": false
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+- Tasten verwenden kontrollierte physische `KeyboardEvent.code`-Werte. `primary` bedeutet auf
+  Apple-Plattformen Meta und sonst Control. Modifikatoren stehen eindeutig in der kanonischen
+  Reihenfolge `primary`, `control`, `meta`, `alt`, `shift`.
+- Ein Keybinding enthält eine oder zwei Tastenfolgen. `mac`, `windows` und `linux` können den
+  plattformübergreifenden Default gezielt ersetzen; Browser- oder Betriebssystem-reservierte
+  Kombinationen bleiben eine Host-Policy und erhalten später einen sichtbaren Disabled Reason.
+- `when` ist eine nicht ausführbare Context Expression. `all` verlangt alle, `any` mindestens
+  eine und `none` keine der enthaltenen Klauseln. Unterstützt werden Existenz, Gleichheit und
+  Mengenvergleich mit begrenzten String-, Zahlen- oder Boolean-Werten. Freie Expressions,
+  JavaScript und reguläre Ausdrücke sind nicht erlaubt.
+- Der `host`-Namespace ist geschlossen. Extension-eigene Context Keys müssen zur deklarierenden
+  Extension gehören. Dadurch kann eine Extension fremde interne Zustände weder vortäuschen noch
+  versehentlich als stabilen Vertrag verwenden.
+- Shortcuts reagieren standardmäßig nicht in Inputs, Textareas, Selects oder editierbaren
+  Flächen und ignorieren wiederholte sowie laufende Composition-Events. `allowInEditable` und
+  `allowRepeat` müssen bewusst gesetzt werden; unmodifizierte druckbare Tasten bleiben auch dann
+  in editierbaren Flächen verboten.
+- Lokale Tastatursteuerung sicherheits- und laufzeitkritischer Flächen behält Vorrang. Terminal,
+  Browser, Preview, Dialoge und Fokusfallen geben nur nicht verbrauchte Ereignisse an die globale
+  Registry weiter. Eine Extension darf diese Eingabegrenzen nicht umgehen.
+- Default-Kollisionen werden absichtlich nicht durch Dateireihenfolge aufgelöst. Der Manager
+  ermittelt Konflikte je Plattform und Context, deaktiviert die kollidierende Belegung und zeigt
+  beide Quellen an. Ein zuletzt registrierter Shortcut überschreibt niemals still einen anderen.
+- Nutzer können Belegungen später serverseitig je Identität ändern. Overrides referenzieren die
+  stabile Shortcut-ID, werden geräteübergreifend synchronisiert und bleiben bei einer fehlenden
+  oder deaktivierten Extension erhalten.
+
+Der bestehende Orbit-Handler für `/` und `Ctrl/Cmd+K` bleibt in diesem Subgoal unverändert.
+Phase 2 registriert vorhandene Tastaturaktionen zunächst als Legacy Built-in Contributions und
+führt erst dann eine zentrale Registry und Konfliktoberfläche ein.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

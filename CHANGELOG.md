@@ -124,6 +124,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Secret-Felder ohne Manifest-Default vom normalen Settings JSON getrennt
 - Namespaced Section-, Field-, Page- und Icon-Referenzen strikt validiert
 
+### Extension-Shortcuts
+
+- Plattformübergreifende Keyboard Shortcuts und zweistufige Chords als Contributions definiert
+- Shortcut Defaults an tatsächlich deklarierte Commands und stabile IDs gebunden
+- Kontrollierte Context Expressions ohne ausführbaren Manifestcode ergänzt
+- Editierbare Flächen, Tastaturwiederholung und plattformspezifische Overrides sicher begrenzt
+- Sichtbare Konfliktbehandlung ohne stilles Überschreiben als Registry-Vertrag festgelegt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
