@@ -103,8 +103,9 @@ lokale `.rwext`-Pakete.
   hostverwalteter Retention und Deduplizierung. Theme Contributions öffnen ausschließlich
   kontrastgeprüfte semantische Farbrollen in Dark-/Light-Varianten. Catalog Contracts binden
   validierte Manifeste an serverseitige Provider, effektiven Trust und vollständige lokale
-  Package-Inventare mit Größen und SHA-256. Manager, Capability Broker, SDK und Local Catalog
-  folgen.
+  Package-Inventare mit Größen und SHA-256. Revisionierte Management-Verträge trennen Lifecycle,
+  Versionen, Enablement, Runtime, Health und Operationen und öffnen acht serverautoritativ
+  ausgeführte Aktionen. Manager-Runtime, Capability Broker, SDK und Local Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -113,13 +114,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.29 einunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.30 zweiunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`25e01b91264c140d09c985e9ac6235b41c1727fb` als analysierter Ausgangspunkt von Subgoal 1.29.
-Der Ergebniscommit enthält Catalog Metadata und Package Contracts V1 sowie diese
-Tracker-Aktualisierung.
+`2a1fd90851fb53a496a0c099de3e2e2978fb4517` als analysierter Ausgangspunkt von Subgoal 1.30.
+Der Ergebniscommit enthält Extension Management Contracts V1 sowie den Abschluss von Phase 1.
 
 ## Current Remote Workplace Version
 
@@ -127,8 +127,9 @@ Tracker-Aktualisierung.
 
 ## Extension API Version
 
-`1`; als unabhängige Major-Version und intern als `1.0.0` eingeführt. Lifecycle-Zustände und
-Übergänge sind vertraglich definiert; Manager-Runtime und SDK folgen in späteren Phasen.
+`1`; als unabhängige Major-Version und intern als `1.0.0` eingeführt. Lifecycle-Zustände,
+revisionierte Registry-Ansichten und acht strikt typisierte Manager-Operationen sind vertraglich
+definiert; Manager-Runtime und SDK folgen in späteren Phasen.
 
 ## Manifest Version
 
@@ -143,26 +144,26 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
+Phase 2, `planning`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.30, Installations- und Update-API Contracts V1 planen.
+Subgoal 2.1, Frontend Registries und Legacy Built-in Contributions planen.
 
 ## Next Concrete Action
 
-Subgoal 1.30 gleicht Server Authority, Lifecycle, Catalog, Permissions und Recovery erneut ab.
-Es definiert die serverseitig autoritativen Listen-, Detail-, Installations-, Update-,
-Enable-/Disable-, Uninstall-, Rollback- und Reload-Verträge, ohne Browserzustand als Wahrheit
-oder freie Paketquellen zuzulassen.
+Subgoal 2.1 analysiert App-Routen, Lazy Loader, Desktop-/Mobile-Navigation, Commands, Context
+Menus, Statusleiste, Dashboard, Settings und ihre Tests erneut. Es legt die kleinste additive
+Registry-Basis und die Reihenfolge fest, in der bestehende Features zunächst unverändert als
+Legacy Built-in Contributions registriert werden.
 
 ## Phase Table
 
 | Phase | Ergebnis | Status |
 | --- | --- | --- |
 | 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
-| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | in-progress |
-| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | not-started |
+| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | done |
+| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | planning |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | not-started |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
 | 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | not-started |
@@ -267,6 +268,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Notification Contributions registrieren Sources, keine Zustellwege. | Stabile Source-, Kategorie- und Action-IDs, kontrollierte Icons, Retention-Klassen und begrenzte Deduplizierung bilden den Vertrag. Capability Broker, Redaction, Deep-Link-Prüfung, Push und Persistenz bleiben Hostaufgaben. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Themes verändern nur kontrastgeprüfte semantische Farbrollen. | Opake Hex-RGB-Werte für Dark-/Light-Varianten werden auf Darstellung, Surface-Unterscheidung und WCAG-Kontrast geprüft. CSS, Fonts, Layout, Motion, Safe Areas, Hermes und geschützte Hostzustände bleiben außerhalb des Vertrags. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Catalog-Metadaten sind serverseitig abgeleitete, lokale Prüfverträge. | Entries binden Manifest, Provider und effektiven Trust an ein vollständiges Größen- und SHA-256-Inventar. Der Installer verifiziert das Material erneut; Hostpfade, URLs, Git, GitHub und npm bleiben undarstellbar. Siehe [`extension-local-catalog-v1.md`](../adr/extension-local-catalog-v1.md). |
+| 2026-08-15 | Management-Aufrufer fordern Operationen an und schreiben nie direkt State. | Acht diskriminierte Requests tragen eine erwartete Registry-Revision. Quellen werden nur über Catalog-Revision, Hash, Upload-Beleg oder Developer-Registrierung adressiert; Erfolg, Lifecycle und erlaubte Folgeaktionen bleiben Manager-Fakten. Siehe [`extension-server-authority.md`](../adr/extension-server-authority.md). |
 
 ## Risk Register
 
@@ -308,6 +310,7 @@ Priorisierte Abhängigkeiten:
 | Eine Extension erzeugt Notification-Spam, schleust Secrets ein oder öffnet unsichere Links | Überlastete Inbox, Datenleck oder Navigation außerhalb der Workbench | Permission und Rate Limit je Erstellung, begrenzte Klartextfelder, Redaction vor Persistenz und Push, deklarierte Kategorien/Actions sowie zentrale Prüfung interner Deep Links | offen |
 | Ein Theme injiziert CSS oder macht Text, Fokus und Status unlesbar | UI-Manipulation, unbedienbare Recovery oder fehlende Barrierefreiheit | Nur feste opake Farbrollen, Kontrast- und Darstellungsprüfung, hostabgeleitete Zustände, geschützte Recovery-Tokens und atomarer Fallback ohne fremde Stylesheets | offen |
 | Ein manipuliertes Paket täuscht Descriptor, Größen oder Hashes vor | Path Escape, Zip Bomb, unvollständige Assets oder Ausführung anderer Bytes | Installer akzeptiert nur reguläre Dateien, prüft Archiv und Inventar erneut, begrenzt Anzahl sowie Größen und löst jeden Realpath innerhalb des Staging-Roots auf | offen |
+| Ein veralteter Browser überschreibt eine neuere Extension-Operation | Verlorene Grants, falsches Enablement oder konkurrierende Installation | Jede Mutation verlangt die erwartete Registry-Revision; Konflikte laden Serverstate neu und Operationen werden je Extension serialisiert | offen |
 
 ## Compatibility Matrix
 
@@ -343,6 +346,7 @@ Priorisierte Abhängigkeiten:
 | Notification Contributions | 1 bis 128 Sources mit je 1 bis 32 Kategorien, bis zu 16 Command-Actions, drei Retention-Klassen und optionaler Schlüssel-Deduplizierung | `notifications.create`, eigener Namespace und kontrollierte Icons sind Pflicht; bestehende geschlossene Sources, Kategorien und gespeicherte Meldungen bleiben über Legacy-Fallbacks lesbar |
 | Theme Contributions | 1 bis 32 Themes mit mindestens einer Dark-/Light-Variante und 13 kontrollierten Farbrollen | Opake Hex-RGB-Werte, eindeutige IDs sowie Kontrast- und Darstellungsprüfung sind Pflicht; Systemmodus, Auswahl, PWA-Metadaten, Hermes und alle nichtfarblichen Tokens bleiben Hostzustand |
 | Catalog und Package Descriptor | Maximal 256 lokale Entries, Formatversion 1, vollständige reguläre Dateien mit Größen und SHA-256 | Manifest, ID, Version, Trust und Assets müssen übereinstimmen; Installer verifiziert erneut, Remote- und Hostquellen bleiben ausgeschlossen, Fehler werden isoliert gemeldet |
+| Extension Management API | Revisionierte Registry-Summaries und Details sowie acht Operationsrequests | Browser, CLI und Agenten nutzen denselben Contract; direkte Statuswrites, stale Mutationen, freie Quellen, erweiterte Grants und unredigierte Fehler bleiben fail-closed |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -354,10 +358,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.29, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.29, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 447 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1140 | Subgoal 1.29, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.29, vollständiger Build einschließlich drei versionierter JSON Schemas |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.30, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.30, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 458 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1151 | Subgoal 1.30, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.30, vollständiger Produktionsbuild |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -435,7 +439,8 @@ Keine.
 | `1ad52d7` | Subgoal 1.26, Realtime Contributions V1 |
 | `c8a7a2d` | Subgoal 1.27, Notification Contributions V1 |
 | `25e01b9` | Subgoal 1.28, Theme Contributions V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
+| `2a1fd90` | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.30, Extension Management Contracts V1 und Abschluss Phase 1 |
 
 ## Subgoal Log
 
@@ -473,4 +478,5 @@ Keine.
 | 1.27 Notification Contributions V1 | done | Sources, Kategorien, Command-Actions, kontrollierte Icons, drei Retention-Klassen, optionale Schlüssel-Deduplizierung, Permission-, Namespace- und ID-Prüfungen, JSON Schema und 1120 grüne Repository-Tests | Subgoal 1.28, Theme Contributions V1 |
 | 1.28 Theme Contributions V1 | done | Dark-/Light-Varianten, 13 semantische Farbrollen, opake Hex-RGB-Werte, WCAG-Kontrast, Darstellungs-, Surface-, Namespace- und ID-Prüfungen, JSON Schema und 1129 grüne Repository-Tests | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
 | 1.29 Catalog Metadata und Package Contracts V1 | done | Catalog Snapshot und Entry, Package Descriptor, Provider, effektiver Trust, vollständiges Größen-/SHA-256-Inventar, Asset-Abgleich, isolierte Scan-Probleme, zwei JSON Schemas und 1140 grüne Repository-Tests | Subgoal 1.30, Installations- und Update-API Contracts V1 |
-| 1.30 Installations- und Update-API Contracts V1 | planning | Server-Authority-, Runtime-, Local-Catalog- und Permission-ADRs sowie Lifecycle- und Package-Verträge liegen vor | Autoritative Zustandsansichten und strikt typisierte Mutationsverträge inventarisieren |
+| 1.30 Installations- und Update-API Contracts V1 | done | Revisionierte Summary-/Detail-/Operationsverträge, getrennte Registry-Fakten, acht Aktionen, drei lokale Source-Referenzen, Permission-Teilmengen, redigierte Fehler und 1151 grüne Repository-Tests | Subgoal 2.1, Frontend Registries und Legacy Built-in Contributions planen |
+| 2.1 Frontend Registries und Legacy Built-in Contributions | planning | Vollständiges Phase-0-Inventar, Manifest Contributions und Frontend-Baselines liegen vor | Aktuelle Router-, Navigation-, Command-, Surface- und Testverdrahtung erneut analysieren und additive Registry-Grenze festlegen |

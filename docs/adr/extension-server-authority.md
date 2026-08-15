@@ -56,6 +56,38 @@ Fallback unangetastet.
 - Permission Grants können nur über autorisierte Nutzeraktionen gesetzt werden. Agent Tools
   dürfen Requests erzeugen, aber niemals Grants schreiben oder Full Trust aktivieren.
 
+### Management API Contract V1
+
+Die kanonischen Request- und Response-Schemas liegen in
+`packages/extension-contracts/src/management.ts`. Der spätere Server stellt darunter mindestens
+folgende Ressourcen bereit:
+
+- `GET /api/v1/extensions` liefert einen revisionierten Registry Snapshot,
+- `GET /api/v1/extensions/catalog` liefert den lokalen Catalog Snapshot,
+- `GET /api/v1/extensions/<extension-id>` liefert Manifest, Grants, Health und letzte Operation,
+- `POST /api/v1/extensions/operations` nimmt genau eine typisierte Manager-Operation an,
+- `GET /api/v1/extensions/operations/<operation-id>` liefert ihren autoritativen Fortschritt.
+
+Die Mutations-Union umfasst Install, Enable, Disable, Update, Uninstall, Rollback, Developer
+Reload und Permission Review. Jeder Request enthält Extension-ID und erwartete Registry-Revision.
+Ein veralteter Browser erhält einen Konflikt und lädt den Serverzustand neu; er darf weder einen
+Lifecycle-String noch `enabled`, Trust, Health oder eine aktive Version direkt schreiben. Eine
+Annahme bedeutet nur `queued` oder `running`, nicht Erfolg. Abschluss und neue Revision kommen
+aus Manager und Registry.
+
+Catalog-Ziele werden mit Provider, Catalog-Revision, Version und Paket-Hash adressiert. Ein
+lokales Paket verwendet ausschließlich einen kurzlebigen serverseitigen Upload-Beleg, ein
+Entwicklerverzeichnis ausschließlich eine vorher registrierte ID. Hostpfade, URLs, Git-, GitHub-
+und npm-Quellen sind im Browservertrag nicht darstellbar. Uninstall verlangt immer die explizite
+Entscheidung `retain` oder `delete`; Datenlöschung ist nie ein stiller Default.
+
+Registry Summaries nennen getrennt Lifecycle, gewünschtes Enablement, Runtime-Aktivität,
+installierte, aktive, verfügbare und rollback-fähige Version sowie die aktuell erlaubten
+Operationen. Details ergänzen Manifest, Grants, Health und redigierte Operationsfehler. Grants
+müssen eine Teilmenge der Manifest Requests bleiben. Öffentliche Fehler enthalten keinen freien
+Text, Stack, Pfad oder Secret, sondern nur einen geschlossenen Code, Zeitpunkt und optional eine
+opaque Referenz für serverseitige Diagnose.
+
 ### Browser Cache und Offline-Verhalten
 
 Der Browser darf serverseitige Metadaten mit Version und Revision cachen. Bei Reconnect wird der

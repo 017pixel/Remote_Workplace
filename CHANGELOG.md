@@ -260,6 +260,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Revisionsgebundene Offline-Snapshots mit begrenzten, pfadfreien Scan-Problemen eingeführt
 - Hostpfade, Download-URLs sowie Git-, GitHub- und npm-Quellen aus Catalog-Verträgen ausgeschlossen
 
+### Extension-Management-Verträge
+
+- Revisionierte Registry-Snapshots und vollständige Extension-Details als Serverwahrheit definiert
+- Lifecycle, Versionen, Enablement, Runtime, Health und Operationen als getrennte Fakten modelliert
+- Acht Manager-Aktionen mit optimistischer Revision und expliziter Datenaufbewahrung typisiert
+- Catalog, Upload und Entwicklerquellen ausschließlich über serverseitige IDs und Hashes referenziert
+- Grants auf Manifest-Anfragen begrenzt und öffentliche Fehler konsequent auf redigierte Codes reduziert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

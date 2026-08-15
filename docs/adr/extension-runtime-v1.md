@@ -58,6 +58,13 @@ Damit kann `update-available` oder `permissions-pending` sichtbar sein, während
 beibehaltene alte Version weiterläuft. UI und API dürfen aus der primären Phase allein weder
 laufende Prozesse beenden noch eine Version als aktiv behaupten.
 
+Der öffentliche Management-Vertrag bildet diese Trennung als Registry Summary und Detail ab.
+Zusätzlich liefert der Server pro Extension eine geschlossene Liste aktuell erlaubter Operationen.
+Clients leiten Aktionen nicht selbst aus einzelnen Statusfeldern ab. Mutationen tragen eine
+erwartete Registry-Revision und erzeugen eine eigene Operation mit ID, Typ, Status und redigiertem
+Fehler. Damit bleiben konkurrierende Browser, Restart-Recovery und Lifecycle-Journal klar
+voneinander unterscheidbar.
+
 ### Hauptpfade
 
 ```text
@@ -104,6 +111,8 @@ Runtime und Health und stellt danach eine erlaubte Phase wieder her.
 
 - Nur der Manager verändert Lifecycle-State, serialisiert durch einen Lock je Extension ID.
 - HTTP, CLI, Agent Tools und UI fordern eine Operation an. Sie setzen niemals direkt einen State.
+- Alle Aufrufer verwenden dieselbe diskriminierte Operations-Union aus dem öffentlichen
+  Contract; spezielle Browser- oder Agenten-Abkürzungen existieren nicht.
 - Jeder Übergang erhält Audit, Zeitstempel und eine redigierte Fehlerreferenz.
 - Contributions werden bei Disable unabhängig von fehlerhaftem Extension Cleanup hostseitig
   entfernt.

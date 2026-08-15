@@ -14,6 +14,7 @@ export * from "./http-rpc-contributions.js";
 export * from "./ids.js";
 export * from "./keyboard-shortcuts.js";
 export * from "./lifecycle.js";
+export * from "./management.js";
 export * from "./manifest-json-schema.js";
 export * from "./manifest.js";
 export * from "./notification-contributions.js";
