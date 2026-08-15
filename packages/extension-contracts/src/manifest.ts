@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { activationEventBelongsToExtension, activationEventsV1Schema } from "./activation-events.js";
 import { extensionIdSchema } from "./ids.js";
 import {
   extensionApiCompatibilitySchema,
@@ -140,10 +141,10 @@ export const extensionEntrypointsSchema = z.strictObject({
 
 export type ExtensionEntrypoints = z.infer<typeof extensionEntrypointsSchema>;
 
-// Manifest V1 öffnet Surfaces erst mit ihrem typisierten Contract. Activation Events und
-// Contributions bleiben bis zu ihren Phase-1-Subgoals fail-closed.
+// Manifest V1 öffnet Surfaces erst mit ihrem typisierten Contract. Contributions bleiben bis
+// zu ihrem Phase-1-Subgoal fail-closed.
 export const extensionPermissionsV1Schema = extensionPermissionRequestsSchema;
-export const extensionActivationEventsV1Schema = z.array(z.never()).max(0);
+export const extensionActivationEventsV1Schema = activationEventsV1Schema;
 export const extensionContributionsV1Schema = z.strictObject({});
 
 export const extensionManifestV1Schema = z
@@ -178,6 +179,16 @@ export const extensionManifestV1Schema = z
       message: "Eine Extension benötigt mindestens einen Entrypoint oder eine Contribution.",
       path: ["entrypoints"],
     },
-  );
+  )
+  .superRefine((manifest, context) => {
+    for (const [index, event] of manifest.activationEvents.entries()) {
+      if (activationEventBelongsToExtension(manifest.id, event)) continue;
+      context.addIssue({
+        code: "custom",
+        message: "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
+        path: ["activationEvents", index],
+      });
+    }
+  });
 
 export type ExtensionManifestV1 = z.infer<typeof extensionManifestV1Schema>;

@@ -52,6 +52,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Risikostufen zentral durch Remote Workplace statt durch Extensions festgelegt
 - Doppelte, unbekannte und nicht passende Berechtigungsanfragen werden sicher abgewiesen
 
+### Extension-Aktivierung
+
+- Start, Projekt, Git-Repository und Agent als feste Aktivierungsereignisse definiert
+- Commands, Routen, Orbit-Elemente, Events und geplante Jobs als verzögerte Trigger unterstützt
+- Referenzen auf eigene Beiträge konsequent an den Extension-Namespace gebunden
+- Doppelte, unbekannte und überlange Aktivierungsereignisse werden sicher abgewiesen
+- Aktivierungsverträge im versionierten JSON Schema für Werkzeuge verfügbar gemacht
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

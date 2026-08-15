@@ -133,8 +133,11 @@ onEvent:<event-id>
 onSchedule:<job-id>
 ```
 
-Referenzierte Contribution IDs müssen existieren und zur Extension gehören. Activation Events
-werden normalisiert, dedupliziert und deterministisch sortiert.
+Referenzierte Contribution IDs müssen zur Extension gehören. Das Activation-Grundschema prüft
+diese Namespace-Grenze bereits. Sobald die jeweiligen Contribution-Schemas geöffnet sind, wird
+zusätzlich ihre Existenz und passende Art geprüft. `onEvent` darf stabile Core-Events oder Events
+anderer Extensions referenzieren. Doppelte Einträge werden abgewiesen; der spätere Manager
+normalisiert und sortiert sie deterministisch für Vergleich und Persistenz.
 
 ### Contributions
 

@@ -61,7 +61,9 @@ lokale `.rwext`-Pakete.
   Manifest-Grundschema validiert Metadaten, Engines, Trust, lokale Assets und JavaScript-
   Entrypoints und erzeugt ein versioniertes Draft-2020-12-JSON-Schema. 23 stabile Permission IDs,
   strukturierte Requests, explizite Scopes und hostdefinierte Risikostufen sind enthalten.
-  Activation Events, Contributions, Manager, Capability Broker, SDK und Local Catalog folgen.
+  Neun strikt typisierte Activation-Event-Formen prüfen statische Trigger, stabile Event IDs und
+  eigene Contribution-Namespaces. Contributions, Manager, Capability Broker, SDK und Local
+  Catalog folgen.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -70,12 +72,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.3 fünf lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.4 sechs lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`e6d3871f316863eee2e09515a8b76914cab6391f` als analysierter Ausgangspunkt von Subgoal 1.3.
-Der Ergebniscommit enthält die Permission Requests V1 und diese Tracker-Aktualisierung.
+`9ab710ebbc7929ff2975cf13ad9e2388eaa221f6` als analysierter Ausgangspunkt von Subgoal 1.4.
+Der Ergebniscommit enthält Activation Events V1 und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -88,8 +90,8 @@ späteren Phasen.
 
 ## Manifest Version
 
-`1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema und strukturierte Permission
-Requests sind eingeführt. Activation Events, Contributions und Abhängigkeiten folgen additiv.
+`1`; das strikte Zod-Grundschema, sein reproduzierbares JSON-Schema, strukturierte Permission
+Requests und Activation Events V1 sind eingeführt. Contributions und Abhängigkeiten folgen.
 
 ## Current Phase
 
@@ -97,13 +99,13 @@ Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.4, Activation Events V1 mit strikter Grammatik und stabilen Referenzen planen.
+Subgoal 1.5, Extension Dependencies, Optional Dependencies und Conflicts V1 planen.
 
 ## Next Concrete Action
 
-Subgoal 1.4 definiert die statischen Activation Events und die namespaced Referenzformen für
-Commands, Routes, Orbit Nodes, Events und Jobs. Doppelte sowie syntaktisch fremde Events werden
-fail-closed abgelehnt; die Existenz referenzierter Contributions wird nach deren Contract geprüft.
+Subgoal 1.5 ergänzt deterministische Dependency- und Conflict-Verträge mit stabilen Extension
+IDs und Semantic-Version-Ranges. Selbstabhängigkeiten, Überschneidungen und doppelte Einträge
+werden im Manifest abgewiesen; Graphauflösung und Zyklenerkennung bleiben Aufgabe des Managers.
 
 ## Phase Table
 
@@ -182,6 +184,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Extension Contracts erhalten ein eigenes Workspace-Package. | Die bestehende zentrale Contracts-Datei ist bereits breit gekoppelt. Ein eigenes Package hält Manifest und öffentliche Extension API versionierbar, ohne Core-Verträge zu duplizieren. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Lokale Manifestpfade sind eng und hostunabhängig. | Das Schema akzeptiert nur POSIX-Paketpfade mit `./`, JavaScript-Entrypoints, Markdown-Dokumente und nicht ausführbare Raster-Icons. Realpath- und Symlink-Prüfung bleibt Aufgabe des Installers. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Manifest Permissions sind strukturierte Requests, keine Grants. | 23 stabile IDs verwenden passende Project-, Process-, Network-, Secret- oder Service-Scopes. Grants bleiben serverseitig, dürfen Requests nur einschränken und können durch Agenten nicht erhöht werden. Siehe [`extension-permission-model.md`](../adr/extension-permission-model.md). |
+| 2026-08-15 | Activation Events besitzen eine geschlossene V1-Grammatik. | Statische Trigger, Contribution-Referenzen und Event IDs werden getrennt validiert. Command-, Route-, Orbit- und Schedule-Referenzen müssen im eigenen Extension-Namespace liegen; fremde öffentliche Events bleiben über `onEvent` möglich. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 
 ## Risk Register
 
@@ -207,6 +210,7 @@ Priorisierte Abhängigkeiten:
 | Extension API | Version 1 als Contract-Grundlage | Runtime bleibt innerhalb Major 1 kompatibel; Compatibility Range wird im Manifest geprüft |
 | Manifest | Version 1 mit strengem Grundschema und generiertem JSON Schema | Neue V1-Bereiche werden nur additiv geöffnet; unbekannte Versionen und Felder bleiben fail-closed |
 | Permission Requests | 23 V1-IDs mit typisierten optionalen Scopes | Manifest fordert nur an; serverseitige Grants dürfen den Request nie erweitern |
+| Activation Events | Neun V1-Formen, maximal 128 eindeutige Einträge | Syntax und Namespace sind stabil; Contribution-Existenz wird nach deren Einführung zusätzlich geprüft |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -218,10 +222,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.3, alle fünf Workspaces |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.3 |
-| `pnpm test` | bestanden am 2026-08-15, 114 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.3, 807 Tests |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.3, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.4, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.4 |
+| `pnpm test` | bestanden am 2026-08-15, 139 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.4, 832 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.4, vollständiger Produktionsbuild und aktualisiertes JSON Schema |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -273,7 +277,8 @@ Keine.
 | `2899706` | Subgoal 0.3, Kernel Boundary und bindende Phase-1-ADRs |
 | `d40cb91` | Subgoal 1.1, ID- und Versionsgrundlagen |
 | `e6d3871` | Subgoal 1.2, Manifest-Grundschema und JSON Schema |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.3, Permission Requests V1 und Permission-ADR |
+| `9ab710e` | Subgoal 1.3, Permission Requests V1 und Permission-ADR |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.4, Activation Events V1 |
 
 ## Subgoal Log
 
@@ -285,4 +290,5 @@ Keine.
 | 1.1 ID- und Versionsgrundlagen | done | Neues Contract-Package, stabile Namespaces, SemVer Compatibility, 45 Tests und vollständige Quality Gates grün | Subgoal 1.2, Manifest-Grundschema |
 | 1.2 Manifest-Grundschema | done | Striktes Zod-Schema, Draft-2020-12-Artefakt, Drift-Prüfung, Path-Escape-Tests und 768 grüne Repository-Tests | Subgoal 1.3, Permission Requests V1 |
 | 1.3 Permission Requests V1 | done | 23 IDs, sechs Request-Varianten, fünf Scope-Typen, Risikomatrix, Permission-ADR und 807 grüne Repository-Tests | Subgoal 1.4, Activation Events V1 |
-| 1.4 Activation Events V1 | planning | Activation-Grammatik und Referenztypen im Manifest-ADR festgelegt | Event-Schemas, Namespace-Prüfung und Deduplizierung implementieren |
+| 1.4 Activation Events V1 | done | Neun Eventformen, Event IDs, Deduplizierung, Namespace-Prüfung, JSON Schema und 832 grüne Repository-Tests | Subgoal 1.5, Dependencies und Conflicts V1 |
+| 1.5 Dependencies und Conflicts V1 | planning | SemVer- und ID-Verträge sowie Manifest-ADR liegen vor | Dependency Maps, Conflict Requests und Manifest-Cross-Checks implementieren |

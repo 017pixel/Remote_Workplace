@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ACTIVATION_EVENTS_MAX_COUNT } from "./activation-events.js";
 import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
@@ -28,6 +29,12 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
           maxItems: extensionPermissionIds.length,
           uniqueItems: true,
           items: { oneOf: expect.any(Array) },
+        },
+        activationEvents: {
+          type: "array",
+          maxItems: ACTIVATION_EVENTS_MAX_COUNT,
+          uniqueItems: true,
+          items: { anyOf: expect.any(Array) },
         },
       },
     });

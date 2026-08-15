@@ -4,14 +4,15 @@ export const EXTENSION_ID_MAX_LENGTH = 128;
 export const CONTRIBUTION_ID_MAX_LENGTH = 192;
 export const ID_SEGMENT_MAX_LENGTH = 64;
 
-const idSegmentSource = `[a-z0-9](?:[a-z0-9-]{0,${ID_SEGMENT_MAX_LENGTH - 2}}[a-z0-9])?`;
+export const ID_SEGMENT_PATTERN_SOURCE =
+  `[a-z0-9](?:[a-z0-9-]{0,${ID_SEGMENT_MAX_LENGTH - 2}}[a-z0-9])?`;
 
 export const extensionIdPattern = new RegExp(
-  `^${idSegmentSource}\\.${idSegmentSource}(?:\\.${idSegmentSource})*$`,
+  `^${ID_SEGMENT_PATTERN_SOURCE}\\.${ID_SEGMENT_PATTERN_SOURCE}(?:\\.${ID_SEGMENT_PATTERN_SOURCE})*$`,
 );
 
 export const contributionIdPattern = new RegExp(
-  `^${idSegmentSource}\\.${idSegmentSource}\\.${idSegmentSource}(?:\\.${idSegmentSource})*$`,
+  `^${ID_SEGMENT_PATTERN_SOURCE}\\.${ID_SEGMENT_PATTERN_SOURCE}\\.${ID_SEGMENT_PATTERN_SOURCE}(?:\\.${ID_SEGMENT_PATTERN_SOURCE})*$`,
 );
 
 export const extensionIdSchema = z
