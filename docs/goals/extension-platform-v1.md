@@ -111,15 +111,19 @@ lokale `.rwext`-Pakete.
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
   Fastify-Endpunkte, fünf WebSocket-Flächen, drei Reverse Proxies, die Preview-Gateways,
   Hintergrunddienste, Timer, SQLite-Tabellen, Browser-Storage, Config, Env Vars und Skills.
+- Der aktuelle Phase-2-Plan liegt in
+  [`extension-platform-v1-phase-2.md`](extension-platform-v1-phase-2.md). Er bildet die heutigen
+  Router-, Loader-, Navigation-, Preference-, Dashboard-, Settings-, Orbit-, Command-, Menu-
+  und Status-Bar-Quellen auf ownergebundene Registries und Legacy Built-in Contributions ab.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 1.30 zweiunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 2.1 dreiunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`2a1fd90851fb53a496a0c099de3e2e2978fb4517` als analysierter Ausgangspunkt von Subgoal 1.30.
-Der Ergebniscommit enthält Extension Management Contracts V1 sowie den Abschluss von Phase 1.
+`2c716ea18818bf3b8e66c42ed4fa0afb11934b3a` als analysierter Ausgangspunkt von Subgoal 2.1.
+Der Ergebniscommit enthält den verbindlichen Frontend-Registry-ADR und Phase-2-Plan.
 
 ## Current Remote Workplace Version
 
@@ -144,18 +148,18 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 2, `planning`. Phase 0 und Phase 1 sind abgeschlossen.
+Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.1, Frontend Registries und Legacy Built-in Contributions planen.
+Subgoal 2.2, Frontend Registry Core V1 implementieren.
 
 ## Next Concrete Action
 
-Subgoal 2.1 analysiert App-Routen, Lazy Loader, Desktop-/Mobile-Navigation, Commands, Context
-Menus, Statusleiste, Dashboard, Settings und ihre Tests erneut. Es legt die kleinste additive
-Registry-Basis und die Reihenfolge fest, in der bestehende Features zunächst unverändert als
-Legacy Built-in Contributions registriert werden.
+Subgoal 2.2 ergänzt `@workbench/extension-contracts` als Web-Abhängigkeit und implementiert einen
+kleinen ownergebundenen Registry-Kern. Atomare Owner-Batches, Namespace-Prüfung, Kollisionen,
+deterministische Snapshots, Revision, Subscription und Dispose werden isoliert getestet, ohne
+bereits React-Routen oder sichtbare Consumer umzustellen.
 
 ## Phase Table
 
@@ -163,7 +167,7 @@ Legacy Built-in Contributions registriert werden.
 | --- | --- | --- |
 | 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
 | 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | done |
-| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | planning |
+| 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | in-progress |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | not-started |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
 | 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | not-started |
@@ -269,6 +273,7 @@ Priorisierte Abhängigkeiten:
 | 2026-08-15 | Themes verändern nur kontrastgeprüfte semantische Farbrollen. | Opake Hex-RGB-Werte für Dark-/Light-Varianten werden auf Darstellung, Surface-Unterscheidung und WCAG-Kontrast geprüft. CSS, Fonts, Layout, Motion, Safe Areas, Hermes und geschützte Hostzustände bleiben außerhalb des Vertrags. Siehe [`extension-manifest-v1.md`](../adr/extension-manifest-v1.md). |
 | 2026-08-15 | Catalog-Metadaten sind serverseitig abgeleitete, lokale Prüfverträge. | Entries binden Manifest, Provider und effektiven Trust an ein vollständiges Größen- und SHA-256-Inventar. Der Installer verifiziert das Material erneut; Hostpfade, URLs, Git, GitHub und npm bleiben undarstellbar. Siehe [`extension-local-catalog-v1.md`](../adr/extension-local-catalog-v1.md). |
 | 2026-08-15 | Management-Aufrufer fordern Operationen an und schreiben nie direkt State. | Acht diskriminierte Requests tragen eine erwartete Registry-Revision. Quellen werden nur über Catalog-Revision, Hash, Upload-Beleg oder Developer-Registrierung adressiert; Erfolg, Lifecycle und erlaubte Folgeaktionen bleiben Manager-Fakten. Siehe [`extension-server-authority.md`](../adr/extension-server-authority.md). |
+| 2026-08-15 | Frontend Registries ersetzen Contributions atomar je Owner. | Der gemeinsame Kern verwaltet nur Ownership, Batch, Kollision, Revision, Subscription und Dispose. Surface-spezifische Metadaten und Runtime-Bindings bleiben getrennt; ein ungültiger Batch verändert keinen vorherigen Snapshot. Siehe [`extension-frontend-registries.md`](../adr/extension-frontend-registries.md). |
 
 ## Risk Register
 
@@ -311,6 +316,7 @@ Priorisierte Abhängigkeiten:
 | Ein Theme injiziert CSS oder macht Text, Fokus und Status unlesbar | UI-Manipulation, unbedienbare Recovery oder fehlende Barrierefreiheit | Nur feste opake Farbrollen, Kontrast- und Darstellungsprüfung, hostabgeleitete Zustände, geschützte Recovery-Tokens und atomarer Fallback ohne fremde Stylesheets | offen |
 | Ein manipuliertes Paket täuscht Descriptor, Größen oder Hashes vor | Path Escape, Zip Bomb, unvollständige Assets oder Ausführung anderer Bytes | Installer akzeptiert nur reguläre Dateien, prüft Archiv und Inventar erneut, begrenzt Anzahl sowie Größen und löst jeden Realpath innerhalb des Staging-Roots auf | offen |
 | Ein veralteter Browser überschreibt eine neuere Extension-Operation | Verlorene Grants, falsches Enablement oder konkurrierende Installation | Jede Mutation verlangt die erwartete Registry-Revision; Konflikte laden Serverstate neu und Operationen werden je Extension serialisiert | offen |
+| Legacy Adapter und alte statische Listen driften während Phase 2 auseinander | Fehlende Navigation, falsche Reihenfolge oder unterschiedliche Mobile-Ansicht | Jede Surface erhält Paritätstests; alte Quellen werden direkt nach Consumer-Migration entfernt und Phase 3 startet erst nach vollständigem Abgleich | offen |
 
 ## Compatibility Matrix
 
@@ -347,6 +353,7 @@ Priorisierte Abhängigkeiten:
 | Theme Contributions | 1 bis 32 Themes mit mindestens einer Dark-/Light-Variante und 13 kontrollierten Farbrollen | Opake Hex-RGB-Werte, eindeutige IDs sowie Kontrast- und Darstellungsprüfung sind Pflicht; Systemmodus, Auswahl, PWA-Metadaten, Hermes und alle nichtfarblichen Tokens bleiben Hostzustand |
 | Catalog und Package Descriptor | Maximal 256 lokale Entries, Formatversion 1, vollständige reguläre Dateien mit Größen und SHA-256 | Manifest, ID, Version, Trust und Assets müssen übereinstimmen; Installer verifiziert erneut, Remote- und Hostquellen bleiben ausgeschlossen, Fehler werden isoliert gemeldet |
 | Extension Management API | Revisionierte Registry-Summaries und Details sowie acht Operationsrequests | Browser, CLI und Agenten nutzen denselben Contract; direkte Statuswrites, stale Mutationen, freie Quellen, erweiterte Grants und unredigierte Fehler bleiben fail-closed |
+| Frontend Registries | Verbindlicher Phase-2-Plan für neun surface-spezifische Registries auf gemeinsamem Ownership-Kern | Bestehende IDs, Pfade, LocalStorage, Loader und Renderverhalten bleiben über Legacy Built-ins erhalten; Dynamic Shell folgt erst nach Parität |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -358,7 +365,7 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.30, alle fünf Workspace-Pakete |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 2.1, alle fünf Workspace-Pakete |
 | `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.30, gesamtes Repository |
 | `pnpm test` | bestanden am 2026-08-15, 458 Extension-, 18 Contract-, 396 Server- und 279 Web-Tests, insgesamt 1151 | Subgoal 1.30, gesamtes Repository |
 | `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.30, vollständiger Produktionsbuild |
@@ -440,7 +447,8 @@ Keine.
 | `c8a7a2d` | Subgoal 1.27, Notification Contributions V1 |
 | `25e01b9` | Subgoal 1.28, Theme Contributions V1 |
 | `2a1fd90` | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
-| Ergebniscommit dieser Aktualisierung | Subgoal 1.30, Extension Management Contracts V1 und Abschluss Phase 1 |
+| `2c716ea` | Subgoal 1.30, Extension Management Contracts V1 und Abschluss Phase 1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 2.1, Frontend-Registry-ADR und Phase-2-Plan |
 
 ## Subgoal Log
 
@@ -479,4 +487,5 @@ Keine.
 | 1.28 Theme Contributions V1 | done | Dark-/Light-Varianten, 13 semantische Farbrollen, opake Hex-RGB-Werte, WCAG-Kontrast, Darstellungs-, Surface-, Namespace- und ID-Prüfungen, JSON Schema und 1129 grüne Repository-Tests | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
 | 1.29 Catalog Metadata und Package Contracts V1 | done | Catalog Snapshot und Entry, Package Descriptor, Provider, effektiver Trust, vollständiges Größen-/SHA-256-Inventar, Asset-Abgleich, isolierte Scan-Probleme, zwei JSON Schemas und 1140 grüne Repository-Tests | Subgoal 1.30, Installations- und Update-API Contracts V1 |
 | 1.30 Installations- und Update-API Contracts V1 | done | Revisionierte Summary-/Detail-/Operationsverträge, getrennte Registry-Fakten, acht Aktionen, drei lokale Source-Referenzen, Permission-Teilmengen, redigierte Fehler und 1151 grüne Repository-Tests | Subgoal 2.1, Frontend Registries und Legacy Built-in Contributions planen |
-| 2.1 Frontend Registries und Legacy Built-in Contributions | planning | Vollständiges Phase-0-Inventar, Manifest Contributions und Frontend-Baselines liegen vor | Aktuelle Router-, Navigation-, Command-, Surface- und Testverdrahtung erneut analysieren und additive Registry-Grenze festlegen |
+| 2.1 Frontend Registries und Legacy Built-in Contributions | done | Aktueller Frontend-Abgleich, bindender Registry-ADR, acht Implementierungsschritte, Compatibility-/Exit-Gates, vollständiger Typecheck und 279 grüne Web-Tests | Subgoal 2.2, Frontend Registry Core V1 |
+| 2.2 Frontend Registry Core V1 | planning | Öffentliche Contribution-IDs, Frontend-Registry-ADR und atomare Ownership-Grenze sind definiert | Generischen Kern mit Owner-Batches, Namespace, Kollision, Revision, Snapshot, Subscription und Dispose implementieren |

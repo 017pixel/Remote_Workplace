@@ -268,6 +268,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Catalog, Upload und Entwicklerquellen ausschließlich über serverseitige IDs und Hashes referenziert
 - Grants auf Manifest-Anfragen begrenzt und öffentliche Fehler konsequent auf redigierte Codes reduziert
 
+### Extension-Frontend-Registry-Plan
+
+- Aktuelle Router-, Loader-, Navigation-, Preference- und Shell-Doppelungen erneut inventarisiert
+- Atomare ownergebundene Registries mit Kollision, Revision, Subscription und Dispose beschlossen
+- Bestehende Features als unveränderte Legacy Built-in Contributions eingeordnet
+- Migration von Pages bis Orbit in acht kleine, überprüfbare Phase-2-Schritte gegliedert
+- Bookmarks, LocalStorage, Lazy Chunks, mobile Bedienung und persistente Routen als Exit Gates festgelegt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
