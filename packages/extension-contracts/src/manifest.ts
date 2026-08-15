@@ -39,6 +39,7 @@ import {
 } from "./versioning.js";
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
+import { statusBarContributionsSchema } from "./status-bar.js";
 
 export * from "./package-paths.js";
 
@@ -170,6 +171,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   settings: settingsContributionsSchema.optional(),
   keyboardShortcuts: keyboardShortcutContributionsSchema.optional(),
   contextMenus: contextMenuContributionsSchema.optional(),
+  statusBar: statusBarContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -323,6 +325,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.contextMenus ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "contextMenus", index, "id"] as const,
+      })),
+      ...(manifest.contributes.statusBar ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "statusBar", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -575,6 +581,60 @@ export const extensionManifestV1Schema = z
       }
     }
 
+    for (const [index, item] of (
+      manifest.contributes.statusBar ?? []
+    ).entries()) {
+      if (item.commandId !== undefined && !commandIds.has(item.commandId)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Status Bar Command-Aktion muss eine deklarierte Command Contribution referenzieren.",
+          path: ["contributes", "statusBar", index, "commandId"],
+        });
+      }
+      if (
+        item.kind !== "action" &&
+        !contributionBelongsToExtension(manifest.id, item.provider)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Status Bar Provider ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "statusBar", index, "provider"],
+        });
+      }
+      if (
+        item.icon !== undefined &&
+        item.icon !== "extension" &&
+        !contributionBelongsToExtension(manifest.id, item.icon)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Eine Status Bar Icon ID muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "statusBar", index, "icon"],
+        });
+      }
+      if (item.icon === "extension" && manifest.icon === undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Die Icon-Referenz extension benötigt ein lokales Manifest-Icon.",
+          path: ["contributes", "statusBar", index, "icon"],
+        });
+      }
+      if (item.when === undefined) continue;
+      for (const contextKey of contextExpressionKeys(item.when)) {
+        if (contextKeyBelongsToExtension(manifest.id, contextKey)) continue;
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein Extension Context Key muss zur deklarierenden Extension gehören.",
+          path: ["contributes", "statusBar", index, "when"],
+        });
+      }
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -623,6 +683,20 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "Providerbasierte Dashboard Contributions benötigen einen UI- oder Server-Entrypoint.",
+        path: ["entrypoints"],
+      });
+    }
+
+    if (
+      manifest.contributes.statusBar?.some((item) => item.kind !== "action") ===
+        true &&
+      manifest.entrypoints.ui === undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Providerbasierte Status Bar Contributions benötigen einen UI- oder Server-Entrypoint.",
         path: ["entrypoints"],
       });
     }

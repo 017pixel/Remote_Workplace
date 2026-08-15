@@ -599,6 +599,69 @@ Die heutigen Menüs in `ProjectCard`, `FileManagerPanel`, `OrbitWorkbench`, `Sid
 Phase 2 adaptiert sie schrittweise als Legacy Built-in Contributions und bewahrt dabei
 Fokusführung, Touch-Bottom-Sheets, Bestätigungsdialoge und laufende Runtime-Sitzungen.
 
+#### Status Bar Contributions
+
+Status Bar Contributions beschreiben kleine, hostgerenderte Zustände und Aktionen. Das
+Manifest enthält weder beliebiges Markup noch eine eigene Komponente:
+
+```json
+{
+  "contributes": {
+    "statusBar": [
+      {
+        "id": "workbench.agent-tasks.status-bar.open-count",
+        "kind": "counter",
+        "title": "Offene Aufgaben",
+        "icon": "workbench.agent-tasks.icon.tasks",
+        "alignment": "right",
+        "order": 100,
+        "priority": 60,
+        "compact": "value",
+        "provider": "workbench.agent-tasks.status-provider.open-count",
+        "commandId": "workbench.agent-tasks.command.open",
+        "when": {
+          "all": [
+            {
+              "key": "host.project.open",
+              "operator": "equals",
+              "value": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+- V1 kennt `text`, `status`, `counter`, `progress` und `action`. Eine Extension darf 1 bis
+  128 Status Bar Contributions deklarieren.
+- `left` und `right` bilden die beiden kontrollierten Bereiche. Innerhalb eines Bereichs
+  sortiert der Host deterministisch nach `order`, Extension-ID und Contribution-ID.
+- `priority` liegt zwischen 0 und 100. Höhere Werte bleiben bei Platzmangel länger sichtbar.
+  Sicherheits-, Recovery- und grundlegende Health-Anzeigen des Kernels sind dokumentierte
+  `hostOnly`-Elemente und können durch Extensions weder verdrängt noch als `required` markiert
+  werden.
+- `compact` ist `hide`, `icon` oder `value`. `icon` benötigt eine lokale Manifest- oder
+  namespaced Runtime-Icon-Referenz. Mobile Darstellung und verfügbare Breite bleiben eine
+  Host-Policy.
+- `action` referenziert ausschließlich ein tatsächlich deklariertes Command. Die übrigen Arten
+  referenzieren einen Provider und können optional dasselbe Command-System für eine Aktion
+  verwenden. Business Logic, Berechtigungen und Disabled Reasons werden nicht dupliziert.
+- Provider-IDs gehören zur deklarierenden Extension und benötigen einen UI- oder
+  Server-Entrypoint. Die spätere Runtime definiert je Art ein begrenztes, hostgerendertes
+  Payload, isoliert Fehler und erzwingt Timeout, Payload-, Aktualisierungs- und Cleanup-Grenzen.
+  Unkontrolliertes eigenes Polling pro Statusitem ist nicht Teil des Vertrags.
+- `when` verwendet die gemeinsamen strikt typisierten Context Expressions. Fremde Extension-
+  Contexts und unbekannte Host-Contexts werden fail-closed abgewiesen.
+- Eine Status Bar Contribution ist nur ein ergänzender Überblick. Wichtige Fehler oder
+  Handlungsbedarfe benötigen zusätzlich Health-, Notification- oder zugängliche Seitenzustände
+  und dürfen nicht ausschließlich über Farbe oder die Desktop-Statusleiste vermittelt werden.
+
+Die heutige `StatusBar.tsx` mit Workbench Health, Orbit-Kontext, Projekt und Usage-Anzeigen
+bleibt in diesem Subgoal unverändert. Phase 2 registriert diese Bereiche zunächst als Legacy
+Built-in Contributions und führt dabei eine gemeinsame Aktualisierungs- und Overflow-Policy ein.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

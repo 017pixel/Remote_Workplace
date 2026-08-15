@@ -140,6 +140,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Sichtbarkeit über die gemeinsamen strikt typisierten Context Expressions ermöglicht
 - Fremde Surfaces, Icons, Context Keys und manifestweite ID-Kollisionen werden abgewiesen
 
+### Extension-Statusleiste
+
+- Text, Status, Zähler, Fortschritt und Commands als kompakte Statusarten definiert
+- Linke und rechte Bereiche mit deterministischer Reihenfolge und Prioritäten ergänzt
+- Provider, Commands, Icons und Context Keys sicher an eigene Contributions gebunden
+- Platzmangel über kontrollierte Compact-Modi ohne Verdrängung geschützter Hostzustände geregelt
+- Beliebiges Markup, unkontrolliertes Polling und Statusleisten als alleiniger Fehlerkanal ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

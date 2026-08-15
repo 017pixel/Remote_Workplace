@@ -194,6 +194,29 @@ const validManifest = {
         },
       },
     ],
+    statusBar: [
+      {
+        id: "workbench.agent-tasks.status-bar.open-count",
+        kind: "counter",
+        title: "Offene Aufgaben",
+        icon: "workbench.agent-tasks.icon.tasks",
+        alignment: "right",
+        order: 100,
+        priority: 60,
+        compact: "value",
+        provider: "workbench.agent-tasks.status-provider.open-count",
+        commandId: "workbench.agent-tasks.command.create",
+        when: {
+          all: [
+            {
+              key: "host.project.open",
+              operator: "equals",
+              value: true,
+            },
+          ],
+        },
+      },
+    ],
   },
 };
 
@@ -1291,6 +1314,139 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
   });
 
+  it("akzeptiert providerbasierte Status Bar Items und Command-Aktionen", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: validManifest.contributes.statusBar,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              id: "workbench.agent-tasks.status-bar.create",
+              kind: "action",
+              title: "Aufgabe erstellen",
+              alignment: "right",
+              order: 110,
+              priority: 40,
+              compact: "hide",
+              commandId: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist fehlende Commands und fremde Status Bar Provider ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              commandId: "workbench.agent-tasks.command.missing",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              provider: "workbench.other.status-provider.open-count",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist fremde Status Bar Icons, Context Keys und manifestweite IDs ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              icon: "workbench.other.icon.tasks",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              when: {
+                all: [
+                  {
+                    key: "workbench.other.context.visible",
+                    operator: "equals",
+                    value: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        contributes: {
+          commands: validManifest.contributes.commands,
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              id: "workbench.agent-tasks.command.create",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("verlangt für providerbasierte Status Bar Items einen Entrypoint", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        entrypoints: {},
+        contributes: {
+          statusBar: [
+            {
+              ...validManifest.contributes.statusBar[0],
+              commandId: undefined,
+            },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("hält noch nicht definierte Contributions geschlossen", () => {
     expect(extensionActivationEventsV1Schema.safeParse([]).success).toBe(true);
     expect(extensionContributionsV1Schema.safeParse({}).success).toBe(true);
@@ -1346,6 +1502,11 @@ describe("Extension Manifest V1", () => {
       }).success,
     ).toBe(true);
     expect(
+      extensionContributionsV1Schema.safeParse({
+        statusBar: validManifest.contributes.statusBar,
+      }).success,
+    ).toBe(true);
+    expect(
       extensionContributionsV1Schema.safeParse({ pages: [] }).success,
     ).toBe(false);
     expect(
@@ -1367,6 +1528,9 @@ describe("Extension Manifest V1", () => {
     ).toBe(false);
     expect(
       extensionContributionsV1Schema.safeParse({ statusBar: [] }).success,
+    ).toBe(false);
+    expect(
+      extensionContributionsV1Schema.safeParse({ topbar: [] }).success,
     ).toBe(false);
   });
 });
