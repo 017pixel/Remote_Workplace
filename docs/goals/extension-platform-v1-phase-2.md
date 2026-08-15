@@ -80,11 +80,15 @@ Status: `done`.
 
 ### 2.6 Context-Menu-, Status-Bar- und Topbar-Registry
 
-Status: `planning`.
+Status: `in-progress`.
 
-- Legacy-Aktionen und Items pro kontrollierter Surface registrieren.
-- Hostzustände und Recovery-Aktionen markieren und gegen Überschreiben schützen.
-- Bestehendes Desktop-, Touch-, Focus- und Bottom-Sheet-Verhalten beibehalten.
+- `statusBarRegistry.ts`, `topbarRegistry.ts` und `contextMenuRegistry.ts` bilden die drei
+  Registry-Kerne: Vertragsvalidierung, Command-/Provider-/Surface-/Context-Referenzen gegen
+  die Command Registry und deterministisch sortierte Snapshots mit Alignment-,
+  Platzierungs- und Gruppenansichten. Kernel Health und Recovery bleiben hostgeschützt.
+- Offen: Legacy Built-in-Kataloge der bestehenden Menü-, Statusleisten- und Topbar-Aktionen
+  sowie die Consumer-Migration mit Paritäts- und Browserprüfung. Bestehendes Desktop-,
+  Touch-, Focus- und Bottom-Sheet-Verhalten bleibt bis dahin unverändert.
 
 ### 2.7 Dashboard- und Settings-Registry
 

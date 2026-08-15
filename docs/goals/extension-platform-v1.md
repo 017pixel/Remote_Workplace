@@ -118,6 +118,11 @@ lokale `.rwext`-Pakete.
   registriert drei globale Legacy Built-ins; der Projektbrowser-Command läuft bereits als
   aktiver Consumer-Pfad in der Sidebar. Bestehende lokale `keydown`-Listener bleiben
   unverändert bestehen.
+- `apps/web/src/extensions/statusBarRegistry.ts`, `topbarRegistry.ts` und
+  `contextMenuRegistry.ts` bilden die Status-Bar-, Topbar- und Context-Menu-Registry-Kerne
+  mit Command-/Provider-/Surface-/Context-Referenzprüfungen und deterministischen
+  Snapshots. Built-in-Kataloge und Consumer-Migration folgen mit Paritäts- und
+  Browserprüfung; Kernel Health und Recovery bleiben hostgeschützt.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -137,11 +142,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Abschluss von Subgoal 2.5 achtunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Stand nach den Subgoal-2.6-Registry-Kernen neununddreißig lokale Goal-Commits
+vor `origin/master`.
 
 ## Current Commit
 
-`ddf370b970f9e32ccb2b4e32fe81947bdeb7d50f` — Command- und Shortcut-Registry mit Legacy Built-ins und Tests.
+`b56004f` — Status-Bar-, Topbar- und Context-Menu-Registry-Kerne mit Tests.
 
 ## Current Remote Workplace Version
 
@@ -174,11 +180,12 @@ Subgoal 2.6, Context-Menu-, Status-Bar- und Topbar-Registry implementieren.
 
 ## Next Concrete Action
 
-Subgoal 2.6 registriert die bestehenden Menü-, Statusleisten- und Topbar-Aktionen pro
-kontrollierter Surface als Legacy Built-ins. Hostzustände und Recovery-Aktionen werden
-gegen Überschreiben geschützt; bestehendes Desktop-, Touch-, Focus- und Bottom-Sheet-
-Verhalten bleibt unverändert. Erst nach Paritäts- und Browserprüfung werden die lokalen
-Implementierungen auf die Registry-Wege umgestellt.
+Subgoal 2.6 führt die Legacy Built-in-Kataloge für Status Bar (drei Usage Provider),
+Topbar (ProjectPicker, Standalone-Aktionen) und Context Menus (Orbit, Files, Browser,
+Preview, Terminal, Tool-Menüs) über die drei neuen Registry-Kerne ein und stellt die
+Consumer nach Paritäts- und Browserprüfung nacheinander um. Hostzustände und
+Recovery-Aktionen bleiben geschützt; Desktop-, Touch-, Focus- und Bottom-Sheet-Verhalten
+dürfen sich nicht ändern.
 
 ## Phase Table
 
