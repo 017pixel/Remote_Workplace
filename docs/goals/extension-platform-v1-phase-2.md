@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoal 2.3 abgeschlossen, Subgoal 2.4 als Nächstes.
+Status: `in-progress`; Subgoals 2.3 und 2.4 abgeschlossen, Subgoal 2.5 als Nächstes.
 
 ## Ergebnis
 
@@ -20,7 +20,7 @@ Vollständige Ausgangsbasis:
 | --- | --- | --- |
 | Routes | 3 standalone, 22 Shell-Einträge und 404 in `App.tsx` | eigene Boundary, persistente Pathname-Instanz |
 | Loader | 15 Loader und 21 Pfadpräfixe in `routeModules.ts` | Lazy Chunks und einmalige Stale-Chunk-Recovery |
-| Navigation | 18 Items in drei Arrays | dieselben visuellen Daten für Desktop und Mobile |
+| Navigation | gemeinsame Navigation-Registry mit 18 Legacy Built-ins | dieselben visuellen Daten für Desktop und Mobile aus einer Quelle |
 | Page Identity | Union, Array, zwei Path Maps und Settings-Labels | LocalStorage Persist v2 und Recovery-Seite |
 | Shell Metadata | Titel und Pfad-Sonderfälle in `AppShell.tsx` | Topbar, Breadcrumb, Project Context, Full-Bleed |
 | Orbit | geschlossene Node-/Paneltypen und drei Palette-Arrays | Dokumentversion 8 bleibt unangetastet |
@@ -57,14 +57,17 @@ Status: `done`.
 
 ### 2.4 Navigation- und Prefetch-Registry
 
-Status: `planning`.
+Status: `done`.
 
 - Navigation-ID, Route-ID, Page-ID, Titel, Gruppe, Reihenfolge, Sichtbarkeit, Mobile-Eignung,
-  Icon-Bindung und Prefetch in einer Quelle zusammenführen.
-- Sidebar, Mobile Navigation, Shell-Titel und Settings-Sichtbarkeit nacheinander adaptieren.
-- Beide Path-to-ID-Maps und doppelte Labels erst nach Paritäts- und Browserprüfung entfernen.
+  Icon-Bindung und Prefetch in einer ownergebundenen Registry zusammenführen.
+- Sidebar, Mobile Navigation, Shell-Titel und Settings-Sichtbarkeit auf dieselbe
+  Snapshot-Quelle umstellen, ohne LocalStorage Persist v2 zu brechen.
+- Beide Path-to-ID-Maps und doppelte Labels nach Paritäts- und Browserprüfung entfernt.
 
 ### 2.5 Command- und Shortcut-Registry
+
+Status: `planning`.
 
 - Bestehende globale und surfacegebundene Aktionen mit stabilen `workbench.*`-IDs registrieren.
 - Handler-Lifecycle, Context, Konflikte und Dispose testen.

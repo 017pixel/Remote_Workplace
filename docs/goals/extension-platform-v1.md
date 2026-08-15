@@ -41,9 +41,14 @@ lokale `.rwext`-Pakete.
 - `App.tsx` enthält drei standalone Routen und 22 App-Shell-Routendeklarationen einschließlich
   Alias und 404. Die 15 Lazy-Module und 21 Prefetch-Pfade sind separat in `routeModules.ts`
   verdrahtet.
-- Desktop- und Mobile-Navigation verwenden zwar dieselben statischen Nav-Arrays, Mobile führt
-  aber zusätzlich eine eigene Path-to-Route-ID-Map. Sidebar-Präferenzen enthalten 18 geschlossene
-  Page IDs und 20 geschlossene Orbit-Palette-IDs in Browser-`localStorage`.
+- Desktop- und Mobile-Navigation lesen jetzt dieselbe Navigation-Registry-Quelle:
+  `apps/web/src/extensions/navigationRegistry.ts` hält Navigation-ID, Route-ID, Titel,
+  Gruppe, Reihenfolge, Sichtbarkeit, Mobile-Eignung, Icon- und Prefetch-Bindung in einem
+  ownergebundenen Snapshot. `apps/web/src/extensions/legacyNavigation.ts` registriert die
+  18 bisherigen Flächen als Legacy Built-ins; Sidebar, Mobile Navigation, Shell-Titel und
+  Settings-Sichtbarkeit konsumieren dieselbe Quelle. Die statischen Nav-Arrays, die beiden
+  Path-to-ID-Maps und die doppelten Labels sind entfernt. LocalStorage Persist v2 bleibt
+  über `legacyVisibilityKey` unverändert lesbar.
 - Orbit schreibt Dokumentversion 8 und liest Version 6 bis 8. Der Vertrag kennt 17 geschlossene
   Knotentypen. Werkzeugknoten hängen zusätzlich an dem geschlossenen `panelTypeSchema`.
 - Persistente React-Routen, Route-spezifische Error Boundaries, Lazy Loading und Stale-Chunk-
@@ -125,13 +130,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 2.3 fünfunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 2.5 siebenunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`1a25010975b6273c2bde5dd81bd8475e3e0ff16f` als analysierter Ausgangspunkt von Subgoal 2.3.
-Der Ergebniscommit dieser Aktualisierung enthält die Page-/Route-Registry und ihre Legacy
-Built-ins.
+`a09d2752bf2d821a00c45efc60de6ee5d257e3ea` als Ergebniscommit von Subgoal 2.4. Er enthält
+die Navigation- und Prefetch-Registry, ihre Legacy Built-ins und die migrierten Consumer.
 
 ## Current Remote Workplace Version
 
@@ -160,14 +164,15 @@ Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.4, Navigation- und Prefetch-Registry implementieren und Consumer migrieren.
+Subgoal 2.5, Command- und Shortcut-Registry implementieren.
 
 ## Next Concrete Action
 
-Subgoal 2.4 führt Navigation-ID, Route-ID, Legacy Page-ID, Titel, Beschreibung, Gruppe,
-Reihenfolge, Sichtbarkeit, mobile Eignung, Icon und Prefetch-Bindung in einer ownergebundenen
-Registry zusammen. Sidebar, Mobile Navigation, Shell-Titel und Settings-Sichtbarkeit werden
-nacheinander auf dieselbe Snapshot-Quelle umgestellt, ohne LocalStorage Persist v2 zu brechen.
+Subgoal 2.5 registriert die bestehenden globalen und surfacegebundenen Aktionen mit stabilen
+`workbench.*`-Command-IDs. Handler-Lifecycle, Context, Konflikte und Dispose werden getestet;
+Terminal-, Browser- und Formulareingabe behalten Vorrang und lokale `keydown`-Listener bleiben
+bis zur Paritätsprüfung bestehen. Erst danach werden die Server-Command-Referenz und die lokale
+Orbit-Palette auf die gemeinsame Command Registry umgestellt.
 
 ## Phase Table
 
