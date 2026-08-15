@@ -14035,6 +14035,314 @@
             "additionalProperties": false
           },
           "uniqueItems": true
+        },
+        "scheduledJobs": {
+          "minItems": 1,
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "provider": {
+                "type": "string",
+                "maxLength": 192,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+              },
+              "enabledByDefault": {
+                "type": "boolean"
+              },
+              "schedule": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "interval"
+                      },
+                      "everyMilliseconds": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 2592000000
+                      },
+                      "initialDelayMilliseconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2592000000
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "everyMilliseconds",
+                      "initialDelayMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "cron"
+                      },
+                      "expression": {
+                        "type": "string",
+                        "minLength": 9,
+                        "maxLength": 120,
+                        "pattern": "^[A-Za-z0-9*?,/#L-]+(?: [A-Za-z0-9*?,/#L-]+){4}$"
+                      },
+                      "timeZone": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "pattern": "^(?:UTC|[A-Za-z]+(?:[_-][A-Za-z]+)*(?:\\/[A-Za-z0-9_+-]+)+)$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "expression",
+                      "timeZone"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "one-shot"
+                      },
+                      "runAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "runAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "event-triggered"
+                      },
+                      "event": {
+                        "type": "string",
+                        "maxLength": 192,
+                        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+                      },
+                      "debounceMilliseconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3600000
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "event",
+                      "debounceMilliseconds"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "timeoutMilliseconds": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 3600000
+              },
+              "concurrency": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "skip"
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "queue"
+                      },
+                      "maxPending": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "maxPending"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "parallel"
+                      },
+                      "maxRuns": {
+                        "type": "integer",
+                        "minimum": 2,
+                        "maximum": 16
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "maxRuns"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "missedRuns": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "skip"
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "run-once"
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "catch-up"
+                      },
+                      "maxRuns": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "maxRuns"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "retries": {
+                "type": "object",
+                "properties": {
+                  "maxAttempts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "initialBackoffMilliseconds": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 300000
+                  },
+                  "maximumBackoffMilliseconds": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 300000
+                  },
+                  "multiplier": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 10
+                  }
+                },
+                "required": [
+                  "maxAttempts",
+                  "initialBackoffMilliseconds",
+                  "maximumBackoffMilliseconds",
+                  "multiplier"
+                ],
+                "additionalProperties": false
+              },
+              "idempotency": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "host-key"
+                ]
+              },
+              "cancellationTimeoutMilliseconds": {
+                "type": "integer",
+                "minimum": 250,
+                "maximum": 60000
+              },
+              "historyLimit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "description",
+              "provider",
+              "enabledByDefault",
+              "schedule",
+              "timeoutMilliseconds",
+              "concurrency",
+              "missedRuns",
+              "retries",
+              "idempotency",
+              "cancellationTimeoutMilliseconds",
+              "historyLimit"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

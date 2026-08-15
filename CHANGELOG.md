@@ -212,6 +212,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Aktivierungszustand, Fehler und Neustartzähler als serverseitig autoritative Fakten festgelegt
 - Freie Prozesse, systemd-Units und das Beenden nutzereigener Runtimes aus Manifesten ausgeschlossen
 
+### Extension-Jobs
+
+- Interval-, Cron-, One-shot- und Event-Zeitpläne als Scheduled Job Contributions definiert
+- Parallelität und verpasste Läufe mit begrenzten Skip-, Queue- und Catch-up-Policies abgesichert
+- Timeout, Retries, Backoff, Idempotenz und Cancellation als Host-Policies festgelegt
+- Jobzustand und begrenzte Run History als serverseitig autoritative Daten eingeordnet
+- Freie Cron-Daemons, unbegrenzte Queues und ungeprüfte Extension-Timer ausgeschlossen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

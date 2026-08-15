@@ -1153,6 +1153,76 @@ Kernel. Bestehende direkt in `app.ts` gestartete Synchronisierer werden erst nac
 Extension Managers einzeln über Legacy Adapter migriert; dieses Contract-Subgoal startet oder
 stoppt keinen laufenden Dienst.
 
+#### Scheduled Job Contributions
+
+Scheduled Job Contributions ersetzen freie Extension-Timer durch einen serverseitig
+autoritativen Scheduler. Der Host berechnet Ausführungen, persistiert Zustand und ruft nur den
+namespaced Provider auf:
+
+```json
+{
+  "activationEvents": [
+    "onSchedule:workbench.agent-tasks.scheduled-job.sync"
+  ],
+  "contributes": {
+    "scheduledJobs": [
+      {
+        "id": "workbench.agent-tasks.scheduled-job.sync",
+        "title": "Agent Tasks synchronisieren",
+        "description": "Synchronisiert Agent Tasks regelmäßig.",
+        "provider": "workbench.agent-tasks.scheduled-job-provider.sync",
+        "enabledByDefault": true,
+        "schedule": {
+          "type": "cron",
+          "expression": "0 6 * * MON-FRI",
+          "timeZone": "Europe/Berlin"
+        },
+        "timeoutMilliseconds": 30000,
+        "concurrency": { "mode": "skip" },
+        "missedRuns": { "mode": "run-once" },
+        "retries": {
+          "maxAttempts": 3,
+          "initialBackoffMilliseconds": 1000,
+          "maximumBackoffMilliseconds": 30000,
+          "multiplier": 2
+        },
+        "idempotency": "host-key",
+        "cancellationTimeoutMilliseconds": 5000,
+        "historyLimit": 100
+      }
+    ]
+  }
+}
+```
+
+- V1 unterstützt Intervalle, fünfstellige Cron-Ausdrücke mit IANA-Zeitzone, einmalige ISO-
+  Zeitpunkte und stabile Event IDs. Der Manager validiert Cron und Zeitzone vor Installation mit
+  seiner kanonischen Scheduler-Implementierung; Extension-Code erhält keinen eigenen Cron-Daemon
+  und soll normale Jobs nicht mit freien Timern nachbauen.
+- Jeder Job benötigt einen eigenen Contribution-Namespace, einen namespaced Provider und einen
+  Server-Entrypoint. `onSchedule:<id>` muss auf einen tatsächlich deklarierten Job zeigen und
+  aktiviert dessen Extension erst bei Bedarf. Provider erhalten geplanten Zeitpunkt, Versuch,
+  Triggerkontext, Abort Signal und separat gewährte Capability Broker.
+- Concurrency ist explizit `skip`, begrenzt `queue` oder begrenzt `parallel`. Verpasste Läufe
+  werden übersprungen, genau einmal nachgeholt oder bis zu einer festen Grenze aufgeholt. Der
+  Scheduler erzeugt keine unbegrenzte Queue und hält pro Extension globale Lastgrenzen ein.
+- Timeout, Retry-Versuche und exponentieller Backoff sind hart begrenzt. `host-key` erzeugt einen
+  stabilen Ausführungsschlüssel aus Job und logischem Trigger und persistiert ihn vor dem Aufruf;
+  Provider nutzen ihn für idempotente Mutationen. `none` ist sichtbar und darf bei unsicheren
+  Wiederholungen durch Host Policy abgelehnt werden.
+- Disable, Update und Server-Shutdown stoppen neue Runs, brechen aktive Provider per Abort Signal
+  ab und warten höchstens die deklarierte Cancellation-Frist. Danach wird der Run isoliert als
+  abgebrochen markiert. Scheduler-Handles, Queues, Event Listener und Retry-Timer werden immer
+  entfernt; user-owned Runtimes bleiben unangetastet.
+- `enabled`, `nextRun`, `lastRun`, `status`, Versuche und begrenzte Run History sind Runtime-State
+  und deshalb keine Manifestfelder. Sie liegen serverseitig pro Job, überleben einen Neustart und
+  werden in Extension Detail, Diagnose und späterer CLI sichtbar. Ein Update bewahrt History nach
+  stabiler Job-ID, eine Deinstallation folgt der zentralen Retention- und Löschbestätigung.
+
+Die bestehenden Usage-, News-, Notification-, Hermes- und Preview-Timer bleiben bis zu ihrer
+einzelnen Migration unverändert. Dieses Contract-Subgoal startet keinen Scheduler und verändert
+keine laufenden Synchronisierer.
+
 ### Dependencies und Conflicts
 
 Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine

@@ -47,6 +47,7 @@ import {
 import { extensionPermissionRequestsSchema } from "./permissions.js";
 import { browserContributionsSchema } from "./browser-contributions.js";
 import { previewContributionsSchema } from "./preview-contributions.js";
+import { scheduledJobContributionsSchema } from "./scheduled-job-contributions.js";
 import { settingsContributionsSchema } from "./settings-contributions.js";
 import { statusBarContributionsSchema } from "./status-bar.js";
 import { terminalContributionsSchema } from "./terminal-contributions.js";
@@ -191,6 +192,7 @@ export const extensionContributionsV1Schema = z.strictObject({
   agentTools: agentToolContributionsSchema.optional(),
   agentSkills: agentSkillContributionsSchema.optional(),
   backgroundServices: backgroundServiceContributionsSchema.optional(),
+  scheduledJobs: scheduledJobContributionsSchema.optional(),
 });
 
 export const extensionManifestV1Schema = z
@@ -243,6 +245,9 @@ export const extensionManifestV1Schema = z
     const orbitIds = new Set(
       (manifest.contributes.orbit ?? []).map((node) => node.id),
     );
+    const scheduledJobIds = new Set(
+      (manifest.contributes.scheduledJobs ?? []).map((job) => job.id),
+    );
 
     for (const [index, event] of manifest.activationEvents.entries()) {
       if (!activationEventBelongsToExtension(manifest.id, event)) {
@@ -286,6 +291,17 @@ export const extensionManifestV1Schema = z
           code: "custom",
           message:
             "Ein onOrbitNode Activation Event benötigt eine deklarierte Orbit Contribution.",
+          path: ["activationEvents", index],
+        });
+      }
+      if (
+        event.startsWith("onSchedule:") &&
+        (contributionId === null || !scheduledJobIds.has(contributionId))
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ein onSchedule Activation Event benötigt eine deklarierte Scheduled Job Contribution.",
           path: ["activationEvents", index],
         });
       }
@@ -380,6 +396,10 @@ export const extensionManifestV1Schema = z
       ...(manifest.contributes.backgroundServices ?? []).map((item, index) => ({
         id: item.id,
         path: ["contributes", "backgroundServices", index, "id"] as const,
+      })),
+      ...(manifest.contributes.scheduledJobs ?? []).map((item, index) => ({
+        id: item.id,
+        path: ["contributes", "scheduledJobs", index, "id"] as const,
       })),
     ];
     const seenContributionIds = new Set<string>();
@@ -1018,6 +1038,18 @@ export const extensionManifestV1Schema = z
       });
     }
 
+    for (const [index, item] of (
+      manifest.contributes.scheduledJobs ?? []
+    ).entries()) {
+      if (contributionBelongsToExtension(manifest.id, item.provider)) continue;
+      context.addIssue({
+        code: "custom",
+        message:
+          "Eine Scheduled Job Provider ID muss zur deklarierenden Extension gehören.",
+        path: ["contributes", "scheduledJobs", index, "provider"],
+      });
+    }
+
     if (
       manifest.contributes.commands !== undefined &&
       manifest.entrypoints.ui === undefined &&
@@ -1204,6 +1236,18 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message:
           "Background Service Contributions benötigen einen Server-Entrypoint für ihre Provider.",
+        path: ["entrypoints", "server"],
+      });
+    }
+
+    if (
+      manifest.contributes.scheduledJobs !== undefined &&
+      manifest.entrypoints.server === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Scheduled Job Contributions benötigen einen Server-Entrypoint für ihre Provider.",
         path: ["entrypoints", "server"],
       });
     }
