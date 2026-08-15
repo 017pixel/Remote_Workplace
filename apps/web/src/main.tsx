@@ -11,6 +11,7 @@ import { apiClient } from "./lib/apiClient";
 import { synchronizeExistingPushDevice } from "./lib/webPushDevice";
 import { bootstrapLegacyPageRoutes } from "./extensions/legacyPageRoutes";
 import { bootstrapLegacyNavigation } from "./extensions/legacyNavigation";
+import { bootstrapLegacyCommands } from "./extensions/legacyCommands";
 import "./index.css";
 import "./components/usage/usage-mobile.css";
 
@@ -18,6 +19,7 @@ import "./components/usage/usage-mobile.css";
 installGlobalErrorHandlers();
 bootstrapLegacyPageRoutes();
 bootstrapLegacyNavigation();
+bootstrapLegacyCommands();
 
 const root = document.querySelector<HTMLDivElement>("#root");
 if (root === null) throw new Error("Der Frontend-Mount-Punkt #root fehlt.");

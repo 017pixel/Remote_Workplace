@@ -8,6 +8,7 @@ import { prefetchRouteTarget } from "../lib/routePrefetch";
 import { workbenchQueries } from "../lib/queryOptions";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
+import { commandRegistry } from "../extensions/commandRegistry";
 import { isOrbitItemVisibleIn, isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
 import { useOrbitStore } from "../stores/orbit";
 import { PromptDialog } from "./ModalDialog";
@@ -32,7 +33,7 @@ function beginOrbitDrag(event: ReactDragEvent, payload: OrbitPalettePayload) {
 }
 
 function requestOrbitProjectBrowser() {
-  window.dispatchEvent(new Event("orbit:project-browser"));
+  void commandRegistry.execute("workbench.orbit.command.project-browser");
 }
 
 
