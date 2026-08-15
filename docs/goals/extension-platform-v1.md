@@ -177,19 +177,20 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 3, `in-progress`. Phasen 0 bis 2 sind abgeschlossen.
+Phase 4, `in-progress`. Phasen 0 bis 3 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 3.1, Route Host aus der Page-/Route-Registry ableiten.
+Subgoal 4.1, generischen Extension-Knoten additiv im Orbit-Vertrag öffnen.
 
 ## Next Concrete Action
 
-Subgoal 3.1 leitet den statischen Router in `App.tsx` aus dem PageRouteRegistry-Snapshot ab:
-Pages werden über ihre Runtime-Loader lazy gehostet, Host-Routen und 404 bleiben Kernel,
-`PersistentOutlet` und Stale-Chunk-Recovery bleiben erhalten. Paritätstests sichern URL-
-Muster, Aliase, Shell-Modi und Prefetch; danach gilt: Eine Test-Extension kann eine neue
-Seite hinzufügen, ohne Core-Featurelisten zu editieren.
+Subgoal 4.1 öffnet den generischen `type: extension`-Knoten additiv im Orbit-Vertrag:
+Extension- und Contribution-ID ersetzen Featuretypen als Identität, ein lokales State-
+Schema mit monotoner Version schützt persistierten State, fehlender Code löscht nichts.
+Historische Revisionen bleiben unverändert; Legacy-Knoten werden erst kontrolliert beim
+Lesen/Schreiben migriert. Dokumentversion 8 und alle geschlossenen Legacy-Knotentypen
+bleiben les- und schreibbar.
 
 ## Phase Table
 
@@ -198,8 +199,8 @@ Seite hinzufügen, ohne Core-Featurelisten zu editieren.
 | 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
 | 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | done |
 | 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | done |
-| 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | in-progress |
-| 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
+| 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | done |
+| 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | in-progress |
 | 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | not-started |
 | 6 | Capability Layer für Files, Process, Network, Storage, Events, Jobs, Secrets und weitere Broker | not-started |
 | 7 | Extension SDK, UI Kit, CLI, Scaffolds, Beispiele und Test Harness | not-started |
