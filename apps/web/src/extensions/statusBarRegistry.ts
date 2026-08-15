@@ -27,6 +27,10 @@ export interface StatusBarPayload {
 export interface StatusBarRuntimeBinding {
   readonly getValue?: () => StatusBarPayload | Promise<StatusBarPayload>;
   readonly icon?: ComponentType<{ className?: string }>;
+  /** Legacy-Adapter: Zuordnung auf die bestehende Usage-Provider-Quelle. */
+  readonly usageProviderId?: string;
+  /** Legacy-Adapter: Anzeigename für Tooltips, falls er vom Label abweicht. */
+  readonly usageProviderTitle?: string;
 }
 
 export interface StatusBarRegistryValue {

@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { compactAccountIdentity, visibleStatusBarProviders } from "./StatusBar";
+import { registerLegacyStatusBar } from "../extensions/legacyStatusBar";
+import { statusBarRegistry } from "../extensions/statusBarRegistry";
+
+beforeEach(() => {
+  registerLegacyStatusBar(statusBarRegistry);
+});
 
 describe("compactAccountIdentity", () => {
   it("shortens long email local parts while preserving the recognizable ends and domain", () => {

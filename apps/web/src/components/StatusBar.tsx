@@ -5,19 +5,34 @@ import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";
 import { Spinner, StateDot } from "./primitives";
 import { useOrbitStore } from "../stores/orbit";
-
-const statusBarProviderDefinitions = [
-  { providerId: "codex", label: "Codex", title: "Codex" },
-  { providerId: "opencode", label: "OpenCode", title: "OpenCode" },
-  { providerId: "claude", label: "Claude", title: "Claude Code" },
-] as const satisfies ReadonlyArray<{ providerId: ProviderUsage["providerId"]; label: string; title: string }>;
+import { statusBarRegistry } from "../extensions/statusBarRegistry";
 
 export type StatusBarProviderState = Pick<ProviderUsage, "providerId" | "status">;
 
-/** Deaktivierte Provider gehören nicht in die kompakte Limitanzeige. */
-export function visibleStatusBarProviders(providers: readonly StatusBarProviderState[] | undefined) {
-  if (!providers) return statusBarProviderDefinitions;
-  return statusBarProviderDefinitions.filter((definition) => providers.find((provider) => provider.providerId === definition.providerId)?.status !== "disabled");
+export interface StatusBarUsageProvider {
+  readonly providerId: ProviderUsage["providerId"];
+  readonly label: string;
+  readonly title: string;
+}
+
+/**
+ * Die drei Usage Provider der Statusleiste kommen aus der Status-Bar-Registry
+ * (Legacy Built-ins mit `usageProviderId`). Deaktivierte Provider gehören
+ * nicht in die kompakte Limitanzeige; ohne Serverdaten bleiben alle sichtbar.
+ */
+export function visibleStatusBarProviders(providers: readonly StatusBarProviderState[] | undefined): StatusBarUsageProvider[] {
+  const items = statusBarRegistry
+    .getSnapshot()
+    .right.filter(
+      (item) => item.value.runtime.usageProviderId !== undefined,
+    )
+    .map((item) => ({
+      providerId: item.value.runtime.usageProviderId as ProviderUsage["providerId"],
+      label: item.value.contribution.title,
+      title: item.value.runtime.usageProviderTitle ?? item.value.contribution.title,
+    }));
+  if (!providers) return items;
+  return items.filter((definition) => providers.find((provider) => provider.providerId === definition.providerId)?.status !== "disabled");
 }
 
 export function compactAccountIdentity(value: string): string {

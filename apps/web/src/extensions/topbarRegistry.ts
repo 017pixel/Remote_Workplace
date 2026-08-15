@@ -18,6 +18,10 @@ import {
   type FrontendRegistrySnapshot,
   type OwnedFrontendContribution,
 } from "./registryCore";
+import {
+  pageRouteRegistry,
+  type PageRouteRegistry,
+} from "./pageRouteRegistry";
 
 export interface TopbarSelectorOptions {
   readonly options: readonly { id: string; label: string }[];
@@ -54,6 +58,7 @@ export const topbarRegistryErrorCodes = [
   "foreign-provider",
   "missing-icon",
   "foreign-context-key",
+  "missing-route",
 ] as const;
 export type TopbarRegistryErrorCode = (typeof topbarRegistryErrorCodes)[number];
 
@@ -98,10 +103,13 @@ function compareTopbarItems(
 /**
  * Typisierte Runtime-Grenze für Topbar Contributions. Aktionen referenzieren
  * Commands, Selectoren zusätzlich einen namespaced Provider; die Darstellung
- * bleibt vollständig hostgerendert.
+ * bleibt vollständig hostgerendert. Eine Route muss deklariert sein; sie darf
+ * auch einem anderen Owner gehören, damit Extensions additive Aktionen auf
+ * bestehende Flächen legen können.
  */
 export class TopbarRegistry {
   private readonly commands: CommandRegistry;
+  private readonly pageRoutes: PageRouteRegistry;
   private readonly registry =
     new FrontendContributionRegistry<TopbarRegistryValue>();
   private derivedSnapshot: TopbarRegistrySnapshot = Object.freeze({
@@ -112,8 +120,12 @@ export class TopbarRegistry {
     overflow: Object.freeze([]),
   });
 
-  constructor(commands: CommandRegistry = commandRegistry) {
+  constructor(
+    commands: CommandRegistry = commandRegistry,
+    pageRoutes: PageRouteRegistry = pageRouteRegistry,
+  ) {
     this.commands = commands;
+    this.pageRoutes = pageRoutes;
   }
 
   readonly subscribe = this.registry.subscribe;
@@ -182,6 +194,15 @@ export class TopbarRegistry {
         throw new TopbarRegistryError(
           "foreign-command",
           "Eine Topbar Contribution darf nur einen Command ihres eigenen Owners referenzieren.",
+          ownerId,
+          parsed.data.id,
+        );
+      }
+
+      if (this.pageRoutes.getRoute(parsed.data.routeId) === undefined) {
+        throw new TopbarRegistryError(
+          "missing-route",
+          "Eine Topbar Contribution muss eine deklarierte Route referenzieren.",
           ownerId,
           parsed.data.id,
         );

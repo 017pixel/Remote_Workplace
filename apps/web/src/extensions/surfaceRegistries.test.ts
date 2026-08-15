@@ -4,14 +4,47 @@ import type {
   StatusBarContribution,
   TopbarContribution,
 } from "@workbench/extension-contracts";
+import { pageContributionSchema, routeContributionSchema } from "@workbench/extension-contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CommandRegistry } from "./commandRegistry";
 import { ContextMenuRegistry, ContextMenuRegistryError } from "./contextMenuRegistry";
+import { PageRouteRegistry } from "./pageRouteRegistry";
 import { StatusBarRegistry, StatusBarRegistryError } from "./statusBarRegistry";
 import { TopbarRegistry, TopbarRegistryError } from "./topbarRegistry";
 
 function command(ownerId: string, id = `${ownerId}.command.main`): CommandContribution {
   return { id, title: "Testbefehl" } as CommandContribution;
+}
+
+function registerRoute(routes: PageRouteRegistry, ownerId: string): void {
+  const pageId = `${ownerId}.page.main`;
+  routes.replaceOwner(ownerId, {
+    pages: [
+      {
+        contribution: pageContributionSchema.parse({ id: pageId, title: "Testseite" }),
+        runtime: {
+          chunkId: "test",
+          exportName: "TestPage",
+          loading: "lazy",
+          recovery: "stale-chunk",
+          load: () => Promise.resolve({}),
+        },
+      },
+    ],
+    routes: [
+      {
+        contribution: routeContributionSchema.parse({
+          id: `${ownerId}.route.main`,
+          pageId,
+          path: "/test",
+        }),
+        runtime: {
+          boundary: "deferred-route",
+          aliasBehavior: "render",
+        },
+      },
+    ],
+  });
 }
 
 function statusBar(ownerId: string, overrides: Record<string, unknown> = {}): StatusBarContribution {
@@ -118,20 +151,27 @@ describe("StatusBarRegistry", () => {
 
 describe("TopbarRegistry", () => {
   let commands: CommandRegistry;
+  let routes: PageRouteRegistry;
   let registry: TopbarRegistry;
 
   beforeEach(() => {
     commands = new CommandRegistry();
-    registry = new TopbarRegistry(commands);
+    routes = new PageRouteRegistry();
+    registry = new TopbarRegistry(commands, routes);
   });
 
   function registerCommand(ownerId: string) {
     commands.replaceOwner(ownerId, [{ contribution: command(ownerId), runtime: { execute: () => undefined } }]);
   }
 
+  function registerOwner(ownerId: string) {
+    registerCommand(ownerId);
+    registerRoute(routes, ownerId);
+  }
+
   it("registriert Actions mit Command-Referenz und sortiert nach Platzierung", () => {
     const owner = "workbench.test";
-    registerCommand(owner);
+    registerOwner(owner);
     registry.replaceOwner(owner, [
       { contribution: topbar(owner, { placement: "secondary" }), runtime: {} },
       { contribution: topbar(owner, { id: `${owner}.topbar.second`, placement: "primary" }), runtime: {} },
@@ -143,14 +183,32 @@ describe("TopbarRegistry", () => {
   });
 
   it("lehnt einen fehlenden Command ab", () => {
+    registerRoute(routes, "workbench.test");
     expect(() =>
       registry.replaceOwner("workbench.test", [{ contribution: topbar("workbench.test"), runtime: {} }]),
     ).toThrowError(TopbarRegistryError);
   });
 
-  it("lehnt einen Selector Provider außerhalb des Owner-Namespaces ab", () => {
+  it("lehnt eine nicht deklarierte Route ab", () => {
+    registerCommand("workbench.test");
+    expect(() =>
+      registry.replaceOwner("workbench.test", [{ contribution: topbar("workbench.test"), runtime: {} }]),
+    ).toThrowError(TopbarRegistryError);
+  });
+
+  it("erlaubt Aktionen auf Routen eines fremden Owners", () => {
     const owner = "workbench.test";
     registerCommand(owner);
+    registerRoute(routes, "workbench.other");
+    registry.replaceOwner(owner, [
+      { contribution: topbar(owner, { routeId: "workbench.other.route.main" }), runtime: {} },
+    ]);
+    expect(registry.getSnapshot().items).toHaveLength(1);
+  });
+
+  it("lehnt einen Selector Provider außerhalb des Owner-Namespaces ab", () => {
+    const owner = "workbench.test";
+    registerOwner(owner);
     expect(() =>
       registry.replaceOwner(owner, [
         {
