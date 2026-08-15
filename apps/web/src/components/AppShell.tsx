@@ -16,6 +16,7 @@ import { TerminalSessionsSync } from "./terminal/TerminalSessionsSync";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell, useVisualViewportVariables } from "../lib/useResponsiveShell";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
+import { pageRouteRegistry } from "../extensions/pageRouteRegistry";
 import { addBreadcrumb } from "../lib/crashReport";
 import type { ProjectsResponse, TerminalKind } from "@workbench/contracts";
 import { ToolActionMenu } from "./ToolActionMenu";
@@ -106,7 +107,6 @@ function ContextProjectPicker() {
   );
 }
 
-const standaloneToolPaths = new Set(["/terminal", "/opencode", "/codex", "/claude", "/files"]);
 
 /** Meldet die sichtbare Chat-Ansicht an den Server (siehe useViewPresence). */
 function ViewPresenceReporter() {
@@ -164,12 +164,16 @@ export function AppShell() {
     [navigation],
   );
   const title = routeTitles[location.pathname] ?? "Remote Workplace";
-  const isProjectDetail = location.pathname.startsWith("/projects/");
-  const isOrbit = location.pathname === "/workbench";
-  const isNews = location.pathname === "/tech-tldrs";
-  const isStandaloneT3 = location.pathname === "/t3-code";
+  // Shell-Sonderfälle kommen aus der gematchten Route statt aus Pfadabfragen;
+  // die Route-Contribution bleibt damit die einzige Quelle für die Darstellung.
+  const activeRouteId = pageRouteRegistry.matchRoute(location.pathname)?.route.contributionId;
+  const isProjectDetail = activeRouteId === "workbench.projects.route.detail";
+  const isOrbit = activeRouteId === "workbench.orbit.route.main";
+  const isNews = activeRouteId === "workbench.tech-tldrs.route.main";
+  const isStandaloneT3 = activeRouteId === "workbench.t3-code.route.main";
   const isTerminalRoute = ["/terminal", "/codex", "/opencode", "/claude"].includes(location.pathname);
-  const hasStandaloneToolMenu = standaloneToolPaths.has(location.pathname);
+  const hasStandaloneToolMenu =
+    pageRouteRegistry.matchRoute(location.pathname)?.route.value.contribution.standaloneActions === true;
   const [terminalFocus, setTerminalFocus] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
