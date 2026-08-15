@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoals 2.3 bis 2.7 abgeschlossen, Subgoal 2.8 als Nächstes.
+Status: `in-progress`; Subgoals 2.3 bis 2.8 abgeschlossen, Subgoal 2.9 als Nächstes.
 
 ## Ergebnis
 
@@ -104,13 +104,18 @@ Status: `done`.
 
 ### 2.8 Orbit-Registry-Metadaten
 
-Status: `planning`.
+Status: `done`.
 
-- Bestehende Palette, Renderer, Inspector und Größenmetadaten als Built-ins registrieren.
-- Dokumentversion, geschlossene Legacy-Knoten und `panelTypeSchema` noch nicht verändern.
-- Phase 4 erhält verifizierte Runtime-Bindings für den generischen Extension-Knoten.
+- `orbitPaletteRegistry.ts` registriert die bisherige Seitenpalette (acht Werkzeuge, sieben
+  Blöcke, vier Preview-Layouts) als Legacy Built-ins mit stabilen Contribution-IDs; die
+  Sidebar liest die drei Paletten aus der Registry.
+- LocalStorage-Sichtbarkeit läuft über Legacy-Keys weiter; Dokumentversion, geschlossene
+  Legacy-Knoten und `panelTypeSchema` sind unverändert. Phase 4 erhält damit verifizierte
+  Runtime-Bindings für den generischen Extension-Knoten.
 
 ### 2.9 Phase-2-Verifikation
+
+Status: `in-progress`.
 
 - Typecheck, Lint, vollständige Unit-Tests und Produktionsbuild ausführen.
 - Eigenen isolierten Devserver auf freiem Port starten und Desktop/Mobile ausschließlich mit dem
