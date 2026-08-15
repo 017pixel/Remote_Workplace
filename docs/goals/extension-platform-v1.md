@@ -177,20 +177,19 @@ V1 sind als eigenständige Zod- und JSON-Schema-Verträge eingeführt.
 
 ## Current Phase
 
-Phase 4, `in-progress`. Phasen 0 bis 3 sind abgeschlossen.
+Phase 5, `in-progress`. Phasen 0 bis 4 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 4.1, generischen Extension-Knoten additiv im Orbit-Vertrag öffnen.
+Subgoal 5.1, serverseitige Extension Registry und Manager-Runtime.
 
 ## Next Concrete Action
 
-Subgoal 4.1 öffnet den generischen `type: extension`-Knoten additiv im Orbit-Vertrag:
-Extension- und Contribution-ID ersetzen Featuretypen als Identität, ein lokales State-
-Schema mit monotoner Version schützt persistierten State, fehlender Code löscht nichts.
-Historische Revisionen bleiben unverändert; Legacy-Knoten werden erst kontrolliert beim
-Lesen/Schreiben migriert. Dokumentversion 8 und alle geschlossenen Legacy-Knotentypen
-bleiben les- und schreibbar.
+Subgoal 5.1 baut die serverseitige Extension Registry (SQLite-Tabellen für installierte
+Versionen, Enablement, Runtime-Fakten und Operationsjournal) sowie die Manager-Runtime
+mit Discovery, Lifecycle-Übergängen und Health. Acht Management-Requests tragen eine
+erwartete Registry-Revision; der Manager bleibt die einzige Schreibinstanz. Sicherheits-
+Hooks, Identity und Audit laufen vor jeder Mutation.
 
 ## Phase Table
 
@@ -200,8 +199,8 @@ bleiben les- und schreibbar.
 | 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | done |
 | 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | done |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | done |
-| 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | in-progress |
-| 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | not-started |
+| 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | done |
+| 5 | Serverseitiger Extension Manager, Discovery, Installation, Lifecycle, Health und Logs | in-progress |
 | 6 | Capability Layer für Files, Process, Network, Storage, Events, Jobs, Secrets und weitere Broker | not-started |
 | 7 | Extension SDK, UI Kit, CLI, Scaffolds, Beispiele und Test Harness | not-started |
 | 8 | Extension Development Skills und Agent Acceptance Test | not-started |
