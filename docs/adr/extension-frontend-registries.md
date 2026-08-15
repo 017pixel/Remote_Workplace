@@ -40,6 +40,17 @@ Contribution-Hüllen ein. Surface-spezifische Werte bleiben bewusst außerhalb e
 Deep-Freeze- oder Serialisierungslogik, weil sie später React Loader, Provider und Handler
 enthalten können.
 
+Die Page-/Route-Registry verwendet einen gemeinsamen Owner-Batch für beide Contribution-Arten.
+Dadurch werden Page-Referenzen und normalisierte URL-Kollisionen vor einem einzigen Commit
+geprüft. Der Legacy-Katalog registriert 23 Pages und 23 Routes unter 18 Built-in-Namespaces,
+bindet das eager Dashboard sowie 15 bestehende Lazy-Chunks und erhält alle 21
+Prefetch-Präfixe. Die 24 öffentlichen URL-Muster bleiben öffentliche Contributions; der
+pfadlose App-Shell-Wrapper und der `*`-Fallback bleiben zwei getrennte `hostOnly`-Definitionen.
+Diese Trennung korrigiert die frühere Formulierung von 25 „öffentlichen Mustern“: Tatsächlich
+existieren 24 öffentliche URL-Muster plus `*`-Fallback. Im Registry-Modell werden daraus 23
+öffentliche Route Contributions, weil der `/gallery`-Redirect als Alias zu `/files` gehört, sowie
+zwei geschützte Host-Definitionen für App Shell und 404.
+
 ### Registry-Aufteilung
 
 | Registry | Phase-2-Aufgabe | Noch nicht in Phase 2 |

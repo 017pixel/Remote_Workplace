@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoal 2.2 abgeschlossen, Subgoal 2.3 als Nächstes.
+Status: `in-progress`; Subgoal 2.3 abgeschlossen, Subgoal 2.4 als Nächstes.
 
 ## Ergebnis
 
@@ -45,16 +45,19 @@ Status: `done`.
 
 ### 2.3 Page- und Route-Registry
 
-Status: `planning`.
+Status: `done`.
 
 - Alle bestehenden Pages, Routes, Aliase, Shell-Modi und Lazy Loader als Legacy Built-ins
   registrieren.
 - Dashboard-Index, drei Standalone-Routen, dynamische Projekt-/Preview-/Terminalpfade und 404 als
   explizite Host- beziehungsweise Route-Arten abbilden.
-- Parität für 25 öffentliche Muster, Boundaries, Persistenzmetadaten und Stale-Chunk-Recovery
+- Parität für 24 öffentliche URL-Muster plus zwei Host-Routen, Boundaries,
+  Persistenzmetadaten und Stale-Chunk-Recovery
   testen; `App.tsx` bleibt bis Phase 3 statischer Consumer.
 
 ### 2.4 Navigation- und Prefetch-Registry
+
+Status: `planning`.
 
 - Navigation-ID, Route-ID, Page-ID, Titel, Gruppe, Reihenfolge, Sichtbarkeit, Mobile-Eignung,
   Icon-Bindung und Prefetch in einer Quelle zusammenführen.

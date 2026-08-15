@@ -284,6 +284,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Unveränderliche, deterministisch sortierte Snapshots mit Revision und Subscription bereitgestellt
 - Owner-Dispose auf Registry-Bindings begrenzt und bestehende Runtime-Daten unangetastet gelassen
 
+### Extension-Page-Route-Registry
+
+- 23 bestehende Pages und Routes unter 18 stabilen Built-in-Namespaces registriert
+- 24 öffentliche URL-Muster samt Galerie-Alias und dynamischen Pfaden vollständig abgebildet
+- App Shell und 404 getrennt als geschützte Host-Routen statt öffentlicher Contributions markiert
+- Lazy Loader, Stale-Chunk-Recovery, Shell-, Persistenz- und Boundary-Metadaten gebunden
+- 18 bisherige Preference-IDs und 21 Prefetch-Präfixe kompatibel weitergeführt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

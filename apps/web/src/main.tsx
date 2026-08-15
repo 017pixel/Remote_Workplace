@@ -9,11 +9,13 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { addBreadcrumb, installGlobalErrorHandlers, subscribeToCrash } from "./lib/crashReport";
 import { apiClient } from "./lib/apiClient";
 import { synchronizeExistingPushDevice } from "./lib/webPushDevice";
+import { bootstrapLegacyPageRoutes } from "./extensions/legacyPageRoutes";
 import "./index.css";
 import "./components/usage/usage-mobile.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
 installGlobalErrorHandlers();
+bootstrapLegacyPageRoutes();
 
 const root = document.querySelector<HTMLDivElement>("#root");
 if (root === null) throw new Error("Der Frontend-Mount-Punkt #root fehlt.");

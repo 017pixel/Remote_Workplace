@@ -117,16 +117,21 @@ lokale `.rwext`-Pakete.
   und Status-Bar-Quellen auf ownergebundene Registries und Legacy Built-in Contributions ab.
 - `apps/web/src/extensions/registryCore.ts` implementiert die erste Phase-2-Laufzeitgrenze mit
   atomaren Owner-Batches, Namespace- und Kollisionsschutz, unveränderlichen sortierten Snapshots,
-  Revision, Subscription und ownerweitem Dispose. Sichtbare Consumer sind noch unverändert.
+  Revision, Subscription und ownerweitem Dispose.
+- `apps/web/src/extensions/pageRouteRegistry.ts` und `legacyPageRoutes.ts` registrieren vor dem
+  ersten Render 23 Pages und Routes, 24 öffentliche URL-Muster, zwei Host-Routen, 15
+  Lazy-Chunks, 21 Prefetch-Präfixe und 18 bisherige Preference-IDs. `App.tsx` bleibt bis Phase 3
+  der statische Router-Consumer.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 2.2 vierunddreißig lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 2.3 fünfunddreißig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`9c4ea68a05291d19fff6cde305a42095b8996d11` als analysierter Ausgangspunkt von Subgoal 2.2.
-Der Ergebniscommit dieser Aktualisierung enthält den Frontend Registry Core V1 und seine Tests.
+`1a25010975b6273c2bde5dd81bd8475e3e0ff16f` als analysierter Ausgangspunkt von Subgoal 2.3.
+Der Ergebniscommit dieser Aktualisierung enthält die Page-/Route-Registry und ihre Legacy
+Built-ins.
 
 ## Current Remote Workplace Version
 
@@ -155,14 +160,14 @@ Phase 2, `in-progress`. Phase 0 und Phase 1 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 2.3, Page- und Route-Registry mit Legacy Built-ins implementieren.
+Subgoal 2.4, Navigation- und Prefetch-Registry implementieren und Consumer migrieren.
 
 ## Next Concrete Action
 
-Subgoal 2.3 registriert alle heutigen Pages und Routes einschließlich Alias, Standalone-Flächen,
-dynamischer Pfade, Shell-Metadaten, Lazy Loader und Prefetch-Bindungen als Legacy Built-ins.
-Paritätstests sichern die 25 öffentlichen Muster und alle Runtime-Grenzen; `App.tsx` bleibt bis
-Phase 3 der statische Router-Consumer.
+Subgoal 2.4 führt Navigation-ID, Route-ID, Legacy Page-ID, Titel, Beschreibung, Gruppe,
+Reihenfolge, Sichtbarkeit, mobile Eignung, Icon und Prefetch-Bindung in einer ownergebundenen
+Registry zusammen. Sidebar, Mobile Navigation, Shell-Titel und Settings-Sichtbarkeit werden
+nacheinander auf dieselbe Snapshot-Quelle umgestellt, ohne LocalStorage Persist v2 zu brechen.
 
 ## Phase Table
 
@@ -356,7 +361,7 @@ Priorisierte Abhängigkeiten:
 | Theme Contributions | 1 bis 32 Themes mit mindestens einer Dark-/Light-Variante und 13 kontrollierten Farbrollen | Opake Hex-RGB-Werte, eindeutige IDs sowie Kontrast- und Darstellungsprüfung sind Pflicht; Systemmodus, Auswahl, PWA-Metadaten, Hermes und alle nichtfarblichen Tokens bleiben Hostzustand |
 | Catalog und Package Descriptor | Maximal 256 lokale Entries, Formatversion 1, vollständige reguläre Dateien mit Größen und SHA-256 | Manifest, ID, Version, Trust und Assets müssen übereinstimmen; Installer verifiziert erneut, Remote- und Hostquellen bleiben ausgeschlossen, Fehler werden isoliert gemeldet |
 | Extension Management API | Revisionierte Registry-Summaries und Details sowie acht Operationsrequests | Browser, CLI und Agenten nutzen denselben Contract; direkte Statuswrites, stale Mutationen, freie Quellen, erweiterte Grants und unredigierte Fehler bleiben fail-closed |
-| Frontend Registries | Atomarer Ownership-Kern mit Namespace, Kollision, Revision, Snapshot, Subscription und Dispose implementiert | Surface-Registries binden schrittweise bestehende IDs, Pfade, LocalStorage, Loader und Renderverhalten; Dynamic Shell folgt erst nach Parität |
+| Frontend Registries | Ownership-Kern sowie Page-/Route-Registry mit 23 Built-in-Paaren und 24 URL-Mustern implementiert | Navigation und weitere Surfaces binden schrittweise bestehende IDs, LocalStorage, Loader und Renderverhalten; Dynamic Shell folgt erst nach Parität |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -368,10 +373,10 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 2.2, alle fünf Workspace-Pakete |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 2.2, gesamtes Repository |
-| `pnpm test` | bestanden am 2026-08-15, 458 Extension-, 18 Contract-, 396 Server- und 289 Web-Tests, insgesamt 1161 | Subgoal 2.2, gesamtes Repository |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 2.2, vollständiger Produktionsbuild |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 2.3, alle fünf Workspace-Pakete |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 2.3, gesamtes Repository |
+| `pnpm test` | bestanden am 2026-08-15, 458 Extension-, 18 Contract-, 396 Server- und 305 Web-Tests, insgesamt 1177 | Subgoal 2.3, gesamtes Repository |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 2.3, vollständiger Produktionsbuild mit 15 getrennten Feature-Chunks |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
 | `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
@@ -452,7 +457,8 @@ Keine.
 | `2a1fd90` | Subgoal 1.29, Catalog Metadata und Package Contracts V1 |
 | `2c716ea` | Subgoal 1.30, Extension Management Contracts V1 und Abschluss Phase 1 |
 | `9c4ea68` | Subgoal 2.1, Frontend-Registry-ADR und Phase-2-Plan |
-| Ergebniscommit dieser Aktualisierung | Subgoal 2.2, Frontend Registry Core V1 |
+| `1a25010` | Subgoal 2.2, Frontend Registry Core V1 |
+| Ergebniscommit dieser Aktualisierung | Subgoal 2.3, Page-/Route-Registry mit Legacy Built-ins |
 
 ## Subgoal Log
 
@@ -493,4 +499,5 @@ Keine.
 | 1.30 Installations- und Update-API Contracts V1 | done | Revisionierte Summary-/Detail-/Operationsverträge, getrennte Registry-Fakten, acht Aktionen, drei lokale Source-Referenzen, Permission-Teilmengen, redigierte Fehler und 1151 grüne Repository-Tests | Subgoal 2.1, Frontend Registries und Legacy Built-in Contributions planen |
 | 2.1 Frontend Registries und Legacy Built-in Contributions | done | Aktueller Frontend-Abgleich, bindender Registry-ADR, acht Implementierungsschritte, Compatibility-/Exit-Gates, vollständiger Typecheck und 279 grüne Web-Tests | Subgoal 2.2, Frontend Registry Core V1 |
 | 2.2 Frontend Registry Core V1 | done | Direkte Contract-Abhängigkeit, atomare Owner-Batches, ID-/Namespace-/Kollisionsschutz, unveränderliche sortierte Snapshots, Revision, Subscription, Dispose, 10 neue Unit- und 1161 grüne Repository-Tests | Subgoal 2.3, Page- und Route-Registry mit Legacy Built-ins |
-| 2.3 Page- und Route-Registry mit Legacy Built-ins | planning | Page-/Route-Contracts, 25 öffentliche Muster, 15 Loader, 21 Prefetch-Präfixe und Persistenzgrenzen sind inventarisiert | Surface-Registry und vollständigen Built-in-Katalog ohne Router-Umbau implementieren |
+| 2.3 Page- und Route-Registry mit Legacy Built-ins | done | Atomare Page-/Route-Batches, globale Pfadkollisionen, 18 Owner, 23 Page-/Route-Paare, 24 URLs, zwei Host-Routen, 15 Lazy-Chunks, 21 Prefetch-Präfixe, 18 Legacy-IDs und 1177 grüne Repository-Tests | Subgoal 2.4, Navigation- und Prefetch-Registry |
+| 2.4 Navigation- und Prefetch-Registry | planning | 18 Navigationseinträge, drei Gruppen, zwei Path-Maps, Settings-Labels und Daten-Prefetch sind inventarisiert | Gemeinsame Registry implementieren und vier Consumer kompatibel migrieren |
