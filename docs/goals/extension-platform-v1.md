@@ -148,11 +148,11 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Stand nach Subgoal 2.7 vierzig lokale Goal-Commits vor `origin/master`.
+`master`, beim Stand nach Subgoal 5.2 fünfundfünfzig lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`6fb4ba0` — Dashboard- und Settings-Registry mit Legacy Built-ins.
+`53452cf` — Local Catalog mit echtem Installationspfad.
 
 ## Current Remote Workplace Version
 
@@ -181,15 +181,14 @@ Phase 5, `in-progress`. Phasen 0 bis 4 sind abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 5.1, serverseitige Extension Registry und Manager-Runtime.
+Subgoal 5.3, Catalog- und Extensions-API für Updates und Frontend.
 
 ## Next Concrete Action
 
-Subgoal 5.1 baut die serverseitige Extension Registry (SQLite-Tabellen für installierte
-Versionen, Enablement, Runtime-Fakten und Operationsjournal) sowie die Manager-Runtime
-mit Discovery, Lifecycle-Übergängen und Health. Acht Management-Requests tragen eine
-erwartete Registry-Revision; der Manager bleibt die einzige Schreibinstanz. Sicherheits-
-Hooks, Identity und Audit laufen vor jeder Mutation.
+Subgoal 5.3 öffnet die Catalog-Lese-API (GET /api/v1/extensions/catalog), setzt
+`availableVersion`/`update-available` aus Catalog-Versionen und verlinkt Updates auf den
+Catalog-Installationspfad. Danach folgen Capability Layer (Phase 6), SDK/UI Kit/CLI
+(Phase 7) und der Tech-TLDRs-Canary (Phase 9).
 
 ## Phase Table
 
