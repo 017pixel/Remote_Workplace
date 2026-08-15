@@ -144,6 +144,9 @@ importers:
       '@workbench/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@workbench/extension-contracts':
+        specifier: workspace:*
+        version: link:../../packages/extension-contracts
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0

@@ -33,6 +33,13 @@ alle Runtime-Bindings des Owners in einem Schritt und informiert React-Consumer 
 Registry-Revision. Die Registries speichern keinen Installations-, Grant- oder Lifecycle-State;
 diese Fakten kommen später ausschließlich vom Server Extension Manager.
 
+Der gemeinsame Kern ist in `apps/web/src/extensions/registryCore.ts` implementiert. Er verwendet
+die öffentlichen ID-Schemas direkt aus `@workbench/extension-contracts`, liefert stabile
+`getSnapshot`-/`subscribe`-Funktionen für `useSyncExternalStore` und friert Snapshot sowie
+Contribution-Hüllen ein. Surface-spezifische Werte bleiben bewusst außerhalb einer generischen
+Deep-Freeze- oder Serialisierungslogik, weil sie später React Loader, Provider und Handler
+enthalten können.
+
 ### Registry-Aufteilung
 
 | Registry | Phase-2-Aufgabe | Noch nicht in Phase 2 |

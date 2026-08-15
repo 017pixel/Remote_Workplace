@@ -2,6 +2,8 @@
 
 Stand: 2026-08-15
 
+Status: `in-progress`; Subgoal 2.2 abgeschlossen, Subgoal 2.3 als Nächstes.
+
 ## Ergebnis
 
 Phase 2 führt typisierte Frontend Registries und Legacy Built-in Contributions ein. Die sichtbare
@@ -33,6 +35,8 @@ Vollständige Ausgangsbasis:
 
 ### 2.2 Registry Core V1
 
+Status: `done`.
+
 - `@workbench/extension-contracts` im Web als öffentliche Metadatenquelle verwenden.
 - Generischen Ownership-Kern für atomare Owner-Batches, Kollisionen, Revision, Snapshot,
   Subscription und Dispose implementieren.
@@ -40,6 +44,8 @@ Vollständige Ausgangsbasis:
 - Negative Tests für fremde Namespaces, partielle Batches und doppelte IDs ergänzen.
 
 ### 2.3 Page- und Route-Registry
+
+Status: `planning`.
 
 - Alle bestehenden Pages, Routes, Aliase, Shell-Modi und Lazy Loader als Legacy Built-ins
   registrieren.

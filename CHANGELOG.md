@@ -276,6 +276,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Migration von Pages bis Orbit in acht kleine, überprüfbare Phase-2-Schritte gegliedert
 - Bookmarks, LocalStorage, Lazy Chunks, mobile Bedienung und persistente Routen als Exit Gates festgelegt
 
+### Extension-Frontend-Registry-Core
+
+- Öffentliche Extension-Verträge als direkte Web-Workspace-Abhängigkeit eingebunden
+- Ownergebundene Contribution-Batches vollständig und atomar ersetzbar gemacht
+- Ungültige IDs, fremde Namespaces, doppelte Beiträge und Kollisionen fail-closed abgefangen
+- Unveränderliche, deterministisch sortierte Snapshots mit Revision und Subscription bereitgestellt
+- Owner-Dispose auf Registry-Bindings begrenzt und bestehende Runtime-Daten unangetastet gelassen
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench
