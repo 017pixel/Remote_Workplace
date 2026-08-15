@@ -55,8 +55,10 @@ lokale `.rwext`-Pakete.
 - Orbit, Usage, Notifications, Preview-Metadaten, Terminal-Metadaten, Browser-Metadaten,
   Projekte und News verwenden aktuell die gemeinsame externe Workbench-SQLite oder eigene
   Datenbankmodule. Extension-Fachdaten sind noch nicht getrennt provisioniert.
-- Es gibt noch kein Extension Manifest, keine Extension API Version, keinen Manager, keine
-  Contribution Registry, keinen Capability Broker, kein Extension SDK und keinen Local Catalog.
+- `packages/extension-contracts` enthält jetzt die additiven Grundlagen für stabile Extension-
+  und Contribution-IDs, Manifest V1, Extension API 1, kanonische Semantic Versions und
+  Compatibility Ranges. Vollständiges Manifest, Manager, Contribution Registry, Capability
+  Broker, SDK und Local Catalog existieren noch nicht.
 - Das vollständige Detailinventar liegt in
   [`extension-platform-v1-inventory.md`](extension-platform-v1-inventory.md). Es erfasst 25
   öffentliche Routenmuster einschließlich Alias und Fallback, 167 direkt registrierte
@@ -65,12 +67,12 @@ lokale `.rwext`-Pakete.
 
 ## Current Branch
 
-`master`, beim Start von Subgoal 0.3 zwei lokale Goal-Commits vor `origin/master`.
+`master`, beim Start von Subgoal 1.1 drei lokale Goal-Commits vor `origin/master`.
 
 ## Current Commit
 
-`7117e6f60cdc31c0140107facadcf77e51b56e95` als analysierter Ausgangspunkt von Subgoal 0.3.
-Der Ergebniscommit enthält die ADRs und diese Tracker-Aktualisierung.
+`2899706d15fedb29fac4726762f4e722807b84e9` als analysierter Ausgangspunkt von Subgoal 1.1.
+Der Ergebniscommit enthält die Contract-Grundlagen und diese Tracker-Aktualisierung.
 
 ## Current Remote Workplace Version
 
@@ -78,34 +80,36 @@ Der Ergebniscommit enthält die ADRs und diese Tracker-Aktualisierung.
 
 ## Extension API Version
 
-Noch nicht eingeführt. Ziel für V1: `1`.
+`1`; als unabhängige Major-Version und intern als `1.0.0` eingeführt. Runtime und SDK folgen in
+späteren Phasen.
 
 ## Manifest Version
 
-Noch nicht eingeführt. Ziel für V1: `1`.
+`1`; Versionskonstante und fail-closed Zod-Literal sind eingeführt. Das vollständige Manifest-
+Schema folgt in den nächsten Phase-1-Subgoals.
 
 ## Current Phase
 
-Phase 1, `planning`. Phase 0 ist abgeschlossen.
+Phase 1, `in-progress`. Phase 0 ist abgeschlossen.
 
 ## Current Subgoal
 
-Subgoal 1.1, Extension-ID-, Contribution-ID- und Versionsgrundlagen in
-`@workbench/extension-contracts` einführen.
+Subgoal 1.2, Manifest-V1-Metadaten, Engines, Trust, lokale Assets und Entrypoints als kanonisches
+Zod-Schema einführen.
 
 ## Next Concrete Action
 
-Vor Phase 1 den vorgeschriebenen Repository-Check erneut ausführen. Danach in Subgoal 1.1 das
-Package `@workbench/extension-contracts` mit den kanonischen Konstanten und Zod-Schemas für
-Extension IDs, Contribution IDs, Remote-Workplace-Version, Extension API Version und Manifest
-Version anlegen. Noch keine Contributions, Runtime oder Featuremigration einführen.
+Subgoal 1.2 ergänzt das bestehende Package um ein striktes Manifest-Grundschema mit Metadaten,
+Compatibility Engines, Trust-Hinweis, lokalen Assetpfaden und optionalen UI-/Server-Entrypoints.
+TypeScript Types und JSON Schema werden aus derselben Zod-Quelle abgeleitet. Permissions,
+Activation Events und Contributions bleiben getrennte spätere Subgoals.
 
 ## Phase Table
 
 | Phase | Ergebnis | Status |
 | --- | --- | --- |
 | 0 | Vollständiges Inventar, Baselines, Migration Matrix und erste Architekturentscheidungen | done |
-| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | planning |
+| 1 | Manifest V1, IDs, Versionen, Lifecycle, Permissions, Contributions und Catalog Contracts | in-progress |
 | 2 | Typisierte Frontend Registries mit Legacy Built-in Contributions | not-started |
 | 3 | Dynamic Shell, Route Host und gemeinsame Navigation Registry | not-started |
 | 4 | Generisches Orbit Extension Model, Missing State und Legacy Migration | not-started |
@@ -195,8 +199,8 @@ Priorisierte Abhängigkeiten:
 | Vertrag/Zustand | Aktuell | Ziel und Kompatibilitätsregel |
 | --- | --- | --- |
 | Remote Workplace | 0.44.0 | SemVer bleibt getrennt von Extension API und Manifest |
-| Extension API | nicht vorhanden | V1 ist `1`; Compatibility Range wird im Manifest geprüft |
-| Manifest | nicht vorhanden | V1 ist `1`; unbekannte Versionen werden fail-closed abgelehnt |
+| Extension API | Version 1 als Contract-Grundlage | Runtime bleibt innerhalb Major 1 kompatibel; Compatibility Range wird im Manifest geprüft |
+| Manifest | Version 1 als Contract-Grundlage | Vollständiges V1-Schema folgt additiv; unbekannte Versionen werden fail-closed abgelehnt |
 | Orbit Dokument | liest 6-8, schreibt 8 | Historische Versionen bleiben lesbar; Extension Nodes werden additiv migriert |
 | Sidebar Preferences | localStorage Key `remote-workplace.sidebar-preferences.v1`, Persist v2 | Versionierter Import zu stabilen Contribution IDs, alte Daten bleiben als Fallback |
 | Route Bookmarks | bestehende Pfade wie `/t3-code`, `/terminal`, `/files` | Bestehende Pfade bleiben direkte Routes oder Aliase |
@@ -208,13 +212,13 @@ Priorisierte Abhängigkeiten:
 | Prüfung | Letztes Ergebnis | Scope |
 | --- | --- | --- |
 | Git-Baseline | sauber | Start von Subgoal 0.1 |
-| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 0.3 |
-| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 0.3 |
-| `pnpm test` | bestanden am 2026-08-15, 18 Contracts, 396 Server, 279 Web | Subgoal 0.3 |
-| `pnpm build` | bestanden am 2026-08-15 | Subgoal 0.2, Produktionsbuild für Baseline |
+| `pnpm typecheck` | bestanden am 2026-08-15 | Subgoal 1.1, alle fünf Workspaces |
+| `pnpm lint` | bestanden am 2026-08-15 | Subgoal 1.1 |
+| `pnpm test` | bestanden am 2026-08-15, 45 Extension Contracts, 18 Contracts, 396 Server, 279 Web | Subgoal 1.1, 738 Tests |
+| `pnpm build` | bestanden am 2026-08-15 | Subgoal 1.1, vollständiger Produktionsbuild |
 | Browser-Baseline | bestanden am 2026-08-15 | isolierter Testserver, Playwright MCP, Dashboard, Orbit und Settings |
 | `pnpm test:e2e` | noch nicht in diesem Goal ausgeführt | erster UI-Milestone |
-| `pnpm security:audit` | noch nicht in diesem Goal ausgeführt | erster Milestone |
+| `pnpm security:audit` | High-Severity-Gate bestanden am 2026-08-15; eine moderate bestehende DOMPurify-Advisory | Subgoal 1.1, nicht durch `semver` eingeführt |
 
 ## Performance Baseline
 
@@ -243,6 +247,12 @@ zeitabhängige Usage-Testfixture, deren fester 15. Juli am 15. August aus dem ge
 Testlauf ist wieder grün. Vorhandene `Unreleased`-Änderungen im Changelog stammen aus der
 laufenden Entwicklung vor Goal-Start und werden nicht umgeschrieben.
 
+Der Production Audit meldet `GHSA-55q2-fjhq-7xh7` für das bereits verwendete
+`dompurify@3.4.12`. Die betroffene Kombination aus `IN_PLACE` und Element-removing Hooks wird in
+den beiden aktuellen Aufrufstellen nicht verwendet; `semver` hat die Advisory nicht eingeführt.
+Das High-Severity-Gate bleibt grün. Das Patch-Upgrade auf DOMPurify 3.4.13 oder neuer wird als
+separate Security-Wartung behandelt und nicht in den Extension-Contract-Commit gemischt.
+
 ## Blocked Items
 
 Keine.
@@ -254,7 +264,8 @@ Keine.
 | `479bfa7` | Ausgangscommit, korrigiert Routen-Synchronisierung in inaktiven Flächen |
 | `7662f2c` | Subgoal 0.1, Goal-Tracker und Repository-Baseline |
 | `7117e6f` | Subgoal 0.2, Detailinventar und Performance-Baseline |
-| Ergebniscommit dieser Aktualisierung | Subgoal 0.3, Kernel Boundary und bindende Phase-1-ADRs |
+| `2899706` | Subgoal 0.3, Kernel Boundary und bindende Phase-1-ADRs |
+| Ergebniscommit dieser Aktualisierung | Subgoal 1.1, ID- und Versionsgrundlagen |
 
 ## Subgoal Log
 
@@ -263,4 +274,5 @@ Keine.
 | 0.1 Goal-Tracker und Baseline | done | Git, Konfiguration, Architektur, Router, Navigation, Orbit und Server Bootstrap gelesen; Typecheck, Lint und 693 Tests grün | Subgoal 0.2, vollständiges Inventar |
 | 0.2 Vollständiges Phase-0-Inventar | done | Vollständiges Detailinventar, Produktionsbuild, isolierte Browser-/API-Baseline, Typecheck, Lint und 693 Tests grün | Subgoal 0.3, Kernel Boundary und ADRs |
 | 0.3 Kernel Boundary und Phase-1-ADRs | done | Vier akzeptierte ADRs gegen Security-, Runtime- und Persistenzgrenzen geprüft; Typecheck, Lint und 693 Tests grün | Subgoal 1.1, ID- und Versionsgrundlagen |
-| 1.1 ID- und Versionsgrundlagen | planning | Phase-0-Verträge und ADRs liegen vor | Repository neu prüfen und Contract-Package additiv anlegen |
+| 1.1 ID- und Versionsgrundlagen | done | Neues Contract-Package, stabile Namespaces, SemVer Compatibility, 45 Tests und vollständige Quality Gates grün | Subgoal 1.2, Manifest-Grundschema |
+| 1.2 Manifest-Grundschema | planning | ID- und Versionsschemas sowie Manifest-ADR liegen vor | Metadaten, Engines, Trust, lokale Assets, Entrypoints und JSON Schema ergänzen |

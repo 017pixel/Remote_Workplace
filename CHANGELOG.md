@@ -28,6 +28,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Einheitlichen atomaren Installations-, Update-, Rollback- und Deinstallationspfad definiert
 - Manifest-, Extension-API- und Workbench-Version als getrennte Verträge festgelegt
 
+### Extension-Contracts
+
+- Eigenes Package für stabile öffentliche Extension-Verträge eingeführt
+- Extension- und Contribution-IDs als kleingeschriebene Namespaces validiert
+- Manifest V1 und Extension API 1 als unabhängige Versionskonstanten bereitgestellt
+- Workbench- und API-Kompatibilität mit kanonischen Semantic Versions und Ranges geprüft
+- Build, Typecheck und Tests um das neue Contract-Package erweitert
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

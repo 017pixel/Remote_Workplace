@@ -1,0 +1,27 @@
+{
+  "name": "@workbench/extension-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "semver": "7.8.5",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/semver": "7.8.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}

@@ -161,6 +161,8 @@ Bereich „Workbench-Diagnose" Bereitschaftsprüfungen, Betriebshinweise, Audit 
 ## Monorepo
 
 - `packages/contracts`: gemeinsame Zod-Schemas und TypeScript-Typen.
+- `packages/extension-contracts`: versionierte Extension IDs, öffentliche Extension-Verträge
+  und Compatibility-Schemas; wird vor Server und Web gebaut.
 - `apps/server`: API, PTY-, Browser- und Hermes-Manager, Systemmetriken, Port- und Projekterkennung, Reverse Proxys und statische Web-Auslieferung.
 - `apps/web`: React-Oberfläche, Navigation, xterm.js, Browser- und Preview-Geräteansicht, Hermes-Chat sowie persistenter Workspace.
 - `config`: zentrale Laufzeitwerte sowie committete Beispiele und lokal ignorierte Serverkonfigurationen.

@@ -16,11 +16,11 @@
     }
   },
   "scripts": {
-    "dev": "pnpm --filter @workbench/contracts build && pnpm --parallel --filter @workbench/server --filter @workbench/web dev",
-    "build": "pnpm --filter @workbench/contracts build && pnpm --filter @workbench/server build && pnpm --filter @workbench/web build",
-    "typecheck": "pnpm --filter @workbench/contracts typecheck && pnpm --parallel --filter @workbench/server --filter @workbench/web typecheck",
+    "dev": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm --parallel --filter @workbench/server --filter @workbench/web dev",
+    "build": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm --filter @workbench/server build && pnpm --filter @workbench/web build",
+    "typecheck": "pnpm --filter @workbench/extension-contracts typecheck && pnpm --filter @workbench/contracts typecheck && pnpm --parallel --filter @workbench/server --filter @workbench/web typecheck",
     "lint": "eslint .",
-    "test": "pnpm --filter @workbench/contracts build && pnpm -r test",
+    "test": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
     "test:e2e": "playwright test",
     "security:audit": "pnpm audit --prod --audit-level=high",
