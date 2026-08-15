@@ -155,13 +155,39 @@ oder doppelte IDs sind Validierungsfehler statt still ignorierter Tippfehler.
 
 ### Dependencies und Conflicts
 
-- `extensionDependencies` und `optionalExtensionDependencies` bilden Extension IDs auf SemVer
-  Ranges ab.
-- `extensionConflicts` enthält Extension IDs mit optionaler Range.
-- Der Manager prüft fehlende oder inkompatible Abhängigkeiten, Zyklen und Konflikte vor
-  Aktivierung.
-- Auflösungsreihenfolge und Fehlermeldungen sind deterministisch; stabile IDs entscheiden
-  Tie-Breaks.
+Pflicht- und optionale Abhängigkeiten verwenden Maps. Konflikte sind eine Liste, damit eine
+Versionsspanne ausgelassen und eine Extension trotzdem explizit als generell inkompatibel
+markiert werden kann:
+
+```json
+{
+  "extensionDependencies": {
+    "workbench.projects": "^1.0.0"
+  },
+  "optionalExtensionDependencies": {
+    "workbench.git": ">=1.0.0 <2.0.0"
+  },
+  "extensionConflicts": [
+    {
+      "id": "workbench.legacy-agent-tasks",
+      "range": "<2.0.0"
+    },
+    {
+      "id": "workbench.agent-board"
+    }
+  ]
+}
+```
+
+- Jede Map und die Konfliktliste sind auf 64 Einträge begrenzt.
+- IDs und Ranges verwenden dieselben kanonischen Verträge wie das übrige Manifest.
+- Eine fehlende Conflict Range bedeutet einen Konflikt mit jeder installierten Version.
+- Selbstabhängigkeiten, Selbstkonflikte, doppelte Konflikte und Überschneidungen zwischen
+  Pflicht-, optionalen und inkompatiblen Extensions werden bereits im Manifest abgewiesen.
+- Der Manager prüft später fehlende oder inkompatible Abhängigkeiten, transitive Zyklen und
+  Konflikte gegen den installierten Graphen vor Aktivierung.
+- Der Manager sortiert Knoten und Kanten für Auflösung, Persistenz und Fehlermeldungen nach
+  stabilen Extension IDs. Die Reihenfolge von JSON-Objektschlüsseln besitzt keine Semantik.
 
 ## Konsequenzen
 

@@ -486,6 +486,61 @@
       },
       "uniqueItems": true
     },
+    "extensionDependencies": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^\\S(?:.*\\S)?$"
+      },
+      "maxProperties": 64
+    },
+    "optionalExtensionDependencies": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^\\S(?:.*\\S)?$"
+      },
+      "maxProperties": 64
+    },
+    "extensionConflicts": {
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*$"
+          },
+          "range": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^\\S(?:.*\\S)?$"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
     "contributes": {
       "type": "object",
       "properties": {},

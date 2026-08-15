@@ -60,6 +60,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Doppelte, unbekannte und überlange Aktivierungsereignisse werden sicher abgewiesen
 - Aktivierungsverträge im versionierten JSON Schema für Werkzeuge verfügbar gemacht
 
+### Extension-Abhängigkeiten
+
+- Pflicht- und optionale Extension-Abhängigkeiten mit stabilen IDs und Semantic-Version-Ranges definiert
+- Konflikte mit optionaler Versionsspanne als eindeutige, strikt validierte Einträge ergänzt
+- Selbstabhängigkeiten, Selbstkonflikte und widersprüchliche Beziehungen werden sicher abgewiesen
+- Abhängigkeits- und Konfliktlisten auf nachvollziehbare Höchstgrößen begrenzt
+- Dependency-Verträge im versionierten JSON Schema für Manager, CLI und Werkzeuge bereitgestellt
+
 ### Erstellt
 
 - Offizielle Hermes-SPA als einzige sichtbare Hermes-Oberfläche in der Workbench

@@ -36,6 +36,16 @@ const validManifest = {
   },
   permissions: [],
   activationEvents: [],
+  extensionDependencies: {
+    "workbench.projects": "^1.0.0",
+  },
+  optionalExtensionDependencies: {
+    "workbench.notifications": ">=1.0.0 <2.0.0",
+  },
+  extensionConflicts: [
+    { id: "workbench.legacy-agent-tasks", range: "<2.0.0" },
+    { id: "workbench.agent-board" },
+  ],
   contributes: {},
 };
 
@@ -184,6 +194,64 @@ describe("Extension Manifest V1", () => {
       extensionManifestV1Schema.safeParse({
         ...validManifest,
         activationEvents: ["onStartup", "onStartup"],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("akzeptiert optionale Dependency- und Conflict-Verträge", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionDependencies: { "workbench.projects": "^1.0.0" },
+        optionalExtensionDependencies: { "workbench.git": "^1.0.0" },
+        extensionConflicts: [{ id: "workbench.legacy-agent-tasks", range: "<2.0.0" }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("weist Selbstabhängigkeiten und Selbstkonflikte ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionDependencies: { "workbench.agent-tasks": "^1.0.0" },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        optionalExtensionDependencies: { "workbench.agent-tasks": "^1.0.0" },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionConflicts: [{ id: "workbench.agent-tasks" }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("weist Überschneidungen zwischen Dependency-Bereichen ab", () => {
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionDependencies: { "workbench.projects": "^1.0.0" },
+        optionalExtensionDependencies: { "workbench.projects": "^1.0.0" },
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionDependencies: { "workbench.projects": "^1.0.0" },
+        optionalExtensionDependencies: {},
+        extensionConflicts: [{ id: "workbench.projects" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      extensionManifestV1Schema.safeParse({
+        ...validManifest,
+        extensionDependencies: {},
+        optionalExtensionDependencies: { "workbench.notifications": "^1.0.0" },
+        extensionConflicts: [{ id: "workbench.notifications", range: "^1.0.0" }],
       }).success,
     ).toBe(false);
   });

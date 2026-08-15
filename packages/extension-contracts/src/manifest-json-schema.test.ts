@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ACTIVATION_EVENTS_MAX_COUNT } from "./activation-events.js";
+import { EXTENSION_CONFLICTS_MAX_COUNT, EXTENSION_DEPENDENCIES_MAX_COUNT } from "./dependencies.js";
 import {
   EXTENSION_MANIFEST_V1_SCHEMA_ID,
   createExtensionManifestV1JsonSchema,
@@ -35,6 +36,24 @@ describe("generiertes Extension-Manifest-JSON-Schema", () => {
           maxItems: ACTIVATION_EVENTS_MAX_COUNT,
           uniqueItems: true,
           items: { anyOf: expect.any(Array) },
+        },
+        extensionDependencies: {
+          type: "object",
+          maxProperties: EXTENSION_DEPENDENCIES_MAX_COUNT,
+          propertyNames: { type: "string", pattern: expect.any(String) },
+          additionalProperties: { type: "string" },
+        },
+        optionalExtensionDependencies: {
+          type: "object",
+          maxProperties: EXTENSION_DEPENDENCIES_MAX_COUNT,
+          propertyNames: { type: "string", pattern: expect.any(String) },
+          additionalProperties: { type: "string" },
+        },
+        extensionConflicts: {
+          type: "array",
+          maxItems: EXTENSION_CONFLICTS_MAX_COUNT,
+          uniqueItems: true,
+          items: { type: "object", additionalProperties: false },
         },
       },
     });

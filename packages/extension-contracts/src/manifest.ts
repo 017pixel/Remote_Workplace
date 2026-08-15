@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { activationEventBelongsToExtension, activationEventsV1Schema } from "./activation-events.js";
+import { extensionConflictsSchema, extensionDependencyMapSchema } from "./dependencies.js";
 import { extensionIdSchema } from "./ids.js";
 import {
   extensionApiCompatibilitySchema,
@@ -168,6 +169,9 @@ export const extensionManifestV1Schema = z
     entrypoints: extensionEntrypointsSchema,
     permissions: extensionPermissionsV1Schema,
     activationEvents: extensionActivationEventsV1Schema,
+    extensionDependencies: extensionDependencyMapSchema.optional(),
+    optionalExtensionDependencies: extensionDependencyMapSchema.optional(),
+    extensionConflicts: extensionConflictsSchema.optional(),
     contributes: extensionContributionsV1Schema,
   })
   .refine(
@@ -187,6 +191,51 @@ export const extensionManifestV1Schema = z
         code: "custom",
         message: "Referenzierte Contributions müssen zur deklarierenden Extension gehören.",
         path: ["activationEvents", index],
+      });
+    }
+
+    const requiredDependencies = manifest.extensionDependencies ?? {};
+    const optionalDependencies = manifest.optionalExtensionDependencies ?? {};
+
+    if (Object.hasOwn(requiredDependencies, manifest.id)) {
+      context.addIssue({
+        code: "custom",
+        message: "Eine Extension darf nicht von sich selbst abhängen.",
+        path: ["extensionDependencies", manifest.id],
+      });
+    }
+    if (Object.hasOwn(optionalDependencies, manifest.id)) {
+      context.addIssue({
+        code: "custom",
+        message: "Eine Extension darf sich nicht selbst als optionale Abhängigkeit deklarieren.",
+        path: ["optionalExtensionDependencies", manifest.id],
+      });
+    }
+
+    for (const dependencyId of Object.keys(optionalDependencies)) {
+      if (!Object.hasOwn(requiredDependencies, dependencyId)) continue;
+      context.addIssue({
+        code: "custom",
+        message: "Eine Extension darf nicht zugleich Pflicht- und optionale Abhängigkeit sein.",
+        path: ["optionalExtensionDependencies", dependencyId],
+      });
+    }
+
+    for (const [index, conflict] of (manifest.extensionConflicts ?? []).entries()) {
+      if (conflict.id === manifest.id) {
+        context.addIssue({
+          code: "custom",
+          message: "Eine Extension darf keinen Konflikt mit sich selbst deklarieren.",
+          path: ["extensionConflicts", index, "id"],
+        });
+      }
+      if (!Object.hasOwn(requiredDependencies, conflict.id) && !Object.hasOwn(optionalDependencies, conflict.id)) {
+        continue;
+      }
+      context.addIssue({
+        code: "custom",
+        message: "Eine Abhängigkeit darf nicht zugleich als Konflikt deklariert sein.",
+        path: ["extensionConflicts", index, "id"],
       });
     }
   });

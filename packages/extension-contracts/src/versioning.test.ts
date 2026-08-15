@@ -37,7 +37,7 @@ describe("getrennte Plattformversionen", () => {
     },
   );
 
-  it.each([">=0.50.0", "^1", "1.x", ">=1.2.7 <1.3.0", "1.2.7 || >=2.0.0"])(
+  it.each(["*", ">=0.50.0", "^1", "1.x", ">=1.2.7 <1.3.0", "1.2.7 || >=2.0.0"])(
     "akzeptiert den Version Range %s",
     (value) => {
       expect(semanticVersionRangeSchema.parse(value)).toBe(value);
