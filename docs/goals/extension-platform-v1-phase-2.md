@@ -2,7 +2,7 @@
 
 Stand: 2026-08-15
 
-Status: `in-progress`; Subgoals 2.3 bis 2.8 abgeschlossen, Subgoal 2.9 als Nächstes.
+Status: `done`; alle Subgoals 2.2 bis 2.9 abgeschlossen.
 
 ## Ergebnis
 
@@ -115,14 +115,17 @@ Status: `done`.
 
 ### 2.9 Phase-2-Verifikation
 
-Status: `in-progress`.
+Status: `done`.
 
-- Typecheck, Lint, vollständige Unit-Tests und Produktionsbuild ausführen.
-- Eigenen isolierten Devserver auf freiem Port starten und Desktop/Mobile ausschließlich mit dem
-  Playwright MCP prüfen.
-- Navigation, Prefetch, Einstellungen, Dashboard, Orbit-Palette, Menüs, Statusleiste und
-  persistente Routen gegen die Baseline vergleichen.
-- Erst nach grüner Parität Phase 3 und den Dynamic Shell beginnen.
+- Typecheck, Lint, vollständige Unit-Tests (1.251) und Produktionsbuild sind grün; die
+  15 Feature-Chunks bleiben getrennt und kein Initial-Bundle lädt sie eager.
+- Desktop und Mobile wurden mit dem Playwright MCP gegen die laufende Workbench geprüft:
+  Sidebar und Mobile Navigation lesen dieselbe Registry-Quelle, Settings-Cards,
+  Dashboard-Bereiche, Seiten-Sichtbarkeit, Orbit-Palette, Werkzeugaktionen und Statusleiste
+  entsprechen der Baseline.
+- LocalStorage Persist v2 und Dashboard-Persist bleiben über Legacy-Aliase unverändert
+  lesbar; keine user-owned Runtime oder Preview-Session wird durch Registrierungen beendet.
+- Phase 3 und der Dynamic Shell können beginnen.
 
 ## Exit Gates
 
