@@ -1,15 +1,16 @@
 import { NavLink, useLocation } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { OrbitNode } from "@workbench/contracts";
-import { BrowserIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CodeFileIcon, CodeServerIcon, CodexIcon, EyeIcon, FinderIcon, FolderCodeIcon, FolderSearchIcon, FrameIcon, HermesIcon, NoteIcon, NutzungIcon, OpenCodeIcon, RemoteWorkbenchIcon, T3CodeIcon, TerminalIcon, TodoIcon } from "./icons";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, FolderCodeIcon, FolderSearchIcon, RemoteWorkbenchIcon } from "./icons";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
 import { workbenchQueries } from "../lib/queryOptions";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
 import { commandRegistry } from "../extensions/commandRegistry";
-import { isOrbitItemVisibleIn, isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
+import { orbitPaletteRegistry } from "../extensions/orbitPaletteRegistry";
+import { isOrbitItemVisibleIn, isPageVisibleIn, useSidebarPreferences, type SidebarSectionKey, type PageRouteId } from "../stores/sidebarPreferences";
 import { useOrbitStore } from "../stores/orbit";
 import { PromptDialog } from "./ModalDialog";
 import { previewSessionKeysWithNode, previewSlotsReleasedWithNode, releasePreviewSessions, releasePreviewSlots } from "../lib/previewSlotLifecycle";
@@ -79,27 +80,6 @@ function SidebarNavLink({ item, collapsed, badge = 0 }: { item: OwnedNavigationI
     </NavLink>
   );
 }
-
-const orbitTools: ReadonlyArray<[OrbitPaletteItem, string, React.ComponentType<{ className?: string }>]> = [
-  ["tool:t3-code", "T3 Code", T3CodeIcon],
-  ["tool:hermes", "Hermes Agent", HermesIcon],
-  ["tool:code-server", "Code-Server", CodeServerIcon],
-  ["tool:terminal", "Terminal", TerminalIcon],
-  ["tool:opencode", "OpenCode", OpenCodeIcon],
-  ["tool:codex", "Codex", CodexIcon],
-  ["tool:files", "Files", FinderIcon],
-  ["tool:browser", "Browser", BrowserIcon],
-];
-const orbitBlocks: ReadonlyArray<[OrbitPaletteItem, OrbitPalettePayload, typeof NoteIcon]> = [
-  ["block:note", { type: "note", title: "Neue Notiz" } satisfies OrbitPalettePayload, NoteIcon],
-  ["block:todo", { type: "todo", title: "To-do-Liste" } satisfies OrbitPalettePayload, TodoIcon],
-  ["block:snippet", { type: "snippet", title: "Code-Snippet" } satisfies OrbitPalettePayload, CodeFileIcon],
-  ["block:frame", { type: "frame", title: "Neuer Bereich" } satisfies OrbitPalettePayload, FrameIcon],
-  ["block:usage-codex", { type: "usage", title: "Codex Nutzung", provider: "codex" } satisfies OrbitPalettePayload, NutzungIcon],
-  ["block:usage-opencode", { type: "usage", title: "OpenCode Nutzung", provider: "opencode" } satisfies OrbitPalettePayload, NutzungIcon],
-  ["block:usage-claude", { type: "usage", title: "Claude Code Nutzung", provider: "claude" } satisfies OrbitPalettePayload, NutzungIcon],
-];
-
 function OrbitPaletteButton({ payload, Icon, collapsed }: { payload: OrbitPalettePayload; Icon: React.ComponentType<{ className?: string }>; collapsed: boolean }) {
   return (
     <button type="button" className="sidebar-item orbit-palette-item" draggable onDragStart={(event) => beginOrbitDrag(event, payload)} onClick={() => requestOrbitNode(payload)} aria-label={payload.title} title={collapsed ? payload.title : "Klicken oder auf den Orbit ziehen"}>
@@ -112,28 +92,21 @@ function OrbitPaletteButton({ payload, Icon, collapsed }: { payload: OrbitPalett
 function OrbitToolSection({ collapsed }: { collapsed: boolean }) {
   const hiddenOrbitItems = useSidebarPreferences((s) => s.hiddenOrbitItems);
   const isCollapsed = useSectionCollapsed("tools");
-  const visible = orbitTools.filter(([key]) => isOrbitItemVisibleIn(hiddenOrbitItems, key));
+  const palette = useSyncExternalStore(orbitPaletteRegistry.subscribe, orbitPaletteRegistry.getSnapshot);
+  const visible = palette.byGroup.tools.filter((item) => isOrbitItemVisibleIn(hiddenOrbitItems, item.value.runtime.legacyKey));
   return (
     <div className="sidebar-section">
       <SectionHeader label="Werkzeuge" sectionKey="tools" collapsed={collapsed} />
-      {!isCollapsed ? visible.map(([key, label, Icon]) => {
-        const toolType = key.split(":")[1] as NonNullable<OrbitPalettePayload["toolType"]>;
-        return <OrbitPaletteButton key={key} payload={{ type: "tool", title: label, toolType }} Icon={Icon} collapsed={collapsed} />;
-      }) : null}
+      {!isCollapsed ? visible.map((item) => (
+        <OrbitPaletteButton key={item.contributionId} payload={item.value.runtime.createPayload()} Icon={item.value.runtime.icon} collapsed={collapsed} />
+      )) : null}
     </div>
   );
 }
 
-const previewTemplates: ReadonlyArray<[OrbitPaletteItem, "1" | "2" | "3" | "6", string]> = [
-  ["preview:layout-1", "1", "Einzel-Preview"],
-  ["preview:layout-2", "2", "2er-Gruppe"],
-  ["preview:layout-3", "3", "3er-Gruppe"],
-  ["preview:layout-6", "6", "6er-Gruppe (2×3)"],
-];
-
-function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {
-  const isCollapsed = useSectionCollapsed("previews");
+function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {  const isCollapsed = useSectionCollapsed("previews");
   const hiddenOrbitItems = useSidebarPreferences((state) => state.hiddenOrbitItems);
+  const palette = useSyncExternalStore(orbitPaletteRegistry.subscribe, orbitPaletteRegistry.getSnapshot);
   const document = useOrbitStore((state) => state.document);
   const duplicateNode = useOrbitStore((state) => state.duplicateNode);
   const removeNode = useOrbitStore((state) => state.removeNode);
@@ -168,8 +141,8 @@ function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {
     <div className="sidebar-section orbit-preview-section">
       <SectionHeader label="Previews" sectionKey="previews" collapsed={collapsed} />
       {!isCollapsed ? <>
-        {previewTemplates.filter(([key]) => isOrbitItemVisibleIn(hiddenOrbitItems, key)).map(([key, layout, label]) => (
-          <OrbitPaletteButton key={key} payload={{ type: "previewGroup", title: label, layout }} Icon={EyeIcon} collapsed={collapsed} />
+        {palette.byGroup.previews.filter((item) => isOrbitItemVisibleIn(hiddenOrbitItems, item.value.runtime.legacyKey)).map((item) => (
+          <OrbitPaletteButton key={item.contributionId} payload={item.value.runtime.createPayload()} Icon={item.value.runtime.icon} collapsed={collapsed} />
         ))}
         {savedGroups.length ? <span className="sidebar-preview-divider" /> : null}
         {savedGroups.map((group) => {
@@ -204,12 +177,13 @@ function OrbitPreviewSection({ collapsed }: { collapsed: boolean }) {
 function OrbitBlockSection({ collapsed }: { collapsed: boolean }) {
   const hiddenOrbitItems = useSidebarPreferences((s) => s.hiddenOrbitItems);
   const isCollapsed = useSectionCollapsed("blocks");
-  const visible = orbitBlocks.filter(([key]) => isOrbitItemVisibleIn(hiddenOrbitItems, key));
+  const palette = useSyncExternalStore(orbitPaletteRegistry.subscribe, orbitPaletteRegistry.getSnapshot);
+  const visible = palette.byGroup.blocks.filter((item) => isOrbitItemVisibleIn(hiddenOrbitItems, item.value.runtime.legacyKey));
   return (
     <div className="sidebar-section">
       <SectionHeader label="Blöcke" sectionKey="blocks" collapsed={collapsed} />
-      {!isCollapsed ? visible.map(([key, payload, Icon]) => (
-        <OrbitPaletteButton key={key} payload={payload} Icon={Icon} collapsed={collapsed} />
+      {!isCollapsed ? visible.map((item) => (
+        <OrbitPaletteButton key={item.contributionId} payload={item.value.runtime.createPayload()} Icon={item.value.runtime.icon} collapsed={collapsed} />
       )) : null}
     </div>
   );
