@@ -589,10 +589,16 @@ export type ExtensionManagementRequest = z.infer<
 
 export const extensionManagementAcceptedSchema = z.strictObject({
   revision: extensionRegistryRevisionSchema,
+  // V1 führt der Server Management-Operationen synchron aus; die Antwort
+  // enthält daher bereits die abgeschlossene Operation. Asynchrone
+  // Antworten (queued/running) bleiben Teil des Vertrags, sobald die
+  // Laufzeit Aktivierungsphasen echte Arbeit übernimmt.
   operation: extensionManagementOperationSchema.refine(
     (operation) =>
-      operation.status === "queued" || operation.status === "running",
-    "Eine angenommene Operation muss warten oder laufen.",
+      operation.status === "queued" ||
+      operation.status === "running" ||
+      operation.status === "succeeded",
+    "Eine Management-Antwort muss eine wartende, laufende oder abgeschlossene Operation enthalten.",
   ),
   extension: extensionRegistrySummarySchema,
 });

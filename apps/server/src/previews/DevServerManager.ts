@@ -308,21 +308,37 @@ export class PreviewDevServerManager {
         const projectId = this.sessionOption(name, "@workbench_project_id");
         const userId = this.sessionOption(name, "@workbench_user_id");
         if (!projectId || !userId) continue;
-        const panes = this.panes(name);
-        if (panes.some((pane) => pane.dead && pane.exitCode !== 0)) {
-          await this.autoRestart(name, userId, projectId);
-          continue;
-        }
-        if (panes.some((pane) => !pane.dead) && this.sessionOption(name, "@workbench_preview_publication_requested") === "1") {
-          const key = this.runtimeKey(userId, projectId);
-          if (Date.now() - (this.publicationHeartbeat.get(key) ?? 0) >= 10 * 60_000) {
-            await this.publish(userId, this.profileForSession(userId, projectId, await this.profile(projectId)), true).catch((error) => {
-              this.options.logger?.(`Die Preview-Veröffentlichung von ${projectId} konnte nicht erneuert werden: ${error instanceof Error ? error.message : String(error)}`);
-            });
-          }
+        try {
+          await this.tickSession(name, userId, projectId);
+        } catch (error) {
+          this.options.logger?.(`Watchdog-Tick für ${projectId} fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
+    } catch (error) {
+      this.options.logger?.(`Watchdog-Tick fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
     } finally { this.tickRunning = false; }
+  }
+
+  private async tickSession(name: string, userId: string, projectId: string) {
+    const panes = this.panes(name);
+    if (panes.some((pane) => pane.dead && pane.exitCode !== 0)) {
+      await this.autoRestart(name, userId, projectId);
+      return;
+    }
+    if (panes.some((pane) => !pane.dead) && this.sessionOption(name, "@workbench_preview_publication_requested") === "1") {
+      const key = this.runtimeKey(userId, projectId);
+      if (Date.now() - (this.publicationHeartbeat.get(key) ?? 0) >= 10 * 60_000) {
+        // `profile` darf nicht im Argument-Ausdruck liegen: Ein Fehler dort
+        // läge vor dem `.catch` und würde den Tick als ungefangenes Promise
+        // scheitern lassen.
+        try {
+          const profile = await this.profile(projectId);
+          await this.publish(userId, this.profileForSession(userId, projectId, profile), true);
+        } catch (error) {
+          this.options.logger?.(`Die Preview-Veröffentlichung von ${projectId} konnte nicht erneuert werden: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
   }
 
   private selectedMainPort(userId: string, projectId: string, profile: RuntimeProfileResult): number | null {
@@ -524,9 +540,12 @@ export class PreviewDevServerManager {
     }
     if (publicationRequested) {
       this.execute(["set-option", "-t", sessionName, "@workbench_preview_publication_requested", "1"]);
-      await this.publish(userId, this.profileForSession(userId, projectId, await this.profile(projectId)), true).catch((error) => {
+      try {
+        const profile = await this.profile(projectId);
+        await this.publish(userId, this.profileForSession(userId, projectId, profile), true);
+      } catch (error) {
         this.options.logger?.(`Die Preview-Veröffentlichung von ${projectId} konnte nach dem Neustart nicht wiederhergestellt werden: ${error instanceof Error ? error.message : String(error)}`);
-      });
+      }
     }
   }
 

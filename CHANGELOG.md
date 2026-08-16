@@ -332,6 +332,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Der Preview Hub zeigt Laufzeit, Dienste, Hauptziel und direkte URL klar getrennt; der neue Tab ist die Primäraktion
 - Projektprozesse starten unabhängig von Preview-Slots, überleben Workbench-Neustarts und stellen alte Slot-Origins beim Öffnen automatisch wieder her
 
+### Behoben
+
+- Genehmigte Permission-Reviews aktivieren Extensions mit gültiger Versionsangabe, sodass die Registry-Anzeige nach jeder Freigabe stabil bleibt
+- Reload sowie Aktivieren und Deaktivieren laufen über erlaubte Zustandsübergänge, auch für laufende oder im Review wartende Extensions
+- Updates, die neue Berechtigungen mitbringen, verlangen ein eigenes Review, statt die Extension still zu aktivieren
+- Beschädigte Catalog-Pakete werden beim Scan übersprungen, und Catalog-Fehler liefern klare Statuscodes statt generischer Serverfehler
+- Shortcut-Konflikte werden je Plattform erkannt, und der Preview-Watchdog meldet Fehler sauber, ohne den Dienst zu blockieren
+
 ---
 
 ## [0.43.0] - 2026-08-10

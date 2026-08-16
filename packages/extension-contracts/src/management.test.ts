@@ -341,7 +341,7 @@ describe("Extension Management Contracts V1", () => {
     ).toBe(false);
   });
 
-  it("liefert nach Annahme nur wartende oder laufende Operationen", () => {
+  it("nimmt wartende, laufende und synchron abgeschlossene Operationen an", () => {
     expect(
       extensionManagementAcceptedSchema.safeParse({
         revision: 13,
@@ -349,6 +349,9 @@ describe("Extension Management Contracts V1", () => {
         extension: { ...summary, lifecycle: "update-available" },
       }).success,
     ).toBe(true);
+    // V1 führt Operationen synchron aus; die Antwort darf die abgeschlossene
+    // Operation tragen. Fehlgeschlagene Operationen gehören nicht in eine
+    // Annahme-Antwort.
     expect(
       extensionManagementAcceptedSchema.safeParse({
         revision: 13,
@@ -357,6 +360,19 @@ describe("Extension Management Contracts V1", () => {
           status: "succeeded",
           startedAt: now,
           completedAt: now,
+        },
+        extension: summary,
+      }).success,
+    ).toBe(true);
+    expect(
+      extensionManagementAcceptedSchema.safeParse({
+        revision: 13,
+        operation: {
+          ...operation,
+          status: "failed",
+          startedAt: now,
+          completedAt: now,
+          error: { code: "staging-failed", occurredAt: now },
         },
         extension: summary,
       }).success,

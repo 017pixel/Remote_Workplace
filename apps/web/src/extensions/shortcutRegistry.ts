@@ -33,11 +33,13 @@ export type OwnedShortcutItem = OwnedFrontendContribution<
 /**
  * Kurzschlüsse, deren Chord auf einer Plattform mehrfach belegt ist, werden
  * nie still durch Registrierungsreihenfolge überschrieben, sondern im
- * Snapshot als Konflikt sichtbar und beim Matching übersprungen.
+ * Snapshot als Konflikt sichtbar und beim Matching übersprungen. Ein Konflikt
+ * trägt alle Plattformen, auf denen der Chord tatsächlich kollidiert —
+ * ein Mac-Override darf keinen Konflikt auf Windows auslösen und umgekehrt.
  */
 export interface ShortcutConflict {
   readonly chordKey: string;
-  readonly platform: ShortcutPlatform;
+  readonly platforms: readonly ShortcutPlatform[];
   readonly ids: readonly ContributionId[];
 }
 
@@ -258,7 +260,9 @@ export class ShortcutRegistry {
   ): Promise<OwnedShortcutItem | null> {
     const now = Date.now();
     const conflictIds = new Set(
-      this.getSnapshot().conflicts.flatMap((conflict) => conflict.ids),
+      this.getSnapshot()
+        .conflicts.filter((conflict) => conflict.platforms.includes(platform))
+        .flatMap((conflict) => conflict.ids),
     );
 
     for (const shortcut of this.getSnapshot().shortcuts) {
@@ -321,35 +325,58 @@ export class ShortcutRegistry {
     const shortcuts = Object.freeze(
       [...snapshot.contributions].sort(compareShortcuts),
     );
-    const conflictsByChord = new Map<
+    // Konflikte werden pro Plattform ermittelt und anschließend über
+    // identische Chord- und ID-Mengen zusammengefasst, damit ein Konflikt,
+    // der auf mehreren Plattformen gleich aussieht, nur einen Eintrag mit
+    // vollständiger Plattformliste erzeugt.
+    const byPlatform = new Map<
       string,
-      { platform: ShortcutPlatform; ids: ContributionId[] }
+      { chordKey: string; platforms: ShortcutPlatform[]; ids: Set<ContributionId> }
     >();
-    for (const shortcut of shortcuts) {
-      const contribution = shortcut.value.contribution;
-      const platforms: ShortcutPlatform[] = ["mac", "windows", "linux"];
-      for (const platform of platforms) {
+    const platforms: ShortcutPlatform[] = ["mac", "windows", "linux"];
+    for (const platform of platforms) {
+      const perPlatform = new Map<
+        string,
+        { platform: ShortcutPlatform; ids: ContributionId[] }
+      >();
+      for (const shortcut of shortcuts) {
+        const contribution = shortcut.value.contribution;
         const key = chordKey(bindingForPlatform(contribution, platform));
-        const entry = conflictsByChord.get(key);
+        const entry = perPlatform.get(key);
         if (entry === undefined) {
-          conflictsByChord.set(key, {
-            platform,
-            ids: [shortcut.contributionId],
-          });
+          perPlatform.set(key, { platform, ids: [shortcut.contributionId] });
           continue;
         }
         if (!entry.ids.includes(shortcut.contributionId)) {
           entry.ids.push(shortcut.contributionId);
         }
       }
+      for (const [chordKey, entry] of perPlatform) {
+        if (entry.ids.length < 2) continue;
+        const idsKey = [...entry.ids].sort().join("\u0000");
+        const merged = byPlatform.get(`${chordKey}\u0000${idsKey}`);
+        if (merged === undefined) {
+          byPlatform.set(`${chordKey}\u0000${idsKey}`, {
+            chordKey,
+            platforms: [platform],
+            ids: new Set(entry.ids),
+          });
+          continue;
+        }
+        merged.platforms.push(platform);
+      }
     }
     const conflicts = Object.freeze(
-      [...conflictsByChord.entries()]
-        .filter(([, entry]) => entry.ids.length > 1)
-        .map(([chordKey, entry]) =>
+      [...byPlatform.values()]
+        .sort((left, right) =>
+          left.chordKey === right.chordKey
+            ? [...left.ids].sort().join("\u0000").localeCompare([...right.ids].sort().join("\u0000"))
+            : left.chordKey.localeCompare(right.chordKey),
+        )
+        .map((entry) =>
           Object.freeze({
-            chordKey,
-            platform: entry.platform,
+            chordKey: entry.chordKey,
+            platforms: Object.freeze(entry.platforms),
             ids: Object.freeze([...entry.ids].sort()),
           }),
         ),

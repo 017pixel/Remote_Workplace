@@ -13,10 +13,15 @@ import {
   type ExtensionPackageDescriptor,
   type ExtensionPackageFile,
 } from "@workbench/extension-contracts";
+import { AppError } from "../utils/errors.js";
 
 interface CatalogSource {
   providerId: CatalogProviderId;
   directory: string;
+}
+
+interface CatalogLogger {
+  warn(message: string): void;
 }
 
 function sha256Of(filePath: string): string {
@@ -51,6 +56,9 @@ function packageFiles(directory: string): ExtensionPackageFile[] {
  * konfigurierten Verzeichnis; Remote-, Git-, npm- und HTTP-Quellen sind
  * nicht Teil des Providers. Jedes Catalog-Paket besteht aus einem
  * Verzeichnis mit `extension.json` und vollständigem Dateiinventar.
+ * Ein beschädigtes Paketverzeichnis überspringt der Scan mit Warnung,
+ * statt den gesamten Catalog unbenutzbar zu machen; die Registry bleibt
+ * dabei unverändert.
  */
 export class LocalExtensionCatalog {
   private readonly sources: CatalogSource[] = [];
@@ -60,7 +68,10 @@ export class LocalExtensionCatalog {
   private packageDirectories = new Map<string, string>();
   private manifestIntegrity = new Map<string, string>();
 
-  constructor(private readonly providerId: CatalogProviderId) {}
+  constructor(
+    private readonly providerId: CatalogProviderId,
+    private readonly logger?: CatalogLogger,
+  ) {}
 
   addSourceDirectory(directory: string): void {
     this.sources.push({ providerId: this.providerId, directory });
@@ -83,35 +94,41 @@ export class LocalExtensionCatalog {
         const manifestPath = join(packageDirectory, "extension.json");
         if (!existsSync(manifestPath)) continue;
 
-        const manifest = extensionManifestV1Schema.parse(
-          JSON.parse(readFileSync(manifestPath, "utf8")) as unknown,
-        );
-        const files = packageFiles(packageDirectory);
-        const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
-        const manifestIntegrity = sha256IntegritySchema.parse(
-          sha256Of(manifestPath),
-        );
-        const descriptor = extensionPackageDescriptorSchema.parse({
-          formatVersion: 1,
-          extensionId: manifest.id,
-          version: manifest.version,
-          manifestPath: "./extension.json",
-          archiveBytes: totalBytes,
-          unpackedBytes: totalBytes,
-          integrity: manifestIntegrity,
-          files,
-        } satisfies ExtensionPackageDescriptor);
+        try {
+          const manifest = extensionManifestV1Schema.parse(
+            JSON.parse(readFileSync(manifestPath, "utf8")) as unknown,
+          );
+          const files = packageFiles(packageDirectory);
+          const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
+          const manifestIntegrity = sha256IntegritySchema.parse(
+            sha256Of(manifestPath),
+          );
+          const descriptor = extensionPackageDescriptorSchema.parse({
+            formatVersion: 1,
+            extensionId: manifest.id,
+            version: manifest.version,
+            manifestPath: "./extension.json",
+            archiveBytes: totalBytes,
+            unpackedBytes: totalBytes,
+            integrity: manifestIntegrity,
+            files,
+          } satisfies ExtensionPackageDescriptor);
 
-        const entry = catalogEntrySchema.parse({
-          providerId: source.providerId,
-          effectiveTrust: "catalog-first-party",
-          manifest,
-          package: descriptor,
-        });
-        nextEntries.set(manifest.id, entry);
-        nextManifests.set(manifest.id, manifest);
-        nextDirectories.set(manifest.id, packageDirectory);
-        nextIntegrity.set(manifest.id, manifestIntegrity);
+          const entry = catalogEntrySchema.parse({
+            providerId: source.providerId,
+            effectiveTrust: "catalog-first-party",
+            manifest,
+            package: descriptor,
+          });
+          nextEntries.set(manifest.id, entry);
+          nextManifests.set(manifest.id, manifest);
+          nextDirectories.set(manifest.id, packageDirectory);
+          nextIntegrity.set(manifest.id, manifestIntegrity);
+        } catch (error) {
+          this.logger?.warn(
+            `Catalog-Paket ${directoryEntry.name} übersprungen: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
     }
     this.entries = nextEntries;
@@ -146,18 +163,26 @@ export class LocalExtensionCatalog {
     this.scan();
     const entry = this.entries.get(extensionId);
     if (entry === undefined) {
-      throw new Error(`Catalog-Eintrag ${extensionId} fehlt.`);
+      throw new AppError(404, "not-found", `Catalog-Eintrag ${extensionId} fehlt.`);
     }
     if (entry.package.version !== version) {
-      throw new Error(`Catalog-Version ${entry.package.version} passt nicht zu ${version}.`);
+      throw new AppError(
+        409,
+        "operation-conflict",
+        `Catalog-Version ${entry.package.version} passt nicht zu ${version}.`,
+      );
     }
     const packageIntegrity = this.manifestIntegrity.get(extensionId);
     if (packageIntegrity === undefined || packageIntegrity !== expectedIntegrity) {
-      throw new Error("Der Catalog-Integritätswert passt nicht zur Anfrage.");
+      throw new AppError(
+        409,
+        "integrity-mismatch",
+        "Der Catalog-Integritätswert passt nicht zur Anfrage.",
+      );
     }
     const manifest = this.manifests.get(extensionId);
     if (manifest === undefined) {
-      throw new Error(`Catalog-Manifest ${extensionId} fehlt.`);
+      throw new AppError(404, "not-found", `Catalog-Manifest ${extensionId} fehlt.`);
     }
     return manifest;
   }

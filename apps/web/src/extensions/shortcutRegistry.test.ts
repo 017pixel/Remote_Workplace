@@ -96,6 +96,42 @@ describe("ShortcutRegistry", () => {
       "workbench.alpha.shortcut.main",
       "workbench.beta.shortcut.main",
     ]);
+    expect(conflicts[0]!.platforms).toEqual(["mac", "windows", "linux"]);
+  });
+
+  it("trennt Konflikte nach Plattform statt sie zu verschmelzen", async () => {
+    // alpha und beta kollidieren nur auf Windows: beta hat auf dem Mac ein
+    // eigenes Override, alpha nicht. Der Mac-Shortcut darf trotzdem feuern.
+    const first = command("workbench.alpha");
+    const second = command("workbench.beta");
+    commands.replaceOwner("workbench.alpha", [{ contribution: first.contribution, runtime: { execute: first.execute } }]);
+    commands.replaceOwner("workbench.beta", [{ contribution: second.contribution, runtime: { execute: second.execute } }]);
+    registry.replaceOwner("workbench.alpha", [shortcut("workbench.alpha")]);
+    registry.replaceOwner("workbench.beta", [
+      shortcut("workbench.beta", {
+        platformOverrides: { mac: [{ key: "KeyB", modifiers: ["meta"] }] },
+      }),
+    ]);
+
+    const conflicts = registry.getSnapshot().conflicts;
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.platforms).toEqual(["windows", "linux"]);
+
+    // Windows: Konflikt ⇒ beide blockiert.
+    const blocked = await registry.handleKeyDown(keyEvent(), "windows", input, { surface: "global" });
+    expect(blocked).toBeNull();
+    expect(first.execute).not.toHaveBeenCalled();
+
+    // Mac: kein Konflikt ⇒ alpha feuert über primary (meta).
+    const executed = await registry.handleKeyDown(
+      keyEvent({ ctrlKey: false, metaKey: true }),
+      "mac",
+      input,
+      { surface: "global" },
+    );
+    expect(executed?.contributionId).toBe("workbench.alpha.shortcut.main");
+    expect(first.execute).toHaveBeenCalledTimes(1);
+    expect(second.execute).not.toHaveBeenCalled();
   });
 
   it("führt konfliktbehaftete Shortcuts nicht aus", async () => {

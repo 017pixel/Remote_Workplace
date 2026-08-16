@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   extensionManifestV1Schema,
+  extensionPublicErrorCodes,
   isExtensionLifecycleTransitionAllowed,
   type ExtensionLifecycleState,
   type ExtensionManagementAccepted,
@@ -27,12 +28,12 @@ interface DiscoveredExtension {
 type PermissionLike = { permission: string; scope?: unknown };
 
 function grantIsWithinRequest(request: PermissionLike, grant: PermissionLike): boolean {
-  if (grant.scope === undefined) return true;
-  if (request.scope === undefined) return false;
-  const requested = request.scope as Record<string, unknown>;
-  const granted = grant.scope as Record<string, unknown>;
-  for (const [key, grantedValues] of Object.entries(granted)) {
-    const requestedValues = requested[key];
+  const requestedScope = request.scope as Record<string, unknown> | undefined;
+  if (requestedScope === undefined) return true;
+  const grantedScope = grant.scope as Record<string, unknown> | undefined;
+  if (grantedScope === undefined) return false;
+  for (const [key, grantedValues] of Object.entries(grantedScope)) {
+    const requestedValues = requestedScope[key];
     if (!Array.isArray(requestedValues) || !Array.isArray(grantedValues)) {
       return false;
     }
@@ -135,6 +136,7 @@ export class ExtensionManager {
   /** Gleicht installierte Versionen mit dem Local Catalog ab. */
   syncCatalogUpdates(): void {
     if (this.catalog === undefined) return;
+    let changed = false;
     for (const detail of this.database.listExtensions()) {
       const entry = this.catalog.get(detail.id);
       if (entry === undefined || detail.installedVersion === undefined) continue;
@@ -150,7 +152,9 @@ export class ExtensionManager {
           : detail.lifecycle,
       };
       this.database.upsertExtension(next);
+      changed = true;
     }
+    if (changed) this.database.bumpRevision();
   }
 
   reportHealth(extensionId: string, status: ExtensionRegistryDetail["health"]["status"]): void {
@@ -192,6 +196,13 @@ export class ExtensionManager {
     }
 
     if (request.expectedRevision !== this.database.revision()) {
+      const conflicted: ExtensionManagementOperation = {
+        ...queued,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        error: errorFor("operation-conflict"),
+      };
+      if (current !== null) this.database.updateOperation(conflicted);
       throw new AppError(
         409,
         "operation-conflict",
@@ -237,7 +248,10 @@ export class ExtensionManager {
       };
     } catch (error) {
       const publicError: ExtensionPublicError =
-        error instanceof AppError && error.code.startsWith("extension-")
+        error instanceof AppError &&
+        extensionPublicErrorCodes.includes(
+          error.code as (typeof extensionPublicErrorCodes)[number],
+        )
           ? errorFor(error.code as ExtensionPublicError["code"])
           : errorFor("internal-error");
       const failed: ExtensionManagementOperation = {
@@ -269,7 +283,7 @@ export class ExtensionManager {
       case "uninstall":
         return { detail: this.uninstall(request.extensionId, this.require(current)) };
       case "update":
-        return { detail: this.update(request, this.require(current)) };
+        return this.update(request, this.require(current));
       case "rollback":
         return { detail: this.rollback(request, this.require(current)) };
       case "reload":
@@ -306,10 +320,40 @@ export class ExtensionManager {
     first: ExtensionLifecycleState,
     enable: boolean,
   ): ExtensionRegistryDetail {
-    const steps: ExtensionLifecycleState[] = enable
-      ? [first, "activating", "active"]
-      : [first, "disabled"];
+    // Der Pfad hängt vom Ausgangszustand ab: aktive und wartende Zustände
+    // erreichen ihr Ziel über die jeweils zulässigen Übergänge der Matrix,
+    // ohne dass ein Zustand wie `permissions-pending` einen unerlaubten
+    // Umweg über `deactivating` oder `enabling` nehmen muss.
+    const steps: ExtensionLifecycleState[] = [];
+    if (enable) {
+      if (isExtensionLifecycleTransitionAllowed(detail.lifecycle, "enabling")) {
+        steps.push("enabling", "activating");
+      } else if (
+        isExtensionLifecycleTransitionAllowed(detail.lifecycle, "activating")
+      ) {
+        steps.push("activating");
+      } else if (
+        isExtensionLifecycleTransitionAllowed(detail.lifecycle, "active")
+      ) {
+        steps.push("active");
+      } else {
+        steps.push(first, "activating", "active");
+      }
+    } else if (isExtensionLifecycleTransitionAllowed(detail.lifecycle, "deactivating")) {
+      steps.push("deactivating", "disabled");
+    } else if (isExtensionLifecycleTransitionAllowed(detail.lifecycle, "disabled")) {
+      steps.push("disabled");
+    } else {
+      steps.push(first, "disabled");
+    }
     let previous = detail.lifecycle;
+    // Ein offenes Permission Review endet mit der Deaktivierung: Der Nutzer
+    // will die Extension nicht mehr — der Review wäre sonst dauerhaft
+    // verwaist und könnte nie mehr aufgelöst werden.
+    if (!enable && detail.lifecycle === "permissions-pending") {
+      const open = this.database.openReview(extensionId);
+      if (open !== null) this.database.resolveReview(open.reviewId);
+    }
     for (const step of steps) {
       this.assertTransition(extensionId, previous, step);
       previous = step;
@@ -339,14 +383,28 @@ export class ExtensionManager {
       if (this.catalog === undefined) {
         throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
       }
+      const entry = this.catalog.get(request.extensionId);
+      if (entry === undefined || entry.providerId !== request.source.providerId) {
+        throw new AppError(
+          404,
+          "not-found",
+          "Der Catalog-Eintrag existiert nicht unter diesem Provider.",
+        );
+      }
       const manifest = this.catalog.resolvePackage(
         request.extensionId,
         request.source.version,
         request.source.packageIntegrity,
       );
+      // Die Registry-Quelle enthält nie Install-Artefakte wie die
+      // Catalog-Revision; sie muss der `extensionSourceSchema` genügen.
       discovered = {
         manifest,
-        source: request.source,
+        source: {
+          kind: "catalog",
+          providerId: request.source.providerId,
+          packageIntegrity: request.source.packageIntegrity,
+        },
       };
     } else if (request.source.kind === "local-package") {
       throw new AppError(
@@ -366,13 +424,20 @@ export class ExtensionManager {
     const manifest = discovered.manifest;
     const needsReview = manifest.permissions.length > 0;
     const desiredEnablement = request.enableAfterInstall ? "enabled" : "disabled";
+    // Der effektive Trust folgt der Quelle, nicht der Selbstauskunft des
+    // Manifests: Ein Catalog-Paket ist immer `catalog-first-party`, eine
+    // Developer-Installation immer `developer`.
+    const effectiveTrust =
+      discovered.source.kind === "catalog"
+        ? ("catalog-first-party" as const)
+        : ("developer" as const);
     const detail: ExtensionRegistryDetail = {
       id: manifest.id,
       name: manifest.name,
       description: manifest.description,
       publisher: manifest.publisher,
       source: discovered.source,
-      effectiveTrust: manifest.trust,
+      effectiveTrust,
       lifecycle: needsReview ? "permissions-pending" : "installed",
       desiredEnablement,
       runtimeActive: false,
@@ -382,7 +447,7 @@ export class ExtensionManager {
       installedVersion: manifest.version,
       ...(needsReview ? {} : desiredEnablement === "enabled" ? { activeVersion: manifest.version } : {}),
       allowedOperations: [],
-      manifest,
+      manifest: { ...manifest, trust: effectiveTrust },
       grantedPermissions: [],
       health: defaultHealth,
     };
@@ -410,7 +475,7 @@ export class ExtensionManager {
   private update(
     request: Extract<ExtensionManagementRequest, { operation: "update" }>,
     detail: ExtensionRegistryDetail,
-  ): ExtensionRegistryDetail {
+  ): ApplyResult {
     if (detail.lifecycle !== "update-available" && detail.availableVersion === undefined) {
       throw new AppError(
         409,
@@ -421,33 +486,91 @@ export class ExtensionManager {
     if (this.catalog === undefined) {
       throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
     }
+    const entry = this.catalog.get(request.extensionId);
+    if (entry === undefined || entry.providerId !== request.target.providerId) {
+      throw new AppError(
+        404,
+        "not-found",
+        "Der Catalog-Eintrag existiert nicht unter diesem Provider.",
+      );
+    }
     const manifest = this.catalog.resolvePackage(
       request.extensionId,
       request.target.version,
       request.target.packageIntegrity,
     );
 
-    const steps: ExtensionLifecycleState[] =
-      detail.lifecycle === "active"
-        ? ["deactivating", "disabled", "staging", "updating", "activating", "active"]
-        : ["staging", "updating", "installed"];
+    // Grants behalten, die die neue Manifestfassung weiterhin abdeckt;
+    // alles andere gehört nicht mehr in die Detail-Grants.
+    const requestedById = new Map(
+      manifest.permissions.map((entry) => [entry.permission, entry]),
+    );
+    const grantedPermissions = detail.grantedPermissions.filter((grant) => {
+      const requested = requestedById.get(grant.permission);
+      return requested !== undefined && grantIsWithinRequest(requested, grant);
+    });
+
+    // Neue oder erweiterte Permission-Requests führen zu einem Review statt
+    // einer stillen Aktivierung (reason `update`).
+    const addedPermissions = manifest.permissions.filter((requested) => {
+      const granted = grantedPermissions.find(
+        (grant) => grant.permission === requested.permission,
+      );
+      return granted === undefined || !grantIsWithinRequest(requested, granted);
+    });
+    const needsReview = addedPermissions.length > 0;
+
+    const steps: ExtensionLifecycleState[] = [];
+    if (detail.lifecycle === "active") {
+      steps.push("deactivating", "disabled", "update-available", "staging");
+    } else {
+      steps.push("staging");
+    }
+    steps.push(...(needsReview ? (["permissions-pending"] as const) : (["updating"] as const)));
+    const targetLifecycle = needsReview
+      ? "permissions-pending"
+      : detail.desiredEnablement === "enabled"
+        ? "active"
+        : "installed";
+    const targetSteps: ExtensionLifecycleState[] = needsReview
+      ? []
+      : detail.desiredEnablement === "enabled"
+        ? ["activating", "active"]
+        : ["installed"];
+    const walk: ExtensionLifecycleState[] = [...steps, ...targetSteps];
     let previous = detail.lifecycle;
-    for (const step of steps) {
+    for (const step of walk) {
       this.assertTransition(request.extensionId, previous, step);
       previous = step;
     }
 
     const rollbackVersion = detail.activeVersion ?? detail.installedVersion;
-    return {
+    const next: ExtensionRegistryDetail = {
       ...detail,
       manifest,
       installedVersion: manifest.version,
-      activeVersion: detail.desiredEnablement === "enabled" ? manifest.version : undefined,
+      activeVersion:
+        !needsReview && detail.desiredEnablement === "enabled"
+          ? manifest.version
+          : undefined,
       rollbackVersion,
       availableVersion: undefined,
-      lifecycle: detail.desiredEnablement === "enabled" ? "active" : "installed",
-      runtimeActive: detail.desiredEnablement === "enabled",
+      lifecycle: targetLifecycle,
+      runtimeActive: !needsReview && detail.desiredEnablement === "enabled",
+      grantedPermissions,
       health: defaultHealth,
+    };
+
+    if (!needsReview) return { detail: next };
+    return {
+      detail: next,
+      review: {
+        reviewId: randomUUID(),
+        reason: "update",
+        requestedPermissions: manifest.permissions,
+        addedPermissions,
+        createdAt: new Date().toISOString(),
+      },
     };
   }
 
@@ -499,8 +622,26 @@ export class ExtensionManager {
   }
 
   private reload(extensionId: string, detail: ExtensionRegistryDetail): ExtensionRegistryDetail {
-    this.assertTransition(extensionId, detail.lifecycle, "deactivating");
-    this.assertTransition(extensionId, "deactivating", "activating");
+    // `deactivating` → `activating` existiert in der Matrix nicht: Ein Reload
+    // läuft deshalb über den vollständigen Pfad durch `disabled`, ein
+    // abgestürzter Prozess startet direkt neu, alle übrigen Zustände nutzen
+    // den regulären Enable-Pfad.
+    const steps: ExtensionLifecycleState[] = [];
+    if (
+      detail.lifecycle === "active" ||
+      detail.lifecycle === "update-available"
+    ) {
+      steps.push("deactivating", "disabled", "enabling", "activating");
+    } else if (detail.lifecycle === "crashed") {
+      steps.push("activating");
+    } else {
+      steps.push("enabling", "activating");
+    }
+    let previous = detail.lifecycle;
+    for (const step of steps) {
+      this.assertTransition(extensionId, previous, step);
+      previous = step;
+    }
     return {
       ...detail,
       lifecycle: "active",
@@ -554,6 +695,11 @@ export class ExtensionManager {
       runtimeActive: detail.desiredEnablement === "enabled",
       grantedPermissions: grants,
       health: defaultHealth,
+      // Ohne activeVersion wäre der Detail-Snapshot nach der Freigabe
+      // schema-invalid („Eine aktive Phase benötigt eine aktive Version").
+      ...(detail.desiredEnablement === "enabled" && detail.installedVersion !== undefined
+        ? { activeVersion: detail.installedVersion }
+        : {}),
     };
   }
 }

@@ -87,6 +87,66 @@ describe("LocalExtensionCatalog", () => {
     expect(catalog.list()).toHaveLength(1);
   });
 
+  it("überspringt beschädigte Pakete, ohne den Catalog zu blockieren", () => {
+    const fixture = catalogFixture();
+    cleanup = () => rmSync(fixture.directory, { recursive: true, force: true });
+    const broken = join(fixture.directory, "kaputt");
+    mkdirSync(broken, { recursive: true });
+    writeFileSync(join(broken, "extension.json"), "{ kein json");
+
+    const warnings: string[] = [];
+    const catalog = new LocalExtensionCatalog(defaultCatalogProviderId(), {
+      warn: (message) => warnings.push(message),
+    });
+    catalog.addSourceDirectory(fixture.directory);
+
+    expect(catalog.list()).toHaveLength(1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("kaputt");
+  });
+
+  it("lehnt fremde Trust-Stufen im Catalog ab statt sie durchzureichen", () => {
+    const fixture = catalogFixture();
+    cleanup = () => rmSync(fixture.directory, { recursive: true, force: true });
+    const manifest = JSON.parse(fixture.manifest) as Record<string, unknown>;
+    writeFileSync(
+      join(fixture.directory, "agent-tasks", "extension.json"),
+      JSON.stringify({ ...manifest, trust: "developer" }),
+    );
+
+    const catalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+    catalog.addSourceDirectory(fixture.directory);
+    expect(catalog.list()).toHaveLength(0);
+  });
+
+  it("wirft AppErrors statt generischer Fehler beim Auflösen", () => {
+    const fixture = catalogFixture();
+    cleanup = () => rmSync(fixture.directory, { recursive: true, force: true });
+
+    const catalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+    catalog.addSourceDirectory(fixture.directory);
+    const integrity = catalog.integrityOf("workbench.agent-tasks");
+
+    try {
+      catalog.resolvePackage("workbench.agent-tasks", "2.0.0", integrity ?? "");
+      throw new Error("Der erwartete Fehler blieb aus.");
+    } catch (error) {
+      expect(error).toMatchObject({ statusCode: 409, code: "operation-conflict" });
+    }
+    try {
+      catalog.resolvePackage("workbench.agent-tasks", "1.0.0", "sha256:00".padEnd(71, "0"));
+      throw new Error("Der erwartete Fehler blieb aus.");
+    } catch (error) {
+      expect(error).toMatchObject({ statusCode: 409, code: "integrity-mismatch" });
+    }
+    try {
+      catalog.resolvePackage("workbench.fehlt", "1.0.0", integrity ?? "");
+      throw new Error("Der erwartete Fehler blieb aus.");
+    } catch (error) {
+      expect(error).toMatchObject({ statusCode: 404, code: "not-found" });
+    }
+  });
+
   it("liefert leere Bestände für fehlende Verzeichnisse", () => {
     const catalog = new LocalExtensionCatalog(defaultCatalogProviderId());
     catalog.addSourceDirectory(join(tmpdir(), "gibt-es-nicht"));

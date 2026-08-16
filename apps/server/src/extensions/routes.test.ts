@@ -50,4 +50,19 @@ describe("Extension API", () => {
     });
     expect(response.statusCode).toBe(400);
   });
+
+  it("beantwortet Operationen auf unbekannte Extensions mit sauberem Fehler-Envelope", async () => {
+    const app = await buildApp({ startBackgroundServices: false });
+    apps.push(app);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/extensions/workbench.fehlt/operations",
+      headers: authenticatedHeaders,
+      payload: { operation: "enable", extensionId: "workbench.fehlt", expectedRevision: 0 },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: { code: "not-found", retryable: false },
+    });
+  });
 });

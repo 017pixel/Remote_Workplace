@@ -214,7 +214,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
   const notificationDatabase = new NotificationDatabase(settings.databasePath, settings.notifications.pruneAfterHours);
   const extensionDatabase = new ExtensionDatabase(join(settings.dataDirectory, "extensions.sqlite"));
   const extensionManager = new ExtensionManager(extensionDatabase);
-  const extensionCatalog = new LocalExtensionCatalog(defaultCatalogProviderId());
+  const extensionCatalog = new LocalExtensionCatalog(defaultCatalogProviderId(), app.log);
   extensionCatalog.addSourceDirectory(join(settings.dataDirectory, "extension-catalog"));
   extensionManager.attachCatalog(extensionCatalog);
   const notificationPush = new NotificationPushService({
@@ -626,7 +626,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
       void previewDiagnostics.rotate().catch((error) => app.log.error({ err: error }, "Initiale Preview-Logrotation fehlgeschlagen"));
     }
   }
-  app.addHook("onClose", async () => { previewDevServers.stopWatchdog(); await news.stop(); await analytics.stop(); await usageTimeline.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); });
+  app.addHook("onClose", async () => { previewDevServers.stopWatchdog(); await news.stop(); await analytics.stop(); await usageTimeline.stop(); await hermesResultSync.stop(); t3StatusSync.stop(); terminalStatusSync.stop(); agentSessionSync.stop(); await previewSlots.stopListeners(); if (previewLogRotation) clearInterval(previewLogRotation); await previewDiagnostics.close(); await hermesManager.close(); terminals.shutdown(); await browsers.shutdown(); operationalMetrics.close(); previewDevServerDatabase.close(); previewSlotDatabase.close(); terminalDatabase.close(); await notificationPush.close(); notificationDatabase.close(); browserDatabase.close(); newsDatabase.close(); orbitDatabase.close(); orbitAssets.close(); fileGallery.close(); fileManager.close(); projectRegistryDatabase.close(); projectActivityDatabase.close(); operationalAudit.close(); usageDatabase.close(); extensionDatabase.close(); });
 
   await registerEditorProxy(app);
   await registerT3Proxy(app);

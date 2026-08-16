@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
+  extensionManagementAcceptedSchema,
   extensionManagementRequestSchema,
   extensionRegistrySnapshotSchema,
 } from "@workbench/extension-contracts";
@@ -41,6 +42,6 @@ export async function registerExtensionRoutes(app: FastifyInstance, options: {
         "Der Pfad und der Request müssen dieselbe Extension adressieren.",
       );
     }
-    return manager.dispatch(parsed);
+    return extensionManagementAcceptedSchema.parse(await manager.dispatch(parsed));
   });
 }
