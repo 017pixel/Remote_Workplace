@@ -112,7 +112,10 @@ const resizeCorners = [
 
 function EdgeHandles({ frame = false }: { frame?: boolean }) {
   const className = `orbit-handle${frame ? " orbit-frame-handle" : ""}`;
-  return <><Handle id="left" type="source" position={Position.Left} className={className} /><Handle id="right" type="source" position={Position.Right} className={className} /></>;
+  // Die Griffe sitzen bewusst nicht in der Seitenmitte: Dort liegen die
+  // Resize-Punkte (z-index 24) über dem Handle (z-index 18) und fingen
+  // jeden Verbindungs-Drag ab. 30 % bzw. 70 % liegen frei davon.
+  return <><Handle id="left" type="source" position={Position.Left} style={{ top: "30%" }} className={className} /><Handle id="right" type="source" position={Position.Right} style={{ top: "70%" }} className={className} /></>;
 }
 
 function OrbitNodeResizer({

@@ -13,7 +13,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("console", (message) => { if (message.type() === "error") errors.push(`${message.text()} ${message.location()?.url ?? ""}`); });
 
   await page.goto(`${workbench}/workbench/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
@@ -68,7 +68,10 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
 
   const nodeCount = await page.locator(".react-flow__node-orbit").count();
   await page.getByRole("button", { name: /Neuer Bereich/ }).dragTo(page.locator(".react-flow__pane"), {
-    targetPosition: { x: 280, y: 620 },
+    // Abseits der Bildmitte ablegen: Dort liegen Notiz und Aufgaben; nach
+    // „Alles zeigen" überdeckten sie sonst den Bereichstitel (Frames liegen
+    // bewusst hinter den übrigen Knoten).
+    targetPosition: { x: 200, y: 800 },
   });
   await expect(page.locator(".react-flow__node-orbit")).toHaveCount(nodeCount + 1);
   const frameNode = page.locator(".react-flow__node-orbit").filter({ has: page.locator(".orbit-frame-node") }).last();
@@ -260,6 +263,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await expect(mobilePalette).toBeVisible();
   const paletteBox = await mobilePalette.boundingBox();
   expect(Math.round((paletteBox?.y ?? 0) + (paletteBox?.height ?? 0))).toBeGreaterThanOrEqual(842);
+  await mobilePalette.getByPlaceholder("Terminal, Notiz oder Projekt…").fill("notiz");
   await mobilePalette.getByRole("button", { name: /Neue Notiz/ }).click();
   await expect(page.locator(".react-flow__node-orbit")).toHaveCount(mobileNodeCount + 1);
   const mobileBounds = await page.locator(".orbit-page").evaluate((element) => ({
@@ -275,7 +279,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
   await expect(orbitResponse).toBeOK();
   const orbit = await orbitResponse.json();
   expect(orbit.revision).toBeGreaterThan(0);
-  expect(orbit.document.version).toBe(4);
+  expect(orbit.document.version).toBe(8);
   expect(orbit.document.boards.length).toBeGreaterThanOrEqual(2);
   expect(orbit.document.boards[0].edges.length).toBeGreaterThan(0);
 
@@ -285,6 +289,11 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
     if (/favicon|ResizeObserver loop/i.test(message)) return false;
     if (/Cookie .*_cfuvid.*rejected for invalid domain.*clerk\.t3\.codes/i.test(message)) return false;
     if (isolatedLocalOrigin && /Framing .*server-name.*frame-ancestors|frame-ancestors.*violates|status of 400|ws:\/\/127\.0\.0\.1:\d+\/api\/v1\/terminal/i.test(message)) return false;
+    // Die isolierte Instanz hat weder Codexbar noch echte Konten: Die
+    // Nutzungs-Panels dürfen dort mit 500 antworten, ohne den Lauf zu färben.
+    if (isolatedLocalOrigin && /status of 500.*\/api\/v1\/usage/i.test(message)) return false;
+    // Ebenso fehlt der isolierten Instanz der echte T3-Dienst hinter /t3.
+    if (isolatedLocalOrigin && /status of 500.*\/t3(\?|$)/i.test(message)) return false;
     return true;
   })).toEqual([]);
 });

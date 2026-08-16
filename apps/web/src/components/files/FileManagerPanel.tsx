@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FilesystemEntry, Project, ProjectsResponse } from "@workbench/contracts";
 import { WORKBENCH_LIMITS } from "@workbench/contracts";
@@ -476,18 +477,32 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
       >
         {dragging ? <div className="file-manager-dropzone"><UploadIcon className="h-8 w-8" /><strong>Dateien hier ablegen</strong><span>Sie landen im Ordner „{currentPath.split("/").at(-1) || "Home"}“</span></div> : null}
 
-        {/* Pane 1: Baum (Desktop inline, Tablet/Mobile Drawer) */}
-        {treeVisible && root ? <aside
-          className={`file-manager-tree-pane ${drawerMode ? "is-drawer" : ""} ${ui.treeOpen ? "is-open" : ""}`}
+        {/* Pane 1: Baum (Desktop inline, Tablet/Mobile Drawer). Drawer liegen
+            im Portal, damit sie über der Topbar stehen: Innerhalb der Route
+            wären sie von deren Stacking-Context (z-index 1) gefangen. */}
+        {treeVisible && root ? drawerMode ? createPortal(
+          <aside
+            className={`file-manager-tree-pane is-drawer ${ui.treeOpen ? "is-open" : ""}`}
+            aria-label="Dateibaum"
+          >
+            <header className="file-manager-pane-head">
+              <span className="file-manager-pane-title">Dateien</span>
+              <button type="button" className="file-manager-icon-button" onClick={() => setTreeOpen(false)} aria-label="Dateibaum schließen"><CloseIcon className="h-4 w-4" /></button>
+            </header>
+            <FmTree root={root} currentPath={currentPath} />
+          </aside>,
+          document.body,
+        ) : <aside
+          className={`file-manager-tree-pane ${ui.treeOpen ? "is-open" : ""}`}
           aria-label="Dateibaum"
-          style={drawerMode ? undefined : { width: `${treePane.width}px` }}
+          style={{ width: `${treePane.width}px` }}
         >
           <header className="file-manager-pane-head">
             <span className="file-manager-pane-title">Dateien</span>
             <button type="button" className="file-manager-icon-button" onClick={() => setTreeOpen(false)} aria-label="Dateibaum schließen"><CloseIcon className="h-4 w-4" /></button>
           </header>
           <FmTree root={root} currentPath={currentPath} />
-          {!drawerMode ? <div
+          <div
             className="pane-resize-handle"
             role="separator"
             aria-orientation="vertical"
@@ -498,7 +513,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
             tabIndex={0}
             onPointerDown={treePane.startResize}
             onKeyDown={treePane.resizeWithKeyboard}
-          /> : null}
+          />
         </aside> : null}
 
         {/* Pane 2: Inhalt (Liste/Raster) */}
@@ -583,8 +598,28 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
           </div>}
         </section>
 
-        {/* Pane 3: Vorschau-Panel (Desktop inline, Tablet Drawer) */}
-        {detailVisible && selectedEntry ? <aside className={`file-manager-detail-pane ${drawerMode ? "is-drawer" : ""} ${ui.detailOpen ? "is-open" : ""}`} aria-label={`Vorschau von ${selectedEntry.name}`}>
+        {/* Pane 3: Vorschau-Panel (Desktop inline, Tablet Drawer). Drawer
+            liegen im Portal, damit sie über der Topbar stehen. */}
+        {detailVisible && selectedEntry ? drawerMode ? createPortal(
+          <aside className={`file-manager-detail-pane is-drawer ${ui.detailOpen ? "is-open" : ""}`} aria-label={`Vorschau von ${selectedEntry.name}`}>
+            <header className="file-manager-pane-head">
+              <div className="min-w-0 leading-tight">
+                <strong className="file-manager-detail-name truncate">{selectedEntry.name}</strong>
+                <span className="file-manager-detail-meta">{formatBytes(selectedEntry.sizeBytes)} · {formatDate(selectedEntry.modifiedAt)}</span>
+              </div>
+              <button type="button" className="file-manager-icon-button" onClick={() => setDetailOpen(false)} aria-label="Vorschau-Panel schließen"><CloseIcon className="h-4 w-4" /></button>
+            </header>
+            <div className="file-manager-detail-body">
+              <FilePreview entry={selectedEntry} />
+            </div>
+            <footer className="file-manager-detail-actions">
+              <button type="button" className="quiet-button" onClick={() => downloadEntry(selectedEntry)}><DownloadIcon className="h-3.5 w-3.5" />Download</button>
+              <button type="button" className="quiet-button" onClick={() => openInEditor(selectedEntry)}><FolderCodeIcon className="h-3.5 w-3.5" />Editor</button>
+              <button type="button" className="quiet-button" onClick={() => quickLookFor(selectedEntry)}><SearchIcon className="h-3.5 w-3.5" />Groß</button>
+            </footer>
+          </aside>,
+          document.body,
+        ) : <aside className={`file-manager-detail-pane ${ui.detailOpen ? "is-open" : ""}`} aria-label={`Vorschau von ${selectedEntry.name}`}>
           <header className="file-manager-pane-head">
             <div className="min-w-0 leading-tight">
               <strong className="file-manager-detail-name truncate">{selectedEntry.name}</strong>
@@ -636,16 +671,20 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
         </div>
       ) : null}
 
-      {/* Kontextmenü */}
-      {contextMenu ? <div
-        className={`file-manager-context-menu ${touch ? "is-sheet" : ""}`}
-        style={touch ? undefined : { left: Math.min(contextMenu.x, window.innerWidth - 240), top: Math.min(contextMenu.y, window.innerHeight - 360) }}
-        role="menu"
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <strong className="file-manager-context-title truncate">{menuEntry?.name}</strong>
-        {contextActions(menuEntry, () => setContextMenu(null))}
-      </div> : null}
+      {/* Kontextmenü — im Portal, damit es auch in der Nähe der Topbar
+          klickbar bleibt. */}
+      {contextMenu ? createPortal(
+        <div
+          className={`file-manager-context-menu ${touch ? "is-sheet" : ""}`}
+          style={touch ? undefined : { left: Math.min(contextMenu.x, window.innerWidth - 240), top: Math.min(contextMenu.y, window.innerHeight - 360) }}
+          role="menu"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <strong className="file-manager-context-title truncate">{menuEntry?.name}</strong>
+          {contextActions(menuEntry, () => setContextMenu(null))}
+        </div>,
+        document.body,
+      ) : null}
 
       {/* Dialoge */}
       <PromptDialog
@@ -741,7 +780,10 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
       />
 
       {/* Drawer-Overlay für Tablet/Mobile */}
-      {drawerMode && (ui.treeOpen || ui.detailOpen) ? <div className="file-manager-drawer-backdrop" role="presentation" onClick={() => { setTreeOpen(false); setDetailOpen(false); }} /> : null}
+      {drawerMode && (ui.treeOpen || ui.detailOpen) ? createPortal(
+        <div className="file-manager-drawer-backdrop" role="presentation" onClick={() => { setTreeOpen(false); setDetailOpen(false); }} />,
+        document.body,
+      ) : null}
     </div>
   );
 }

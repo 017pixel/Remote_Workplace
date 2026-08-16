@@ -4,6 +4,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ## [Unreleased]
 
+### Behoben
+
+- Dateimanager-Drawer, Backdrop und Kontextmenü überdecken jetzt die Topbar statt darunter zu liegen
+- Orbit-Verbindungsgriffe sitzen wieder außerhalb der Resize-Punkte und lassen sich zuverlässig ziehen
+- Terminal-Snapshot-Replay verwirft keine Nutzereingaben mehr und sendet sie nach dem Replay nach
+- Orbit löst 409-Konflikte mit identischem Serverstand still auf statt dauerhaft ungespeichert zu bleiben
+- E2E-Suiten für Dateimanager, Clipboard, Orbit und Cache auf isolierten Testservern stabilisiert
+
 ### Extension-Plattform
 
 - Langfristiges Ziel für eine lokale, serverzentrierte Extension-Plattform festgehalten

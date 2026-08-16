@@ -219,6 +219,11 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   // Geräteabfragen automatisch über onData beantworten. Diese Antworten dürfen
   // nie als neue Nutzereingabe in der PTY landen.
   const snapshotReplayRef = useRef(false);
+  // Echte Tastatureingaben während des Snapshot-Replays: Sie dürfen nicht
+  // verloren gehen, nur weil xterm gerade die Historie einspielt. Antworten
+  // auf Geräteabfragen (DA1, DSR) enthalten Escape-Sequenzen und werden
+  // aussortiert — Nutzereingaben enthalten keine.
+  const replayBufferRef = useRef<string[]>([]);
   const reconnectRef = useRef<number | null>(null);
   const resizeRef = useRef<number | null>(null);
   const themeRefreshRef = useRef<number | null>(null);
@@ -298,6 +303,27 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     socket.send(JSON.stringify(message));
     return true;
   }, []);
+
+  /**
+   * Sendet zwischengespeicherte Nutzereingaben, sobald der Snapshot-Replay
+   * fertig ist. Geräteantworten (Escape-Sequenzen) werden verworfen.
+   */
+  const flushReplayBuffer = useCallback(() => {
+    const buffered = replayBufferRef.current
+      .filter((chunk) => !chunk.includes("\x1b"))
+      .join("");
+    replayBufferRef.current = [];
+    if (!buffered) return;
+    const sessionId = sessionRef.current;
+    if (sessionId === null) return;
+    rememberTyping(buffered);
+    for (const chunk of splitTerminalInput(buffered)) {
+      if (!send({ type: "terminal.input", sessionId, data: chunk })) {
+        setError("Die Terminaleingabe konnte nicht vollständig gesendet werden.");
+        break;
+      }
+    }
+  }, [send]);
 
   // xterm emuliert jeden write synchron. Bei Build-Ausgaben kommen jedoch
   // häufig sehr viele kleine WebSocket-Nachrichten hintereinander an. Die
@@ -482,6 +508,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         terminal.write("\x1bc");
         terminal.write(message.history, () => {
           snapshotReplayRef.current = false;
+          flushReplayBuffer();
           resize();
         });
       } else if (message.type === "terminal.output" && message.sequence > sequenceRef.current) {
@@ -537,7 +564,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
     };
     socket.onerror = () => socket.close();
-  }, [createSession, flushOutput, queueOutput, resize, send]);
+  }, [createSession, flushOutput, flushReplayBuffer, queueOutput, resize, send]);
 
   useEffect(() => {
     const updateActivity = () => {
@@ -673,6 +700,10 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     fitRef.current = fit;
     const input = terminal.onData((data) => {
       const sessionId = sessionRef.current;
+      if (snapshotReplayRef.current) {
+        replayBufferRef.current.push(data);
+        return;
+      }
       if (!shouldForwardTerminalData(snapshotReplayRef.current, sessionId)) return;
       rememberTyping(data);
       for (const chunk of splitTerminalInput(data)) {

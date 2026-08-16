@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+// `WORKBENCH_E2E_URL` zeigt auf den Origin des Testservers; die Workbench
+// selbst wird unter dem `/workbench`-Basispfad ausgeliefert.
+const workbench = process.env.WORKBENCH_E2E_URL
+  ? `${process.env.WORKBENCH_E2E_URL.replace(/\/$/, "")}/workbench`
+  : undefined;
 
 const e2eUser = process.env.WORKBENCH_E2E_USER ?? "user@example.com";
 test.use({ extraHTTPHeaders: { "tailscale-user-login": e2eUser } });

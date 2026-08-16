@@ -80,6 +80,16 @@ export function OrbitSync() {
           if (error instanceof ApiClientError && error.status === 409) {
             try {
               const latest = await apiClient.orbit();
+              // Hat ein eigener, bereits abgeschlossener Save dieselbe
+              // Dokumentfassung committet (Mehrfach-Save beim Mount durch
+              // Viewport-Wechsel), ist das kein echter Konflikt: Die
+              // Revision wird einfach übernommen, der Zustand bleibt sauber.
+              if (JSON.stringify(latest.document) === JSON.stringify(snapshot.document)) {
+                retryDelay.current = AUTOSAVE_DELAY_MS;
+                blockedDocument.current = null;
+                useOrbitStore.getState().markSaved(latest, snapshot.document);
+                return;
+              }
               retryDelay.current = AUTOSAVE_DELAY_MS;
               blockedDocument.current = snapshot.document;
               useOrbitStore.getState().resolveConflict(

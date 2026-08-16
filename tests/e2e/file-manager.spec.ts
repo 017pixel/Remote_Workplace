@@ -150,6 +150,10 @@ test.describe("Dateimanager Phone", () => {
     const sheet = page.locator(".file-quicklook-sheet");
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText('"name"');
+    // Die Einfahranimation abschließen lassen, sonst misst das BoundingBox
+    // den transformierten Zwischenzustand. Nach dem Ende ist die
+    // berechnete Transformation wieder "none".
+    await expect.poll(async () => (await sheet.boundingBox())?.y ?? 1).toBe(0);
     // Auf dem Handy nimmt die Vorschau die ganze Fläche ein.
     const bounds = await sheet.boundingBox();
     expect(bounds?.x).toBe(0);

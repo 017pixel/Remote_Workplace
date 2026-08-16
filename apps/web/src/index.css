@@ -4763,10 +4763,13 @@ a:hover .app-icon,
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Drawer und Backdrop liegen im Body-Portal und müssen über der Topbar
+   (z 40) liegen, aber unter Dialogen (220) und Quick Look (250), damit
+   aus dem Drawer geöffnete Dialoge sichtbar darüber liegen. */
 .file-manager-drawer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 235;
+  z-index: 190;
   background: rgb(0 0 0 / .55);
 }
 
@@ -4775,7 +4778,7 @@ a:hover .app-icon,
   position: fixed;
   top: 0;
   bottom: 0;
-  z-index: 240;
+  z-index: 200;
   width: min(320px, 92vw);
   box-shadow: var(--shadow-overlay);
   transition: transform var(--duration-slow) var(--ease-standard);
