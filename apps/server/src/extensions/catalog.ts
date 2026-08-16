@@ -197,6 +197,19 @@ export class LocalExtensionCatalog {
     this.scan();
     return this.packageDirectories.get(extensionId);
   }
+
+  /**
+   * Deterministische Catalog-Revision über alle Einträge: SHA-256 über die
+   * sortierten (Extension-ID, Paket-Integrität)-Paare. Die UI leitet
+   * Install- und Update-Anfragen mit dieser Revision ein.
+   */
+  revision(): string {
+    this.scan();
+    const parts = [...this.entries.values()]
+      .map((entry) => `${entry.manifest.id}:${entry.package.integrity}`)
+      .sort();
+    return `sha256:${createHash("sha256").update(parts.join("\n")).digest("hex")}`;
+  }
 }
 
 export function defaultCatalogProviderId(): CatalogProviderId {

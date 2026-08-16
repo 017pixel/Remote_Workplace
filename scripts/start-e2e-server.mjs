@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,8 +77,7 @@ await writeFile(
   { mode: 0o600 },
 );
 
-const projects = {
-  projects: [
+const projects = {  projects: [
     {
       id: "remote-workplace",
       name: "Remote Workplace",
@@ -111,6 +110,10 @@ const projects = {
   ],
 };
 await writeFile(join(configDirectory, "projects.local.json"), `${JSON.stringify(projects, null, 2)}\n`, { mode: 0o600 });
+// Der Extension-Catalog des isolierten Servers wird aus der Fixture bestückt,
+// damit die Extensions-Verwaltung echte Einträge findet.
+const extensionCatalogDirectory = join(dataDirectory, "extension-catalog");
+await cp(join(repositoryRoot, "tests/fixtures/extension-catalog"), extensionCatalogDirectory, { recursive: true });
 for (const name of ["services", "commands"]) {
   const content = await readFile(join(repositoryRoot, `config/${name}.example.json`));
   await writeFile(join(configDirectory, `${name}.local.json`), content, { mode: 0o600 });

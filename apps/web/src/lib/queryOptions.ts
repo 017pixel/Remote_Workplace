@@ -14,6 +14,12 @@ export const workbenchQueries = {
     queryOptions({ queryKey: ["system", "t3-channel"], queryFn: ({ signal }) => apiClient.t3Channel(signal), staleTime: 5_000 }),
   usageMonitoring: () =>
     queryOptions({ queryKey: ["system", "usage-monitoring"], queryFn: ({ signal }) => apiClient.usageMonitoring(signal), staleTime: 15_000 }),
+  extensionCatalog: () =>
+    queryOptions({ queryKey: ["extensions", "catalog"], queryFn: ({ signal }) => apiClient.extensionCatalog(signal), staleTime: 30_000 }),
+  extensionRegistry: () =>
+    queryOptions({ queryKey: ["extensions", "registry"], queryFn: ({ signal }) => apiClient.extensionRegistry(signal), staleTime: 10_000 }),
+  extensionDetail: (id: string) =>
+    queryOptions({ queryKey: ["extensions", "detail", id], queryFn: ({ signal }) => apiClient.extensionDetail(id, signal), staleTime: 5_000 }),
   hermesStatus: () => queryOptions({ queryKey: ["hermes", "status"], queryFn: ({ signal }) => apiClient.hermesStatus(signal), refetchInterval: 30_000, staleTime: 10_000 }),
   hermesTasks: () => queryOptions({ queryKey: ["hermes", "tasks"], queryFn: ({ signal }) => apiClient.hermesTasks(signal), refetchInterval: 6_000, staleTime: 2_000, refetchIntervalInBackground: false }),
   hermesCron: () => queryOptions({ queryKey: ["hermes", "cron"], queryFn: ({ signal }) => apiClient.hermesCron(signal), refetchInterval: 60_000, staleTime: 15_000, refetchIntervalInBackground: false }),

@@ -109,10 +109,25 @@ import {
   type PreviewServiceEdge,
   type PreviewSlotResetReport,
 } from "@workbench/contracts";
+import {
+  catalogEntrySchema,
+  catalogProviderIdSchema,
+  extensionManagementAcceptedSchema,
+  extensionRegistryDetailSchema,
+  extensionRegistrySnapshotSchema,
+  sha256IntegritySchema,
+  type ExtensionManagementRequest,
+} from "@workbench/extension-contracts";
 import type { ZodType } from "zod";
 import { z } from "zod";
 
 const WORKBENCH_SYNC_VERSION = "2";
+
+const extensionCatalogResponseSchema = z.strictObject({
+  providerId: catalogProviderIdSchema,
+  revision: sha256IntegritySchema,
+  entries: z.array(catalogEntrySchema),
+});
 
 export class ApiClientError extends Error {
   constructor(
@@ -309,6 +324,10 @@ export const apiClient = {
   setT3Channel: (channel: T3Channel) => mutate("/system/t3-channel", "POST", t3ChannelStatusResponseSchema, { channel }),
   usageMonitoring: (signal?: AbortSignal) => request("/system/usage-monitoring", usageMonitoringResponseSchema, signal),
   saveUsageMonitoring: (monitoring: UsageMonitoring) => mutate("/system/usage-monitoring", "PUT", usageMonitoringResponseSchema, { monitoring }),
+  extensionCatalog: (signal?: AbortSignal) => request("/extensions/catalog", extensionCatalogResponseSchema, signal),
+  extensionRegistry: (signal?: AbortSignal) => request("/extensions", extensionRegistrySnapshotSchema, signal),
+  extensionDetail: (id: string, signal?: AbortSignal) => request(`/extensions/${encodeURIComponent(id)}`, extensionRegistryDetailSchema, signal),
+  dispatchExtensionOperation: (body: ExtensionManagementRequest) => mutate(`/extensions/${encodeURIComponent(body.extensionId)}/operations`, "POST", extensionManagementAcceptedSchema, body),
   hermesStatus: (signal?: AbortSignal) => request("/hermes/status", hermesStatusSchema, signal),
   hermesTasks: (signal?: AbortSignal) => request("/hermes/tasks", hermesTasksResponseSchema, signal),
   cancelHermesTask: (sessionId: string) => mutate(`/hermes/tasks/${encodeURIComponent(sessionId)}/cancel`, "POST", null),

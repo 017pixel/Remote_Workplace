@@ -291,6 +291,12 @@ export function UndoIcon(props: IconProps) { return <GlyphIcon nodes={undoIconNo
 export function UserIcon(props: IconProps) { return <GlyphIcon nodes={userIconNodes} accent="var(--icon-blue-bright, #79a5df)" {...props}/>; }
 export function CloseIcon(props: IconProps) { return <GlyphIcon nodes={closeIconNodes} accent="var(--icon-red, #cf7478)" {...props}/>; }
 
+/* Extension: Puzzle-Stück mit Andockzapfen — lokale Erweiterungen der Workbench. */
+const extensionsIconNodes = [
+  ["path", { "d": "M9.5 4.5h6.2A2.8 2.8 0 0 1 18.5 7.3v2.7a1.6 1.6 0 0 0 1.6 1.6 2.8 2.8 0 0 1 0 5.6 1.6 1.6 0 0 0-1.6 1.6v2.7a2.8 2.8 0 0 1-2.8 2.8h-2.2v-2.4a1.7 1.7 0 0 0-3.4 0V24H4.8A2.3 2.3 0 0 1 2.5 21.7v-3.8h2.4a1.7 1.7 0 0 0 0-3.4H2.5v-3.8a2.3 2.3 0 0 1 2.3-2.3h2.4a1.7 1.7 0 0 0 0-3.4H4.8V4.8A2.3 2.3 0 0 1 7.1 2.5h2.4v2a1.7 1.7 0 0 0 3.4 0v-2h-3.4" }],
+] as const;
+export function ExtensionsIcon(props: IconProps) { return <GlyphIcon nodes={extensionsIconNodes} accent="var(--icon-violet, #8f6bc9)" {...props}/>; }
+
 export const NewspaperIcon = TechTldrsIcon;
 export const GalleryMediaIcon = GalerieIcon;
 export const GalleryFilesIcon = FolderIcon;

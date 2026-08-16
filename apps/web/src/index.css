@@ -3338,6 +3338,23 @@ a:hover .app-icon,
   .settings-segment-option.is-selected { border-color: var(--color-accent-line); background: var(--color-accent-soft); }
   .settings-segment-option:disabled { cursor: default; opacity: .6; }
 
+  /* Extensions-Verwaltung: Catalog- und Registry-Zeilen im Settings-Raster. */
+  .extension-list { display: grid; gap: var(--space-2); }
+  .extension-row { display: flex; align-items: center; gap: 12px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-ink-900); padding: 12px 14px; }
+  .extension-row-copy { display: grid; min-width: 0; flex: 1 1 auto; gap: 2px; text-align: left; }
+  .extension-row-copy strong { color: var(--color-text); font-size: var(--text-md); font-weight: 500; }
+  .extension-row-copy small { display: -webkit-box; overflow: hidden; color: var(--color-muted); font-size: 12px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .extension-row-actions { display: flex; flex: none; align-items: center; gap: 8px; }
+  .extension-review-overlay { position: fixed; z-index: 220; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .55); padding: 16px; }
+  .extension-review-panel { width: min(440px, 100%); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--surface-overlay); box-shadow: var(--shadow-popover); padding: 18px; }
+  .extension-review-header { display: flex; align-items: flex-start; gap: 12px; }
+  .extension-review-header > div { min-width: 0; flex: 1 1 auto; }
+  .extension-review-header h3 { color: var(--color-text); font-size: var(--text-md); font-weight: 550; }
+  .extension-review-header p { margin-top: 2px; color: var(--color-muted); font-size: 12px; line-height: 1.5; }
+  .extension-review-permissions { display: grid; gap: var(--space-2); margin: 14px 0; }
+  .extension-review-permissions li { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-ink-900); padding: 10px 12px; color: var(--color-text); font-size: 13px; }
+  .extension-review-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+
   /* Ziel des Sprungs aus der Kanal-Card: kurz hervorheben, damit klar ist, worauf gezeigt wird. */
   .settings-jump-target { border-radius: var(--radius-md); transition: box-shadow 240ms ease-out; }
   .settings-jump-target.is-active { box-shadow: 0 0 0 2px var(--color-accent-line); }

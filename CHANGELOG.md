@@ -4,6 +4,14 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
 ## [Unreleased]
 
+### Features
+
+- Extensions-Verwaltung in den Einstellungen: lokalen Catalog durchsuchen und installieren
+- Installierte Extensions aktivieren, deaktivieren, aktualisieren und deinstallieren
+- Permission-Reviews werden direkt nach der Installation zur Freigabe vorgelegt
+- Installations-, Update- und Uninstall-Operationen melden Erfolg oder Fehler in der Oberfläche
+- Catalog-API liefert eine Revision für konfliktfreie Folgeoperationen
+
 ### Behoben
 
 - Dateimanager-Drawer, Backdrop und Kontextmenü überdecken jetzt die Topbar statt darunter zu liegen

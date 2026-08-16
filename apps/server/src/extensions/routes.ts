@@ -19,6 +19,7 @@ export async function registerExtensionRoutes(app: FastifyInstance, options: {
   app.get("/extensions/catalog", async () => {
     return {
       providerId: "workbench-catalog",
+      revision: catalog.revision(),
       entries: catalog.list(),
     };
   });

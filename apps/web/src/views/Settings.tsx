@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyIcon, DeviceRotateIcon, DownloadIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
+import { CopyIcon, DeviceRotateIcon, DownloadIcon, ExtensionsIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
 import { workbenchQueries } from "../lib/queryOptions";
 import { apiClient, ApiClientError } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
@@ -7,6 +7,7 @@ import { usePwaInstall } from "../lib/usePwaInstall";
 import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
+import { ExtensionSettings } from "../components/extensions/ExtensionSettings";
 import { WORKBENCH_LIMITS, type DashboardConfig, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
@@ -64,6 +65,10 @@ export function Settings() {
 
         <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
           <T3ChannelControls onJumpToRestart={jumpToRestart} />
+        </Card>
+
+        <Card title="Extensions" subtitle="Lokale Erweiterungen installieren, aktivieren und berechtigen" action={<ExtensionsIcon className="h-4 w-4 text-faint" />}>
+          <ExtensionSettings />
         </Card>
 
         <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
