@@ -173,6 +173,7 @@ export function updateMouseEncoding(sgr: boolean, data: string): boolean {
  * Antworten sind keine Nutzereingabe und dürfen nie an die PTY zurückgehen —
  * sonst erscheint ihr Inhalt (z. B. „1;1R") als Fremdtext im Terminal.
  */
+// eslint-disable-next-line no-control-regex -- ESC (0x1b) ist beabsichtigt: erkennt xterm-Antworten auf Geräteabfragen (DA1/DA2, DSR, XTVERSION).
 const deviceAnswerPattern = /^\x1b\[[>?]?[\d;]*[cRn]$|^\x1b\[>\d+(?:;[\d.]+)*\|/;
 export function isDeviceAnswer(data: string): boolean {
   return deviceAnswerPattern.test(data);
@@ -285,6 +286,11 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   const currentLineRef = useRef("");
   const [lastCommand, setLastCommand] = useState("");
   const initialRenderScaleRef = useRef(renderScale);
+  // Aktueller Bildschirm-Zoom für Callbacks, die den Effect-Lebenszyklus nicht
+  // neu auslösen sollen (z. B. beobachtete Shell-Wechsel). Die eigentliche
+  // Schriftanpassung übernimmt der renderScale-Effect weiter unten.
+  const renderScaleRef = useRef(renderScale);
+  renderScaleRef.current = renderScale;
   // Kompakte Schrift auf Touch-Shells; der Zustand wird am `.app-shell`
   // beobachtet und beim Wechsel zwischen Geräteklassen angepasst.
   const compactRef = useRef(false);
@@ -602,6 +608,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         // die (gekürzte) History keine Modus-Sequenz, gilt bei TUI-Agenten
         // der typische Fall: Sie nutzen Maus-Reporting — sonst würde das
         // Mausrad nach einem Reconnect fälschlich geschluckt.
+        // eslint-disable-next-line no-control-regex -- ESC (0x1b) ist beabsichtigt: erkennt Maus-Reporting-Modi in der Replay-Historie.
         const modeSeen = /\x1b\[\?[0-9;]*[hl]/.test(message.history);
         mouseTrackingRef.current = modeSeen ? updateMouseReporting(false, message.history) : kindRef.current !== "shell";
         mouseEncodingRef.current = modeSeen ? updateMouseEncoding(false, message.history) : false;
@@ -811,7 +818,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       const compact = isCompactTerminal(mount);
       if (compact === compactRef.current) return;
       compactRef.current = compact;
-      terminal.options.fontSize = terminalFontSizeForRenderScale(renderScale, compact);
+      terminal.options.fontSize = terminalFontSizeForRenderScale(renderScaleRef.current, compact);
       terminal.refresh(0, terminal.rows - 1);
       resize();
     });
