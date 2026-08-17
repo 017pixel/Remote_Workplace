@@ -35,11 +35,11 @@
     "@workbench/extension-contracts": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "26.1.2",
+    "@types/node": "26.2.0",
     "@types/web-push": "^3.6.4",
     "@types/ws": "8.18.1",
-    "tsx": "4.23.9",
-    "typescript": "6.0.3",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
 }
