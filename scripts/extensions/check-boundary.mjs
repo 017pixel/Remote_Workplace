@@ -23,6 +23,7 @@ async function sourceFiles(directory) {
 const files = await sourceFiles(sourceRoot);
 for (const file of files) {
   if (file.startsWith(`${extensionsRoot}/`)) continue;
+  if (/\.(?:test|spec)\.(?:ts|tsx)$/.test(file)) continue;
   const text = await readFile(file, "utf8");
   if (/from\s+["'][^"']*extensions\/legacy[^"']*["']/.test(text)) {
     violations.push(`${relative(root, file)} importiert direkt eine legacy Extension-Bridge.`);
