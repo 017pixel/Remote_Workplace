@@ -1255,6 +1255,11 @@ export const panelSchema = z.object({
   // z. B. `/umgebung/thread`. Optional, damit gespeicherte Arbeitsflächen
   // kompatibel bleiben. Leer steht für die T3-Startseite.
   t3Path: z.string().startsWith("/").max(512).optional(),
+  // Zielordner für Code-Server-Panels, die aus eingebetteten Werkzeugen
+  // (z. B. dem T3-„Open in VS Code"-Button) geöffnet werden. Ohne Wert öffnet
+  // das Panel wie bisher das Projektverzeichnis. Optional, damit gespeicherte
+  // Arbeitsflächen kompatibel bleiben.
+  codeServerFolder: z.string().startsWith("/").min(1).max(2_048).optional(),
   // Der interne Pfad der offiziellen Hermes-SPA bleibt optional, damit alte
   // localStorage-Dokumente ohne Migration weiter gültig sind.
   hermesAdminPath: z.string().startsWith("/").max(512).optional(),

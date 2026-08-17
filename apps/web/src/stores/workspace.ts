@@ -56,6 +56,8 @@ export interface OpenPanelInput {
   browserUrl?: string | null;
   // Tiefenlink für T3-Panels: Pfad hinter dem Proxy-Präfix `/t3`.
   t3Path?: string | null;
+  // Zielordner für Code-Server-Panels aus eingebetteten Werkzeugen.
+  codeServerFolder?: string | null;
   hermesAdminPath?: string;
   groupId?: string;
   workspaceId?: string;
@@ -95,6 +97,7 @@ function makePanel(input: OpenPanelInput): Panel {
     reloadKey: 0,
     ...(input.browserUrl ? { browserUrl: input.browserUrl } : {}),
     ...(input.t3Path ? { t3Path: input.t3Path } : {}),
+    ...(input.codeServerFolder ? { codeServerFolder: input.codeServerFolder } : {}),
     ...(input.type === "hermes" ? {
       hermesAdminPath: input.hermesAdminPath && input.hermesAdminPath !== "/" ? input.hermesAdminPath : "/chat",
     } : {}),
@@ -102,8 +105,13 @@ function makePanel(input: OpenPanelInput): Panel {
 }
 
 function isSamePanel(panel: Panel, input: OpenPanelInput): boolean {
+  if (["terminal", "codex", "opencode", "hermes"].includes(input.type)) return false;
+  // Code-Server-Panels aus dem T3-„Open"-Button gehören zum Zielordner:
+  // Ein anderer Ordner öffnet einen eigenen Bereich statt den vorhandenen
+  // Editor umzustellen.
+  const sameFolder = (panel.codeServerFolder ?? null) === (input.codeServerFolder ?? null);
   return (
-    !["terminal", "codex", "opencode", "hermes"].includes(input.type) &&
+    sameFolder &&
     panel.type === input.type &&
     panel.projectId === (input.projectId ?? null) &&
     panel.previewId === (input.previewId ?? null)

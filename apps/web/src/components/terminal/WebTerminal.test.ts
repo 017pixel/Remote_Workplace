@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isDeviceAnswer,
   mouseWheelSequence,
   shouldForwardTerminalData,
   terminalFontSizeForRenderScale,
@@ -42,6 +43,27 @@ describe("Terminal-Raster bei Orbit-Zoom", () => {
     expect(terminalFontSizeForRenderScale(Number.NaN)).toBe(14);
   });
 
+  it("nutzt auf Touch-Shells die kompakte Schriftgröße", () => {
+    expect(terminalFontSizeForRenderScale(1, true)).toBe(10);
+    expect(terminalFontSizeForRenderScale(0.5, true)).toBe(20);
+  });
+
+});
+
+describe("Antworten auf Geräteabfragen", () => {
+  it("erkennt automatische xterm-Antworten (DA1, DA2, DSR, CPR, XTVERSION)", () => {
+    expect(isDeviceAnswer("\x1b[?1;2c")).toBe(true);
+    expect(isDeviceAnswer("\x1b[>0;95;0c")).toBe(true);
+    expect(isDeviceAnswer("\x1b[0n")).toBe(true);
+    expect(isDeviceAnswer("\x1b[1;1R")).toBe(true);
+    expect(isDeviceAnswer("\x1b[>0|opencode|1.0")).toBe(true);
+  });
+
+  it("verwirft gewöhnliche Nutzereingaben nicht", () => {
+    expect(isDeviceAnswer("ls")).toBe(false);
+    expect(isDeviceAnswer("\x1b[A")).toBe(false);
+    expect(isDeviceAnswer("\r")).toBe(false);
+  });
 });
 
 describe("Maus-Reporting-Verfolgung", () => {

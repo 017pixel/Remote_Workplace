@@ -98,6 +98,67 @@ describe("TerminalManager", () => {
     expect(manager.getSessionMetadata("owner", session.id).cwd).toBe(nested);
   });
 
+  it("kürzt den Snapshot beim Verbinden auf den schlanken Anzeigeumfang", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-snapshot-"));
+    const supervisor = new FakeSupervisor();
+    const pty = new FakePty();
+    manager = new TerminalManager({
+      allowedRoots: [root], defaultCwd: root, maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => pty },
+    });
+    const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    pty.output("x".repeat(2_000_000));
+    const messages: unknown[] = [];
+    manager.attachSession("owner", session.id, (message) => messages.push(message));
+    const snapshot = messages.find((message) => (message as { type: string }).type === "terminal.snapshot") as { history: string } | undefined;
+    expect(snapshot?.history.length).toBeLessThan(600_000);
+  });
+
+  it("behält eine Session mit lebender tmux-Sitzung, wenn das Anhängen fehlschlägt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-recovery-"));
+    const supervisor = new FakeSupervisor();
+    let failing = true;
+    manager = new TerminalManager({
+      allowedRoots: [root], defaultCwd: root, maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => { if (failing) throw new Error("spawn race"); return new FakePty(); } },
+    });
+    const first = await manager.createSession("owner", { cols: 80, rows: 24 });
+    expect(first.status).toBe("interrupted");
+    expect(manager.getSessionMetadata("owner", first.id).status).toBe("interrupted");
+
+    failing = false;
+    const resumed = await manager.createSession("owner", { runtimeId: first.runtimeId, cols: 80, rows: 24 });
+    expect(resumed.id).toBe(first.id);
+    expect(resumed.status).toBe("running");
+  });
+
+  it("startet eine beendete Session beim Wiederverbinden neu, auch wenn die tmux-Unterlage fehlt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-exited-"));
+    const supervisor = new FakeSupervisor();
+    const ptys = [new FakePty(), new FakePty()];
+    let spawnIndex = 0;
+    manager = new TerminalManager({
+      allowedRoots: [root], defaultCwd: root, maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => ptys[spawnIndex++]! },
+    });
+    const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    const supervisorName = supervisor.sessionName(session.runtimeId);
+    // Die tmux-Unterlage verschwindet (z. B. extern aufgeräumt); danach endet
+    // der Prozess — die Session bleibt als "exited" zurück, statt zu respawnen.
+    supervisor.sessions.delete(supervisorName);
+    ptys[0]!.end(0);
+    expect(manager.getSessionMetadata("owner", session.id).status).toBe("exited");
+
+    const resumed = await manager.createSession("owner", { runtimeId: session.runtimeId, cols: 80, rows: 24 });
+    expect(resumed.id).toBe(session.id);
+    expect(resumed.status).toBe("running");
+    expect(supervisor.has(supervisorName)).toBe(true);
+    expect(ptys[1]!.killed).toEqual([]);
+  });
+
   it("keeps the supervised runtime alive across a server restart and reconnects its client", async () => {
     const root = await mkdtemp(join(tmpdir(), "workbench-terminal-supervised-"));
     const database = new TerminalDatabase(join(root, "terminal.sqlite"));

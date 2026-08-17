@@ -159,6 +159,28 @@ describe("workspace persistence", () => {
     expect(useWorkspaceStore.getState().focusedPanelId).toBe(firstId);
   });
 
+  it("öffnet Code-Server-Panels mit anderen Zielordnern als eigene Bereiche", () => {
+    useWorkspaceStore.getState().openPanel({ type: "code-server", projectId: "chappie" });
+    const folderId = useWorkspaceStore.getState().openPanel({
+      type: "code-server",
+      projectId: "chappie",
+      codeServerFolder: "/home/user/projects/other",
+    });
+
+    expect(folderId).not.toBeNull();
+    const panels = useWorkspaceStore.getState().panels;
+    expect(panels).toHaveLength(2);
+    expect(panels[1]).toMatchObject({ type: "code-server", codeServerFolder: "/home/user/projects/other" });
+
+    const repeatedId = useWorkspaceStore.getState().openPanel({
+      type: "code-server",
+      projectId: "chappie",
+      codeServerFolder: "/home/user/projects/other",
+    });
+    expect(repeatedId).toBe(folderId);
+    expect(useWorkspaceStore.getState().panels).toHaveLength(2);
+  });
+
   it("übergibt eine angeforderte Browser-Adresse an das bestehende Werkzeug", () => {
     const firstId = useWorkspaceStore.getState().openPanel({ type: "browser", projectId: "chappie" });
     const repeatedId = useWorkspaceStore.getState().openPanel({

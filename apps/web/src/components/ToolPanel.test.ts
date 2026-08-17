@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import type { Panel, Project } from "@workbench/contracts";
 import { projectBoundCodeServerProxyUrl, projectBoundCodeServerUrl } from "./ToolPanel";
 import { ToolPanel } from "./ToolPanel";
 import { RouteActivityProvider } from "../lib/routeActivity";
+import { useWorkspaceStore } from "../stores/workspace";
 
 afterEach(() => cleanup());
 
@@ -132,5 +133,83 @@ describe("eingebettete Werkzeug-Eingaben", () => {
 
     expect(onFocus).toHaveBeenCalledOnce();
     expect(onCanvasPointerDown).not.toHaveBeenCalled();
+  });
+});
+
+describe("T3 Open-in-VS-Code-Brücke", () => {
+  beforeEach(() => {
+    // openPanel wird pro Test ersetzt, damit der persist-Workspace-Store
+    // keinen Storage braucht (im Test-Setup ist window.localStorage nicht
+    // zuverlässig vorhanden).
+    vi.spyOn(useWorkspaceStore.getState(), "openPanel").mockImplementation(() => "new-panel-id");
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  function sendEditorMessage(folder: string | null) {
+    // jsdom setzt bei window.postMessage kein event.origin; der Handler
+    // prüft es aber wie im Browser gegen window.location.origin.
+    window.dispatchEvent(new MessageEvent("message", {
+      data: { type: "remote-workplace:open-editor", ...(folder ? { folder } : {}) },
+      origin: window.location.origin,
+    }));
+  }
+
+  function t3Project(): Project {
+    return {
+      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
+      previews: [], links: { t3Code: "https://t3.example.test", codeServer: "https://editor.example.test" },
+    };
+  }
+
+  it("öffnet einen neuen Code-Server-Bereich mit dem Zielordner des T3-Buttons", async () => {
+    const project = t3Project();
+    const panel = { id: "panel-t3", type: "t3-code", projectId: project.id, previewId: null, reloadKey: 0 } satisfies Panel;
+    const openPanel = vi.spyOn(useWorkspaceStore.getState(), "openPanel").mockImplementation(() => "new-panel-id");
+
+    render(createElement(ToolPanel, { panel, project, isFocused: false, codeServerMode: "embedded" }));
+
+    sendEditorMessage("/home/user/projects/foo");
+
+    await waitFor(() => expect(openPanel).toHaveBeenCalledWith({
+      type: "code-server",
+      projectId: project.id,
+      codeServerFolder: "/home/user/projects/foo",
+    }));
+  });
+
+  it("springt auf der eigenständigen Werkzeugseite zur Code-Server-Seite", async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { origin: "http://localhost:3000", href: "http://localhost:3000/t3-code", assign },
+    });
+    const project = t3Project();
+    const panel = { id: "standalone-t3", type: "t3-code", projectId: project.id, previewId: null, reloadKey: 0 } satisfies Panel;
+
+    render(createElement(ToolPanel, { panel, project, isFocused: true, standalone: true, actionPlacement: "topbar" }));
+
+    sendEditorMessage("/home/user/projects/foo");
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/code-editor/?folder=%2Fhome%2Fuser%2Fprojects%2Ffoo"));
+  });
+
+  it("ignoriert fremde Nachrichten ohne den Open-Editor-Typ", async () => {
+    const project = t3Project();
+    const panel = { id: "panel-t3", type: "t3-code", projectId: project.id, previewId: null, reloadKey: 0 } satisfies Panel;
+    const openPanel = vi.spyOn(useWorkspaceStore.getState(), "openPanel").mockImplementation(() => "new-panel-id");
+
+    render(createElement(ToolPanel, { panel, project, isFocused: false, codeServerMode: "embedded" }));
+
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "remote-workplace:open-browser", url: "http://127.0.0.1:4000" }, origin: window.location.origin }));
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "unrelated" }, origin: window.location.origin }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(openPanel).not.toHaveBeenCalledWith({
+      type: "code-server",
+      projectId: project.id,
+      codeServerFolder: "/home/user/projects/foo",
+    });
   });
 });

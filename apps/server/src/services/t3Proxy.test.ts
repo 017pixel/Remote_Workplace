@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { injectT3HtmlBridge, remoteBrowserFallbackScript, t3HttpRoutes, t3RouteBridgeScript } from "./t3Proxy.js";
+import { injectT3HtmlBridge, remoteBrowserFallbackScript, remoteEditorFallbackScript, t3HttpRoutes, t3IsEditorOpenButton, t3OpenInCwdFromFiber, t3RouteBridgeScript } from "./t3Proxy.js";
 
 describe("T3-Proxy", () => {
   it("leitet gespeicherte Bildanhänge an T3 weiter", () => {
@@ -31,6 +31,64 @@ describe("T3-Proxy", () => {
     expect(remoteBrowserFallbackScript).not.toContain("new MutationObserver(scan)");
   });
 
+  it("brückt den T3-Open-in-VS-Code-Button an den code-server der Workbench", () => {
+    expect(remoteEditorFallbackScript).toContain("remote-workplace:open-editor");
+    expect(remoteEditorFallbackScript).toContain("=== \"Open file in preferred editor\"");
+    expect(remoteEditorFallbackScript).toContain("[data-chat-header-actions]");
+    expect(remoteEditorFallbackScript).toContain("__reactFiber$");
+    expect(remoteEditorFallbackScript).toContain("window.parent.postMessage");
+    expect(remoteEditorFallbackScript).toContain("/editor/");
+    // Die vscode://-URL ist nicht abfangbar (window.location.assign ist nicht
+    // überschreibbar), also wird der Klick selbst unterbunden.
+    expect(remoteEditorFallbackScript).toContain("event.stopImmediatePropagation()");
+    expect(remoteEditorFallbackScript).toContain("new MutationObserver");
+  });
+
+  it("erkennt den T3-Open-Button über aria-label, Text und Kopfbereich", () => {
+    expect(t3IsEditorOpenButton({ ariaLabel: "Open file in preferred editor", text: null, inHeaderActions: true, hasIcon: true })).toBe(true);
+    expect(t3IsEditorOpenButton({ ariaLabel: null, text: "Open", inHeaderActions: true, hasIcon: true })).toBe(true);
+    expect(t3IsEditorOpenButton({ ariaLabel: null, text: "Open", inHeaderActions: false, hasIcon: true })).toBe(false);
+    expect(t3IsEditorOpenButton({ ariaLabel: null, text: "Open", inHeaderActions: true, hasIcon: false })).toBe(false);
+    expect(t3IsEditorOpenButton({ ariaLabel: "Copy options", text: "Open", inHeaderActions: true, hasIcon: true })).toBe(false);
+  });
+
+  it("liest den Zielordner aus den React-Props entlang der Fiber-Kette", () => {
+    const element = {
+      __reactFiber$abc: {
+        memoizedProps: { type: "button", children: "Open" },
+        return: {
+          memoizedProps: {},
+          return: {
+            memoizedProps: { openInCwd: "/home/user/projects/Remote_Workplace", environmentId: "env-1" },
+            return: null,
+          },
+        },
+      },
+    };
+    expect(t3OpenInCwdFromFiber(element)).toBe("/home/user/projects/Remote_Workplace");
+  });
+
+  it("liefert ohne Fiber-Marker oder ohne openInCwd-Prop keinen Ordner", () => {
+    expect(t3OpenInCwdFromFiber(null)).toBeNull();
+    expect(t3OpenInCwdFromFiber({})).toBeNull();
+    const element = {
+      __reactFiber$abc: {
+        memoizedProps: { onClick: () => undefined },
+        return: null,
+      },
+    };
+    expect(t3OpenInCwdFromFiber(element)).toBeNull();
+  });
+
+  it("unterbindet die vscode://-Navigation, die in Chrome und Firefox nicht abfangbar ist", () => {
+    // Stattdessen setzt das Script auf Button-Interception um: Der Klick wird
+    // in der Capture-Phase gestoppt, bevor T3 die tote Deep-Link-URL baut.
+    expect(remoteEditorFallbackScript).toContain("addEventListener(\"click\", (event) => {");
+    expect(remoteEditorFallbackScript).toContain("event.preventDefault()");
+    expect(remoteEditorFallbackScript).toContain("openEditor(button)");
+    expect(remoteEditorFallbackScript).not.toContain("Location.prototype.assign");
+  });
+
   it("normalisiert Deep-Links auf den T3-Thread vor dem Router-Start", () => {
     expect(t3RouteBridgeScript).toContain('pathname.startsWith(prefix + "/")');
     expect(t3RouteBridgeScript).toContain("history.replaceState");
@@ -60,6 +118,7 @@ describe("T3-Proxy", () => {
     const html = injectT3HtmlBridge("<!doctype html><html><head></head><body></body></html>");
     expect(html.indexOf('data-remote-workplace-t3-route="1"')).toBeGreaterThan(-1);
     expect(html.indexOf("data-remote-workplace-browser-fallback")).toBeGreaterThan(-1);
+    expect(html.indexOf("remote-workplace:open-editor")).toBeGreaterThan(-1);
     expect(html.indexOf("</head>")).toBeGreaterThan(html.indexOf('data-remote-workplace-t3-route="1"'));
   });
 });

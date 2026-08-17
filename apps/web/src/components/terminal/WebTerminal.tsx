@@ -81,6 +81,9 @@ export interface WebTerminalProps {
 }
 
 const baseTerminalFontSize = 14;
+// Auf Touch-Shells (Mobile) ist der Inhalt kleiner, damit TUIs wie OpenCode
+// im schmalen Viewport mehr Zeilen zeigen.
+const compactTerminalFontSize = 10;
 const minimumCompensatedRenderScale = 0.1;
 const maximumCompensatedRenderScale = 2.2;
 
@@ -90,11 +93,21 @@ const maximumCompensatedRenderScale = 2.2;
  * Schriftgröße hält die sichtbare Zellgröße konstant und liefert dem Browser
  * mehr Rasterauflösung, bevor der Knoten verkleinert wird.
  */
-export function terminalFontSizeForRenderScale(renderScale = 1): number {
+export function terminalFontSizeForRenderScale(renderScale = 1, compact = false): number {
   const scale = Number.isFinite(renderScale)
     ? Math.min(maximumCompensatedRenderScale, Math.max(minimumCompensatedRenderScale, renderScale))
     : 1;
-  return Number((baseTerminalFontSize / scale).toFixed(2));
+  const base = compact ? compactTerminalFontSize : baseTerminalFontSize;
+  return Number((base / scale).toFixed(2));
+}
+
+/** Erkennt die kompakte Terminal-Schrift an der umgebenden Shell: schmale
+ *  Fenster (`compact`) und Touch-Geräte bekommen die kleine Schrift. */
+export function isCompactTerminal(mount: HTMLElement | null): boolean {
+  const shell = mount?.closest(".app-shell");
+  const mode = shell?.getAttribute("data-shell-mode");
+  const inputMode = shell?.getAttribute("data-input-mode");
+  return mode === "compact" || inputMode === "touch";
 }
 
 export function shouldForwardTerminalData(replayingSnapshot: boolean, sessionId: string | null): sessionId is string {
@@ -102,7 +115,19 @@ export function shouldForwardTerminalData(replayingSnapshot: boolean, sessionId:
 }
 
 const mouseReportingModes = ["1000", "1002", "1003"];
-const maximumParkedOutputBytes = 256_000;
+// Bei versteckten Tabs und geparkten Flächen bleibt die Verbindung offen;
+// der Puffer hält die Ausgabe für die Rückkehr (1 MB statt 256 KB).
+const maximumParkedOutputBytes = 1_000_000;
+// Fehler, die ein automatisches Wiederverbinden behebt (z. B. Spawn-Race nach
+// dem Aufwachen) statt die rote Box "Das Terminal läuft nicht" auszulösen.
+const recoverableTerminalErrorCodes = new Set([
+  "PTY_SPAWN_FAILED",
+  "PTY_WRITE_FAILED",
+  "PTY_RESIZE_FAILED",
+  "TERMINAL_NOT_RUNNING",
+  "SESSION_INTERRUPTED",
+  "INTERNAL_ERROR",
+]);
 
 // eslint-disable-next-line no-control-regex -- Terminal-Sequenzen (DECSET/DECRST) müssen erkannt werden.
 const modeSettingsPattern = /\x1b\[\?([0-9;]*)([hl])/g;
@@ -140,6 +165,17 @@ export function updateMouseEncoding(sgr: boolean, data: string): boolean {
     if (modes.includes("1006")) next = match[2] === "h";
   }
   return next;
+}
+
+/**
+ * Erkennt Antworten, die xterm selbst auf Geräteabfragen der Anwendung
+ * erzeugt (DA1/DA2, Device Status, Cursor-Position-Report, XTVERSION). Solche
+ * Antworten sind keine Nutzereingabe und dürfen nie an die PTY zurückgehen —
+ * sonst erscheint ihr Inhalt (z. B. „1;1R") als Fremdtext im Terminal.
+ */
+const deviceAnswerPattern = /^\x1b\[[>?]?[\d;]*[cRn]$|^\x1b\[>\d+(?:;[\d.]+)*\|/;
+export function isDeviceAnswer(data: string): boolean {
+  return deviceAnswerPattern.test(data);
 }
 
 /**
@@ -240,11 +276,18 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   const [pendingPaste, setPendingPaste] = useState<string | null>(null);
   const [restartBanner, setRestartBanner] = useState<{ message: string } | null>(null);
   const autoRestartCountRef = useRef(0);
+  // Schlägt das Anhängen direkt nach dem Aufwachen (z. B. MacBook-Schlaf)
+  // einmalig fehl, bleibt die Session "interrupted" — der Client versucht es
+  // automatisch erneut, statt eine rote Box zu zeigen.
+  const interruptedRetriesRef = useRef(0);
   // Aktuell getippte Zeile und der zuletzt abgeschickte Befehl. Stirbt das
   // Terminal, kann der Befehl nach dem Neustart wieder vorgelegt werden.
   const currentLineRef = useRef("");
   const [lastCommand, setLastCommand] = useState("");
   const initialRenderScaleRef = useRef(renderScale);
+  // Kompakte Schrift auf Touch-Shells; der Zustand wird am `.app-shell`
+  // beobachtet und beim Wechsel zwischen Geräteklassen angepasst.
+  const compactRef = useRef(false);
   // Merkt sich, ob die laufende Anwendung Maus-Reporting aktiviert hat — nur
   // dann darf das Mausrad als Maus-Ereignis an die App gehen. Sonst übersetzt
   // xterm das Rad im Alternate Screen in Pfeiltasten und die App interpretiert
@@ -457,6 +500,36 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     })) setError("Die Verbindung wird noch aufgebaut. Bitte gleich erneut versuchen.");
   }, [accountId, initialCwd, instanceId, kind, mode, projectId, send]);
 
+  /** Wiederholt den Verbindungsaufbau, wenn die Session kurz nach einem
+   *  Aufwachen noch nicht anhängbar war (maximal drei Versuche). */
+  const scheduleInterruptedRetry = useCallback(() => {
+    if (interruptedRetriesRef.current >= 3) return;
+    interruptedRetriesRef.current += 1;
+    window.setTimeout(() => {
+      if (disposedRef.current) return;
+      createSession();
+    }, 700);
+  }, [createSession]);
+
+  /** Startet eine beendete Sitzung automatisch neu (maximal drei Versuche),
+   *  statt sie in die rote Box "Das Terminal läuft nicht" zu schicken. */
+  const scheduleAutoRestart = useCallback(() => {
+    if (autoRestartCountRef.current >= 3) {
+      setStatus("exited");
+      setRestartBanner(null);
+      return;
+    }
+    autoRestartCountRef.current += 1;
+    window.setTimeout(() => {
+      if (disposedRef.current) return;
+      send({ type: "terminal.restart", sessionId: sessionRef.current ?? "" });
+      sequenceRef.current = 0;
+      terminalRef.current?.write("\x1bc");
+      setStatus("connected");
+      setRestartBanner({ message: "Das Terminal wurde beendet und automatisch neu gestartet." });
+    }, 1_500);
+  }, [send]);
+
   const connect = useCallback(() => {
     if (disposedRef.current) return;
     if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) return;
@@ -465,7 +538,10 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const socket = new WebSocket(websocketUrl());
     socketRef.current = socket;
      socket.onopen = () => {
-       if (!activeRef.current && !(keepAliveRef.current && globalThis.document.visibilityState !== "hidden")) {
+       // Ohne keepAlive schließt ein geparktes oder verstecktes Terminal den
+       // Socket; mit keepAlive bleibt die Verbindung auch im Hintergrund offen
+       // und die Ausgabe läuft nur in den Puffer.
+       if (!activeRef.current && !keepAliveRef.current) {
          socket.close();
          return;
        }
@@ -479,7 +555,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       // the existing PTY or attaches a new client to the same tmux runtime.
       createSession();
       heartbeatRef.current = window.setInterval(() => {
-        if (activeRef.current || (keepAliveRef.current && globalThis.document.visibilityState !== "hidden")) send({ type: "terminal.ping" });
+        if (activeRef.current || keepAliveRef.current) send({ type: "terminal.ping" });
       }, 25_000);
     };
     socket.onmessage = (event) => {
@@ -489,7 +565,17 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
       if (message.type === "terminal.created") {
         sessionRef.current = message.sessionId;
         setCwd(message.cwd);
-        setStatus(message.status === "running" ? "connected" : message.status === "interrupted" ? "interrupted" : "exited");
+        if (message.status === "interrupted") {
+          setStatus("interrupted");
+          scheduleInterruptedRetry();
+          return;
+        }
+        if (message.status === "exited") {
+          scheduleAutoRestart();
+          return;
+        }
+        interruptedRetriesRef.current = 0;
+        setStatus("connected");
         autoRestartCountRef.current = 0;
         send({ type: "terminal.attach", sessionId: message.sessionId });
         resize();
@@ -500,10 +586,25 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         sessionRef.current = message.sessionId;
         sequenceRef.current = message.sequence;
         setCwd(message.cwd);
-        setStatus(message.status === "running" ? "connected" : message.status === "interrupted" ? "interrupted" : "exited");
+        if (message.status === "interrupted") {
+          setStatus("interrupted");
+          scheduleInterruptedRetry();
+          return;
+        }
+        if (message.status === "exited") {
+          scheduleAutoRestart();
+          return;
+        }
+        interruptedRetriesRef.current = 0;
+        setStatus("connected");
         autoRestartCountRef.current = 0;
-        mouseTrackingRef.current = updateMouseReporting(false, message.history);
-        mouseEncodingRef.current = updateMouseEncoding(false, message.history);
+        // Maus-Reporting nach dem Replay zuverlässig rekonstruieren. Enthält
+        // die (gekürzte) History keine Modus-Sequenz, gilt bei TUI-Agenten
+        // der typische Fall: Sie nutzen Maus-Reporting — sonst würde das
+        // Mausrad nach einem Reconnect fälschlich geschluckt.
+        const modeSeen = /\x1b\[\?[0-9;]*[hl]/.test(message.history);
+        mouseTrackingRef.current = modeSeen ? updateMouseReporting(false, message.history) : kindRef.current !== "shell";
+        mouseEncodingRef.current = modeSeen ? updateMouseEncoding(false, message.history) : false;
         snapshotReplayRef.current = true;
         terminal.write("\x1bc");
         terminal.write(message.history, () => {
@@ -524,22 +625,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         terminal.write("\x1bc");
       } else if (message.type === "terminal.exited") {
         sequenceRef.current = Math.max(sequenceRef.current, message.sequence);
-        if (autoRestartCountRef.current < 3) {
-          autoRestartCountRef.current += 1;
-          window.setTimeout(() => {
-            if (disposedRef.current) return;
-            send({ type: "terminal.restart", sessionId: sessionRef.current ?? "" });
-            sequenceRef.current = 0;
-            terminalRef.current?.write("\x1bc");
-            setStatus("connected");
-            setRestartBanner({ message: "Das Terminal wurde beendet und automatisch neu gestartet." });
-          }, 1_500);
-        } else {
-          // Nach drei erfolglosen Versuchen nicht weiter automatisch neu starten,
-          // sondern den Neustart dem Nutzer überlassen (siehe .terminal-dead).
-          setStatus("exited");
-          setRestartBanner(null);
-        }
+        scheduleAutoRestart();
       } else if (message.type === "terminal.restarting") {
         sequenceRef.current = Math.max(sequenceRef.current, message.sequence);
         setRestartBanner({ message: message.reason });
@@ -547,6 +633,15 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
         if (message.code === "SESSION_NOT_FOUND") {
           sessionRef.current = null;
           createSession();
+          return;
+        }
+        // Einmalige Fehler (Spawn-Race nach Schlaf, kurzzeitig tote PTY)
+        // behebt das Wiederverbinden von selbst — die rote Box bleibt nur
+        // für echte, nicht heilbare Zustände.
+        if (recoverableTerminalErrorCodes.has(message.code)) {
+          setError(null);
+          setStatus("disconnected");
+          socketRef.current?.close();
           return;
         }
         setStatus("error");
@@ -559,17 +654,17 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
        socketRef.current = null;
       if (heartbeatRef.current) window.clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
-       if (disposedRef.current || fatalRef.current || (!activeRef.current && !(keepAliveRef.current && globalThis.document.visibilityState !== "hidden"))) return;
+       if (disposedRef.current || fatalRef.current || !keepAliveRef.current) return;
        setStatus("disconnected");
       reconnectRef.current = window.setTimeout(connect, Math.min(10_000, 500 * (2 ** retriesRef.current++)));
     };
     socket.onerror = () => socket.close();
-  }, [createSession, flushOutput, flushReplayBuffer, queueOutput, resize, send]);
+  }, [createSession, flushOutput, flushReplayBuffer, queueOutput, resize, scheduleAutoRestart, scheduleInterruptedRetry, send]);
 
   useEffect(() => {
     const updateActivity = () => {
       activeRef.current = active && globalThis.document.visibilityState !== "hidden";
-      const connectionAllowed = activeRef.current || (keepAlive && globalThis.document.visibilityState !== "hidden");
+      const connectionAllowed = activeRef.current || keepAlive;
       if (activeRef.current) flushOutput();
       if (connectionAllowed) {
         if (!socketRef.current) connect();
@@ -586,13 +681,14 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     const mount = mountRef.current;
     if (!mount) return;
     disposedRef.current = false;
+    compactRef.current = isCompactTerminal(mount);
     const terminal = new Terminal({
       cursorBlink: true,
       // Blockcursor statt Strich: die vertraute Form eines Terminals.
       cursorStyle: "block",
       cursorInactiveStyle: "outline",
       convertEol: false,
-      fontSize: terminalFontSizeForRenderScale(initialRenderScaleRef.current),
+      fontSize: terminalFontSizeForRenderScale(initialRenderScaleRef.current, compactRef.current),
       lineHeight: 1,
       letterSpacing: 0,
       customGlyphs: true,
@@ -698,7 +794,32 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     mount.addEventListener("mouseup", onMouseCapture, { capture: true });
     terminalRef.current = terminal;
     fitRef.current = fit;
+    // Nach dem asynchronen Laden der Schriften (Fallback → JetBrains Mono)
+    // stimmen die Zellmetriken wieder; ein Refresh verhindert den Versatz um
+    // eine halbe Zeile.
+    if (typeof document.fonts?.ready?.then === "function") {
+      void document.fonts.ready.then(() => {
+        if (disposedRef.current || terminalRef.current !== terminal) return;
+        terminal.refresh(0, terminal.rows - 1);
+        resize();
+      });
+    }
+    // Wechsel der Shell-Kompaktheit (Desktop ↔ Mobile) passt die Schriftgröße
+    // an, damit TUIs im schmalen Viewport kompakt bleiben.
+    const shellRoot = mount.closest(".app-shell");
+    const shellObserver = new MutationObserver(() => {
+      const compact = isCompactTerminal(mount);
+      if (compact === compactRef.current) return;
+      compactRef.current = compact;
+      terminal.options.fontSize = terminalFontSizeForRenderScale(renderScale, compact);
+      terminal.refresh(0, terminal.rows - 1);
+      resize();
+    });
+    if (shellRoot) shellObserver.observe(shellRoot, { attributes: true, attributeFilter: ["data-shell-mode", "data-input-mode", "data-orientation"] });
     const input = terminal.onData((data) => {
+      // Antworten, die xterm auf Geräteabfragen erzeugt (z. B. „1;1R"), sind
+      // keine Nutzereingabe und dürfen nie zurück in die PTY wandern.
+      if (isDeviceAnswer(data)) return;
       const sessionId = sessionRef.current;
       if (snapshotReplayRef.current) {
         replayBufferRef.current.push(data);
@@ -814,10 +935,10 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     mount.addEventListener("touchend", endTouch, { passive: true });
     mount.addEventListener("touchcancel", endTouch, { passive: true });
 
-    if (activeRef.current || (keepAlive && globalThis.document.visibilityState !== "hidden")) connect();
+    if (activeRef.current || keepAlive) connect();
     return () => {
       disposedRef.current = true;
-      input.dispose(); cwdHandler.dispose(); observer.disconnect(); viewport?.removeEventListener("resize", onViewportChange); viewport?.removeEventListener("scroll", onViewportChange); themes.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseUp); mount.removeEventListener("mousedown", onMouseCapture, { capture: true }); mount.removeEventListener("mousemove", onMouseCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseCapture, { capture: true });
+      input.dispose(); cwdHandler.dispose(); observer.disconnect(); viewport?.removeEventListener("resize", onViewportChange); viewport?.removeEventListener("scroll", onViewportChange); themes.disconnect(); shellObserver.disconnect(); mount.removeEventListener("paste", onPaste, { capture: true }); mount.removeEventListener("wheel", onWheelCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseUp); mount.removeEventListener("mousedown", onMouseCapture, { capture: true }); mount.removeEventListener("mousemove", onMouseCapture, { capture: true }); mount.removeEventListener("mouseup", onMouseCapture, { capture: true });
       mount.removeEventListener("touchstart", onTouchStart);
       mount.removeEventListener("touchmove", onTouchMove);
       mount.removeEventListener("touchend", endTouch);
@@ -842,7 +963,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
-    const fontSize = terminalFontSizeForRenderScale(renderScale);
+    const fontSize = terminalFontSizeForRenderScale(renderScale, compactRef.current);
     if (terminal.options.fontSize === fontSize) return;
     terminal.options.fontSize = fontSize;
     terminal.options.lineHeight = 1;

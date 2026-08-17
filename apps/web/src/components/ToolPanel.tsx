@@ -74,7 +74,12 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
       url,
       mode: "hybrid",
       embed: url !== null,
-      proxyUrl: url === null ? null : "/t3",
+      // Das gehostete T3-Web-UI (app.t3.codes) wird direkt eingebettet statt über
+      // den /t3-Proxy: Dort sind mehrere Backends/Umgebungen verfügbar und der
+      // Browser verbindet sich selbst mit jedem T3-Server (lokal und CHAPPiEs).
+      // Die frühere Route-Bridge des Proxys (Thread-Presence, Deep-Links) greift
+      // damit nicht mehr — bewusste Entscheidung für das Hosted-UI.
+      proxyUrl: null,
       reason: url === null ? "T3 Code ist für dieses Projekt nicht verfügbar." : null,
       targetPort: null,
       path: "/",
@@ -82,13 +87,15 @@ function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode
   }
   if (panel.type === "code-server") {
     const configuredUrl = project.links.codeServer;
-    const url = configuredUrl === null ? null : projectBoundCodeServerUrl(configuredUrl, project.path);
+    // Ein Zielordner aus dem T3-„Open"-Button übersteuert das Projektverzeichnis.
+    const targetFolder = panel.codeServerFolder ?? project.path;
+    const url = configuredUrl === null ? null : projectBoundCodeServerUrl(configuredUrl, targetFolder);
     const embed = configuredUrl !== null && (codeServerMode === "hybrid" || codeServerMode === "embedded");
     return {
       url,
       mode: codeServerMode,
       embed,
-      proxyUrl: embed ? projectBoundCodeServerProxyUrl(project.path) : null,
+      proxyUrl: embed ? projectBoundCodeServerProxyUrl(targetFolder) : null,
       reason: configuredUrl === null ? "code-server ist auf dem Server nicht installiert." : null,
       targetPort: null,
       path: "/",
@@ -188,6 +195,33 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     window.addEventListener("message", handleT3BrowserRequest);
     return () => window.removeEventListener("message", handleT3BrowserRequest);
   }, [openPanel, panel.id, panel.projectId, panel.type]);
+
+  useEffect(() => {
+    if (panel.type !== "t3-code") return;
+    // Der T3-„Open in VS Code"-Button öffnet seinen Zielordner statt einer
+    // toten vscode://-Navigation im code-server der Workbench: eingebettet als
+    // neuer Editor-Bereich, auf der eigenständigen Werkzeugseite als Sprung.
+    const handleT3EditorRequest = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown; folder?: unknown } | null;
+      if (data?.type !== "remote-workplace:open-editor") return;
+      const folder = typeof data.folder === "string" && data.folder.length > 0 ? data.folder : null;
+      if (standalone) {
+        const params = new URLSearchParams(folder ? { folder } : {});
+        window.location.assign(`/code-editor/?${params.toString()}`);
+        return;
+      }
+      if (openPanel({
+        type: "code-server",
+        projectId: panel.projectId,
+        ...(folder ? { codeServerFolder: folder } : {}),
+      }) === null) {
+        useWorkbenchNotice.getState().show(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+      }
+    };
+    window.addEventListener("message", handleT3EditorRequest);
+    return () => window.removeEventListener("message", handleT3EditorRequest);
+  }, [openPanel, panel.id, panel.projectId, panel.type, standalone]);
 
   useEffect(() => {
     if (panel.type !== "preview" || localPreview) return;
@@ -414,6 +448,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
                 className="h-full w-full border-0 bg-white"
                 allowFullScreen
                 referrerPolicy="same-origin"
+                {...(panel.type === "t3-code" ? { allow: "local-network" } : {})}
               />
             </DevicePreviewFrame>
           </>

@@ -47,5 +47,16 @@ describe.skipIf(!existsSync(executable))("TmuxSupervisor", () => {
     const options = spawnSync(executable, ["show-options", "-t", name, "mouse"], { encoding: "utf8", timeout: 3_000 });
     expect(options.status).toBe(0);
     expect(options.stdout).toContain("on");
+
+    // tmux bleibt unsichtbar: keine Statusleiste, keine störenden Meldungsfarben.
+    const status = spawnSync(executable, ["show-options", "-t", name, "status"], { encoding: "utf8", timeout: 3_000 });
+    expect(status.status).toBe(0);
+    expect(status.stdout).toContain("off");
+
+    // Der Client bleibt im normalen Puffer, damit xterm den Scrollback behält
+    // und das Mausrad direkt scrollen kann.
+    const alternate = spawnSync(executable, ["show-options", "-t", name, "alternate-screen"], { encoding: "utf8", timeout: 3_000 });
+    expect(alternate.status).toBe(0);
+    expect(alternate.stdout).toContain("off");
   });
 });

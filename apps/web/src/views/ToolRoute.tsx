@@ -42,6 +42,9 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
     if (type !== "t3-code" || !t3Thread || !t3Env) return undefined;
     return `/${encodeURIComponent(t3Env)}/${encodeURIComponent(t3Thread)}`;
   }, [t3Env, t3Thread, type]);
+  // Zielordner für die eigenständige Code-Server-Seite, gesetzt vom T3-„Open"-
+  // Button: `/code-editor/?folder=…` öffnet genau diesen Ordner.
+  const codeServerFolder = type === "code-server" ? searchParams.get("folder") : null;
 
   useEffect(() => {
     if (!routeActive || type !== "t3-code" || !t3Path) return;
@@ -62,6 +65,7 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
     previewId,
     reloadKey: 0,
     ...(t3Path ? { t3Path } : {}),
+    ...(type === "code-server" && codeServerFolder ? { codeServerFolder } : {}),
   };
 
   return (

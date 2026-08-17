@@ -261,11 +261,14 @@ export const useTerminalStore = create<TerminalStore>()(
     {
       name: TERMINAL_STORAGE_KEY,
       version: 3,
-      partialize: ({ areas }) => ({ areas }),
+      // runtimeCwds wird mitgespeichert, damit ein neues Terminal nach einem
+      // Reload den zuletzt bekannten Ordner übernimmt.
+      partialize: ({ areas, runtimeCwds }) => ({ areas, runtimeCwds }),
       migrate: (persisted) => {
-        if (!persisted || typeof persisted !== "object" || !("areas" in persisted)) return { areas: {} };
+        if (!persisted || typeof persisted !== "object" || !("areas" in persisted)) return { areas: {}, runtimeCwds: {} };
         const areas = (persisted as { areas?: Record<string, TerminalAreaState & { splitTabId?: string | null }> }).areas ?? {};
         return {
+          runtimeCwds: (persisted as { runtimeCwds?: Record<string, string> }).runtimeCwds ?? {},
           areas: Object.fromEntries(Object.entries(areas).map(([areaId, area]) => [areaId, {
             ...area,
             tabs: Array.isArray(area.tabs)

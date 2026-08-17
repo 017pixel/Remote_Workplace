@@ -36,21 +36,37 @@ export class TmuxSupervisor {
 
   ensure(input: { runtimeId: string; kind: TerminalKind; projectId: string | null; cwd: string; command: SupervisedCommand }) {
     const name = this.sessionName(input.runtimeId);
-    if (this.has(name)) return name;
-    const environment = Object.entries(input.command.environment).map(([key, value]) => `${key}=${value}`);
-    const command = ["/usr/bin/env", ...environment, input.command.file, ...input.command.args].map(shellQuote).join(" ");
-    const created = spawnSync(this.executable, ["new-session", "-d", "-s", name, "-c", input.cwd, command], { encoding: "utf8", timeout: 5_000 });
-    if (created.status !== 0) throw new Error(created.stderr.trim() || "tmux-Session konnte nicht gestartet werden.");
-    this.run(["set-option", "-t", name, "history-limit", "100000"]);
-    this.run(["set-option", "-t", name, "remain-on-exit", "on"]);
-    // Maus-Scrollen: Apps mit Maus-Reporting (z. B. OpenCode) bekommen Wheel-
-    // Events nur mit aktivierter Maus durchgereicht. Ohne dieses Flag schluckt
-    // tmux die SGR-Sequenzen und die App kann nicht per Mausrad scrollen.
-    this.run(["set-option", "-t", name, "mouse", "on"]);
+    if (!this.has(name)) {
+      const environment = Object.entries(input.command.environment).map(([key, value]) => `${key}=${value}`);
+      const command = ["/usr/bin/env", ...environment, input.command.file, ...input.command.args].map(shellQuote).join(" ");
+      const created = spawnSync(this.executable, ["new-session", "-d", "-s", name, "-c", input.cwd, command], { encoding: "utf8", timeout: 5_000 });
+      if (created.status !== 0) throw new Error(created.stderr.trim() || "tmux-Session konnte nicht gestartet werden.");
+    }
+    // Optionen gelten für neue und bestehende Sessions: So übernimmt eine
+    // laufende Session nach einem Server-Neustart automatisch die aktuelle
+    // Konfiguration (unsichtbare Statusleiste, normaler Puffer, Maus).
+    this.applySessionOptions(name);
     this.run(["set-option", "-t", name, "@workbench_runtime_id", input.runtimeId]);
     this.run(["set-option", "-t", name, "@workbench_kind", input.kind]);
     this.run(["set-option", "-t", name, "@workbench_project_id", input.projectId ?? ""]);
     return name;
+  }
+
+  private applySessionOptions(name: string) {
+    this.run(["set-option", "-t", name, "history-limit", "100000"]);
+    this.run(["set-option", "-t", name, "remain-on-exit", "on"]);
+    // tmux bleibt im normalen Puffer statt in den Alternate Screen zu wechseln.
+    // Sonst hätte xterm keinen Scrollback und das Mausrad würde zu Pfeiltasten
+    // an die Shell — Scrollen wäre nur über tmux-Mausmodi möglich.
+    this.run(["set-option", "-t", name, "alternate-screen", "off"]);
+    // tmux bleibt als Supervisor aktiv, darf für den Nutzer aber unsichtbar
+    // sein: keine Statusleiste und keine störenden Meldungsfarben.
+    this.run(["set-option", "-t", name, "status", "off"]);
+    this.run(["set-option", "-t", name, "message-style", "fg=default,bg=default"]);
+    // Maus-Scrollen: Apps mit Maus-Reporting (z. B. OpenCode) bekommen Wheel-
+    // Events nur mit aktivierter Maus durchgereicht. Ohne dieses Flag schluckt
+    // tmux die SGR-Sequenzen und die App kann nicht per Mausrad scrollen.
+    this.run(["set-option", "-t", name, "mouse", "on"]);
   }
 
   attachCommand(name: string) { return { file: this.executable, args: ["attach-session", "-t", name] }; }

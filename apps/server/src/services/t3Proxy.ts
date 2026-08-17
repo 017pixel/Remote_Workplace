@@ -167,6 +167,129 @@ export const remoteBrowserFallbackScript = `<script>
 })();
 </script>`;
 
+// T3 Code öffnet „Open in VS Code" im Web als `vscode://vscode-remote/
+// ssh-remote+<host><pfad>`-Deep-Link über `window.location.assign`. Ohne
+// registrierten Schema-Handler bleibt dieser Klick wirkungslos. Die URL selbst
+// lässt sich nicht abfangen: `window.location.assign` ist in Chrome und
+// Firefox eine nicht überschreibbare Browser-Property. Das Script fängt
+// deshalb den Klick auf den T3-„Open"-Button ab (gleiches Muster wie der
+// Browser-Fallback), liest den Zielordner aus den React-Props der Komponente
+// und öffnet ihn im code-server der Workbench: eingebettet per postMessage an
+// das umgebende ToolPanel, im eigenständigen Fenster direkt als
+// `/editor`-Navigation. Ohne ablesbaren Ordner öffnet die Workbench das
+// Projekt des Panels.
+export const remoteEditorFallbackScript = `<script>
+(() => {
+  const messageType = "remote-workplace:open-editor";
+  const mark = "data-remote-workplace-editor-fallback";
+  const isOpenButton = (button) => {
+    if (!(button instanceof HTMLButtonElement)) return false;
+    if (button.getAttribute(mark) === "true") return false;
+    // Kompakter Modus (z. B. schmale Panels): nur aria-label, Text ist sr-only.
+    if (button.getAttribute("aria-label") === "Open file in preferred editor") return true;
+    const label = (button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "").trim();
+    if (label !== "Open") return false;
+    if (!button.closest("[data-chat-header-actions]")) return false;
+    if (!button.querySelector("svg")) return false;
+    return true;
+  };
+  // Der Zielordner steckt als openInCwd in den React-Props der
+  // OpenInPicker-Komponente. React legt dafür einen internen Fiber-Marker auf
+  // dem DOM-Knoten ab; die Kette wird zum ersten Knoten mit openInCwd gelaufen.
+  const openInCwdFrom = (button) => {
+    const fiberKey = Object.keys(button).find((key) => key.startsWith("__reactFiber$"));
+    if (!fiberKey) return null;
+    let fiber = button[fiberKey];
+    for (let depth = 0; fiber && depth < 24; depth += 1, fiber = fiber.return) {
+      const props = fiber.memoizedProps;
+      if (props && typeof props.openInCwd === "string" && props.openInCwd.length > 0) return props.openInCwd;
+    }
+    return null;
+  };
+  const openEditor = (button) => {
+    const folder = openInCwdFrom(button);
+    const message = { type: messageType, ...(folder ? { folder } : {}) };
+    if (window.parent === window) {
+      const params = new URLSearchParams(folder ? { folder } : {});
+      window.location.assign("/editor/?" + params.toString());
+    } else {
+      window.parent.postMessage(message, window.location.origin);
+    }
+  };
+  const bind = (button) => {
+    if (!isOpenButton(button)) return;
+    button.setAttribute(mark, "true");
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      openEditor(button);
+    }, true);
+    // Nur echte Zustandsänderungen schreiben, sonst dreht der Observer sich
+    // in Firefox endlos (gleiches Muster wie beim Browser-Fallback).
+    if (button.disabled) button.disabled = false;
+    if (button.hasAttribute("aria-disabled")) button.removeAttribute("aria-disabled");
+    if (button.classList.contains("cursor-not-allowed") || button.classList.contains("opacity-40")) {
+      button.classList.remove("cursor-not-allowed", "opacity-40");
+    }
+  };
+  const scan = (root) => {
+    if (!(root instanceof Element)) return;
+    if (root.matches("button")) bind(root);
+    for (const button of root.querySelectorAll("button")) bind(button);
+  };
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.type === "childList") {
+        for (const node of record.addedNodes) scan(node);
+      } else if (record.type === "attributes") {
+        bind(record.target);
+      } else {
+        bind(record.target.parentElement?.closest("button"));
+      }
+    }
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["disabled", "aria-disabled", "class", "aria-label"],
+    characterData: true,
+  });
+  scan(document.documentElement);
+})();
+</script>`;
+
+// Reine Kernlogik des Editor-Fallbacks, damit die Button-Erkennung und die
+// React-Prop-Suche deterministisch testbar sind. Das injizierte Script
+// enthält dieselbe Logik inline und läuft im Browser-Kontext von T3 Code.
+export function t3IsEditorOpenButton(input: {
+  ariaLabel: string | null;
+  text: string | null;
+  inHeaderActions: boolean;
+  hasIcon: boolean;
+}): boolean {
+  if (input.ariaLabel === "Open file in preferred editor") return true;
+  const label = (input.ariaLabel ?? input.text ?? "").trim();
+  return label === "Open" && input.inHeaderActions && input.hasIcon;
+}
+
+export function t3OpenInCwdFromFiber(element: unknown): string | null {
+  if (element === null || typeof element !== "object") return null;
+  const fiberKey = Object.keys(element).find((key) => key.startsWith("__reactFiber$"));
+  if (!fiberKey) return null;
+  let fiber = (element as Record<string, unknown>)[fiberKey] as {
+    return?: unknown;
+    memoizedProps?: { openInCwd?: unknown } | null;
+  } | null;
+  for (let depth = 0; fiber && depth < 24; depth += 1) {
+    const props = fiber.memoizedProps;
+    if (props && typeof props.openInCwd === "string" && props.openInCwd.length > 0) return props.openInCwd;
+    fiber = fiber.return as typeof fiber;
+  }
+  return null;
+}
+
 export const t3HttpRoutes = [
   "/", "/t3/*", "/assets/*", "/.well-known/t3/*", "/api/auth/*",
   "/api/assets/*", "/api/orchestration/*", "/api/connect/*", "/api/t3-connect/*", "/api/observability/*", "/oauth/*",
@@ -183,7 +306,7 @@ function isHtml(headers: IncomingHttpHeaders): boolean {
 }
 
 export function injectT3HtmlBridge(html: string): string {
-  const bridge = `${t3RouteBridgeScript}${remoteBrowserFallbackScript}`;
+  const bridge = `${t3RouteBridgeScript}${remoteBrowserFallbackScript}${remoteEditorFallbackScript}`;
   return html.includes("</head>") ? html.replace("</head>", `${bridge}</head>`) : `${bridge}${html}`;
 }
 

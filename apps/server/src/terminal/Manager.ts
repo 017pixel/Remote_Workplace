@@ -43,6 +43,9 @@ export interface TerminalSession {
 export class TerminalFailure extends Error { constructor(readonly code: TerminalErrorCode, message: string) { super(message); } }
 
 const HISTORY_LIMIT = 3 * 1024 * 1024;
+/** Snapshot-Größe beim (Wieder-)Verbinden: Der Client spielt nur so viel ein,
+ *  damit das Resumme auch bei langen TUIs schnell bleibt (F01-xx). */
+const SNAPSHOT_LIMIT = 512 * 1024;
 /** Beendete Sessions räumen sich nach dieser Zeit von selbst auf (F01-10). */
 const EXITED_SESSION_TTL_MS = 30 * 60 * 1_000;
 
@@ -120,11 +123,20 @@ export class TerminalManager {
         existing.rows = input.rows;
         if (existing.primaryClientId === null && input.clientId) existing.primaryClientId = input.clientId;
       }
-      if (!existing.pty && this.options.supervisor && existing.supervisorName && this.options.supervisor.has(existing.supervisorName)) {
-        existing.status = "starting";
-        this.spawn(existing);
-      } else if (!existing.pty && existing.status === "running") {
-        existing.status = "interrupted";
+      if (!existing.pty) {
+        const supervisorAlive = this.options.supervisor && existing.supervisorName && this.options.supervisor.has(existing.supervisorName);
+        // Jede pty-lose, nicht geschlossene Session wird beim nächsten
+        // Verbinden wieder in den laufenden Zustand gebracht: beendete und
+        // unterbrochene Sessions starten neu (tmux legt die Session bei
+        // Bedarf neu an), laufende Sessions mit lebender tmux-Unterlage
+        // werden einfach wieder angehängt. Nur eine laufende Session ohne
+        // Supervisor-Unterlage bleibt ehrlich "unterbrochen".
+        if (existing.status !== "running" || supervisorAlive) {
+          existing.status = "starting";
+          this.spawn(existing);
+        } else if (existing.status === "running") {
+          existing.status = "interrupted";
+        }
       }
       this.persist(existing);
       return existing;
@@ -163,7 +175,18 @@ export class TerminalManager {
     this.sessions.set(session.id, session);
     this.persist(session);
     try { this.spawn(session); return session; }
-    catch (error) { this.sessions.delete(session.id); this.options.database?.deleteSession(userId, session.id); throw error; }
+    catch (error) {
+      // Schlägt nur das Anhängen fehl (etwa direkt nach dem Aufwachen aus dem
+      // Schlaf), während die tmux-Session weiterlebt, bleibt die Session
+      // bestehen: Der nächste Create mit derselben Runtime-ID reattached sie.
+      if (this.options.supervisor && session.supervisorName && this.options.supervisor.has(session.supervisorName)) {
+        session.status = "interrupted";
+        session.updatedAt = Date.now();
+        this.persist(session);
+        return session;
+      }
+      this.sessions.delete(session.id); this.options.database?.deleteSession(userId, session.id); throw error;
+    }
   }
 
   attachSession(userId: string, sessionId: string, client: TerminalClient, clientId: string = randomUUID()): () => void {
@@ -171,7 +194,7 @@ export class TerminalManager {
     session.clients.set(clientId, client);
     session.clientViewports.set(clientId, { cols: session.cols, rows: session.rows });
     if (session.primaryClientId === null) session.primaryClientId = clientId;
-    client({ type: "terminal.snapshot", sessionId, runtimeId: session.runtimeId, kind: session.kind, status: session.status, projectId: session.projectId, cwd: session.cwd, history: session.history, sequence: session.sequence ?? 0 });
+    client({ type: "terminal.snapshot", sessionId, runtimeId: session.runtimeId, kind: session.kind, status: session.status, projectId: session.projectId, cwd: session.cwd, history: this.snapshotHistory(session.history), sequence: session.sequence ?? 0 });
     let attached = true;
     return () => {
       if (!attached) return;
@@ -220,7 +243,7 @@ export class TerminalManager {
     if (session.status === "running") this.stopProcess(session, true);
     session.history = ""; session.exitCode = null; session.exitSignal = null; session.status = "starting"; session.updatedAt = Date.now();
     this.persist(session); this.spawn(session);
-    this.emit(session, { type: "terminal.snapshot", sessionId: session.id, runtimeId: session.runtimeId, kind: session.kind, status: session.status, projectId: session.projectId, cwd: session.cwd, history: session.history, sequence: session.sequence });
+    this.emit(session, { type: "terminal.snapshot", sessionId: session.id, runtimeId: session.runtimeId, kind: session.kind, status: session.status, projectId: session.projectId, cwd: session.cwd, history: this.snapshotHistory(session.history), sequence: session.sequence });
     return session;
   }
 
@@ -390,7 +413,7 @@ export class TerminalManager {
           status: "running",
           projectId: session.projectId,
           cwd: session.cwd,
-          history: session.history,
+          history: this.snapshotHistory(session.history),
           sequence: session.sequence,
         });
         return;
@@ -459,6 +482,8 @@ export class TerminalManager {
     this.persist(session);
   }
   private limitHistory(history: string) { return history.length <= HISTORY_LIMIT ? history : history.slice(history.length - HISTORY_LIMIT).replace(/^[^\n]*\n/, ""); }
+  /** Kürzt die History für den Snapshot auf den schlanken Anzeigeumfang. */
+  private snapshotHistory(history: string) { return history.length <= SNAPSHOT_LIMIT ? history : history.slice(history.length - SNAPSHOT_LIMIT).replace(/^[^\n]*\n/, ""); }
   private stopProcess(session: TerminalSession, terminateRuntime: boolean) { const pid = session.pid; session.dataListener?.dispose(); session.exitListener?.dispose(); session.dataListener = null; session.exitListener = null; try { session.pty?.kill("SIGTERM"); } catch { /* already exited */ } if (process.platform === "linux" && pid > 0) { try { kill(-pid, "SIGTERM"); } catch { /* process group already exited */ } const forceKill = setTimeout(() => { try { kill(-pid, "SIGKILL"); } catch { /* process group exited */ } }, 1_000); forceKill.unref(); } session.pty = null; if (terminateRuntime && this.options.supervisor && session.supervisorName) { this.options.supervisor.terminate(session.supervisorName); session.supervisorName = null; } }
   private async validateCwd(value: string) { let cwd: string; try { cwd = resolve(value); } catch { throw new TerminalFailure("INVALID_CWD", "Das Arbeitsverzeichnis ist ungültig."); } if (!this.options.allowedRoots.some((root) => { const pathFromRoot = relative(root, cwd); return pathFromRoot === "" || (!pathFromRoot.startsWith("..") && !isAbsolute(pathFromRoot)); })) throw new TerminalFailure("INVALID_CWD", "Das Arbeitsverzeichnis liegt außerhalb der erlaubten Bereiche."); let details; try { details = await stat(cwd); } catch { throw new TerminalFailure("CWD_NOT_FOUND", "Das Arbeitsverzeichnis wurde nicht gefunden."); } if (!details.isDirectory()) throw new TerminalFailure("CWD_NOT_DIRECTORY", "Der angegebene Pfad ist kein Verzeichnis."); return cwd; }
   private close(session: TerminalSession) { if (session.status === "closed") return; session.status = "closed"; this.stopProcess(session, true); session.clients.clear(); session.clientViewports.clear(); session.primaryClientId = null; this.options.database?.deleteSession(session.userId, session.id); this.sessions.delete(session.id); }

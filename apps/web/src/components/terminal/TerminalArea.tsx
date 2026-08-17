@@ -129,8 +129,14 @@ export function TerminalArea({
     ?? (cwd ? projects.data?.projects.find((project) => project.path === cwd)?.name : undefined)
     ?? "Standardpfad";
   const create = useCallback(
-    (projectId: string | null = null) => addTab(areaId, projectId, kind),
-    [addTab, areaId, kind],
+    (projectId: string | null = null) => {
+      // Ohne Projektkontext startet das neue Terminal dort, wo das letzte
+      // aufgehört hat. Mit Projektkontext (Picker, Projektseite) öffnet der
+      // Server den Projektordner.
+      const lastCwd = activeTab ? (meta[activeTab.id]?.cwd.startsWith("/") ? meta[activeTab.id]!.cwd : null) : null;
+      addTab(areaId, projectId, kind, projectId ? null : lastCwd);
+    },
+    [addTab, activeTab, areaId, kind, meta],
   );
   const runAction = (action: () => void) => {
     setActionsOpen(false);
@@ -321,7 +327,7 @@ export function TerminalArea({
                 projectId={tab.projectId}
                 initialCwd={tab.initialCwd}
                 active={routeActive && visible}
-                keepAlive={visible}
+                keepAlive
                 renderScale={renderScale}
                 onMetaChange={(next) => {
                   setRuntimeCwd(tab.id, next.cwd);

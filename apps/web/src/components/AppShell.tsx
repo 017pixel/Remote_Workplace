@@ -53,16 +53,27 @@ function ContextProjectPicker() {
       : project.availability === "available",
   );
   const activeTerminalSession = activeTerminalTab && terminalSessions.data?.sessions.find((session) => session.runtimeId === activeTerminalTab.id);
+  // Matcht einen cwd auf das Projekt mit dem längsten Präfix. Unterordner
+  // gehören weiter zum Projekt, außerhalb aller Projekte (z. B. nach `cd ..`
+  // in den Projekte-Root) gibt es kein Match.
+  const matchProjectByPath = (path: string) => data?.projects
+    .filter((candidate) => candidate.availability === "available" && candidate.path !== data.projectsRoot)
+    .map((candidate) => ({ candidate, depth: candidate.path.length }))
+    .filter(({ candidate }) => path === candidate.path || path.startsWith(`${candidate.path}/`))
+    .sort((a, b) => b.depth - a.depth)[0]?.candidate;
   const activeTerminalProject = activeRuntimeCwd
-    ? data?.projects.find((candidate) => candidate.path === activeRuntimeCwd)
+    ? matchProjectByPath(activeRuntimeCwd)
     : activeTerminalSession?.projectId
       ? data?.projects.find((candidate) => candidate.id === activeTerminalSession.projectId)
       : activeTerminalSession?.cwd
-      ? data?.projects.find((candidate) => candidate.path === activeTerminalSession.cwd)
-      : activeTerminalTab?.projectId
-        ? data?.projects.find((candidate) => candidate.id === activeTerminalTab.projectId)
-        : undefined;
-  const terminalProjectId = activeTerminalProject?.id ?? activeTerminalTab?.projectId ?? null;
+        ? matchProjectByPath(activeTerminalSession.cwd)
+        : activeTerminalTab?.projectId
+          ? data?.projects.find((candidate) => candidate.id === activeTerminalTab.projectId)
+          : undefined;
+  // Bekannter cwd ohne Projektmatch (z. B. `cd ..`) setzt die Fahl auf
+  // Standardpfad statt auf den alten gespeicherten Projektnamen zurückzufallen.
+  const terminalProjectId = activeTerminalProject?.id
+    ?? (activeRuntimeCwd ? null : activeTerminalTab?.projectId ?? null);
   const pickerProjects = activeTerminalProject && !baseProjects.some((candidate) => candidate.id === activeTerminalProject.id)
     ? [activeTerminalProject, ...baseProjects]
     : baseProjects;

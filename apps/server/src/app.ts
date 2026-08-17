@@ -645,6 +645,16 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
         }
         if (filePath.endsWith("index.html") || filePath.endsWith("sw.js")) {
           response.header("Cache-Control", "no-cache");
+          // Das gehostete T3-Web-UI (app.t3.codes) wird als Iframe eingebettet und
+          // verbindet sich per Private Network Access mit den T3-Backends im
+          // Tailnet. Chrome verlangt dafür eine einmalige Bestätigung des
+          // lokalen Netzwerkzugriffs (local-network-access), Firefox nutzt die
+          // Feature-Policy-Namen local-network/loopback-network. Beide Welten
+          // werden an den Iframe delegiert.
+          response.header(
+            "Permissions-Policy",
+            'local-network-access=(self "https://app.t3.codes"); local-network=(self "https://app.t3.codes"); loopback-network=(self "https://app.t3.codes")',
+          );
           return;
         }
         if (filePath.includes("/icons/") || filePath.endsWith("favicon.svg")) {
@@ -675,7 +685,15 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     // wird zum unhandledrejection.
     const acceptsHtml = request.headers.accept?.includes("text/html") ?? false;
     if (hasWebBuild && request.url.startsWith("/workbench") && acceptsHtml) {
-      return reply.type("text/html").sendFile("index.html");
+      // Delegation für den lokalen Netzwerkzugriff an das eingebettete
+      // T3-Web-UI (siehe setHeaders oben bei index.html).
+      return reply
+        .header(
+          "Permissions-Policy",
+          'local-network-access=(self "https://app.t3.codes"); local-network=(self "https://app.t3.codes"); loopback-network=(self "https://app.t3.codes")',
+        )
+        .type("text/html")
+        .sendFile("index.html");
     }
     if (hasWebBuild) return reply.status(404).send("Nicht gefunden.");
     return reply.status(503).send("Frontend-Build ist noch nicht vorhanden.");
