@@ -11,13 +11,15 @@ class FakePty implements PtyProcess {
   writes: string[] = [];
   resizes: Array<[number, number]> = [];
   private data: ((data: string) => void) | undefined;
+  private exit: ((event: { exitCode: number; signal?: number }) => void) | undefined;
 
   write(data: string) { this.writes.push(data); }
   resize(cols: number, rows: number) { this.resizes.push([cols, rows]); }
   kill() {}
   onData(callback: (data: string) => void) { this.data = callback; return { dispose: () => { this.data = undefined; } }; }
-  onExit(_callback: (event: { exitCode: number; signal?: number }) => void) { return { dispose: () => {} }; }
+  onExit(callback: (event: { exitCode: number; signal?: number }) => void) { this.exit = callback; return { dispose: () => { this.exit = undefined; } }; }
   output(data: string) { this.data?.(data); }
+  end(exitCode = 0, signal?: number) { this.exit?.({ exitCode, ...(signal === undefined ? {} : { signal }) }); }
 }
 
 class FakeSupervisor {
