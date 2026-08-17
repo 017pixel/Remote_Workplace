@@ -9,30 +9,14 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { addBreadcrumb, installGlobalErrorHandlers, subscribeToCrash } from "./lib/crashReport";
 import { apiClient } from "./lib/apiClient";
 import { synchronizeExistingPushDevice } from "./lib/webPushDevice";
-import { bootstrapLegacyPageRoutes } from "./extensions/legacyPageRoutes";
-import { bootstrapLegacyNavigation } from "./extensions/legacyNavigation";
-import { bootstrapLegacyCommands } from "./extensions/legacyCommands";
-import { bootstrapLegacyStatusBar } from "./extensions/legacyStatusBar";
-import { bootstrapLegacyTopbar } from "./extensions/legacyTopbar";
-import { bootstrapLegacyContextMenus } from "./extensions/legacyContextMenus";
-import { bootstrapLegacyDashboardSections } from "./extensions/legacyDashboardSections";
-import { bootstrapLegacySettingsCards } from "./extensions/legacySettingsCards";
-import { bootstrapLegacyOrbitPalette } from "./extensions/legacyOrbitPalette";
+import { bootstrapBuiltinContributions } from "./extensions/builtinContributions";
 import "./index.css";
 import "./visual-system.css";
 import "./components/usage/usage-mobile.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
 installGlobalErrorHandlers();
-bootstrapLegacyPageRoutes();
-bootstrapLegacyNavigation();
-bootstrapLegacyCommands();
-bootstrapLegacyStatusBar();
-bootstrapLegacyTopbar();
-bootstrapLegacyContextMenus();
-bootstrapLegacyDashboardSections();
-bootstrapLegacySettingsCards();
-bootstrapLegacyOrbitPalette();
+bootstrapBuiltinContributions();
 
 const root = document.querySelector<HTMLDivElement>("#root");
 if (root === null) throw new Error("Der Frontend-Mount-Punkt #root fehlt.");
