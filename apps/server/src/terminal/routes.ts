@@ -132,8 +132,13 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
             break;
           }
           case "terminal.attach": detach?.(); detach = options.manager.attachSession(userId, message.sessionId, send, clientId); break;
-          case "terminal.input": options.manager.writeToSession(userId, message.sessionId, message.data); break;
-          case "terminal.resize": options.manager.resizeSession(userId, message.sessionId, message.cols, message.rows, clientId); break;
+          case "terminal.input":
+            options.manager.activateClient(userId, message.sessionId, clientId);
+            options.manager.writeToSession(userId, message.sessionId, message.data);
+            break;
+          case "terminal.resize":
+            options.manager.activateClient(userId, message.sessionId, clientId, { cols: message.cols, rows: message.rows });
+            break;
           case "terminal.clear": options.manager.clearSessionHistory(userId, message.sessionId); break;
           case "terminal.restart": options.manager.restartSession(userId, message.sessionId); break;
           case "terminal.close": options.manager.closeSession(userId, message.sessionId); detach?.(); detach = undefined; break;
