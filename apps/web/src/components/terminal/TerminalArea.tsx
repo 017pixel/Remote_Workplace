@@ -327,7 +327,6 @@ export function TerminalArea({
                 projectId={tab.projectId}
                 initialCwd={tab.initialCwd}
                 active={routeActive && visible}
-                keepAlive
                 renderScale={renderScale}
                 onMetaChange={(next) => {
                   setRuntimeCwd(tab.id, next.cwd);
