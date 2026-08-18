@@ -9,11 +9,12 @@ import type { Panel, Project } from "@workbench/contracts";
 import { useRouteActivity } from "../lib/routeActivity";
 import { PreviewHub } from "./PreviewHub";
 
-type ProjectPanelType = "t3-code" | "code-server" | "preview";
+type ProjectPanelType = "t3-code" | "code-server" | "preview" | "opencode";
 
 function supportsTool(project: Project, type: ProjectPanelType) {
   if (type === "t3-code") return project.links.t3Code !== null;
   if (type === "code-server") return project.links.codeServer !== null;
+  if (type === "opencode") return project.availability === "available";
   return project.previews.length > 0;
 }
 
@@ -30,7 +31,9 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   const requestedPreviewProject = type === "preview" && requestedPreviewId
     ? projects.find((candidate) => candidate.previews.some((preview) => preview.id === requestedPreviewId))
     : undefined;
-  const project = requestedPreviewProject ?? (selected && (type === "preview" || supportsTool(selected, type)) ? selected : availableProjects[0]);
+  const project = type === "opencode"
+    ? undefined
+    : requestedPreviewProject ?? (selected && (type === "preview" || supportsTool(selected, type)) ? selected : availableProjects[0]);
   const codeServerMode = services.data?.services.find((service) => service.id === "code-server")?.mode ?? "external";
   const previewId = type === "preview" && requestedPreviewId ? (project?.previews.find((preview) => preview.id === requestedPreviewId)?.id ?? null) : null;
   // Tiefenlink aus einer Benachrichtigung: `/t3-code?thread=…&env=…` öffnet
@@ -54,7 +57,7 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   }, [routeActive, t3Path, type]);
 
   if (isLoading) return <div className="flex h-full items-center justify-center text-sm text-muted">Lädt…</div>;
-  if (!project && type !== "preview") {
+  if (!project && type !== "preview" && type !== "opencode") {
     return <EmptyState title="Kein passendes Projekt" description="Für dieses Werkzeug ist momentan kein verfügbares Projekt konfiguriert." />;
   }
 
@@ -71,13 +74,14 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   return (
     <div className="standalone-tool-page">
       <div className="standalone-tool-content">
-        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone actionPlacement={type === "t3-code" || type === "code-server" ? "topbar" : "overlay"} />
+        <ToolPanel panel={panel} project={project} codeServerMode={codeServerMode} isFocused standalone actionPlacement={type === "t3-code" || type === "code-server" || type === "opencode" ? "topbar" : "overlay"} />
       </div>
     </div>
   );
 }
 
 export function T3Code() { return <SingleTool type="t3-code" />; }
+export function OpenCodeWeb() { return <SingleTool type="opencode" />; }
 export function CodeEditor() { return <SingleTool type="code-server" />; }
 export function Previews() { return <PreviewHub />; }
 export function Browser() {
