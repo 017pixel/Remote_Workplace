@@ -37,12 +37,11 @@ function ContextProjectPicker() {
     : location.pathname === "/previews" ? "preview"
     : location.pathname === "/terminal" ? "terminal"
     : location.pathname === "/codex" ? "codex"
-    : location.pathname === "/opencode" ? "opencode"
     : location.pathname === "/claude" ? "claude"
     : null;
   const terminalKind: TerminalKind | null = context === "terminal"
     ? search.get("kind") === "claude" ? "claude" : "shell"
-    : context === "codex" || context === "opencode" || context === "claude" ? context : null;
+    : context === "codex" || context === "claude" ? context : null;
   const terminalAreaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
   const terminalArea = useTerminalStore((state) => terminalAreaId ? state.areas[terminalAreaId] : undefined);
   const activeTerminalTab = terminalArea?.tabs.find((tab) => tab.id === terminalArea.activeTabId);
@@ -129,8 +128,7 @@ function StandaloneRouteActions({ terminalFocus, onTerminalFocusChange }: { term
   const location = useLocation();
   const terminalKind: TerminalKind | null = location.pathname === "/terminal" ? "shell"
     : location.pathname === "/codex" ? "codex"
-      : location.pathname === "/opencode" ? "opencode"
-        : location.pathname === "/claude" ? "claude"
+      : location.pathname === "/claude" ? "claude"
           : null;
   const areaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
   const area = useTerminalStore((state) => areaId ? state.areas[areaId] : undefined);
@@ -182,7 +180,8 @@ export function AppShell() {
   const isOrbit = activeRouteId === "workbench.orbit.route.main";
   const isNews = activeRouteId === "workbench.tech-tldrs.route.main";
   const isStandaloneT3 = activeRouteId === "workbench.t3-code.route.main";
-  const isTerminalRoute = ["/terminal", "/codex", "/opencode", "/claude"].includes(location.pathname);
+  const isStandaloneOpenCode = activeRouteId === "workbench.opencode.route.main";
+  const isTerminalRoute = ["/terminal", "/codex", "/claude"].includes(location.pathname);
   const hasStandaloneToolMenu =
     pageRouteRegistry.matchRoute(location.pathname)?.route.value.contribution.standaloneActions === true;
   const [terminalFocus, setTerminalFocus] = useState(false);
@@ -307,8 +306,8 @@ export function AppShell() {
               {isProjectDetail ? decodeURIComponent(location.pathname.split("/").at(-1) ?? "Projekt") : title}
             </span>
           </div>
-          {!isStandaloneT3 ? <ContextProjectPicker /> : null}
-          {(isStandaloneT3 || location.pathname === "/code-editor") ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label={`${title} Aktionen`} /> : hasStandaloneToolMenu ? <StandaloneRouteActions terminalFocus={terminalFocus} onTerminalFocusChange={setTerminalFocus} /> : null}
+          {!isStandaloneT3 && !isStandaloneOpenCode ? <ContextProjectPicker /> : null}
+          {(isStandaloneT3 || isStandaloneOpenCode || location.pathname === "/code-editor") ? <div id="topbar-tool-actions" className="topbar-tool-actions" aria-label={`${title} Aktionen`} /> : hasStandaloneToolMenu ? <StandaloneRouteActions terminalFocus={terminalFocus} onTerminalFocusChange={setTerminalFocus} /> : null}
         </header> : isOrbit ? (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="orbit-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null) : (showNavigationTrigger ? <button ref={navigationTriggerRef} type="button" className="news-app-menu mobile-nav-trigger" onClick={() => setMobileNavigationOpen(true)} aria-label="Navigation öffnen"><MenuIcon className="h-[18px] w-[18px]" /></button> : null)}
         {!online ? <div className="connection-banner" role="status"><span>Offline</span><strong>Live-Daten und Remote-Werkzeuge sind vorübergehend nicht verfügbar.</strong></div> : null}
         <main ref={mainRef} id="main-content" tabIndex={-1} className="relative min-h-0 flex-1 overflow-hidden">

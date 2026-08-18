@@ -28,6 +28,7 @@ import {
   InfoIcon,
   NetworkIcon,
   NutzungIcon,
+  OpenCodeIcon,
   ServerIcon,
   ServicesIcon,
   ShieldIcon,
@@ -1077,6 +1078,7 @@ function QuickBar({
 
   const actions = [
     { label: "T3 Code", icon: T3CodeIcon, onClick: () => { prepareProject(); navigate("/t3-code"); } },
+    { label: "OpenCode", icon: OpenCodeIcon, onClick: () => navigate("/opencode") },
     { label: "Workbench", icon: WorkbenchIcon, onClick: () => { prepareProject(); navigate("/workbench"); } },
     { label: "Terminal", icon: TerminalIcon, onClick: () => { const projectId = prepareProject(); addTab("standalone", projectId, "shell"); navigate("/terminal"); } },
     { label: "Nutzung", icon: NutzungIcon, onClick: () => navigate("/usage") },

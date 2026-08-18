@@ -594,22 +594,22 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         page: {
           id: "workbench.opencode.page.main",
           title: "OpenCode",
-          description: "OpenCode CLI im Browser",
+          description: "OpenCode Web",
         },
         route: standardRoute(
           "workbench.opencode.route.main",
           "workbench.opencode.page.main",
           "/opencode",
           {
-            projectContext: true,
+            projectContext: false,
             standaloneActions: true,
             mobileNavigation: true,
           },
         ),
         pageRuntime: lazyPageRuntime(
-          "cli-terminal",
-          "OpenCodeTerminal",
-          loadCliTerminal,
+          "tool-route",
+          "OpenCodeWeb",
+          loadToolRoute,
         ),
         routeRuntime: routeRuntime("/opencode"),
       },

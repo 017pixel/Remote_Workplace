@@ -8,20 +8,28 @@ import { create } from "zustand";
  */
 interface PanelPresenceState {
   t3Threads: Record<string, string | null>;
+  opencodeSessions: Record<string, string | null>;
   setT3Thread(panelId: string, threadId: string | null): void;
+  setOpenCodeSession(panelId: string, sessionId: string | null): void;
   clearPanel(panelId: string): void;
 }
 
 export const usePanelPresenceStore = create<PanelPresenceState>((set) => ({
   t3Threads: {},
+  opencodeSessions: {},
   setT3Thread: (panelId, threadId) => set((current) => {
     if (current.t3Threads[panelId] === threadId) return current;
     return { t3Threads: { ...current.t3Threads, [panelId]: threadId } };
   }),
+  setOpenCodeSession: (panelId, sessionId) => set((current) => {
+    if (current.opencodeSessions[panelId] === sessionId) return current;
+    return { opencodeSessions: { ...current.opencodeSessions, [panelId]: sessionId } };
+  }),
   clearPanel: (panelId) => set((current) => {
-    if (!(panelId in current.t3Threads)) return current;
     const t3Threads = { ...current.t3Threads };
+    const opencodeSessions = { ...current.opencodeSessions };
     delete t3Threads[panelId];
-    return { t3Threads };
+    delete opencodeSessions[panelId];
+    return { t3Threads, opencodeSessions };
   }),
 }));

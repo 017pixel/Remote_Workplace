@@ -21,6 +21,15 @@ import { useRouteActivity } from "../lib/routeActivity";
 import { t3ThreadIdFromPath } from "../lib/t3Thread";
 import { usePanelPresenceStore } from "../stores/panelPresence";
 
+function opencodeSessionIdFromPath(path: string): string | null {
+  const query = new URLSearchParams(path.split("?")[1] ?? "");
+  const querySession = query.get("session") ?? query.get("sessionId");
+  if (querySession) return querySession;
+  const segments = path.split("?")[0]?.split("/").filter(Boolean) ?? [];
+  const index = segments.findIndex((segment) => segment === "session" || segment === "sessions");
+  return index >= 0 ? segments[index + 1] ?? null : null;
+}
+
 const HermesShell = lazy(() => import("./hermes/HermesShell").then((module) => ({ default: module.HermesShell })));
 
 const panelTitles: Record<Panel["type"], string> = {
@@ -57,8 +66,11 @@ export function projectBoundCodeServerProxyUrl(projectPath: string): string {
 }
 
 function resolvePanel(panel: Panel, project: Project | undefined, codeServerMode: ServiceMode): ResolvedPanel | null {
-  if (panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode") {
+  if (panel.type === "terminal" || panel.type === "codex") {
     return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
+  }
+  if (panel.type === "opencode") {
+    return { url: "/opencode", mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
   }
   if (panel.type === "browser") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
   if (panel.type === "files") return { url: null, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: null, path: "/" };
@@ -157,15 +169,19 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    if (panel.type !== "t3-code") return;
-    // Die T3-Route-Bridge meldet Thread-Wechsel global per postMessage. Nur
-    // Meldungen aus dem eigenen iframe zählen, damit mehrere T3-Panels ihre
-    // Threads nicht vermischen (event.source-Vergleich).
+    if (panel.type !== "t3-code" && panel.type !== "opencode") return;
+    // Route-Bridges melden den aktuellen Chat aus dem iframe. Die Quelle des
+    // Events plus event.source verhindern, dass geparkte Panels Presence mischen.
     const receive = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
       if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
-      usePanelPresenceStore.getState().setT3Thread(panel.id, t3ThreadIdFromPath(data.path));
+      if (panel.type === "t3-code" && data.source === "remote-workplace-t3") {
+        usePanelPresenceStore.getState().setT3Thread(panel.id, t3ThreadIdFromPath(data.path));
+      }
+      if (panel.type === "opencode" && data.source === "remote-workplace-opencode") {
+        usePanelPresenceStore.getState().setOpenCodeSession(panel.id, opencodeSessionIdFromPath(data.path));
+      }
     };
     window.addEventListener("message", receive);
     return () => {
@@ -394,7 +410,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
             }}
             {...(onFocus ? { onFocus } : {})}
           />
-        ) : panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode" ? (
+        ) : panel.type === "terminal" || panel.type === "codex" ? (
           <div className="flex h-full min-h-0">
             <TerminalArea
               areaId={panel.id}

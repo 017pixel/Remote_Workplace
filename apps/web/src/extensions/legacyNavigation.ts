@@ -158,11 +158,11 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       ownerId: "workbench.opencode",
       routeId: "workbench.opencode.route.main",
       label: "OpenCode",
-      description: "OpenCode CLI im Browser",
+      description: "OpenCode Web",
       icon: OpenCodeIcon,
       group: "tools",
       order: 50,
-      visibleByDefault: false,
+      visibleByDefault: true,
       legacyVisibilityKey: "opencode",
     },
     {

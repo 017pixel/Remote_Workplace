@@ -33,8 +33,8 @@ export function deriveViewPresence(
   t3ThreadId: string | null,
   hermesSessionId: string | null,
   terminalAreas: Record<string, { activeTabId: string | null; tabs: Array<{ id: string }> }>,
-  visiblePanelsList: Panel[],
-  panelT3Threads: Record<string, string | null>,
+  visiblePanelsList: Panel[],    panelT3Threads: Record<string, string | null>,
+    panelOpenCodeSessions: Record<string, string | null> = {},
 ): NotificationPresenceItem[] {
   const items: NotificationPresenceItem[] = [];
   const params = new URLSearchParams(search);
@@ -51,8 +51,8 @@ export function deriveViewPresence(
     const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId) ?? null;
     items.push({ source, sessionId: activeTab?.id ?? params.get("session") });
   }
-  if (pathname === "/codex" || pathname === "/opencode" || pathname === "/claude") {
-    const source = pathname === "/codex" ? "codex" : pathname === "/opencode" ? "opencode" : "claude";
+  if (pathname === "/codex" || pathname === "/claude") {
+    const source = pathname === "/codex" ? "codex" : "claude";
     const area = terminalAreas[`${source}-standalone`];
     const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId) ?? null;
     items.push({ source, sessionId: activeTab?.id ?? params.get("session") });
@@ -61,10 +61,13 @@ export function deriveViewPresence(
     if (panel.type === "t3-code") {
       const threadId = panelT3Threads[panel.id] ?? null;
       if (threadId) items.push({ source: "t3", threadId });
-    } else if (panel.type === "terminal" || panel.type === "codex" || panel.type === "opencode") {
+    } else if (panel.type === "opencode") {
+      const sessionId = panelOpenCodeSessions[panel.id];
+      if (sessionId) items.push({ source: "opencode", sessionId });
+    } else if (panel.type === "terminal" || panel.type === "codex") {
       const area = terminalAreas[panel.id];
       const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId) ?? null;
-      if (activeTab) items.push({ source: panel.type === "codex" ? "codex" : panel.type === "opencode" ? "opencode" : "terminal", sessionId: activeTab.id });
+      if (activeTab) items.push({ source: panel.type === "codex" ? "codex" : "terminal", sessionId: activeTab.id });
     } else if (panel.type === "hermes" && hermesSessionId) {
       // Die Hermes-Bridge meldet ihre Sitzung ohne Panel-Zuordnung; die
       // zuletzt gemeldete Sitzung gilt als die sichtbare.
@@ -95,6 +98,7 @@ export function useViewPresence() {
     focusedPanelId,
   } as Workspace, responsive.isTouchShell), [activeWorkspaceId, focusedPanelId, maximizedPanelId, responsive.isTouchShell, workspacePage, workspacePanels]);
   const panelT3Threads = usePanelPresenceStore((state) => state.t3Threads);
+  const panelOpenCodeSessions = usePanelPresenceStore((state) => state.opencodeSessions);
   const [t3ThreadId, setT3ThreadId] = useState<string | null>(null);
   const [hermesSessionId, setHermesSessionId] = useState<string | null>(null);
   const presenceRef = useRef<NotificationPresenceItem[] | null>(null);
@@ -118,8 +122,8 @@ export function useViewPresence() {
   }, []);
 
   const presence = useMemo(
-    () => deriveViewPresence(location.pathname, location.search, t3ThreadId, hermesSessionId, terminalAreas, visiblePanelsList, panelT3Threads),
-    [hermesSessionId, location.pathname, location.search, panelT3Threads, t3ThreadId, terminalAreas, visiblePanelsList],
+    () => deriveViewPresence(location.pathname, location.search, t3ThreadId, hermesSessionId, terminalAreas, visiblePanelsList, panelT3Threads, panelOpenCodeSessions),
+    [hermesSessionId, location.pathname, location.search, panelOpenCodeSessions, panelT3Threads, t3ThreadId, terminalAreas, visiblePanelsList],
   );
   presenceRef.current = presence;
 

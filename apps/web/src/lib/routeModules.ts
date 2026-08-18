@@ -90,7 +90,7 @@ const pathLoaders: Array<[prefix: string, load: () => Promise<unknown>]> = [
   ["/usage", loadUsage],
   ["/terminal", loadTerminal],
   ["/codex", loadCliTerminal],
-  ["/opencode", loadCliTerminal],
+  ["/opencode", loadToolRoute],
   ["/claude", loadCliTerminal],
   ["/t3-code", loadToolRoute],
   ["/hermes-agent", loadHermes],

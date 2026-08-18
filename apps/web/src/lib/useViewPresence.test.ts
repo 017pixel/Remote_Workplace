@@ -30,8 +30,6 @@ describe("deriveViewPresence", () => {
     const areas = { "codex-standalone": { activeTabId: "laufzeit-1", tabs: [{ id: "laufzeit-1" }, { id: "laufzeit-2" }] } };
     expect(deriveViewPresence("/codex", "", null, null, areas, noPanels, {}))
       .toEqual([{ source: "codex", sessionId: "laufzeit-1" }]);
-    expect(deriveViewPresence("/opencode", "?session=alt", null, null, emptyAreas, noPanels, {}))
-      .toEqual([{ source: "opencode", sessionId: "alt" }]);
     expect(deriveViewPresence("/claude", "", null, null, emptyAreas, noPanels, {}))
       .toEqual([{ source: "claude", sessionId: null }]);
     expect(deriveViewPresence("/terminal", "", null, null, { standalone: { activeTabId: "laufzeit-9", tabs: [{ id: "laufzeit-9" }] } }, noPanels, {}))
@@ -41,7 +39,7 @@ describe("deriveViewPresence", () => {
   });
 
   it("meldet in allen übrigen Ansichten ohne Panels keine Sicht", () => {
-    for (const route of ["/", "/inbox", "/workbench", "/files", "/previews", "/settings", "/usage", "/projects", "/tech-tldrs", "/code-editor", "/browser"]) {
+    for (const route of ["/", "/inbox", "/workbench", "/files", "/previews", "/settings", "/usage", "/projects", "/tech-tldrs", "/code-editor", "/browser", "/opencode"]) {
       expect(deriveViewPresence(route, "", null, null, emptyAreas, noPanels, {})).toEqual([]);
     }
   });

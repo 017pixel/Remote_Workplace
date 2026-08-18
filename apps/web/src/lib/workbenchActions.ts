@@ -79,7 +79,6 @@ export function openProjectToolStandalone(project: Project, tool: ProjectToolOpt
       useTerminalStore.getState().addTab("codex-standalone", project.id, "codex");
       return "/codex";
     case "opencode":
-      useTerminalStore.getState().addTab("opencode-standalone", project.id, "opencode");
       return "/opencode";
     case "t3-code":
       return "/t3-code";

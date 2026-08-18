@@ -121,7 +121,7 @@ describe("legacyNavigation", () => {
       snapshot.items.map((item) => [item.value.contribution.label, item.value.contribution]),
     );
     expect(byLabel.get("Codex")?.visibleByDefault).toBe(false);
-    expect(byLabel.get("OpenCode")?.visibleByDefault).toBe(false);
+    expect(byLabel.get("OpenCode")?.visibleByDefault).toBe(true);
     expect(byLabel.get("Claude Code")?.visibleByDefault).toBe(false);
     expect(byLabel.get("Dashboard")?.visibleByDefault).toBe(true);
     expect(byLabel.get("Einstellungen")?.visibleByDefault).toBe(true);

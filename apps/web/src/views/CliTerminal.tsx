@@ -18,7 +18,7 @@ function CliTerminalPage({ kind }: { kind: Exclude<TerminalKind, "shell"> }) {
     ?? null;
 
   if (projects.isLoading) {
-    const label = kind === "codex" ? "Codex" : kind === "opencode" ? "OpenCode" : "Claude Code";
+    const label = kind === "codex" ? "Codex" : "Claude Code";
     return <div className="terminal-area-loading">{label} wird vorbereitet…</div>;
   }
 
@@ -37,5 +37,4 @@ function CliTerminalPage({ kind }: { kind: Exclude<TerminalKind, "shell"> }) {
 }
 
 export function CodexTerminal() { return <CliTerminalPage kind="codex" />; }
-export function OpenCodeTerminal() { return <CliTerminalPage kind="opencode" />; }
 export function ClaudeCodeTerminal() { return <CliTerminalPage kind="claude" />; }
