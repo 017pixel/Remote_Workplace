@@ -80,8 +80,8 @@ test("macht Claude Code als optionale CLI-Seite verfügbar", async ({ page }) =>
   await expect(page.locator(".workspace-sidebar").getByRole("link", { name: "Claude Code", exact: true })).toBeVisible();
   await page.locator(".workspace-sidebar").getByRole("link", { name: "Claude Code", exact: true }).click();
   await expect(page).toHaveURL(/\/workbench\/claude$/);
-  // Ohne verfügbares Projekt kann die erste CLI-Instanz länger vorbereitet
-  // werden. Entscheidend ist, dass die optionale Seite geöffnet ist und
-  // entweder die Sitzungsleiste oder ihr definierter Ladezustand erscheint.
-  await expect(page.locator("main")).toContainText(/Claude Code wird vorbereitet…|Terminalsitzungen/);
+  // Die CLI-Seite rendert die Terminal-Oberfläche mit einer ersten Instanz.
+  // Der Ladezustand „wird vorbereitet" ist nur beim allerersten Besuch ohne
+  // gecachte Projektdaten sichtbar und deshalb kein stabiler Assertionspunkt.
+  await expect(page.getByRole("tablist", { name: "Terminalsitzungen" })).toBeVisible();
 });

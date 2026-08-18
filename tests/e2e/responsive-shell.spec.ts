@@ -114,6 +114,8 @@ test("keeps all main routes inside the viewport", async ({ page }) => {
 
 test("uses a reversible touch dialog for destructive settings", async ({ page }) => {
   await page.goto("/workbench/settings");
+  // Der Workspace-Reset liegt im gleichnamigen Tab der neuen Gliederung.
+  await page.getByRole("button", { name: "Workspace", exact: true }).click();
   const trigger = page.getByRole("button", { name: "Workspace zurücksetzen" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Workspace zurücksetzen?" });

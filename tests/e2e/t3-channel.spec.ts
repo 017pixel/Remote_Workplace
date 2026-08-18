@@ -49,7 +49,9 @@ async function stubChannelApi(page: Page, initial: ChannelStatus, saved: string[
     await route.fulfill({ json: current });
   });
   // Die App wird unter dem Prefix /workbench/ ausgeliefert (siehe app.ts).
+  // Der Kanal liegt im System-Bereich der neuen Tab-Gliederung.
   await page.goto("/workbench/settings");
+  await page.getByRole("button", { name: "System", exact: true }).click();
 }
 
 test("zeigt aktiven Kanal und Version ohne Neustart-Hinweis", async ({ page }) => {
