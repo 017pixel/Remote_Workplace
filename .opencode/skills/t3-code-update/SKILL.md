@@ -124,6 +124,10 @@ sqlite3 "file:$HOME/.t3/userdata/state.sqlite?mode=ro" "SELECT count(*) FROM aut
 ls -la ~/.t3/userdata/secrets/server-signing-key.bin
 # Migrationen sauber gelaufen (kein Fehler)
 journalctl --user -u t3-code.service --since "10 minutes ago" --no-pager | grep -iE "migration|error" | head
+# Open-in-Editor-Shim vorhanden und ausführbar
+ls -la ~/.t3/bin/code
+# PATH der laufenden Unit enthält das Shim-Verzeichnis
+tr '\0' '\n' < /proc/$(pgrep -f "t3 serve" | head -1)/environ | grep "^PATH=" | grep -q "$HOME/.t3/bin" && echo "PATH ok"
 ```
 
 `auth_sessions` zählt weiterhin gleich, `server-signing-key.bin` hat dasselbe
@@ -165,3 +169,7 @@ systemctl --user start t3-code.service
 - `~/.t3/userdata/secrets/asset-access-signing-key.bin`
 - `~/.t3/userdata/secrets/cloud-link-ed25519-key-pair.bin`
 - `~/.npmrc` — enthält `allow-scripts=node-pty,msgpackr-extract` (notwendig für Terminal)
+- `~/.t3/bin/code` — Open-in-Editor-Shim der Workbench („Command O" in T3 Code).
+  Es wird von `scripts/install-t3-unit.sh` installiert und überlebt npm-Updates,
+  weil es außerhalb des npm-Pakets liegt. Nicht manuell löschen oder überschreiben;
+  nach einem Update bei Bedarf mit `bash scripts/install-t3-unit.sh` wiederherstellen.
