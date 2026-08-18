@@ -1,6 +1,6 @@
 {
   "name": "@workbench/server",
-  "version": "0.44.0",
+  "version": "0.90.0",
   "private": true,
   "type": "module",
   "scripts": {

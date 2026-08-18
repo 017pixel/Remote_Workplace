@@ -1,6 +1,6 @@
 {
   "name": "remote-workplace",
-  "version": "0.44.0",
+  "version": "0.90.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.29.2",
@@ -25,7 +25,8 @@
     "test:e2e": "playwright test",
     "security:audit": "pnpm audit --prod --audit-level=high",
     "architecture:extensions": "node scripts/extensions/check-boundary.mjs",
-    "quality": "pnpm architecture:extensions && pnpm typecheck && pnpm exec eslint . --max-warnings=0 && pnpm test && pnpm build && pnpm security:audit",
+    "architecture:file-lines": "node scripts/architecture/check-file-lines.mjs",
+    "quality": "pnpm architecture:extensions && pnpm architecture:file-lines && pnpm typecheck && pnpm exec eslint . --max-warnings=0 && pnpm test && pnpm build && pnpm security:audit",
     "start": "pnpm --filter @workbench/server start",
     "extension:create": "node scripts/extensions/create.mjs",
     "extension:validate": "node scripts/extensions/validate.mjs"
