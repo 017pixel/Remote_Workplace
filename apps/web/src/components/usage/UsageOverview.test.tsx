@@ -112,35 +112,6 @@ describe("UsageOverview", () => {
     expect(screen.queryByText("Tokens heute")).toBeNull();
   });
 
-  it("blendet die Timeline aus, wenn das Preset es nicht zeigt (Kompakt)", () => {
-    useUsagePreferences.getState().applyPreset("compact");
-    render(<UsageOverview timeline={timelineData()} now={now} />);
-    expect(screen.queryByRole("heading", { name: "Quota-Timeline" })).toBeNull();
-    // Die Account-Liste bleibt sichtbar.
-    expect(screen.getByRole("table", { name: "Aktuelle Limits je Account" })).toBeTruthy();
-  });
-
-  it("zeigt die Timeline im Standard-Preset", () => {
-    render(<UsageOverview timeline={timelineData()} now={now} />);
-    expect(screen.getByRole("heading", { name: "Quota-Timeline" })).toBeTruthy();
-  });
-
-  it("zeigt nur die Timeline bei limitsView=timeline", () => {
-    useUsagePreferences.getState().set({ limitsView: "timeline" });
-    render(<UsageOverview timeline={timelineData()} now={now} />);
-    expect(screen.queryByRole("table", { name: "Aktuelle Limits je Account" })).toBeNull();
-    expect(screen.getByRole("heading", { name: "Quota-Timeline" })).toBeTruthy();
-  });
-
-  it("wechselt direkt zwischen Liste, Timeline und Beides", () => {
-    render(<UsageOverview timeline={timelineData()} now={now} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Timeline$/ }));
-    expect(screen.queryByRole("table", { name: "Aktuelle Limits je Account" })).toBeNull();
-    expect(screen.getByRole("heading", { name: "Quota-Timeline" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Beides$/ }));
-    expect(screen.getByRole("table", { name: "Aktuelle Limits je Account" })).toBeTruthy();
-  });
-
   it("öffnet Filter als zugänglichen Dialog und schließt ihn mit Escape", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: /^Filter$/ }));
@@ -236,43 +207,27 @@ describe("UsageOverview", () => {
     expect(screen.queryByRole("button", { name: "Filter zurücksetzen" })).toBeNull();
   });
 
-  it("klappt Details einer Account-Row auf (Fenster; E-Mail nur bei aktivierter Option)", () => {
+  it("öffnet die Accountdetails als strukturierten Dialog", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
-    const row = screen.getByRole("button", { name: "Arbeit Details" });
-    fireEvent.click(row);
-    // E-Mail ist standardmäßig ausgeblendet.
-    expect(screen.queryByText("arbeit@example.com")).toBeNull();
-    // Die Details sind aufgeklappt und zeigen die Fenster-Zeile.
-    const details = document.querySelector(".uat-details");
-    expect(details).not.toBeNull();
-    expect(details?.textContent).toContain("4 % verbleibend");
-    expect(details?.textContent).toContain("96 % verbraucht");
+    fireEvent.click(screen.getByRole("button", { name: "Arbeit Details" }));
+    const dialog = screen.getByRole("dialog", { name: "Arbeit · Limits" });
+    expect(within(dialog).queryByText("arbeit@example.com")).toBeNull();
+    expect(within(dialog).getByText("4 % verbleibend")).toBeTruthy();
+    expect(within(dialog).getByText("96 % verbraucht")).toBeTruthy();
+    expect(within(dialog).getByText("Letzter Limitabruf")).toBeTruthy();
   });
 
-  it("zeigt die E-Mail in den Details, wenn aktiviert", () => {
+  it("zeigt die E-Mail im Dialog, wenn aktiviert", () => {
     useUsagePreferences.getState().set({ showEmail: true });
     render(<UsageOverview timeline={timelineData()} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Arbeit Details" }));
-    expect(screen.getByText("arbeit@example.com")).toBeTruthy();
+    expect(within(screen.getByRole("dialog", { name: "Arbeit · Limits" })).getByText("arbeit@example.com")).toBeTruthy();
   });
 
-  it("öffnet Details auf kleinen Displays als Dialog", () => {
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      matches: true,
-      media: "(max-width: 640px)",
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })));
-
+  it("öffnet denselben Detaildialog auf kleinen Displays", () => {
     render(<UsageOverview timeline={timelineData()} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Arbeit Details" }));
-
-    const dialog = screen.getByRole("dialog", { name: "Arbeit Limits" });
-    expect(within(dialog).getByText("arbeit@example.com")).toBeTruthy();
+    const dialog = screen.getByRole("dialog", { name: "Arbeit · Limits" });
     expect(within(dialog).getByText("4 % verbleibend")).toBeTruthy();
   });
 });

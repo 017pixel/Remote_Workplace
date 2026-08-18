@@ -11,12 +11,28 @@ import { ExtensionSettings } from "../components/extensions/ExtensionSettings";
 import { WORKBENCH_LIMITS, type DashboardConfig, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
-import { allPageRoutes, useSidebarPreferences, type OrbitPaletteItem } from "../stores/sidebarPreferences";
+import { useHashTab } from "../lib/hashTabs";
+import { allPageRoutes, isPageVisibleIn, useSidebarPreferences, type OrbitPaletteItem, type PageRouteId } from "../stores/sidebarPreferences";
+import { useAppPreferences } from "../stores/appPreferences";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import { useDashboardPreferences, useDashboardSections } from "../stores/dashboardPreferences";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useWebPushDevice } from "../lib/useWebPushDevice";
 import type { WebPushDeviceStatus } from "../lib/webPushDevice";
+
+type SettingsTabId = "allgemein" | "oberflaeche" | "benachrichtigungen" | "system" | "erweiterungen" | "werkzeuge" | "workspace";
+
+const settingsTabs: { id: SettingsTabId; label: string }[] = [
+  { id: "allgemein", label: "Allgemein" },
+  { id: "oberflaeche", label: "Oberfläche" },
+  { id: "benachrichtigungen", label: "Benachrichtigungen" },
+  { id: "system", label: "System" },
+  { id: "erweiterungen", label: "Erweiterungen" },
+  { id: "werkzeuge", label: "Werkzeuge" },
+  { id: "workspace", label: "Workspace" },
+];
+
+const TAB_HASH_PREFIX = "einstellungen:";
 
 export function Settings() {
   const routeActive = useRouteActivity();
@@ -29,13 +45,18 @@ export function Settings() {
   const [resetOpen, setResetOpen] = useState(false);
   const restartCardRef = useRef<HTMLDivElement>(null);
   const [restartHighlighted, setRestartHighlighted] = useState(false);
+  const [tab, setTab] = useHashTab(settingsTabs.map((item) => item.id), TAB_HASH_PREFIX, "allgemein");
 
-  // Der Kanal-Hinweis verweist auf die Neustart-Buttons weiter oben. Ohne kurze
+  // Der Kanal-Hinweis verweist auf die Neustart-Buttons im System-Bereich. Ohne kurze
   // Hervorhebung übersieht man nach dem Sprung leicht, worauf gezeigt wurde.
   function jumpToRestart() {
-    restartCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setRestartHighlighted(true);
-    window.setTimeout(() => setRestartHighlighted(false), 2_000);
+    setTab("system");
+    // Erst nach dem Tab-Wechsel existiert die Neustart-Card im DOM.
+    window.requestAnimationFrame(() => {
+      restartCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setRestartHighlighted(true);
+      window.setTimeout(() => setRestartHighlighted(false), 2_000);
+    });
   }
 
   return (
@@ -43,120 +64,210 @@ export function Settings() {
       <div className="page-frame max-w-4xl">
         <div className="page-heading">
           <h1>Einstellungen</h1>
-          <p>Lokaler Workspace-Zustand und Informationen zur Workbench.</p>
-        </div>
-        <Card title="Version" subtitle="Wird aus der Health-Antwort gelesen" action={<GitBranchIcon className="h-4 w-4 text-faint" />}>
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-medium tracking-tight text-text">
-              {health.data?.version ?? "—"}
-            </span>
-            <Badge tone="accent">Remote Workplace</Badge>
-          </div>
-          {health.data ? (
-            <p className="mt-2 text-[12px] text-faint">Backend-Status: {health.data.status}</p>
-          ) : null}
-        </Card>
-
-        <div ref={restartCardRef} id="restart-controls" className={restartHighlighted ? "settings-jump-target is-active" : "settings-jump-target"}>
-          <Card title="Dienst neu starten" subtitle="Nach Code-Änderungen neu bauen und laden – ohne Datenverlust" action={<RefreshIcon className="h-4 w-4 text-faint" />}>
-            <RestartControls />
-          </Card>
+          <p>Lokal in diesem Browser gespeichert.</p>
         </div>
 
-        <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
-          <T3ChannelControls onJumpToRestart={jumpToRestart} />
-        </Card>
-
-        <Card title="Extensions" subtitle="Lokale Erweiterungen installieren, aktivieren und berechtigen" action={<ExtensionsIcon className="h-4 w-4 text-faint" />}>
-          <ExtensionSettings />
-        </Card>
-
-        <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
-          <UsageMonitoringSettings />
-        </Card>
-
-        <Card title="Workspace" subtitle="Lokaler, persistenter Zustand">
-          <div className="space-y-3 text-[13px]">
-            <div className="data-row px-0">
-              <span className="text-muted">Geöffnete Panels</span>
-              <span className="font-mono text-text">{panelCount} / {WORKBENCH_LIMITS.maxResidentTools}</span>
-            </div>
-            <div className="data-row px-0">
-              <span className="text-muted">Arbeitsflächen</span>
-              <span className="font-mono text-text">{workspaceCount} / {WORKBENCH_LIMITS.maxWorkspaces}</span>
-            </div>
-            <div className="data-row px-0">
-              <span className="text-muted">Speicherort</span>
-              <span className="font-mono text-[12px] text-faint">{WORKSPACE_STORAGE_KEY}</span>
-            </div>
+        <nav className="settings-tabs" aria-label="Einstellungsbereiche">
+          {settingsTabs.map(({ id, label }) => (
             <button
+              key={id}
               type="button"
-              onClick={() => setResetOpen(true)}
-              className="quiet-button border-bad/30 bg-bad-soft/40 text-bad hover:bg-bad-soft"
+              aria-pressed={tab === id}
+              className={`settings-tab ${tab === id ? "is-active" : ""}`}
+              onClick={() => setTab(id)}
             >
-              <TrashIcon className="h-3.5 w-3.5" /> Workspace zurücksetzen
+              {label}
             </button>
-          </div>
-        </Card>
+          ))}
+        </nav>
 
-        <Card title="Dashboard" subtitle="Bereiche lokal ein- und ausblenden" action={<EyeIcon className="h-4 w-4 text-faint" />}>
-          <p className="mb-4 text-[12px] text-muted">Die zentrale Config legt Defaults und verfügbare Bereiche fest. Deine Auswahl wird nur in diesem Browser gespeichert. Bereiche, die in der Config deaktiviert sind, bleiben hier gesperrt.</p>
-          <DashboardSectionToggles config={dashboardConfig.data} />
-        </Card>
+        {tab === "allgemein" ? (
+          <>
+            <Card title="Startseite" subtitle="Welche Seite beim Öffnen der Workbench geladen wird">
+              <HomePageSettings />
+            </Card>
 
-        <Card title="Benachrichtigungen" subtitle="Toasts und System-Benachrichtigungen pro Quelle" action={<InboxIcon className="h-4 w-4 text-faint" />}>
-          <NotificationSettings />
-        </Card>
+            <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
+              {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
+              {pwa.isInstalled ? (
+                <p className="text-[13px] text-muted">Die Workbench ist bereits als App installiert.</p>
+              ) : pwa.canInstall ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={() => void pwa.install()} className="quiet-button-primary">
+                    <DownloadIcon className="h-3.5 w-3.5" /> App installieren
+                  </button>
+                  <span className="text-[12px] text-faint">Öffnet den Installationsdialog des Browsers.</span>
+                </div>
+              ) : pwa.isAppleMobile ? (
+                <p className="text-[13px] text-muted">
+                  In Safari auf <span className="text-text">Teilen</span> tippen und <span className="text-text">Zum Home-Bildschirm</span> wählen.
+                </p>
+              ) : (
+                <p className="text-[13px] text-muted">
+                  Öffne die Workbench in Chrome oder Edge und wähle im Browsermenü <span className="text-text">App installieren</span>.
+                </p>
+              )}
+            </Card>
 
-        <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
-          {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
-          {pwa.isInstalled ? (
-            <p className="text-[13px] text-muted">Die Workbench ist bereits als App installiert.</p>
-          ) : pwa.canInstall ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <button type="button" onClick={() => void pwa.install()} className="quiet-button-primary">
-                <DownloadIcon className="h-3.5 w-3.5" /> App installieren
-              </button>
-              <span className="text-[12px] text-faint">Öffnet den Installationsdialog des Browsers.</span>
+            <Card title="Version" subtitle="Wird aus der Health-Antwort gelesen" action={<GitBranchIcon className="h-4 w-4 text-faint" />}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-medium tracking-tight text-text">
+                  {health.data?.version ?? "—"}
+                </span>
+                <Badge tone="accent">Remote Workplace</Badge>
+              </div>
+              {health.data ? (
+                <p className="mt-2 text-[12px] text-faint">Backend-Status: {health.data.status}</p>
+              ) : null}
+            </Card>
+          </>
+        ) : null}
+
+        {tab === "oberflaeche" ? (
+          <>
+            <Card title="Dashboard" subtitle="Bereiche lokal ein- und ausblenden" action={<EyeIcon className="h-4 w-4 text-faint" />}>
+              <p className="mb-4 text-[12px] text-muted">Die zentrale Config legt Defaults und verfügbare Bereiche fest. Deine Auswahl wird nur in diesem Browser gespeichert. Bereiche, die in der Config deaktiviert sind, bleiben hier gesperrt.</p>
+              <DashboardSectionToggles config={dashboardConfig.data} />
+            </Card>
+
+            <Card title="Orbit-Sidebar" subtitle="Elemente im Infinite Canvas ein- oder ausblenden" action={<LayersIcon className="h-4 w-4 text-faint" />}>
+              <OrbitItemToggles />
+            </Card>
+
+            <Card title="Seiten-Sichtbarkeit" subtitle="Navigationselemente global steuern (Sidebar, Dashboard, Mobile)" action={<EyeIcon className="h-4 w-4 text-faint" />}>
+              <PageVisibilityToggles />
+            </Card>
+          </>
+        ) : null}
+
+        {tab === "benachrichtigungen" ? (
+          <Card title="Benachrichtigungen" subtitle="Toasts und System-Benachrichtigungen pro Quelle" action={<InboxIcon className="h-4 w-4 text-faint" />}>
+            <NotificationSettings />
+          </Card>
+        ) : null}
+
+        {tab === "system" ? (
+          <>
+            <div ref={restartCardRef} id="restart-controls" className={restartHighlighted ? "settings-jump-target is-active" : "settings-jump-target"}>
+              <Card title="Dienst neu starten" subtitle="Nach Code-Änderungen neu bauen und laden – ohne Datenverlust" action={<RefreshIcon className="h-4 w-4 text-faint" />}>
+                <RestartControls />
+              </Card>
             </div>
-          ) : pwa.isAppleMobile ? (
-            <p className="text-[13px] text-muted">
-              In Safari auf <span className="text-text">Teilen</span> tippen und <span className="text-text">Zum Home-Bildschirm</span> wählen.
-            </p>
-          ) : (
-            <p className="text-[13px] text-muted">
-              Öffne die Workbench in Chrome oder Edge und wähle im Browsermenü <span className="text-text">App installieren</span>.
-            </p>
-          )}
-        </Card>
 
-        <Card title="Orbit-Sidebar" subtitle="Elemente im Infinite Canvas ein- oder ausblenden" action={<LayersIcon className="h-4 w-4 text-faint" />}>
-          <OrbitItemToggles />
-        </Card>
+            <Card title="T3 Code Kanal" subtitle="Stable oder Nightly – gilt für alle T3-Flächen" action={<RocketIcon className="h-4 w-4 text-faint" />}>
+              <T3ChannelControls onJumpToRestart={jumpToRestart} />
+            </Card>
 
-        <Card title="Seiten-Sichtbarkeit" subtitle="Navigationselemente global steuern (Sidebar, Dashboard, Mobile)" action={<EyeIcon className="h-4 w-4 text-faint" />}>
-          <PageVisibilityToggles />
-        </Card>
+            <Card title="Sicherheit" subtitle="Keine eigene Anmeldung" action={<ShieldIcon className="h-4 w-4 text-faint" />}>
+              <ul className="space-y-2 text-[13px] text-muted">
+                <li className="flex items-start gap-2">
+                  <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
+                  Der Zugriff wird über Tailscale/ACLs begrenzt. T3 Code und code-server behalten ihre eigene Authentifizierung.
+                </li>
+                <li className="flex items-start gap-2">
+                  <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
+                  Es werden keine Tokens, Cookies oder Credentials im Zustand gespeichert.
+                </li>
+                <li className="flex items-start gap-2">
+                  <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
+                  Terminals starten ausschließlich serverseitig freigegebene Shell-, Agent- und Anmeldeprozesse.
+                </li>
+              </ul>
+            </Card>
+          </>
+        ) : null}
 
-        <Card title="Sicherheit" subtitle="Keine eigene Anmeldung" action={<ShieldIcon className="h-4 w-4 text-faint" />}>
-          <ul className="space-y-2 text-[13px] text-muted">
-            <li className="flex items-start gap-2">
-              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
-              Der Zugriff wird über Tailscale/ACLs begrenzt. T3 Code und code-server behalten ihre eigene Authentifizierung.
-            </li>
-            <li className="flex items-start gap-2">
-              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
-              Es werden keine Tokens, Cookies oder Credentials im Zustand gespeichert.
-            </li>
-            <li className="flex items-start gap-2">
-              <InfoIcon className="h-3.5 w-3.5 shrink-0 text-faint" />
-              Terminals starten ausschließlich serverseitig freigegebene Shell-, Agent- und Anmeldeprozesse.
-            </li>
-          </ul>
-        </Card>
+        {tab === "erweiterungen" ? (
+          <Card title="Extensions" subtitle="Lokale Erweiterungen installieren, aktivieren und berechtigen" action={<ExtensionsIcon className="h-4 w-4 text-faint" />}>
+            <ExtensionSettings />
+          </Card>
+        ) : null}
+
+        {tab === "werkzeuge" ? (
+          <Card title="Limitüberwachung" subtitle="Limits je Werkzeug erfassen oder pauschal deaktivieren" action={<NutzungIcon className="h-4 w-4 text-faint" />}>
+            <UsageMonitoringSettings />
+          </Card>
+        ) : null}
+
+        {tab === "workspace" ? (
+          <Card title="Workspace" subtitle="Lokaler, persistenter Zustand">
+            <div className="space-y-3 text-[13px]">
+              <div className="data-row px-0">
+                <span className="text-muted">Geöffnete Panels</span>
+                <span className="font-mono text-text">{panelCount} / {WORKBENCH_LIMITS.maxResidentTools}</span>
+              </div>
+              <div className="data-row px-0">
+                <span className="text-muted">Arbeitsflächen</span>
+                <span className="font-mono text-text">{workspaceCount} / {WORKBENCH_LIMITS.maxWorkspaces}</span>
+              </div>
+              <div className="data-row px-0">
+                <span className="text-muted">Speicherort</span>
+                <span className="font-mono text-[12px] text-faint">{WORKSPACE_STORAGE_KEY}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetOpen(true)}
+                className="quiet-button border-bad/30 bg-bad-soft/40 text-bad hover:bg-bad-soft"
+              >
+                <TrashIcon className="h-3.5 w-3.5" /> Workspace zurücksetzen
+              </button>
+            </div>
+          </Card>
+        ) : null}
+
         <footer className="settings-system-footer"><span>{health.data?.appName ?? "Remote Workplace"}</span><strong>Version {health.data?.version ?? "–"}</strong><span>Lokale Remote-Entwicklungsumgebung</span></footer>
         <ConfirmDialog open={resetOpen} title="Workspace zurücksetzen?" description="Alle geöffneten Panels, Arbeitsflächen und Auswahlen werden lokal gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." confirmLabel="Workspace zurücksetzen" danger onConfirm={resetWorkspace} onClose={() => setResetOpen(false)} />
       </div>
+    </div>
+  );
+}
+
+function HomePageSettings() {
+  const navigation = useNavigationRegistry();
+  const defaultPage = useAppPreferences((s) => s.defaultPage);
+  const setDefaultPage = useAppPreferences((s) => s.setDefaultPage);
+  const hiddenPages = useSidebarPreferences((s) => s.hiddenPages);
+
+  const options = useMemo(() => {
+    const seen = new Set<PageRouteId>();
+    const list: { key: PageRouteId; label: string; path: string }[] = [];
+    for (const item of navigation.items) {
+      const key = item.value.runtime.legacyVisibilityKey as PageRouteId | undefined;
+      if (key === undefined || seen.has(key)) continue;
+      seen.add(key);
+      list.push({
+        key,
+        label: item.value.contribution.label,
+        path: item.value.route.path,
+      });
+    }
+    return list;
+  }, [navigation]);
+
+  return (
+    <div>
+      <p className="mb-2 text-[12px] text-muted">Das Dashboard ist der Standard. Wählst du eine andere Seite, leitet die Workbench den Root-Pfad dorthin weiter.</p>
+      {options.map((option) => {
+        const isHidden = !isPageVisibleIn(hiddenPages, option.key);
+        const selected = defaultPage === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={selected}
+            disabled={isHidden}
+            onClick={() => setDefaultPage(option.key)}
+            title={isHidden ? "Diese Seite ist ausgeblendet – erst wieder einblenden" : undefined}
+            className={`settings-radio-row ${selected ? "is-selected" : ""}`}
+          >
+            <span className="settings-radio-copy">
+              <strong>{option.label}</strong>
+              <small><code>{option.path}</code>{isHidden ? " · ausgeblendet" : ""}</small>
+            </span>
+            <span className="settings-radio-dot" aria-hidden />
+          </button>
+        );
+      })}
     </div>
   );
 }

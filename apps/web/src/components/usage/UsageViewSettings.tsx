@@ -10,29 +10,17 @@ import { useUsagePreferences, type UsagePreferences, type UsagePreset } from "..
 
 const presets: Array<{ id: Exclude<UsagePreset, "custom">; label: string; description: string }> = [
   { id: "compact", label: "Kompakt", description: "Nur die Account-Liste mit den wichtigsten Limits" },
-  { id: "standard", label: "Standard", description: "Sofortübersicht, Liste und Timeline" },
-  { id: "analysis", label: "Analyse", description: "Alle Bereiche inklusive Details und Prognosen" },
+  { id: "standard", label: "Standard", description: "Statuszeile und einfache Account-Liste" },
+  { id: "analysis", label: "Analyse", description: "Zusätzliche Kennzahlen, Provider und Prognosen" },
 ];
 
 const sections: Array<{ key: keyof UsagePreferences; label: string }> = [
   { key: "showUsageKpis", label: "Token-KPIs" },
   { key: "showLimitSummary", label: "Limit-Statuszeile" },
   { key: "showAccountOverview", label: "Account-Liste" },
-  { key: "showTimeline", label: "Quota-Timeline" },
   { key: "showDetailedProviderCards", label: "Limitdetails (Provider-Karten)" },
   { key: "showForecasts", label: "Limitprognosen" },
   { key: "showResetCredits", label: "Reset-Guthaben" },
-  { key: "showTimelineLegend", label: "Timeline-Legende" },
-];
-
-const timelineOptions: Array<{ key: keyof UsagePreferences; label: string }> = [
-  { key: "showPastWindows", label: "Vergangene Fenster" },
-  { key: "showProjections", label: "Kommende Projektionen" },
-  { key: "showNowLine", label: "Jetzt-Linie" },
-  { key: "showWeekends", label: "Wochenenden hervorheben" },
-  { key: "showResetCreditMarkers", label: "Reset-Credit-Marker" },
-  { key: "showWindowLabels", label: "Labels in Balken" },
-  { key: "showAccountsWithoutReset", label: "Accounts ohne Resetzeit" },
 ];
 
 const accountOptions: Array<{ key: keyof UsagePreferences; label: string }> = [
@@ -41,7 +29,6 @@ const accountOptions: Array<{ key: keyof UsagePreferences; label: string }> = [
   { key: "showEmail", label: "E-Mail anzeigen" },
   { key: "showActiveBadge", label: "Aktiv-Badge" },
   { key: "showDataStatus", label: "Datenstatus" },
-  { key: "showLimitChips", label: "Limit-Chips" },
 ];
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
@@ -127,26 +114,6 @@ export function UsageViewSettings({ prefs }: { prefs: UsagePreferences }) {
             ))}
           </Section>
 
-          <Section title="Timeline">
-            {timelineOptions.map((option) => (
-              <Toggle key={option.key} label={option.label} checked={Boolean(prefs[option.key])} onChange={(value) => store.set({ [option.key]: value })} />
-            ))}
-            <div className="uvs-row">
-              <span>Dichte</span>
-              <select value={prefs.density} onChange={(event) => store.set({ density: event.target.value as UsagePreferences["density"] })}>
-                <option value="compact">Kompakt</option>
-                <option value="normal">Normal</option>
-              </select>
-            </div>
-            <div className="uvs-row">
-              <span>Account-Spalte</span>
-              <select value={prefs.accountColumn} onChange={(event) => store.set({ accountColumn: event.target.value as UsagePreferences["accountColumn"] })}>
-                <option value="compact">Kompakt</option>
-                <option value="normal">Normal</option>
-              </select>
-            </div>
-          </Section>
-
           <Section title="Accounts">
             {accountOptions.map((option) => (
               <Toggle key={option.key} label={option.label} checked={Boolean(prefs[option.key])} onChange={(value) => store.set({ [option.key]: value })} />
@@ -163,7 +130,6 @@ export function UsageViewSettings({ prefs }: { prefs: UsagePreferences }) {
           </Section>
 
           <Section title="Details">
-            <Toggle label="Ansicht: Liste und Timeline" checked={prefs.limitsView === "both"} onChange={(value) => store.set({ limitsView: value ? "both" : "list" })} />
             <div className="uvs-reset">
               <button type="button" onClick={() => store.resetAll()}>Standard wiederherstellen</button>
             </div>

@@ -15,12 +15,10 @@ import {
 } from "../../lib/usageView";
 import { useNow } from "../../lib/useNow";
 import { formatRelativeTime } from "../../lib/format";
-import { QuotaTimeline, type QuotaTimelineProps } from "./QuotaTimeline";
 import { UsageAccountTable } from "./UsageAccountTable";
 import { UsageFilters } from "./UsageFilters";
 import { UsageViewSettings } from "./UsageViewSettings";
 import { WarningIcon } from "../icons";
-import { UsageViewSwitcher } from "./UsageViewSwitcher";
 
 const providerName: Record<"codex" | "claude" | "opencode", string> = {
   codex: "Codex",
@@ -31,7 +29,6 @@ const providerName: Record<"codex" | "claude" | "opencode", string> = {
 export interface UsageOverviewProps {
   timeline: UsageTimelineResponse;
   now?: number;
-  timelineProps?: Partial<QuotaTimelineProps>;
 }
 
 /** Zusammenfassende Statuszeile unterhalb der Toolbar (Ebene 1). */
@@ -81,7 +78,7 @@ function NoAccounts({ hasActiveFilters, onReset }: { hasActiveFilters: boolean; 
   );
 }
 
-export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOverviewProps) {
+export function UsageOverview({ timeline, now: nowProp }: UsageOverviewProps) {
   const prefs = useUsagePreferences();
   const tick = useNow();
   const now = nowProp ?? tick;
@@ -120,8 +117,10 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
     set({ providerFilter: "all", onlyActive: false, onlyProblematic: false, hideAccountsWithoutData: false, hiddenAccountIds: [] });
   };
 
-  const showTimeline = prefs.showTimeline && (prefs.limitsView === "timeline" || prefs.limitsView === "both");
-  const showTable = prefs.showAccountOverview && (prefs.limitsView === "list" || prefs.limitsView === "both");
+  // Die frühere Quota-Timeline war für die tägliche Limitentscheidung zu
+  // schwer lesbar. Die Übersicht konzentriert sich deshalb auf die
+  // Account-Tabelle; historische Nutzung bleibt im Tab „Verlauf".
+  const showTable = prefs.showAccountOverview;
 
   return (
     <div className="usage-overview">
@@ -130,8 +129,6 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
         <UsageFilters lanes={baseLanes} prefs={prefs} />
         <div className="usage-overview-actions"><UsageViewSettings prefs={prefs} /></div>
       </div>
-      <div className="usage-view-switcher-row"><UsageViewSwitcher value={prefs.limitsView} /></div>
-
       {showTable ? (
         <section className="usage-accounts-now">
           <header className="usage-section-heading">
@@ -168,16 +165,6 @@ export function UsageOverview({ timeline, now: nowProp, timelineProps }: UsageOv
           )}
         </section>
       ) : null}
-
-      {showTimeline ? (
-        <QuotaTimeline
-          data={trackedTimeline}
-          now={now}
-          prefs={prefs}
-          {...timelineProps}
-        />
-      ) : null}
-
 
     </div>
   );
