@@ -18,7 +18,8 @@ Type=simple
 WorkingDirectory=__PROJECTS_ROOT__
 Environment=HOME=__HOME__
 # Die t3-Binary ist ein Node-Skript mit env-Shebang — ohne node im PATH startet sie nicht.
-Environment=PATH=__NODE_BIN_DIR__:__T3_BIN_DIR__:/usr/local/bin:/usr/bin:/bin
+# Das "code"-Shim liegt in ~/.t3/bin und leitet "Open in Editor" an die Workbench weiter.
+Environment=PATH=__NODE_BIN_DIR__:__T3_BIN_DIR__:__HOME__/.t3/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=__T3_BIN__ serve --host __T3_HOST__ --port __T3_PORT__ __PROJECTS_ROOT__
 Restart=on-failure
 RestartSec=5s

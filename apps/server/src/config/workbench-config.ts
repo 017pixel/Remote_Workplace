@@ -64,6 +64,14 @@ export const workbenchConfigSchema = z.object({
     terminalInputIdleMilliseconds: z.number().int().min(1_000).max(120_000).default(8_000),
     t3CompletionMinimumSeconds: z.number().int().min(5).max(86_400).default(120),
     t3MiniTaskSeconds: z.number().int().min(1).max(300).default(30),
+    // Weitere T3-Instanzen, deren Thread-Status über SSH mitgelesen wird. Jede
+    // Quelle braucht passwortlosen SSH-Zugang (Key) und python3 auf dem Ziel.
+    t3RemoteSyncs: z.array(z.object({
+      host: z.string().min(1),
+      databasePath: z.string().min(1),
+      environmentIdPath: z.string().min(1),
+      label: z.string().min(1).optional(),
+    })).default([]),
     hermesCompletionMinimumSeconds: z.number().int().min(5).max(86_400).default(120),
     pushSubject: z.string().max(200).default("mailto:admin@localhost"),
   }).prefault({}),

@@ -26,6 +26,19 @@ process.stdout.write(config.t3?.serviceUnit ?? "t3-code.service");
 target_dir="$HOME/.config/systemd/user"
 target="$target_dir/$unit_name"
 
+# „Open in Editor"-Shim installieren: T3 Code sucht ein `code`-Binary im PATH;
+# das Shim leitet den Pfad an die Workbench weiter (→ code-server im Browser).
+# Idempotent über cmp; die Unit-PATH enthält ~/.t3/bin.
+shim_source="$repo_root/scripts/t3-editor-open-shim.sh"
+shim_target="$HOME/.t3/bin/code"
+mkdir -p "$(dirname "$shim_target")"
+if [[ -f "$shim_target" ]] && cmp -s "$shim_source" "$shim_target"; then
+  log "$shim_target ist bereits aktuell."
+else
+  install -m 0755 "$shim_source" "$shim_target"
+  log "$shim_target geschrieben."
+fi
+
 # Immer frisch rendern: So folgt die Unit Änderungen an config/workbench.local.json.
 node "$repo_root/deploy/systemd/render-units.mjs" >/dev/null
 generated="$repo_root/deploy/systemd/generated/t3-code.service"

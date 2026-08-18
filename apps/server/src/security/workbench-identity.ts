@@ -19,7 +19,12 @@ const protectedPrefixes = [
 
 // Der Preview-Doctor authentifiziert sich selbst über Loopback-Verbindung und
 // Capability-Token; eine Tailscale-Identität darf ihn nicht vorab blockieren.
-const unprotectedApiPrefixes = ["/api/v1/previews/doctor/"];
+// Dasselbe gilt für den Open-in-Editor-Kanal: Das T3-`code`-Shim spricht
+// ausschließlich über Loopback und ein eigenes Capability-Token.
+const unprotectedApiPrefixes = [
+  "/api/v1/previews/doctor/",
+  "/api/v1/editor/",
+];
 
 // T3 authenticates its root WebSocket with its own session cookie or ticket.
 // Browser WebSocket upgrades do not reliably carry the Tailscale identity

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes } from "react-router";
 import { PwaInstallProvider } from "./lib/usePwaInstall";
 import { pageRouteRegistry } from "./extensions/pageRouteRegistry";
 import { routeHostElements } from "./extensions/routeHost";
+import { EditorOpenBridge } from "./components/EditorOpenBridge";
 
 /**
  * Der statische Router ist durch den Route Host ersetzt: Pages und Routes
@@ -20,6 +21,8 @@ export function App() {
   return (
     <PwaInstallProvider>
       <BrowserRouter basename={basename}>
+        {/* Global, außerhalb der Routen: gilt auch auf Standalone-Werkzeugseiten. */}
+        <EditorOpenBridge />
         <Routes>{routes}</Routes>
       </BrowserRouter>
     </PwaInstallProvider>

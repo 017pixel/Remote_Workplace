@@ -21,6 +21,7 @@ import { createProjectService } from "./services/projectService.js";
 import { createServiceStatusService } from "./services/serviceStatusService.js";
 import { registerEditorProxy } from "./services/editorProxy.js";
 import { registerT3Proxy } from "./services/t3Proxy.js";
+import { EditorOpenSecrets, registerEditorOpenRoutes } from "./services/editorOpen.js";
 import { AppError } from "./utils/errors.js";
 import { CodexbarClient } from "./adapters/codexbar/codexbar-client.js";
 import { createCodexbarUsageService } from "./adapters/codexbar/codexbar-cache.js";
@@ -233,6 +234,7 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     completionMinimumSeconds: settings.notifications.t3CompletionMinimumSeconds,
     miniTaskSeconds: settings.notifications.t3MiniTaskSeconds,
     cursorPath: join(settings.dataDirectory, "notifications/t3-status-cursor.json"),
+    remoteSources: settings.notifications.t3RemoteSyncs,
   });
   const terminalStatusSync = new TerminalStatusSync({
     databasePath: settings.databasePath,
@@ -540,6 +542,8 @@ export async function buildApp(options: { startBackgroundServices?: boolean } = 
     },
   });
   await app.register(registerNotificationRoutes, { prefix: "/api/v1", database: notificationDatabase, push: notificationPush, configDirectory: settings.configDirectory, identity: identityOptions });
+  const editorOpenSecrets = new EditorOpenSecrets(settings.dataDirectory);
+  await app.register(registerEditorOpenRoutes, { prefix: "/api/v1", secrets: editorOpenSecrets });
   await app.register(registerExtensionRoutes, { prefix: "/api/v1", manager: extensionManager, catalog: extensionCatalog });
   const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
   const terminals = new TerminalManager({

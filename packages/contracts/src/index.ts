@@ -161,6 +161,20 @@ export const restartStatusResponseSchema = z.object({
 // T3 Code läuft als genau eine Instanz hinter dem /t3-Proxy. Der Kanal bestimmt nur,
 // welches npm-Paket (t3@latest bzw. t3@nightly) beim nächsten Neustart installiert wird —
 // beide Kanäle teilen sich dasselbe Datenverzeichnis (~/.t3/userdata).
+// ── Open-in-Editor (T3-Code-Shim) ─────────────────────────────────────────────
+// T3 Code ruft beim „Open in Editor" (Command O) auf dem Server `code <pfad>`
+// auf. Das Shim-Skript meldet den Pfad per HTTP an die Workbench; diese leitet
+// ihn per WebSocket an den Browser, der den code-server mit dem Ordner öffnet.
+// Der Pfad bleibt dabei ein Serverwert — er wird nie vom Browser gesetzt.
+export const editorOpenRequestSchema = z.object({
+  path: z.string().trim().min(1).max(4_096).startsWith("/"),
+});
+export const editorOpenEventSchema = z.object({
+  type: z.literal("editor.open"),
+  path: z.string().startsWith("/").max(4_096),
+});
+export type EditorOpenEvent = z.infer<typeof editorOpenEventSchema>;
+
 export const t3ChannelSchema = z.enum(["stable", "nightly"]);
 export const t3ChannelRequestSchema = z.object({ channel: t3ChannelSchema });
 export const t3ChannelStatusResponseSchema = z.object({
