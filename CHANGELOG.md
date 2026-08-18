@@ -12,6 +12,9 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Installations-, Update- und Uninstall-Operationen melden Erfolg oder Fehler in der Oberfläche
 - Catalog-API liefert eine Revision für konfliktfreie Folgeoperationen
 - Produkticons als monochrome Palette vereinheitlicht, UI-Typografie neutralisiert
+- \"Open in Editor\" aus T3 Code öffnet den Pfad direkt im code-server der Workbench
+- Status weiterer T3-Instanzen wird per SSH read-only in die Benachrichtigungen eingebunden
+- Konfiguration `t3RemoteSyncs` beschreibt zusätzliche, per SSH erreichbare T3-Quellen
 
 ### Behoben
 
