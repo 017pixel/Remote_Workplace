@@ -186,6 +186,15 @@ sync_t3_channel() {
   bash "$repo_root/scripts/sync-t3-channel.sh"
 }
 
+sync_opencode_web() {
+  step "Prüfe OpenCode Web …"
+  if [[ ! -r "$repo_root/scripts/sync-opencode-web.sh" ]]; then
+    warn "scripts/sync-opencode-web.sh fehlt — OpenCode Web wird nicht geprüft."
+    return 0
+  fi
+  bash "$repo_root/scripts/sync-opencode-web.sh"
+}
+
 # Plant den Dienst-Neustart in einer eigenen, transienten systemd-Einheit ein.
 # Nötig, weil der Aufrufer (Server-Prozess oder ein Workbench-Terminal) selbst in der
 # Cgroup von workbench.service liegen kann — ein direkter Neustart würde ihn mitten im

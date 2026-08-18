@@ -143,6 +143,15 @@
     "localStorageMaxBytes": 262144,
     "localStorageMaxKeys": 1000
   },
+  "opencodeWeb": {
+    "port": 3774,
+    "host": "127.0.0.1",
+    "cliPath": "/home/your-user/.npm-global/bin/opencode",
+    "serviceUnit": "opencode-web.service",
+    "stopTimeoutSeconds": 20,
+    "portTimeoutSeconds": 30,
+    "healthTimeoutSeconds": 60
+  },
   "t3": {
     "channel": "stable",
     "npmPackage": "t3",

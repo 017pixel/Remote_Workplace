@@ -11,6 +11,7 @@ const protectedPrefixes = [
   "/api/",
   "/editor",
   "/t3",
+  "/opencode",
   "/hermes",
   "/assets/",
   "/.well-known/t3/",

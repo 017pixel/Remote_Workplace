@@ -43,6 +43,7 @@ config.tailscale.allowedUsers = e2eAllowedUsers;
 // abgeleitet. Dadurch kollidiert ein lokaler Lauf nicht mit der laufenden
 // Workbench oder einem anderen Testprozess.
 config.t3.port = e2ePort + 1;
+config.opencodeWeb = { ...config.opencodeWeb, port: e2ePort + 2, host: "127.0.0.1" };
 config.previews.slotPorts = Array.from({ length: 12 }, (_, index) => e2ePort + 10 + index);
 config.previews.publicPorts = Array.from({ length: 12 }, (_, index) => e2ePort + 100 + index);
 config.paths = {

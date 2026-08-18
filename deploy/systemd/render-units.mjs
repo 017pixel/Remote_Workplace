@@ -42,6 +42,7 @@ const hermesHost = config.hermes?.host || "127.0.0.1";
 const hermesPort = config.hermes?.port || 9119;
 
 const t3Binary = config.t3?.cliPath || which("t3", `${home}/.npm-global/bin/t3`);
+const opencodeWebBinary = config.opencodeWeb?.cliPath || config.cli?.opencode || which("opencode", `${home}/.npm-global/bin/opencode`);
 const nodeBinary = which("node", "/usr/bin/node");
 
 const tokens = {
@@ -57,6 +58,10 @@ const tokens = {
   __T3_BIN_DIR__: dirname(t3Binary),
   __T3_HOST__: config.t3?.host || "127.0.0.1",
   __T3_PORT__: String(config.t3?.port || 3773),
+  __OPENCODE_WEB_BIN__: opencodeWebBinary,
+  __OPENCODE_WEB_BIN_DIR__: dirname(opencodeWebBinary),
+  __OPENCODE_WEB_HOST__: config.opencodeWeb?.host || "127.0.0.1",
+  __OPENCODE_WEB_PORT__: String(config.opencodeWeb?.port || 3774),
   __NODE_BIN_DIR__: dirname(nodeBinary),
   __PROJECTS_ROOT__: config.paths?.projectsRoot || `${home}/projects`,
   __HERMES_HOST__: hermesHost,

@@ -169,6 +169,18 @@ export const workbenchConfigSchema = z.object({
     // prefault statt default: Fehlt der Abschnitt ganz, wird ein leeres Objekt geparst
     // und die Feld-Defaults greifen — sonst müsste hier jeder Wert ausgeschrieben werden.
   }).prefault({}),
+  // Offizielle OpenCode-Web-UI als eigene Loopback-Instanz hinter /opencode.
+  // Die Web-UI nutzt dasselbe OpenCode-Home wie die CLI und benötigt kein Passwort,
+  // weil der Dienst ausschließlich an Loopback gebunden wird.
+  opencodeWeb: z.object({
+    port: z.number().int().positive().default(3774),
+    host: z.string().min(1).default("127.0.0.1"),
+    cliPath: absolutePath.optional(),
+    serviceUnit: z.string().min(1).default("opencode-web.service"),
+    stopTimeoutSeconds: z.number().int().positive().default(20),
+    portTimeoutSeconds: z.number().int().positive().default(30),
+    healthTimeoutSeconds: z.number().int().positive().default(60),
+  }).prefault({}),
 }).superRefine((config, context) => {
   if (config.previews.slotPorts.length !== config.previews.publicPorts.length) {
     context.addIssue({ code: "custom", path: ["previews"], message: "Interne und öffentliche Preview-Ports müssen gleich viele Einträge enthalten." });
@@ -189,6 +201,9 @@ export const workbenchConfigSchema = z.object({
   if (config.previews.slotPorts.includes(config.t3.port)) {
     context.addIssue({ code: "custom", path: ["previews", "slotPorts"], message: "Ein interner Preview-Port kollidiert mit T3 Code." });
   }
+  if (config.previews.slotPorts.includes(config.opencodeWeb.port)) {
+    context.addIssue({ code: "custom", path: ["previews", "slotPorts"], message: "Ein interner Preview-Port kollidiert mit OpenCode Web." });
+  }
   if (config.previews.publicPorts.includes(config.tailscale.httpsPort)) {
     context.addIssue({ code: "custom", path: ["previews", "publicPorts"], message: "Ein öffentlicher Preview-Port kollidiert mit dem Workbench-HTTPS-Port." });
   }
@@ -200,9 +215,15 @@ export const workbenchConfigSchema = z.object({
   if (!["127.0.0.1", "::1", "localhost"].includes(config.hermes.host)) {
     context.addIssue({ code: "custom", path: ["hermes", "host"], message: "Das Hermes-Dashboard darf nur an Loopback binden." });
   }
-  const reservedPorts = [config.t3.port, ...config.previews.slotPorts, ...config.previews.publicPorts];
+  if (!["127.0.0.1", "::1", "localhost"].includes(config.opencodeWeb.host)) {
+    context.addIssue({ code: "custom", path: ["opencodeWeb", "host"], message: "OpenCode Web darf nur an Loopback binden." });
+  }
+  const reservedPorts = [config.t3.port, config.opencodeWeb.port, ...config.previews.slotPorts, ...config.previews.publicPorts];
   if (reservedPorts.includes(config.hermes.port)) {
     context.addIssue({ code: "custom", path: ["hermes", "port"], message: "Der Hermes-Port kollidiert mit einem bereits belegten Port." });
+  }
+  if (reservedPorts.includes(config.t3.port) && config.t3.port === config.opencodeWeb.port) {
+    context.addIssue({ code: "custom", path: ["opencodeWeb", "port"], message: "Der OpenCode-Web-Port kollidiert mit T3 Code." });
   }
 });
 

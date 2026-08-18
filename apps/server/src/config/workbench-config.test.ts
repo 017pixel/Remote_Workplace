@@ -9,11 +9,13 @@ function exampleConfig(): WorkbenchConfig {
 }
 
 describe("Workbench-Preview-Konfiguration", () => {
-  it("lädt fehlende Hermes-Konfiguration mit sicheren Defaults", () => {
+  it("lädt fehlende Hermes- und OpenCode-Web-Konfiguration mit sicheren Defaults", () => {
     const config = exampleConfig() as unknown as Record<string, unknown>;
     delete config.hermes;
+    delete config.opencodeWeb;
     const parsed = workbenchConfigSchema.parse(config);
     expect(parsed.hermes).toMatchObject({ enabled: true, host: "127.0.0.1", port: 9119, proxyPrefix: "/hermes" });
+    expect(parsed.opencodeWeb).toMatchObject({ host: "127.0.0.1", port: 3774, serviceUnit: "opencode-web.service" });
   });
 
   it("erzwingt Loopback und einen freien Hermes-Port", () => {
@@ -24,6 +26,14 @@ describe("Workbench-Preview-Konfiguration", () => {
     const collision = exampleConfig();
     collision.hermes.port = collision.t3.port;
     expect(() => workbenchConfigSchema.parse(collision)).toThrowError(/Hermes-Port/);
+
+    const openCodeNonLoopback = exampleConfig();
+    openCodeNonLoopback.opencodeWeb.host = "0.0.0.0";
+    expect(() => workbenchConfigSchema.parse(openCodeNonLoopback)).toThrowError(/OpenCode Web/);
+
+    const openCodeCollision = exampleConfig();
+    openCodeCollision.opencodeWeb.port = openCodeCollision.t3.port;
+    expect(() => workbenchConfigSchema.parse(openCodeCollision)).toThrowError(/OpenCode-Web-Port/);
 
     const invalidPrefix = exampleConfig();
     invalidPrefix.hermes.proxyPrefix = "hermes";

@@ -9,4 +9,5 @@ restart_begin backend
 build_contracts
 build_backend
 sync_t3_channel
+sync_opencode_web
 schedule_service_restart

@@ -60,8 +60,11 @@ done
 systemctl --user daemon-reload
 systemctl --user enable --now "${units[@]}"
 
-if [[ -x "$repo_root/scripts/install-t3-unit.sh" ]]; then
+if [[ -r "$repo_root/scripts/install-t3-unit.sh" ]]; then
   bash "$repo_root/scripts/install-t3-unit.sh"
+fi
+if [[ -r "$repo_root/scripts/install-opencode-web-unit.sh" ]]; then
+  bash "$repo_root/scripts/install-opencode-web-unit.sh"
 fi
 
 ready=false

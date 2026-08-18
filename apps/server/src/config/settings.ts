@@ -157,6 +157,10 @@ const settingsSchema = z.object({
   T3_HOST: z.string().min(1).default(wb.t3.host),
   T3_PORT: integerFromEnvironment(wb.t3.port),
   T3_SERVICE_UNIT: z.string().min(1).default(wb.t3.serviceUnit),
+  OPENCODE_WEB_CLI_PATH: z.string().startsWith("/").default(wb.opencodeWeb.cliPath ?? wb.cli.opencode),
+  OPENCODE_WEB_HOST: z.string().min(1).default(wb.opencodeWeb.host),
+  OPENCODE_WEB_PORT: integerFromEnvironment(wb.opencodeWeb.port),
+  OPENCODE_WEB_SERVICE_UNIT: z.string().min(1).default(wb.opencodeWeb.serviceUnit),
   HERMES_ENABLED: booleanFromEnvironment(wb.hermes.enabled),
   HERMES_HOST: z.string().min(1).default(wb.hermes.host),
   HERMES_PORT: integerFromEnvironment(wb.hermes.port),
@@ -198,6 +202,9 @@ if (environment.NODE_ENV === "production" && environment.WORKBENCH_DEV_TAILSCALE
 if (!["127.0.0.1", "::1", "localhost"].includes(environment.HERMES_HOST)) {
   throw new Error("HERMES_HOST darf nur auf Loopback zeigen.");
 }
+if (!["127.0.0.1", "::1", "localhost"].includes(environment.OPENCODE_WEB_HOST)) {
+  throw new Error("OPENCODE_WEB_HOST darf nur auf Loopback zeigen.");
+}
 const hermesHomeDirectory = environment.HERMES_HOME;
 const hermesCheckoutDirectory = environment.HERMES_CHECKOUT_DIRECTORY ?? wb.hermes.checkoutDirectory ?? join(hermesHomeDirectory, "hermes-agent");
 const hermesPythonPath = environment.HERMES_PYTHON_PATH ?? wb.hermes.pythonPath ?? join(hermesCheckoutDirectory, "venv/bin/python");
@@ -211,7 +218,7 @@ const skillEditorPropagateDirectories = (
     ?? [join(wb.system.homeDirectory, ".claude/skills"), join(wb.system.homeDirectory, ".codex/skills")].filter((path) => existsSync(path))
 ).map((path) => resolve(path));
 
-const listenerPorts = [environment.PORT, environment.T3_PORT, environment.HERMES_PORT, ...wb.previews.slotPorts, ...wb.previews.publicPorts];
+const listenerPorts = [environment.PORT, environment.T3_PORT, environment.OPENCODE_WEB_PORT, environment.HERMES_PORT, ...wb.previews.slotPorts, ...wb.previews.publicPorts];
 if (new Set(listenerPorts).size !== listenerPorts.length) {
   throw new Error("Workbench-, T3-, Hermes- und Preview-Ports müssen eindeutig sein.");
 }
@@ -353,6 +360,10 @@ export const settings = Object.freeze({
   t3ServiceUnit: environment.T3_SERVICE_UNIT,
   // Kanal beim Serverstart. Nur Ausgangswert — der aktuelle Wert kommt aus der Config.
   t3BootChannel: wb.t3.channel,
+  opencodeWebCliPath: environment.OPENCODE_WEB_CLI_PATH,
+  opencodeWebHost: environment.OPENCODE_WEB_HOST,
+  opencodeWebPort: environment.OPENCODE_WEB_PORT,
+  opencodeWebServiceUnit: environment.OPENCODE_WEB_SERVICE_UNIT,
   skillEditor: {
     rootDirectory: skillEditorRoot,
     propagateDirectories: skillEditorPropagateDirectories,

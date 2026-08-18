@@ -1,0 +1,24 @@
+# OpenCode Web — offizielle Browser-Oberfläche hinter dem Workbench-Proxy /opencode.
+# Die Unit bindet ausschließlich an Loopback; der Zugriffsschutz erfolgt über die
+# Workbench-Identität am Proxy. Ein Server-Passwort ist deshalb absichtlich nicht gesetzt.
+[Unit]
+Description=OpenCode Web (Workbench, Port __OPENCODE_WEB_PORT__)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__HOME__
+Environment=HOME=__HOME__
+# opencode web öffnet sonst beim Start den Standardbrowser des Dienstkontos.
+Environment=BROWSER=true
+Environment=PATH=__NODE_BIN_DIR__:__OPENCODE_WEB_BIN_DIR__:__HOME__/.local/bin:__HOME__/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=__OPENCODE_WEB_BIN__ web --hostname __OPENCODE_WEB_HOST__ --port __OPENCODE_WEB_PORT__
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+UMask=0077
+
+[Install]
+WantedBy=default.target

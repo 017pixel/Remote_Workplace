@@ -75,7 +75,7 @@ export class AgentSessionSync {
         this.options.notifications.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode",
           kind: error ? "agent.failed" : "agent.completed", severity: error ? "error" : "success",
           title: error ? "OpenCode fehlgeschlagen" : "OpenCode abgeschlossen", body: error ?? `${projectLabel(session.directory)} nach ${durationSeconds} Sekunden`,
-          link: `/workbench/opencode?session=${encodeURIComponent(session.id)}`, remoteId: `opencode:${messageId}`,
+          link: `/workbench/opencode?session=${encodeURIComponent(session.id)}&directory=${encodeURIComponent(session.directory)}`, remoteId: `opencode:${messageId}`,
           meta: { sessionId: session.id, directory: session.directory, durationSeconds, usedTool },
           report: error ? { message: error, stack: null, context: { Quelle: "OpenCode", Sitzung: session.id, Arbeitsverzeichnis: session.directory }, logs: [], environment: {} } : null });
       }
