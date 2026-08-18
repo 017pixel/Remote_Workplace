@@ -1,0 +1,35 @@
+import {
+  dashboardConfigSchema,
+  healthResponseSchema,
+  localPortsResponseSchema,
+  operationalMetricsSchema,
+  readinessResponseSchema,
+  restartResponseSchema,
+  restartStatusResponseSchema,
+  serverMetricsSchema,
+  serverSummarySchema,
+  servicesResponseSchema,
+  t3ChannelStatusResponseSchema,
+  usageMonitoringResponseSchema,
+  type RestartTarget,
+  type T3Channel,
+  type UsageMonitoring,
+} from "@workbench/contracts";
+import { mutate, request } from "./transport.js";
+
+export const systemApi = {
+  health: (signal?: AbortSignal) => request("/health", healthResponseSchema, signal),
+  dashboardConfig: (signal?: AbortSignal) => request("/system/dashboard-config", dashboardConfigSchema, signal),
+  readiness: (signal?: AbortSignal) => request("/health/readiness", readinessResponseSchema, signal),
+  operationalMetrics: (signal?: AbortSignal) => request("/system/operational-metrics", operationalMetricsSchema, signal),
+  restartSystem: (target: RestartTarget) => mutate("/system/restart", "POST", restartResponseSchema, { target }),
+  restartStatus: (signal?: AbortSignal) => request("/system/restart/status", restartStatusResponseSchema, signal),
+  t3Channel: (signal?: AbortSignal) => request("/system/t3-channel", t3ChannelStatusResponseSchema, signal),
+  setT3Channel: (channel: T3Channel) => mutate("/system/t3-channel", "POST", t3ChannelStatusResponseSchema, { channel }),
+  usageMonitoring: (signal?: AbortSignal) => request("/system/usage-monitoring", usageMonitoringResponseSchema, signal),
+  saveUsageMonitoring: (monitoring: UsageMonitoring) => mutate("/system/usage-monitoring", "PUT", usageMonitoringResponseSchema, { monitoring }),
+  serverSummary: (signal?: AbortSignal) => request("/server/summary", serverSummarySchema, signal),
+  serverMetrics: (signal?: AbortSignal) => request("/server/metrics", serverMetricsSchema, signal),
+  services: (signal?: AbortSignal) => request("/services", servicesResponseSchema, signal),
+  localPorts: (signal?: AbortSignal) => request("/local-ports", localPortsResponseSchema, signal),
+};
