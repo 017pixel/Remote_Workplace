@@ -25,11 +25,13 @@ class FakePty implements PtyProcess {
 class FakeSupervisor {
   readonly sessions = new Set<string>();
   captureValue = "";
+  alternate = false;
   sessionName(runtimeId: string) { return `workbench-${runtimeId.replaceAll("-", "")}`; }
   list() { return []; }
   has(name: string) { return this.sessions.has(name); }
   ensure(input: { runtimeId: string }) { const name = this.sessionName(input.runtimeId); this.sessions.add(name); return name; }
   capture() { return this.captureValue; }
+  isAlternate() { return this.alternate; }
   attachCommand(name: string) { return { file: "/usr/bin/tmux", args: ["attach-session", "-t", name] }; }
   respawn() {}
   sendLastCommandHint() {}
@@ -113,5 +115,60 @@ describe("terminal rendering geometry", () => {
     manager.attachSession("owner", session.id, (message) => messages.push(message as { type: string; history?: string }));
 
     expect(messages.find((message) => message.type === "terminal.snapshot")?.history).toBe("fresh-rendered-screen\n");
+  });
+
+  it("applies the attaching client's viewport before capturing the snapshot", async () => {
+    const { manager: terminal, pty } = await createManager();
+    const session = await terminal.createSession("owner", { cols: 120, rows: 40, clientId: "desktop" });
+    const messages: Array<Record<string, unknown>> = [];
+
+    terminal.attachSession("owner", session.id, (message) => messages.push(message as Record<string, unknown>), "desktop", { cols: 80, rows: 24 });
+
+    expect(pty.resizes.at(-1)).toEqual([80, 24]);
+    expect(messages.find((message) => message.type === "terminal.snapshot")).toMatchObject({ cols: 80, rows: 24, ownsGeometry: true });
+  });
+
+  it("keeps the primary's geometry in a secondary's snapshot instead of reflowing", async () => {
+    const { manager: terminal, pty } = await createManager();
+    const session = await terminal.createSession("owner", { cols: 120, rows: 40, clientId: "desktop" });
+    terminal.attachSession("owner", session.id, () => {}, "desktop", { cols: 120, rows: 40 });
+    const mobile: Array<Record<string, unknown>> = [];
+
+    terminal.attachSession("owner", session.id, (message) => mobile.push(message as Record<string, unknown>), "mobile", { cols: 52, rows: 24 });
+
+    expect(pty.resizes).not.toContainEqual([52, 24]);
+    expect(mobile.find((message) => message.type === "terminal.snapshot")).toMatchObject({ cols: 120, rows: 40, ownsGeometry: false });
+  });
+
+  it("reports a secondary resize without transferring primary ownership", async () => {
+    const { manager: terminal, pty } = await createManager();
+    const session = await terminal.createSession("owner", { cols: 120, rows: 40, clientId: "desktop" });
+    terminal.attachSession("owner", session.id, () => {}, "desktop", { cols: 120, rows: 40 });
+    terminal.attachSession("owner", session.id, () => {}, "mobile", { cols: 52, rows: 24 });
+
+    terminal.resizeSession("owner", session.id, 60, 30, "mobile");
+
+    expect(pty.resizes).not.toContainEqual([60, 30]);
+    expect(terminal.getSessionMetadata("owner", session.id)).toMatchObject({ cols: 120, rows: 40 });
+  });
+
+  it("flags fullscreen TUIs in the snapshot so the client restores the alternate screen", async () => {
+    const root = await mkdtemp(join(tmpdir(), "workbench-terminal-alternate-"));
+    const pty = new FakePty();
+    const supervisor = new FakeSupervisor();
+    supervisor.alternate = true;
+    manager = new TerminalManager({
+      allowedRoots: [root],
+      defaultCwd: root,
+      maxSessions: 1,
+      supervisor: supervisor as unknown as TmuxSupervisor,
+      adapter: { spawn: () => pty },
+    });
+    const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    const messages: Array<Record<string, unknown>> = [];
+
+    manager.attachSession("owner", session.id, (message) => messages.push(message as Record<string, unknown>));
+
+    expect(messages.find((message) => message.type === "terminal.snapshot")).toMatchObject({ alternate: true });
   });
 });

@@ -131,13 +131,22 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
             void session.then((created) => send({ type: "terminal.created", requestId: message.requestId, sessionId: created.id, runtimeId: created.runtimeId, kind: created.kind, projectId: created.projectId, status: created.status, cwd: created.cwd, pid: created.pid })).catch((error) => send({ type: "terminal.error", ...errorMessage(error) }));
             break;
           }
-          case "terminal.attach": detach?.(); detach = options.manager.attachSession(userId, message.sessionId, send, clientId); break;
+          case "terminal.attach": {
+            detach?.();
+            const viewport = message.cols !== undefined && message.rows !== undefined ? { cols: message.cols, rows: message.rows } : undefined;
+            detach = options.manager.attachSession(userId, message.sessionId, send, clientId, viewport);
+            break;
+          }
           case "terminal.input":
             options.manager.activateClient(userId, message.sessionId, clientId);
             options.manager.writeToSession(userId, message.sessionId, message.data);
             break;
           case "terminal.resize":
-            options.manager.activateClient(userId, message.sessionId, clientId, { cols: message.cols, rows: message.rows });
+            // Ein ResizeObserver darf niemals allein den Primary-Status übernehmen.
+            // Resize meldet nur den lokalen Wunsch-Viewport; die PTY übernimmt ihn
+            // nur, wenn dieser Client bereits Primary ist. Der Primary wechselt
+            // ausschließlich über echte Interaktion (Eingabe) oder beim Trennen.
+            options.manager.resizeSession(userId, message.sessionId, message.cols, message.rows, clientId);
             break;
           case "terminal.clear": options.manager.clearSessionHistory(userId, message.sessionId); break;
           case "terminal.restart": options.manager.restartSession(userId, message.sessionId); break;

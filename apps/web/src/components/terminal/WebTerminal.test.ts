@@ -8,7 +8,7 @@ import {
   touchScrollLines,
   updateMouseEncoding,
   updateMouseReporting,
-} from "./WebTerminal";
+} from "./terminal-utils";
 
 describe("Terminal-Snapshot", () => {
   it("sendet automatische xterm-Antworten während der Wiedergabe nicht an die PTY", () => {
@@ -44,8 +44,8 @@ describe("Terminal-Raster bei Orbit-Zoom", () => {
   });
 
   it("nutzt auf Touch-Shells die kompakte Schriftgröße", () => {
-    expect(terminalFontSizeForRenderScale(1, true)).toBe(10);
-    expect(terminalFontSizeForRenderScale(0.5, true)).toBe(20);
+    expect(terminalFontSizeForRenderScale(1, true)).toBe(8);
+    expect(terminalFontSizeForRenderScale(0.5, true)).toBe(16);
   });
 
 });

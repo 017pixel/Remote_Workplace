@@ -81,8 +81,25 @@ export class TmuxSupervisor {
     this.run(["send-keys", "-t", `${name}:0.0`, "Up"]);
   }
 
+  /** True, wenn die Pane gerade den Alternate Screen (Fullscreen-TUI) nutzt. */
+  isAlternate(name: string): boolean {
+    const result = spawnSync(this.executable, ["display-message", "-p", "-t", `${name}:0.0`, "#{alternate_on}"], { encoding: "utf8", timeout: 3_000 });
+    return result.status === 0 && result.stdout.trim() === "1";
+  }
+
+  /**
+   * Liefert den gerenderten Pane-Inhalt für Reconnect-Snapshots. Im Alternate
+   * Screen (Fullscreen-TUI) wird nur die sichtbare Fläche ohne `-J` erfasst:
+   * `-J` fügt umgebrochene Pane-Zeilen zusammen und zerstört damit Boxen,
+   * Tabellen und Sidebars, sobald der Dump in xterm neu umbrochen wird. Der
+   * normale Puffer behält `-J` und den Scrollback, damit lange Zeilen beim
+   * Wiedergeben korrekt im aktuellen Raster umfließen.
+   */
   capture(name: string) {
-    const result = spawnSync(this.executable, ["capture-pane", "-p", "-e", "-J", "-S", "-10000", "-t", `${name}:0.0`], { encoding: "utf8", timeout: 4_000 });
+    const args = this.isAlternate(name)
+      ? ["capture-pane", "-p", "-e", "-t", `${name}:0.0`]
+      : ["capture-pane", "-p", "-e", "-J", "-S", "-10000", "-t", `${name}:0.0`];
+    const result = spawnSync(this.executable, args, { encoding: "utf8", timeout: 4_000 });
     return result.status === 0 ? result.stdout : "";
   }
 

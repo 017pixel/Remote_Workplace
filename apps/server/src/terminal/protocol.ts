@@ -18,7 +18,7 @@ export const clientTerminalMessageSchema = z.discriminatedUnion("type", [
     accountId: z.string().uuid().optional(),
     ...dimensions.shape,
   }),
-  z.object({ type: z.literal("terminal.attach"), sessionId }),
+  z.object({ type: z.literal("terminal.attach"), sessionId, cols: z.number().int().min(2).max(500).optional(), rows: z.number().int().min(1).max(300).optional() }),
   z.object({ type: z.literal("terminal.input"), sessionId, data: z.string().min(1).max(65_536) }),
   z.object({ type: z.literal("terminal.resize"), sessionId, ...dimensions.shape }),
   z.object({ type: z.literal("terminal.clear"), sessionId }),
@@ -37,7 +37,8 @@ export type TerminalErrorCode =
 
 export type ServerTerminalMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
-  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number }
+  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number; cols: number; rows: number; ownsGeometry: boolean; alternate: boolean }
+  | { type: "terminal.geometry"; sessionId: string; cols: number; rows: number; ownsGeometry: boolean }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
   | { type: "terminal.cwd"; sessionId: string; cwd: string }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
