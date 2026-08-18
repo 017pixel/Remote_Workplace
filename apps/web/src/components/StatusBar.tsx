@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router";
 import type { ProviderUsage } from "@workbench/contracts";
-import { useWorkspaceStore } from "../stores/workspace";
 import { workbenchQueries } from "../lib/queryOptions";
 import { Spinner, StateDot } from "./primitives";
 import { useOrbitStore } from "../stores/orbit";
@@ -62,16 +61,10 @@ export function StatusBar() {
   const orbitDocument = useOrbitStore((state) => state.document);
   const orbitDirty = useOrbitStore((state) => state.dirty);
   const orbitSaving = useOrbitStore((state) => state.saving);
-  const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
   const health = useQuery(workbenchQueries.health());
-  const projects = useQuery(workbenchQueries.projects());
   const usage = useQuery(workbenchQueries.usage());
-  const selectedProject = projects.data?.projects.find((project) => project.id === selectedProjectId);
   const activeOrbitBoard = orbitDocument.boards.find((board) => board.id === orbitDocument.activeBoardId);
   const isOrbit = location.pathname === "/workbench";
-  // Auf der Standalone-T3-Seite entfällt der Projektbereich: T3 Code zeigt
-  // seinen eigenen Kontext (Projekt, Branch, Thread) bereits im Panel.
-  const isStandaloneT3 = location.pathname === "/t3-code";
   const codex = usage.data?.providers.find((provider) => provider.providerId === "codex");
   const opencode = usage.data?.providers.find((provider) => provider.providerId === "opencode");
   const claude = usage.data?.providers.find((provider) => provider.providerId === "claude");
@@ -82,19 +75,18 @@ export function StatusBar() {
     <footer className="status-bar hidden md:flex">
       <span className="status-bar-item">
         {health.isLoading ? <Spinner /> : <StateDot state={health.isError ? "error" : "active"} />}
-        <span>Workbench</span>
         <span className="status-bar-value font-mono">v{health.data?.version ?? "—"}</span>
       </span>
-      <span className="status-bar-divider" />
-      <span className="status-bar-context">
-      {isOrbit ? <>
-        <span className="status-bar-item min-w-0"><span>Orbit</span><span className="status-bar-value truncate">{activeOrbitBoard?.name ?? "Arbeitsfläche"}</span></span>
-        <span className="status-bar-divider" />
-        <span className="status-bar-item"><span>{activeOrbitBoard?.nodes.length ?? 0} Knoten</span><span>{activeOrbitBoard?.edges.length ?? 0} Verbindungen</span><span className="status-bar-value">{orbitSaving ? "speichert…" : orbitDirty ? "ungespeichert" : "synchron"}</span></span>
-      </> : !isStandaloneT3 ? <>
-        <span className="status-bar-item min-w-0"><span>Projekt</span><span className="status-bar-value truncate">{selectedProject?.name ?? "keines"}</span></span>
-      </> : null}
-      </span>
+      {isOrbit ? (
+        <>
+          <span className="status-bar-divider" />
+          <span className="status-bar-context">
+            <span className="status-bar-item min-w-0"><span>Orbit</span><span className="status-bar-value truncate">{activeOrbitBoard?.name ?? "Arbeitsfläche"}</span></span>
+            <span className="status-bar-divider" />
+            <span className="status-bar-item"><span>{activeOrbitBoard?.nodes.length ?? 0} Knoten</span><span>{activeOrbitBoard?.edges.length ?? 0} Verbindungen</span><span className="status-bar-value">{orbitSaving ? "speichert…" : orbitDirty ? "ungespeichert" : "synchron"}</span></span>
+          </span>
+        </>
+      ) : null}
       {visibleProviders.length > 0 ? (
         <Link
           to="/usage"
