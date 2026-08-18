@@ -11,6 +11,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Permission-Reviews werden direkt nach der Installation zur Freigabe vorgelegt
 - Installations-, Update- und Uninstall-Operationen melden Erfolg oder Fehler in der Oberfläche
 - Catalog-API liefert eine Revision für konfliktfreie Folgeoperationen
+- Produkticons als monochrome Palette vereinheitlicht, UI-Typografie neutralisiert
 
 ### Behoben
 
@@ -19,6 +20,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Terminal-Snapshot-Replay verwirft keine Nutzereingaben mehr und sendet sie nach dem Replay nach
 - Orbit löst 409-Konflikte mit identischem Serverstand still auf statt dauerhaft ungespeichert zu bleiben
 - E2E-Suiten für Dateimanager, Clipboard, Orbit und Cache auf isolierten Testservern stabilisiert
+- Terminal-Rendering auf Mobile und Desktop korrigiert, Viewport-Wechsel zwischen Geräten zuverlässig
 
 ### Extension-Plattform
 
@@ -27,6 +29,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Migration in 16 kleine, überprüfbare Phasen gegliedert
 - Kompatibilitätsregeln für bestehende Daten, Bookmarks und laufende Sitzungen festgelegt
 - Zeitabhängige Usage-Testfixture für dauerhaft reproduzierbare Testläufe stabilisiert
+- Extension-First-Boundary erzwungen: Legacy-Contributions hinter einer Built-in-Boundary, direkte Imports durch das Qualitäts-Gate verhindert
 
 ### Extension-Plattform-Inventar
 
