@@ -143,20 +143,11 @@ test("creates project-bound terminal tabs and splits them without replacing sess
   }
 });
 
-test("opens OpenCode in the newly selected project", async ({ page }) => {
+test("öffnet die OpenCode-Web-UI über den Workbench-Proxy", async ({ page }) => {
   await page.goto(`${privateWorkbench}/opencode`);
-  await expect(page.locator(".terminal-tab .terminal-state.is-connected")).toBeVisible({ timeout: 15_000 });
-
-  await page.locator(".project-picker-trigger").click();
-  await page.getByLabel("Projekt suchen").fill("Sample");
-  await page.getByRole("option", { name: /Sample/ }).click();
-
-  await expect(page.locator(".terminal-tab")).toHaveCount(2);
-  await expect(page.locator(".terminal-tab.is-active")).toHaveAttribute(
-    "title",
-    /OpenCode 2 · Sample · \/home\/user\/projects\/Sample/,
-  );
-  await expect(page.locator(".terminal-statusline-path")).toContainText("/home/user/projects/Sample");
+  const frame = page.locator('.tool-surface-standalone iframe[title="OpenCode"]');
+  await expect(frame).toHaveAttribute("src", "/opencode");
+  await expect(frame).toBeVisible();
 });
 
 test("keeps T3 Code visibly connected to the selected project", async ({ page }) => {

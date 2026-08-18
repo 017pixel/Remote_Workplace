@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, loadEnv } from "vite";
+import { loadEnv } from "vite";
+import { defineConfig } from "vitest/config";
 
 // Zentrale Personalisierung (Branding + Tailscale-Hosts): erst workbench.local.json,
 // sonst das committete workbench.example.json.
@@ -67,6 +68,13 @@ export default defineConfig(({mode}) => {
     // auf eine fehlende Datei zu treffen.
     emptyOutDir: false,
     sourcemap: false,
+  },
+  test: {
+    // React lädt ohne NODE_ENV=test/development den Production-Build, dem das
+    // stabile `React.act` fehlt. Auf Produktionsmaschinen steht NODE_ENV oft
+    // schon auf `production`; Tests sollen davon unabhängig deterministisch
+    // mit dem Development-Build laufen.
+    env: { NODE_ENV: "test" },
   },
   });
 });

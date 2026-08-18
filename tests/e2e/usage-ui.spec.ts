@@ -14,7 +14,7 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   // Neue Standardansicht: Limit-Statuszeile und kompakte Account-Tabelle.
   await expect(page.getByLabelText("Zusammenfassung der Limits")).toBeVisible({timeout:20_000});
   await expect(page.getByRole("table", {name:"Aktuelle Limits je Account"})).toBeVisible();
-  await expect(page.getByRole("heading", {name:"Quota-Timeline"})).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Quota-Timeline"})).toHaveCount(0);
   // Analyse-Preset aktiviert die Detailbereiche (KPIs, Provider-Karten, Prognosen).
   await page.getByRole("button", {name:"Ansichtseinstellungen"}).click();
   await page.getByRole("button", {name:/Analyse/}).click();
@@ -31,8 +31,9 @@ test("renders usage analytics, charts and account discovery", async ({page}) => 
   await expect(page.getByRole("heading", {name:"Projekte"})).toBeVisible();
   await expect(page.getByRole("heading", {name:"Modelle"})).toBeVisible();
   await page.getByRole("button", {name:"Accounts"}).click();
+  await expect(page.getByRole("heading", {name:"Profile verwalten"})).toBeVisible();
+  await page.getByRole("button", {name:"Hinzufügen"}).click();
   await expect(page.getByRole("heading", {name:"Account verbinden"})).toBeVisible();
-  await expect(page.getByRole("heading", {name:"Profile und Verwaltung"})).toBeVisible();
   await expect(page.getByRole("option", {name:"Claude Code"})).toBeAttached();
   const firstProfile = page.locator(".managed-account").first();
   await expect(firstProfile).toBeVisible();
@@ -53,15 +54,15 @@ test("keeps usage controls usable on mobile", async ({page}) => {
   await expect(table).toBeVisible({timeout:20_000});
   const firstLimitRow = table.locator(".uat-row").first();
   await expect(firstLimitRow).toBeVisible();
-  await expect(firstLimitRow.locator(".uat-mobile-summary")).toBeVisible();
+  await expect(firstLimitRow.locator(".uat-cell-limits")).toBeVisible();
   const rowBox = await firstLimitRow.boundingBox();
   expect(rowBox).not.toBeNull();
-  expect(rowBox!.height).toBeLessThanOrEqual(72);
+  expect(rowBox!.height).toBeLessThanOrEqual(180);
   const tableWidth = await table.evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
   expect(tableWidth.scroll).toBeLessThanOrEqual(tableWidth.client);
 
   await firstLimitRow.locator(".uat-row-main").click();
-  const detailDialog = page.locator(".uat-mobile-dialog");
+  const detailDialog = page.locator(".uat-dialog");
   await expect(detailDialog).toBeVisible();
   await expect(detailDialog.locator(".uat-details-limits")).toBeVisible();
   const detailWidth = await detailDialog.evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
@@ -70,6 +71,7 @@ test("keeps usage controls usable on mobile", async ({page}) => {
   await expect(detailDialog).toBeHidden();
 
   await page.getByRole("button", {name:"Accounts"}).click();
+  await page.getByRole("button", {name:"Hinzufügen"}).click();
   await expect(page.getByRole("button", {name:"Mit Gerätecode anmelden"})).toBeVisible();
   const accountManagerWidth = await page.locator(".account-manager").evaluate((element) => ({scroll:element.scrollWidth,client:element.clientWidth}));
   expect(accountManagerWidth.scroll).toBeLessThanOrEqual(accountManagerWidth.client);
