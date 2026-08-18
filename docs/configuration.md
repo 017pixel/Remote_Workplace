@@ -17,6 +17,7 @@ Konfigurationsquelle für alles Umgebungsspezifische:
 - `notifications` — Aufbewahrung, Erkennungsschwellen sowie Toast- und Push-Regeln pro Quelle.
 - `previews` — interne Loopback-Listener, zugehörige öffentliche Tailscale-HTTPS-Ports und die Feature-Flags der Preview-Laufzeit (siehe unten).
 - `hermes` — Loopback-Dashboard, ACP-Chat, User-Units, Updatezeit und serverseitige Betriebsgrenzen.
+- `opencodeWeb` — offizielle OpenCode-Web-UI als Loopback-Dienst hinter `/opencode`.
 
 Der Server (`apps/server/src/config/settings.ts`) und der Vite-Build (`apps/web/vite.config.ts`)
 lesen diese Datei beim Start; fehlt sie, wird auf `config/workbench.example.json` zurückgegriffen.
@@ -73,6 +74,32 @@ HERMES_UPDATE_UNIT=hermes-update.service
 `HERMES_HOME` enthält die sensible Hermes-Konfiguration und bleibt außerhalb des Repositories.
 Die Dienste werden immer als User-Units mit `systemctl --user` gesteuert. `sudo`, Root-Helper und
 eine systemweite Unit gehören nicht zum Hermes-Integrationspfad.
+
+## OpenCode Web
+
+Die offizielle OpenCode-Web-UI läuft als eigene User-Unit `opencode-web.service` auf Loopback und
+wird ausschließlich über `/opencode` in die Workbench eingebettet. Die CLI und die Web-UI verwenden
+dasselbe OpenCode-Home; Sessions, Verlauf und der aktive Account bleiben dadurch kompatibel.
+
+```json
+{
+  "opencodeWeb": {
+    "host": "127.0.0.1",
+    "port": 3774,
+    "cliPath": "/home/your-user/.npm-global/bin/opencode",
+    "serviceUnit": "opencode-web.service",
+    "stopTimeoutSeconds": 20,
+    "portTimeoutSeconds": 30,
+    "healthTimeoutSeconds": 60
+  }
+}
+```
+
+`host` muss Loopback sein. Der Dienst hat bewusst kein eigenes Passwort, weil er nicht direkt
+veröffentlicht wird; der Workbench-Proxy prüft die erlaubte Tailscale-Identität. Bei einem Backend-
+Neustart stellt `scripts/sync-opencode-web.sh` die Unit sicher, beendet veraltete Prozesse und
+wartet auf den HTTP-Healthcheck. Die Unit wird mit `scripts/install-opencode-web-unit.sh` installiert.
+Nach Änderungen an Port oder Binary ist ein Backend-Neustart erforderlich.
 
 ## Inbox und Benachrichtigungen
 

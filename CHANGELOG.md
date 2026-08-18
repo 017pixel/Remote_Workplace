@@ -2,10 +2,15 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
-## [Unreleased]
+## [0.90.0] - 2026-08-18
 
 ### Features
 
+- Einstellungen in Bereiche gegliedert (Allgemein, Oberfläche, Benachrichtigungen, System, Erweiterungen, Werkzeuge, Workspace) mit Tabs, direkt per URL-Hash verlinkbar
+- Neue Einstellung „Startseite": Beim Öffnen der Workbench kann statt des Dashboards eine beliebige Hauptseite geladen werden
+- Nutzung und Limits verwenden dasselbe Hash-Tab-System wie Einstellungen, synchronisieren beim Öffnen automatisch und zeigen eine vereinfachte Account-/Limitübersicht
+- Limitzeilen zeigen Account, Restlimits und Reset-Countdown; ein einheitlicher Detaildialog bündelt Status, Fenster, Accountdaten und Reset-Guthaben auf allen Viewports
+- Account-Verbindung ist als kompakter Hinzufügen-Dialog umgesetzt, verwaltete Profile erscheinen in einem responsiven Bento-Raster
 - Extensions-Verwaltung in den Einstellungen: lokalen Catalog durchsuchen und installieren
 - Installierte Extensions aktivieren, deaktivieren, aktualisieren und deinstallieren
 - Permission-Reviews werden direkt nach der Installation zur Freigabe vorgelegt
@@ -13,6 +18,7 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Catalog-API liefert eine Revision für konfliktfreie Folgeoperationen
 - Produkticons als monochrome Palette vereinheitlicht, UI-Typografie neutralisiert
 - \"Open in Editor\" aus T3 Code öffnet den Pfad direkt im code-server der Workbench
+- OpenCode Web als eigenes Werkzeug mit User-Unit, Loopback-Proxy, HTML-/WebSocket-Bridge und kompatibler Presence-Anbindung integriert
 - Status weiterer T3-Instanzen wird per SSH read-only in die Benachrichtigungen eingebunden
 - Konfiguration `t3RemoteSyncs` beschreibt zusätzliche, per SSH erreichbare T3-Quellen
 
@@ -24,6 +30,17 @@ Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 - Orbit löst 409-Konflikte mit identischem Serverstand still auf statt dauerhaft ungespeichert zu bleiben
 - E2E-Suiten für Dateimanager, Clipboard, Orbit und Cache auf isolierten Testservern stabilisiert
 - Terminal-Rendering auf Mobile und Desktop korrigiert, Viewport-Wechsel zwischen Geräten zuverlässig
+- Terminal-Reconnect erfasst Snapshots im exakten PTY-Raster und spielt Fullscreen-TUIs in den Alternate Screen zurück; Resize meldet nur noch den Wunsch-Viewport statt den Primary zu übernehmen
+- Terminal-Tabs und geparkte Routen bleiben im Hintergrund verbunden: kein Reconnect-Delay, kein Schwarz-Screen und kein Verrutschen des Inhalts beim Werkzeug- oder Tab-Wechsel; die Statuskugel bleibt grün, solange die Session läuft
+- Auf Mobile und iPad rendert das Terminal mit 8px-Schrift, damit Fullscreen-TUIs wie OpenCode oder Codex im schmalen Viewport vollständig sichtbar bleiben
+
+### Verändert
+
+- Server-App und API-Routen in fachliche Module aufgeteilt, die zentrale Routensammlung entzerrt
+- Terminal-Server und -Client in eigene Module für Session, Prozess, Snapshots und Verbindung zerlegt
+- Web-API-Client in fachliche Module nach API-Bereichen gegliedert
+- Statusleiste auf Version und Nutzung fokussiert, Projektkontext nur noch in der Topbar
+- 400-Zeilen-Limit für handgeschriebene Dateien mit Architektur-Prüfung eingeführt
 
 ### Extension-Plattform
 

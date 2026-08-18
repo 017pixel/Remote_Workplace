@@ -3,6 +3,7 @@
 ## Prozesse und Netzwerk
 
 - T3 Code läuft unabhängig auf `127.0.0.1:3773` und bleibt über Tailscale Serve HTTPS 443 erreichbar. Für die eingebettete Ansicht stellt das Workbench-Backend zusätzlich einen gleich-originigen HTTP-/WebSocket-Proxy unter `/t3` bereit; dadurch bleibt T3 Codes eigener `frame-ancestors 'self'`-Schutz intakt.
+- OpenCode Web läuft als eigene User-Unit auf `127.0.0.1:3774`. Der gleich-originige Proxy unter `/opencode` scoped HTML-Assets sowie absolute API-/Event-/WebSocket-Ziele und verwendet weiterhin dasselbe OpenCode-Home wie die CLI.
 - Workbench-Backend und gebautes Frontend laufen gemeinsam auf `127.0.0.1:3010`; Tailscale Serve veröffentlicht diesen Dienst privat auf HTTPS 8443.
 - code-server bindet ausschließlich an `127.0.0.1:8080`. Fastify leitet `/editor/*` inklusive WebSocket-Upgrades dorthin weiter. Dieser datenintensive Pfad ist nicht Teil des API-Request-Limits; der WebSocket-Transport erlaubt die größeren Initialisierungsframes von VS Code.
 - Lokale Development-Server binden ebenfalls nur an Loopback. Zwölf interne Preview-Listener auf den konfigurierten `previews.slotPorts` leiten HTTP und WebSocket am Root an zugewiesene Devserver weiter. Tailscale Serve veröffentlicht sie 1:1 auf getrennten HTTPS-Ports; Preview-Sessions reservieren Haupt- und bestätigte Projekt-Begleitdienste atomar und überbrücken deren lokale URLs.
@@ -87,7 +88,7 @@ Mistral Small verarbeitet Übersetzung, Kategorie, TLDR und Wichtigkeit; Mistral
 
 Desktop nutzt ein dynamisches Editorial-Bento. Mobile rendert denselben Datenbestand als vertikalen Snap-Feed; benennbare Sammlungen, Lesestatus und quellengebundene Fragen greifen über typisierte API-Routen auf SQLite zu.
 
-T3 Code und code-server bleiben bewusst in Iframes: Sie sind eigenständige Webanwendungen mit eigenen Routern, CSP-Regeln, Cookies und WebSocket-Verbindungen. Entwicklungs-Previews sind davon getrennt und verwenden standardmäßig Slot-iframes; der Chromium-Stream ist nur noch der explizite Browser-/Kompatibilitätspfad.
+T3 Code, OpenCode Web und code-server bleiben bewusst in Iframes: Sie sind eigenständige Webanwendungen mit eigenen Routern, CSP-Regeln, Cookies und WebSocket-Verbindungen. Entwicklungs-Previews sind davon getrennt und verwenden standardmäßig Slot-iframes; der Chromium-Stream ist nur noch der explizite Browser-/Kompatibilitätspfad.
 
 Nicht besuchte Routen werden als getrennte Vite-Chunks gebaut und bei Browser-Leerlauf vorab geladen. Der Build erzeugt Brotli- und Gzip-Dateien vorab, damit die Server-CPU sie nicht bei jedem ersten Abruf neu berechnen muss. Gehashte Assets erhalten immutable Browser-Caches; HTML und Service Worker bleiben revalidierbar, damit neue Releases sofort erkannt werden.
 

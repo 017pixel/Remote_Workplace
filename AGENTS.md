@@ -115,6 +115,10 @@ veröffentlicht.
 - Konfiguration, Diagnose und Rollback: [`docs/configuration.md`](docs/configuration.md),
   [`docs/troubleshooting.md`](docs/troubleshooting.md) und [`docs/security-exceptions.md`](docs/security-exceptions.md).
 
+# restarten
+
+wenn du gerade am entwickeln bist und alles restartest, restart skripte nutzt usw wird die ai codign session gestoppt. stoppe bevor du das machst und frage den user, ob du alles neu starten sollst. sonst alle anderen chacks ohne restart prüfen! Wenn der user sagt, dass du etwas restarten sollst, tust du das natürlich auf die Anweisung des users. 
+
 ## T3 Code: Stable oder Nightly
 
 T3 Code läuft als **eine** Instanz (`t3-code.service`, User-Unit) auf `127.0.0.1:3773`. Alle
@@ -274,3 +278,15 @@ ganz oben in `apps/web/src/index.css` — Farben gehören dort hinein, nicht in 
 - API-Verträge zuerst in `packages/contracts` (Zod) definieren, dann Server und Client anpassen.
 - Deutsch schreiben (Commits, Kommentare, UI). Bestehenden Stil der Nachbardateien übernehmen.
 - Vor dem Abschluss: `pnpm typecheck` grün, relevante Tests laufen lassen.
+
+## Datei und Modulgröße
+
+Für handgeschriebene Projektdateien gilt ein Hard Limit von **400 physischen Zeilen**.
+Ziel sind kleine, fachlich klar abgegrenzte Module, normalerweise 100 bis 300 Zeilen.
+
+- Ab ~350 Zeilen prüfen, ob Verantwortlichkeiten getrennt werden können. Über 400 Zeilen ist nicht zulässig.
+- Die Grenze darf nicht durch Code-Golfing, Minifizierung, Entfernen sinnvoller Kommentare oder mehrere Statements pro Zeile umgangen werden.
+- Aufteilen immer nach fachlicher Verantwortung, nicht nach Zeilennummer. Namen wie `part1`, `part2`, `misc`, `helpers2` sind nicht zulässig.
+- Feature-spezifische UI, Hooks, State, API-Zugriffe, Server-Routen und Services gehören zum jeweiligen Feature. `shared` enthält nur tatsächlich gemeinsam verwendete Funktionalität.
+- Neue Änderungen dürfen keine Datei über 400 Zeilen bringen.
+- Vor Abschluss muss `pnpm architecture:file-lines` erfolgreich sein. Die Struktur ist in `docs/architecture/project-structure.md` beschrieben.

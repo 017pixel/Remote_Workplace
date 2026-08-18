@@ -57,6 +57,18 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - Bei `TOO_MANY_SESSIONS` nicht mehr benötigte Instanzen schließen; standardmäßig sind jeweils vier Codex- und OpenCode-Prozesse erlaubt.
 - Die Workbench setzt keine Auto-Approve- oder Sandbox-Bypass-Flags. Rückfragen der CLI sind daher erwartetes Verhalten.
 
+### OpenCode Web
+
+- `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user status opencode-web.service` und
+  `journalctl --user -u opencode-web.service -n 100 --no-pager` prüfen.
+- `curl -f http://127.0.0.1:3774/` muss die OpenCode-Web-Seite liefern; Port und Binary stehen in
+  `config/workbench.local.json` unter `opencodeWeb`.
+- Wenn die Oberfläche lädt, aber keine Sessions oder Events zeigt, muss der Zugriff über
+  `/opencode` erfolgen. Die Workbench-Bridge scoped absolute OpenCode-API-, Asset- und
+  WebSocket-URLs; ein direktes Einbetten des Loopback-Ports umgeht diese Route.
+- Nach einem Binary-, Port- oder Unit-Änderung `bash scripts/install-opencode-web-unit.sh` und
+  anschließend `bash scripts/restart-backend.sh` ausführen.
+
 ## Projekt fehlt
 
 - `PROJECT_DISCOVERY_ENABLED=true` und `PROJECTS_ROOT=/home/your-user/projects` prüfen.
