@@ -19,6 +19,7 @@ import { bootstrapLegacyDashboardSections } from "./extensions/legacyDashboardSe
 import { bootstrapLegacySettingsCards } from "./extensions/legacySettingsCards";
 import { bootstrapLegacyOrbitPalette } from "./extensions/legacyOrbitPalette";
 import "./index.css";
+import "./visual-system.css";
 import "./components/usage/usage-mobile.css";
 
 // Muss vor dem ersten Render stehen, sonst gehen frühe Fehler verloren.
