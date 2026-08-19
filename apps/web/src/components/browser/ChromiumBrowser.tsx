@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, ArrowRightIcon, BracesIcon, BrowserIcon, CameraIcon, CloseIcon, DevtoolsIcon, ExternalLinkIcon, HandIcon, LoaderIcon, MoreIcon, PlusIcon, PointerIcon, RefreshIcon, SearchIcon } from "../icons";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { LocalPort } from "@workbench/contracts";
+import type { LocalPort } from "@wrapt/contracts";
 import { LocalPorts } from "./LocalPorts";
 import { browserClipboardAction, utf8ByteLength, writeClipboardText } from "../../lib/clipboard";
 import { normalizePreviewTarget } from "../../lib/previewTargets";
@@ -85,7 +85,7 @@ export function ChromiumBrowser({
   onStateChange?: (state: ChromiumBrowserState) => void;
   extraToolbarActions?: ReactNode;
 }) {
-  const storageKey = `workbench-browser-session:${instanceId}`;
+  const storageKey = `wrapt-browser-session:${instanceId}`;
   const viewportRef = useRef<HTMLDivElement>(null);
   const contextMenuElementRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -157,7 +157,7 @@ export function ChromiumBrowser({
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
-    const channel = new BroadcastChannel(`workbench-browser-control:${profileKey ?? instanceId}`);
+    const channel = new BroadcastChannel(`wrapt-browser-control:${profileKey ?? instanceId}`);
     controllerChannelRef.current = channel;
     channel.onmessage = (event) => {
       if ((event.data as { controllerId?: string } | null)?.controllerId !== controllerIdRef.current) activeControllerRef.current = false;
@@ -289,7 +289,7 @@ export function ChromiumBrowser({
         const bytes = Uint8Array.from(atob(message.data), (character) => character.charCodeAt(0));
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-        link.download = `workbench-browser-${new Date().toISOString().replaceAll(":", "-")}.png`;
+        link.download = `wrapt-browser-${new Date().toISOString().replaceAll(":", "-")}.png`;
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(link.href), 1_000);
       } else if (message.type === "browser.source") {
@@ -530,7 +530,7 @@ export function ChromiumBrowser({
   };
 
   const devtoolsUrl = devtoolsSessionId
-    ? `/workbench/devtools/inspector.html?ws=${encodeURIComponent(`${window.location.host}/api/v1/browser/devtools/${devtoolsSessionId}`)}`
+    ? `/wrapt/devtools/inspector.html?ws=${encodeURIComponent(`${window.location.host}/api/v1/browser/devtools/${devtoolsSessionId}`)}`
     : null;
   const key = (event: React.KeyboardEvent) => {
     claimControl();

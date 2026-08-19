@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { TerminalArea } from "../components/terminal/TerminalArea";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useWorkspaceStore } from "../stores/workspace";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useParams, useSearchParams } from "react-router";
@@ -10,7 +10,7 @@ export function TerminalView() {
   const routeActive = useRouteActivity();
   const [search] = useSearchParams();
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
   const projectId = projects.data?.projects.find((project) => project.id === selectedProjectId)?.id
     ?? projects.data?.projects.find((project) => project.availability === "available")?.id
     ?? null;
@@ -23,7 +23,7 @@ export function TerminalView() {
 /** Eigenständiges Browserfenster für genau eine bereits laufende Sitzung. */
 export function TerminalWindowRoute() {
   const { runtimeId = "" } = useParams();
-  const sessions = useQuery(workbenchQueries.terminalSessions());
+  const sessions = useQuery(wraptQueries.terminalSessions());
   const session = sessions.data?.sessions.find((candidate) => candidate.runtimeId === runtimeId);
 
   if (sessions.isLoading) return <main className="terminal-window-route"><div className="terminal-area-loading">Terminal wird verbunden…</div></main>;

@@ -230,7 +230,7 @@ export class T3StatusSync {
     // diesem Thread (Umgebung für eine zuverlässige Routenauflösung).
     const query = new URLSearchParams({ thread: row.threadId });
     if (environmentId) query.set("env", environmentId);
-    const link = `/workbench/t3-code?${query.toString()}`;
+    const link = `/wrapt/t3-code?${query.toString()}`;
     const body = row.projectTitle ? `${row.projectTitle} · ${row.title}` : row.title;
     if (row.pendingUserInputCount > 0) {
       const remoteId = this.options.notifications.activeRemoteId("t3", "agent.input-required", `${prefix}input`) ?? `${prefix}input:${row.updatedAt}`;

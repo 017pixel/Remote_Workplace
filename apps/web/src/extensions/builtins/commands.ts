@@ -2,7 +2,7 @@ import {
   commandContributionSchema,
   extensionIdSchema,
   type ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import type { CommandRegistration } from "../commandRegistry";
 
 export interface BuiltinCommandOwner {
@@ -21,10 +21,10 @@ function owner(
 }
 
 export const builtinCommandOwners: readonly BuiltinCommandOwner[] = Object.freeze([
-  owner("workbench.orbit", [
+  owner("wrapt.orbit", [
     Object.freeze({
       contribution: commandContributionSchema.parse({
-        id: "workbench.orbit.command.project-browser",
+        id: "wrapt.orbit.command.project-browser",
         title: "Projektbrowser öffnen",
         description: "Öffnet die Projekt-Auswahl für den Orbit.",
         category: "Orbit",
@@ -36,10 +36,10 @@ export const builtinCommandOwners: readonly BuiltinCommandOwner[] = Object.freez
       }),
     }),
   ]),
-  owner("workbench.files", [
+  owner("wrapt.files", [
     Object.freeze({
       contribution: commandContributionSchema.parse({
-        id: "workbench.files.command.fullscreen-toggle",
+        id: "wrapt.files.command.fullscreen-toggle",
         title: "Vollbild umschalten",
         description: "Schaltet die Workbench zwischen Fenster und Vollbild um.",
         category: "Dateien",
@@ -53,7 +53,7 @@ export const builtinCommandOwners: readonly BuiltinCommandOwner[] = Object.freez
     }),
     Object.freeze({
       contribution: commandContributionSchema.parse({
-        id: "workbench.files.command.reload",
+        id: "wrapt.files.command.reload",
         title: "Ansicht neu laden",
         description: "Lädt die aktuelle Workbench-Ansicht neu.",
         category: "Dateien",

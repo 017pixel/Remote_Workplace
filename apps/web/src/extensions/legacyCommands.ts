@@ -1,4 +1,4 @@
-import { commandContributionSchema } from "@workbench/extension-contracts";
+import { commandContributionSchema } from "@wrapt/extension-contracts";
 import {
   commandRegistry,
   type CommandRegistry,
@@ -31,11 +31,11 @@ function reloadWorkbench(): void {
 export const legacyCommandOwners: readonly LegacyCommandOwner[] =
   Object.freeze([
     Object.freeze({
-      ownerId: "workbench.orbit",
+      ownerId: "wrapt.orbit",
       registrations: Object.freeze([
         Object.freeze({
           contribution: commandContributionSchema.parse({
-            id: "workbench.orbit.command.project-browser",
+            id: "wrapt.orbit.command.project-browser",
             title: "Alle Projekte auswählen",
             description: "Serverordner nach Projekten durchsuchen",
             category: "Orbit",
@@ -49,11 +49,11 @@ export const legacyCommandOwners: readonly LegacyCommandOwner[] =
       ]),
     }),
     Object.freeze({
-      ownerId: "workbench.shell",
+      ownerId: "wrapt.shell",
       registrations: Object.freeze([
         Object.freeze({
           contribution: commandContributionSchema.parse({
-            id: "workbench.shell.command.fullscreen-toggle",
+            id: "wrapt.shell.command.fullscreen-toggle",
             title: "Vollbild umschalten",
             description: "Die Workbench im Browser-Vollbild anzeigen",
             category: "Ansicht",
@@ -62,7 +62,7 @@ export const legacyCommandOwners: readonly LegacyCommandOwner[] =
         }),
         Object.freeze({
           contribution: commandContributionSchema.parse({
-            id: "workbench.shell.command.reload",
+            id: "wrapt.shell.command.reload",
             title: "Workbench neu laden",
             description: "Das Frontend im Browser neu laden",
             category: "Ansicht",

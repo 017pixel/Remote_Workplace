@@ -41,7 +41,7 @@ interface SidebarPreferencesState {
   isPageVisible: (page: PageRouteId) => boolean;
 }
 
-const STORAGE_KEY = "remote-workplace.sidebar-preferences.v1";
+const STORAGE_KEY = "wrapt.sidebar-preferences.v1";
 const PERSIST_VERSION = 2;
 const DEFAULT_COLLAPSED_SECTIONS: Record<SidebarSectionKey, boolean> = {
   workspace: false,

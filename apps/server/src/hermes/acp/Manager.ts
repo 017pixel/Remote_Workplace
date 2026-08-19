@@ -1,8 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import { randomUUID } from "node:crypto";
-import type { HermesErrorCode, HermesMessage, HermesServerMessage, HermesSession, HermesSessionSource, HermesToolCall } from "@workbench/contracts";
-import { hermesSessionSchema } from "@workbench/contracts";
+import type { HermesErrorCode, HermesMessage, HermesServerMessage, HermesSession, HermesSessionSource, HermesToolCall } from "@wrapt/contracts";
+import { hermesSessionSchema } from "@wrapt/contracts";
 import { settings } from "../../config/settings.js";
 import { HermesClientError } from "../client.js";
 import { redactText, truncateText } from "../redaction.js";
@@ -335,7 +335,7 @@ export class HermesAcpManager {
     await this.request("initialize", {
       protocolVersion: 1,
       clientCapabilities: {},
-      clientInfo: { name: "remote-workplace", version: settings.appVersion },
+      clientInfo: { name: "wrapt", version: settings.appVersion },
     });
     this.restartAttempt = 0;
   }

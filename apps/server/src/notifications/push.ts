@@ -13,7 +13,7 @@ import {
   type NotificationPushPayload,
   type PushSubscription,
   type PushSubscriptionRegistration,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { NotificationDatabase } from "./database.js";
 
 interface StoredKeys { publicKey: string; privateKey: string }
@@ -24,7 +24,7 @@ interface PushLogger {
   error(data: Record<string, unknown>, message: string): void;
 }
 
-const fallbackLink = "/workbench/inbox";
+const fallbackLink = "/wrapt/inbox";
 const deliveryConcurrency = 4;
 const noopLogger: PushLogger = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
@@ -61,9 +61,9 @@ export function safeNotificationLink(link: string | null): string {
   if (!link || !link.startsWith("/") || link.startsWith("//") || link.includes("\\")) return fallbackLink;
   if ([...link].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return fallbackLink;
   try {
-    const url = new URL(link, "https://workbench.invalid");
-    if (url.origin !== "https://workbench.invalid") return fallbackLink;
-    const allowed = url.pathname === "/workbench" || url.pathname.startsWith("/workbench/")
+    const url = new URL(link, "https://wrapt.invalid");
+    if (url.origin !== "https://wrapt.invalid") return fallbackLink;
+    const allowed = url.pathname === "/wrapt" || url.pathname.startsWith("/wrapt/")
       || url.pathname === "/t3" || url.pathname.startsWith("/t3/");
     return allowed ? `${url.pathname}${url.search}${url.hash}` : fallbackLink;
   } catch {
@@ -79,6 +79,7 @@ export function isPushCandidate(notification: Notification): boolean {
     "agent.completed",
     "agent.failed",
     "terminal.failed",
+    "wrapt.crash",
     "workbench.crash",
     "hermes.started",
     "hermes.result",
@@ -89,7 +90,7 @@ export function isPushCandidate(notification: Notification): boolean {
 
 export function pushTimeToLive(notification: Notification): number {
   if (notification.severity === "warning" || notification.severity === "error"
-    || ["agent.input-required", "agent.plan-ready", "agent.failed", "terminal.failed", "workbench.crash", "hermes.approval"].includes(notification.kind)) return 86_400;
+    || ["agent.input-required", "agent.plan-ready", "agent.failed", "terminal.failed", "wrapt.crash", "workbench.crash", "hermes.approval"].includes(notification.kind)) return 86_400;
   if (["agent.completed", "hermes.started", "hermes.result", "hermes.update"].includes(notification.kind)) return 3_600;
   return 900;
 }
@@ -210,7 +211,7 @@ export class NotificationPushService {
       title: "Testbenachrichtigung",
       body: "Web Push funktioniert auf diesem Gerät.",
       link: fallbackLink,
-      source: "workbench",
+      source: "wrapt",
       severity: "info",
       createdAt: new Date().toISOString(),
     });
@@ -254,7 +255,7 @@ export class NotificationPushService {
     // Hintergrund-Fenster wäre doppelt. Erst wenn kein Fenster mehr aktiv
     // meldet, gehen Push-Benachrichtigungen an alle Geräte.
     return this.preferences.pushEnabled
-      && this.preferences.sources[notification.source].push
+      && (this.preferences.sources[notification.source] ?? this.preferences.sources.wrapt).push
       && isPushCandidate(notification)
       && !this.notifications.hasActiveWorkbench();
   }

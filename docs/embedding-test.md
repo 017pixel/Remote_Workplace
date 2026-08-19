@@ -24,7 +24,7 @@
 - Getestet wurde die aktive Vite-App aus `/home/your-user/projects/demo-app` auf Port 1234.
 - Die App rendert sichtbar im iframe.
 - Der Vite-Client meldet eine erfolgreiche Verbindung; damit funktioniert der HMR-WebSocket im geprüften direkten Tailscale-HTTP-Zugriff.
-- Die Produktions-Workbench wird über HTTPS ausgeliefert. Die aktuelle HTTP-Preview wäre dort Mixed Content.
+- Die Produktions-Wrapt wird über HTTPS ausgeliefert. Die aktuelle HTTP-Preview wäre dort Mixed Content.
 - Fester aktueller Modus: `external`. Nach privater HTTPS-Terminierung, beispielsweise auf Tailscale Serve Port 8445, darf die Preview nach erneutem Test `hybrid` werden.
 
 ## Geräteabdeckung

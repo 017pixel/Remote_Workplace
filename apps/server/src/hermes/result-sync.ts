@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { HermesServerMessage } from "@workbench/contracts";
+import type { HermesServerMessage } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import type { NotificationDatabase } from "../notifications/database.js";
 import type { HermesAcpManager } from "./acp/Manager.js";
@@ -62,7 +62,7 @@ function later(left: string | null, right: string | null): string | null {
 
 function hermesSessionLink(sessionId: string): string {
   const path = `/chat?resume=${encodeURIComponent(sessionId)}`;
-  return `/workbench/hermes-agent?path=${encodeURIComponent(path)}`;
+  return `/wrapt/hermes-agent?path=${encodeURIComponent(path)}`;
 }
 
 export function shouldNotifyHermesSession(source: "cron" | "web" | "acp", durationSeconds: number, minimumSeconds: number): boolean {
@@ -183,7 +183,7 @@ export class HermesResultSync {
           severity: update.lastResult === "failed" ? "error" : "success",
           title: update.lastResult === "failed" ? "Hermes-Update fehlgeschlagen" : "Hermes wurde aktualisiert",
           body: update.lastResult === "failed" ? "Die Update-Diagnose enthält die letzten redigierten Schritte." : `${update.previousVersion ?? "Unbekannt"} → ${update.newVersion ?? "aktuell"}`,
-          link: "/workbench/hermes-agent",
+          link: "/wrapt/hermes-agent",
           remoteId: `update:${update.lastFinishedAt}:${update.lastResult}`,
           meta: { previousVersion: update.previousVersion, newVersion: update.newVersion },
           report: update.lastResult === "failed" ? { message: "Das Hermes-Update ist fehlgeschlagen.", stack: null, context: { Quelle: "Hermes Update" }, logs: update.logTail, environment: {} } : null,

@@ -8,7 +8,7 @@ import type { PageRouteId } from "./sidebarPreferences";
  * der Store danach dynamisch importiert.
  */
 
-const STORAGE_KEY = "remote-workplace.app-preferences.v1";
+const STORAGE_KEY = "wrapt.app-preferences.v1";
 
 function memoryStorage(): Storage {
   const store = new Map<string, string>();

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Rendert die systemd-Unit-Templates aus deploy/systemd/units/ in
 // deploy/systemd/generated/ und füllt dabei die __TOKEN__-Platzhalter mit
-// den Werten aus config/workbench.local.json (Fallback: workbench.example.json)
+// den Werten aus config/wrapt.local.json (Fallback: wrapt.example.json)
 // sowie dem aktuellen Benutzer/Home und dem gefundenen pnpm-Pfad.
 import { execSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -14,14 +14,14 @@ const repoRoot = resolve(here, "../..");
 const configDir = join(repoRoot, "config");
 
 function loadConfig() {
-  for (const name of ["workbench.local.json", "workbench.example.json"]) {
+  for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
     try {
       return JSON.parse(readFileSync(join(configDir, name), "utf8"));
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
   }
-  throw new Error("config/workbench.local.json oder .example.json fehlt.");
+  throw new Error("config/wrapt.local.json oder .example.json fehlt.");
 }
 
 function which(binary, fallback) {
@@ -34,6 +34,7 @@ function which(binary, fallback) {
 
 const config = loadConfig();
 const user = process.env.SUDO_USER || userInfo().username;
+const uid = userInfo().uid;
 const home = config.system?.homeDirectory || process.env.HOME || `/home/${user}`;
 const hermesHome = config.hermes?.homeDirectory || process.env.HERMES_HOME || `${home}/.hermes`;
 const hermesCheckout = config.hermes?.checkoutDirectory || `${hermesHome}/hermes-agent`;
@@ -44,10 +45,15 @@ const hermesPort = config.hermes?.port || 9119;
 const t3Binary = config.t3?.cliPath || which("t3", `${home}/.npm-global/bin/t3`);
 const opencodeWebBinary = config.opencodeWeb?.cliPath || config.cli?.opencode || which("opencode", `${home}/.npm-global/bin/opencode`);
 const nodeBinary = which("node", "/usr/bin/node");
+const tmuxBinary = which("tmux", "/usr/bin/tmux");
+const terminalSocket = `/run/user/${uid}/wrapt/tmux.sock`;
 
 const tokens = {
   __USER__: user,
   __GROUP__: user,
+  __UID__: String(uid),
+  __TMUX_BIN__: tmuxBinary,
+  __TERMINAL_SOCKET__: terminalSocket,
   __HOME__: home,
   __REPO_ROOT__: repoRoot,
   __PNPM_BIN__: which("pnpm", "/usr/bin/pnpm"),

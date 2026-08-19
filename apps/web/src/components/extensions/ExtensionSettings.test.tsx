@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExtensionSettings } from "./ExtensionSettings";
-import type { CatalogEntry, ExtensionRegistrySummary } from "@workbench/extension-contracts";
+import type { CatalogEntry, ExtensionRegistrySummary } from "@wrapt/extension-contracts";
 
 const mocks = vi.hoisted(() => ({
   catalog: vi.fn(),
@@ -30,26 +30,26 @@ vi.mock("../../lib/apiClient", () => {
 });
 
 const catalogEntry = {
-  providerId: "workbench-catalog",
+  providerId: "wrapt-catalog",
   effectiveTrust: "catalog-first-party",
   manifest: {
     manifestVersion: 1,
-    id: "workbench.demo-clock",
+    id: "wrapt.demo-clock",
     name: "Demo Uhr",
     version: "1.0.0",
     publisher: "workbench",
     description: "Beispiel-Extension.",
     license: "MIT",
-    engines: { remoteWorkplace: ">=0.44.0", extensionApi: ">=1.0.0" },
+    engines: { wrapt: ">=0.95.0", extensionApi: ">=1.0.0" },
     trust: "catalog-first-party",
     entrypoints: { ui: "./index.js" },
     permissions: [{ permission: "notifications.create" }],
     activationEvents: [],
-    contributes: { commands: [{ id: "workbench.demo-clock.tick", title: "Uhr schlagen" }] },
+    contributes: { commands: [{ id: "wrapt.demo-clock.tick", title: "Uhr schlagen" }] },
   },
   package: {
     formatVersion: 1,
-    extensionId: "workbench.demo-clock",
+    extensionId: "wrapt.demo-clock",
     version: "1.0.0",
     manifestPath: "./extension.json",
     archiveBytes: 12,
@@ -60,18 +60,18 @@ const catalogEntry = {
 } as unknown as CatalogEntry;
 
 const catalogResponse = {
-  providerId: "workbench-catalog",
+  providerId: "wrapt-catalog",
   revision: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   entries: [catalogEntry],
 };
 
 function installedSummary(overrides: Partial<ExtensionRegistrySummary> = {}): ExtensionRegistrySummary {
   return {
-    id: "workbench.demo-clock",
+    id: "wrapt.demo-clock",
     name: "Demo Uhr",
     description: "Beispiel-Extension.",
     publisher: "workbench",
-    source: { kind: "catalog", providerId: "workbench-catalog", packageIntegrity: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" },
+    source: { kind: "catalog", providerId: "wrapt-catalog", packageIntegrity: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" },
     effectiveTrust: "catalog-first-party",
     lifecycle: "active",
     desiredEnablement: "enabled",
@@ -115,11 +115,11 @@ describe("ExtensionSettings", () => {
     await waitFor(() => {
       expect(mocks.dispatch).toHaveBeenCalledWith({
         operation: "install",
-        extensionId: "workbench.demo-clock",
+        extensionId: "wrapt.demo-clock",
         expectedRevision: 0,
         source: {
           kind: "catalog",
-          providerId: "workbench-catalog",
+          providerId: "wrapt-catalog",
           catalogRevision: catalogResponse.revision,
           version: "1.0.0",
           packageIntegrity: catalogEntry.package.integrity,

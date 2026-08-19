@@ -9,8 +9,8 @@
 #   bash scripts/preview-doctor.sh --logs --since 24h [--preview <id>] [--severity warn]
 set -euo pipefail
 
-BASE_URL="${WORKBENCH_BASE_URL:-http://127.0.0.1:3010}"
-DATA_DIR="${WORKBENCH_DATA_DIR:-$HOME/.local/share/remote-workplace}"
+BASE_URL="${WRAPT_BASE_URL:-http://127.0.0.1:3010}"
+DATA_DIR="${WRAPT_DATA_DIR:-$HOME/.local/share/wrapt}"
 TOKEN_FILE="$DATA_DIR/preview-agent-capability"
 
 MODE=""

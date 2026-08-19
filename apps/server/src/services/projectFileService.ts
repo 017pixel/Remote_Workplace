@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, realpath, rename, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { CreateProjectFileRequest, ProjectFileResponse } from "@workbench/contracts";
+import type { CreateProjectFileRequest, ProjectFileResponse } from "@wrapt/contracts";
 import type { createProjectService } from "./projectService.js";
 import { AppError } from "../utils/errors.js";
 

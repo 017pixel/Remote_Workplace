@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   ContextExpression,
   ContextKey,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   evaluateContextExpression,
   type ShortcutContextValues,

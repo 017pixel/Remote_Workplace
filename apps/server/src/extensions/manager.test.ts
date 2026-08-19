@@ -5,7 +5,7 @@ import {
   extensionRegistrySummarySchema,
   type ExtensionManagementRequest,
   type ExtensionManifestV1,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultCatalogProviderId, LocalExtensionCatalog } from "./catalog.js";
 import { ExtensionDatabase } from "./database.js";
@@ -21,7 +21,7 @@ function testManifest(id: string, overrides: Partial<ExtensionManifestV1> = {}):
     description: "Test-Extension",
     license: "MIT",
     engines: {
-      remoteWorkplace: "^0.44.0",
+      wrapt: "^0.95.0",
       extensionApi: "^1.0.0",
     },
     trust: "developer",
@@ -203,7 +203,7 @@ describe("Extension Manager Registry", () => {
       expectedRevision: database.revision(),
       source: {
         kind: "catalog",
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: integrity!,
         version: "1.0.0",
         packageIntegrity: integrity!,
@@ -238,7 +238,7 @@ describe("Extension Manager Registry", () => {
       expectedRevision: database.revision(),
       source: {
         kind: "catalog",
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: integrity!,
         version: "2.0.0",
         packageIntegrity: integrity!,
@@ -262,7 +262,7 @@ describe("Extension Manager Registry", () => {
       extensionId: "workbench.agent-tasks",
       expectedRevision: database.revision(),
       target: {
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: integrity!,
         version: "2.0.0",
         packageIntegrity: integrity!,
@@ -475,7 +475,7 @@ describe("Extension Manager Registry", () => {
       expectedRevision: database.revision(),
       source: {
         kind: "catalog",
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: integrity!,
         version: "1.0.0",
         packageIntegrity: integrity!,
@@ -512,7 +512,7 @@ describe("Extension Manager Registry", () => {
       extensionId: "workbench.agent-tasks",
       expectedRevision: database.revision(),
       target: {
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: updateIntegrity!,
         version: "2.0.0",
         packageIntegrity: updateIntegrity!,
@@ -577,7 +577,7 @@ describe("Extension Manager Registry", () => {
       expectedRevision: database.revision(),
       source: {
         kind: "catalog",
-        providerId: "workbench-catalog",
+        providerId: "wrapt-catalog",
         catalogRevision: integrity!,
         version: "1.0.0",
         packageIntegrity: integrity!,

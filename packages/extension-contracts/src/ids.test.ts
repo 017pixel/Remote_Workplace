@@ -9,8 +9,8 @@ import {
 
 describe("stabile Extension IDs", () => {
   it.each([
-    "workbench.terminal",
-    "remote-workplace.agent-tasks",
+    "wrapt.terminal",
+    "wrapt.agent-tasks",
     "com.example.extension",
     "a.b",
   ])("akzeptiert %s", (value) => {
@@ -20,11 +20,11 @@ describe("stabile Extension IDs", () => {
   it.each([
     "terminal",
     "Workbench.Terminal",
-    "workbench_terminal",
-    "workbench.-terminal",
-    "workbench.terminal-",
-    "workbench..terminal",
-    " workbench.terminal",
+    "wrapt_terminal",
+    "wrapt.-terminal",
+    "wrapt.terminal-",
+    "wrapt..terminal",
+    " wrapt.terminal",
   ])("lehnt %s ab", (value) => {
     expect(extensionIdSchema.safeParse(value).success).toBe(false);
   });
@@ -36,8 +36,8 @@ describe("stabile Extension IDs", () => {
 
 describe("stabile Contribution IDs", () => {
   it.each([
-    "workbench.terminal.page.main",
-    "workbench.terminal.command.new",
+    "wrapt.terminal.page.main",
+    "wrapt.terminal.command.new",
     "com.example.extension.orbit.main",
   ])("akzeptiert %s", (value) => {
     expect(contributionIdSchema.parse(value)).toBe(value);
@@ -45,22 +45,22 @@ describe("stabile Contribution IDs", () => {
 
   it.each([
     "terminal.page",
-    "workbench.terminal",
-    "workbench.terminal.Command.New",
-    "workbench.terminal.command_new",
+    "wrapt.terminal",
+    "wrapt.terminal.Command.New",
+    "wrapt.terminal.command_new",
   ])("lehnt %s ab", (value) => {
     expect(contributionIdSchema.safeParse(value).success).toBe(false);
   });
 
   it("begrenzt Contribution IDs", () => {
-    expect(contributionIdSchema.safeParse(`workbench.terminal.${"a".repeat(CONTRIBUTION_ID_MAX_LENGTH)}`).success).toBe(false);
+    expect(contributionIdSchema.safeParse(`wrapt.terminal.${"a".repeat(CONTRIBUTION_ID_MAX_LENGTH)}`).success).toBe(false);
   });
 
   it("prüft die exakte Extension-Namespace-Grenze", () => {
-    expect(contributionBelongsToExtension("workbench.terminal", "workbench.terminal.command.new")).toBe(true);
-    expect(contributionBelongsToExtension("workbench.term", "workbench.terminal.command.new")).toBe(false);
-    expect(contributionBelongsToExtension("workbench.terminal", "workbench.terminal-plus.command.new")).toBe(false);
-    expect(contributionBelongsToExtension("workbench", "workbench.command.new")).toBe(false);
-    expect(contributionBelongsToExtension("workbench.terminal", "workbench.terminal")).toBe(false);
+    expect(contributionBelongsToExtension("wrapt.terminal", "wrapt.terminal.command.new")).toBe(true);
+    expect(contributionBelongsToExtension("wrapt.term", "wrapt.terminal.command.new")).toBe(false);
+    expect(contributionBelongsToExtension("wrapt.terminal", "wrapt.terminal-plus.command.new")).toBe(false);
+    expect(contributionBelongsToExtension("wrapt", "workbench.command.new")).toBe(false);
+    expect(contributionBelongsToExtension("wrapt.terminal", "wrapt.terminal")).toBe(false);
   });
 });

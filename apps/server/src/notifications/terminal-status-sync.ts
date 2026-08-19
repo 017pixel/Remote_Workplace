@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { basename } from "node:path";
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind } from "@wrapt/contracts";
 import type { NotificationDatabase } from "./database.js";
 
 interface TerminalRow {
@@ -20,9 +20,9 @@ function label(kind: TerminalKind): string { return kind === "codex" ? "Codex" :
 function projectLabel(cwd: string): string { return basename(cwd) || cwd; }
 function link(row: TerminalRow): string {
   const session = encodeURIComponent(row.id);
-  if (row.kind === "codex") return `/workbench/codex?session=${session}`;
-  if (row.kind === "opencode") return `/workbench/opencode?session=${session}&directory=${encodeURIComponent(row.cwd)}`;
-  return `/workbench/terminal?session=${session}${row.kind === "claude" ? "&kind=claude" : ""}`;
+  if (row.kind === "codex") return `/wrapt/codex?session=${session}`;
+  if (row.kind === "opencode") return `/wrapt/opencode?session=${session}&directory=${encodeURIComponent(row.cwd)}`;
+  return `/wrapt/terminal?session=${session}${row.kind === "claude" ? "&kind=claude" : ""}`;
 }
 
 export class TerminalStatusSync {

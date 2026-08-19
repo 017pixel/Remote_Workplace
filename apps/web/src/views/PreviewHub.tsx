@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router";
-import type { PreviewDevServerState, PreviewDevServerStatus, PreviewRuntimeLogLevel, PreviewRuntimeServiceRole, Project } from "@workbench/contracts";
+import type { PreviewDevServerState, PreviewDevServerStatus, PreviewRuntimeLogLevel, PreviewRuntimeServiceRole, Project } from "@wrapt/contracts";
 import {
   ActivityIcon,
   CheckIcon,
@@ -26,7 +26,7 @@ import {
 import { apiClient } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
 import { openPreviewLiveWindow } from "../lib/previewExternalOpen";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useRouteActivity } from "../lib/routeActivity";
 import { withPreviewSlotRecovery, type PreviewSlotRecoveryPhase } from "../lib/previewSlotRecovery";
 import { usePreviewHubStore } from "../stores/previewHub";
@@ -98,8 +98,8 @@ export function PreviewHub() {
   const [confirmStopAll, setConfirmStopAll] = useState(false);
   const initialized = useRef(false);
   const synchronizedProjectId = useRef<string | null>(selectedProjectId);
-  const projectsQuery = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
-  const runtimesQuery = useQuery({ ...workbenchQueries.previewDevServers(), enabled: routeActive });
+  const projectsQuery = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
+  const runtimesQuery = useQuery({ ...wraptQueries.previewDevServers(), enabled: routeActive });
   const projects = useMemo(() => (projectsQuery.data?.projects ?? []).filter((item) => item.availability === "available"), [projectsQuery.data?.projects]);
   const openProjects = useMemo(() => openProjectIds.flatMap((id) => {
     const project = projects.find((candidate) => candidate.id === id);
@@ -108,7 +108,7 @@ export function PreviewHub() {
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const tabStatusQueries = useQueries({
     queries: openProjects.map((project) => ({
-      ...workbenchQueries.previewDevServer(project.id, project.id === activeProjectId ? 2_000 : 5_000),
+      ...wraptQueries.previewDevServer(project.id, project.id === activeProjectId ? 2_000 : 5_000),
       enabled: routeActive,
     })),
   });
@@ -335,8 +335,8 @@ function PreviewProjectView({ project, routeActive }: PreviewProjectViewProps) {
   const [searchParams] = useSearchParams();
   const openPanel = useWorkspaceStore((state) => state.openPanel);
   const projectId = project.id;
-  const statusQuery = useQuery({ ...workbenchQueries.previewDevServer(projectId), enabled: routeActive && projectId !== null });
-  const logsQuery = useQuery({ ...workbenchQueries.previewDevServerLogs(projectId), enabled: routeActive && projectId !== null });
+  const statusQuery = useQuery({ ...wraptQueries.previewDevServer(projectId), enabled: routeActive && projectId !== null });
+  const logsQuery = useQuery({ ...wraptQueries.previewDevServerLogs(projectId), enabled: routeActive && projectId !== null });
   const status = statusQuery.data;
   const mainPort = status?.mainPort ?? null;
   const [filter, setFilter] = useState<LogFilter>("all");
@@ -411,7 +411,7 @@ function PreviewProjectView({ project, routeActive }: PreviewProjectViewProps) {
     setActionError(null);
     const opened = openPlaceholder(mode, projectId);
     if (!opened) {
-      setActionError(mode === "tab" ? "Der neue Tab wurde blockiert. Erlaube Popups für die Workbench." : "Das Browserfenster wurde blockiert. Erlaube Popups für die Workbench.");
+      setActionError(mode === "tab" ? "Der neue Tab wurde blockiert. Erlaube Popups für Wrapt." : "Das Browserfenster wurde blockiert. Erlaube Popups für Wrapt.");
       return;
     }
     try {
@@ -456,7 +456,7 @@ function PreviewProjectView({ project, routeActive }: PreviewProjectViewProps) {
       return;
     }
     if (!configured) {
-      try { window.sessionStorage.setItem(`workbench:preview-target:${panelId}`, String(mainPort)); } catch { /* Panel bleibt nutzbar. */ }
+      try { window.sessionStorage.setItem(`wrapt:preview-target:${panelId}`, String(mainPort)); } catch { /* Panel bleibt nutzbar. */ }
     }
     navigate("/workbench");
   };

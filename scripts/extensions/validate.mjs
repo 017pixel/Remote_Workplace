@@ -12,7 +12,7 @@ const targets = requested.length > 0 ? requested : ["extensions"];
 
 const build = spawnSync(
   process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-  ["--filter", "@workbench/extension-contracts", "build"],
+  ["--filter", "@wrapt/extension-contracts", "build"],
   { cwd: root, stdio: "inherit" },
 );
 if (build.status !== 0) process.exit(build.status ?? 1);

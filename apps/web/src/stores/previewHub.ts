@@ -10,7 +10,7 @@ interface PreviewHubState {
   reconcileProjects: (availableProjectIds: string[], fallbackProjectId: string | null) => void;
 }
 
-export const PREVIEW_HUB_STORAGE_KEY = "remote-workplace.preview-hub.v1";
+export const PREVIEW_HUB_STORAGE_KEY = "wrapt.preview-hub.v1";
 
 function validIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

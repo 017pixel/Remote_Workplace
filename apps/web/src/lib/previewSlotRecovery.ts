@@ -1,4 +1,4 @@
-import type { PreviewSlotResetReport } from "@workbench/contracts";
+import type { PreviewSlotResetReport } from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "./apiClient";
 import { PreviewBridgeClient } from "./previewBridgeClient";
 

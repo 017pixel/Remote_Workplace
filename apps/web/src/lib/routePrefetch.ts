@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { workbenchQueries } from "./queryOptions";
+import { wraptQueries } from "./queryOptions";
 import { prefetchRoute } from "./routeModules";
 
 /**
@@ -12,9 +12,9 @@ import { prefetchRoute } from "./routeModules";
  * frischer Cache löst also keine zusätzliche Anfrage aus.
  */
 const dataLoaders: Array<[prefix: string, warm: (client: QueryClient) => Promise<unknown>]> = [
-  ["/usage", (client) => client.prefetchQuery(workbenchQueries.usageDashboard("30d"))],
-  ["/tech-tldrs", (client) => client.prefetchQuery(workbenchQueries.newsCollections())],
-  ["/projects", (client) => client.prefetchQuery(workbenchQueries.projects())],
+  ["/usage", (client) => client.prefetchQuery(wraptQueries.usageDashboard("30d"))],
+  ["/tech-tldrs", (client) => client.prefetchQuery(wraptQueries.newsCollections())],
+  ["/projects", (client) => client.prefetchQuery(wraptQueries.projects())],
 ];
 
 /** Lädt Bündel und Startdaten der Zielroute vor. Fehler bleiben absichtlich still. */

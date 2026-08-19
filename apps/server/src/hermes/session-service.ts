@@ -1,4 +1,4 @@
-import { hermesCronResponseSchema, hermesModelsResponseSchema, hermesResultSchema, hermesResultsResponseSchema, hermesSessionSchema, hermesSessionsResponseSchema, hermesTaskSchema, hermesTasksResponseSchema, type HermesCronJob, type HermesResult, type HermesSession, type HermesSessionSource, type HermesTask, type Project } from "@workbench/contracts";
+import { hermesCronResponseSchema, hermesModelsResponseSchema, hermesResultSchema, hermesResultsResponseSchema, hermesSessionSchema, hermesSessionsResponseSchema, hermesTaskSchema, hermesTasksResponseSchema, type HermesCronJob, type HermesResult, type HermesSession, type HermesSessionSource, type HermesTask, type Project } from "@wrapt/contracts";
 import { HermesClientError } from "./client.js";
 import type { HermesDashboardClient } from "./client.js";
 import type { HermesAcpManager } from "./acp/Manager.js";

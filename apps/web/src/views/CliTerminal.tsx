@@ -1,17 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind } from "@wrapt/contracts";
 import { TerminalArea } from "../components/terminal/TerminalArea";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useWorkspaceStore } from "../stores/workspace";
 import { useRouteActivity } from "../lib/routeActivity";
 import { useSearchParams } from "react-router";
-import { CLI_INSTANCE_LIMITS } from "../stores/terminals";
 
 function CliTerminalPage({ kind }: { kind: Exclude<TerminalKind, "shell"> }) {
   const routeActive = useRouteActivity();
   const [search] = useSearchParams();
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
   const availableProjects = projects.data?.projects.filter((project) => project.availability === "available") ?? [];
   const projectId = availableProjects.find((project) => project.id === selectedProjectId)?.id
     ?? availableProjects[0]?.id
@@ -29,7 +28,6 @@ function CliTerminalPage({ kind }: { kind: Exclude<TerminalKind, "shell"> }) {
         initialProjectId={projectId}
         kind={kind}
         layout="bento"
-        maxTabs={CLI_INSTANCE_LIMITS[kind]}
         requestedSessionId={search.get("session")}
       />
     </div>

@@ -1,4 +1,4 @@
-import { topbarContributionSchema } from "@workbench/extension-contracts";
+import { topbarContributionSchema } from "@wrapt/extension-contracts";
 import { FullscreenIcon, RefreshIcon } from "../components/icons";
 import {
   topbarRegistry,
@@ -21,14 +21,14 @@ export interface LegacyTopbarOwner {
  */
 export const legacyTopbarOwners: readonly LegacyTopbarOwner[] = Object.freeze([
   Object.freeze({
-    ownerId: "workbench.shell",
+    ownerId: "wrapt.shell",
     registrations: Object.freeze([
       Object.freeze({
         contribution: topbarContributionSchema.parse({
-          id: "workbench.shell.topbar.fullscreen-toggle",
+          id: "wrapt.shell.topbar.fullscreen-toggle",
           kind: "action",
-          routeId: "workbench.files.route.main",
-          commandId: "workbench.shell.command.fullscreen-toggle",
+          routeId: "wrapt.files.route.main",
+          commandId: "wrapt.shell.command.fullscreen-toggle",
           icon: "extension",
           placement: "secondary",
           order: 10,
@@ -40,10 +40,10 @@ export const legacyTopbarOwners: readonly LegacyTopbarOwner[] = Object.freeze([
       }),
       Object.freeze({
         contribution: topbarContributionSchema.parse({
-          id: "workbench.shell.topbar.reload",
+          id: "wrapt.shell.topbar.reload",
           kind: "action",
-          routeId: "workbench.files.route.main",
-          commandId: "workbench.shell.command.reload",
+          routeId: "wrapt.files.route.main",
+          commandId: "wrapt.shell.command.reload",
           icon: "extension",
           placement: "secondary",
           order: 20,

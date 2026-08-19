@@ -1,25 +1,44 @@
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind } from "@wrapt/contracts";
 
 export type TerminalStatus = "connecting" | "connected" | "disconnected" | "exited" | "interrupted" | "error";
 
-/** Nachrichten, die der Server über den Terminal-WebSocket an den Client sendet. */
+export interface TerminalDelta { sequence: number; data: string; }
+
+/** Nachrichten, die der Server über den multiplexten Terminal-WebSocket sendet. */
 export type ServerMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
-  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number; cols: number; rows: number; ownsGeometry: boolean; alternate: boolean }
+  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; epoch: number; sequence: number; cols: number; rows: number; ownsGeometry: boolean; alternate: boolean; mouseTracking: boolean; serialized: string }
+  | { type: "terminal.deltas"; sessionId: string; runtimeId: string; epoch: number; startSequence: number; deltas: TerminalDelta[] }
   | { type: "terminal.geometry"; sessionId: string; cols: number; rows: number; ownsGeometry: boolean }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
   | { type: "terminal.cwd"; sessionId: string; cwd: string }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
   | { type: "terminal.restarting"; sessionId: string; reason: string; sequence: number }
   | { type: "terminal.cleared"; sessionId: string; sequence: number }
-  | { type: "terminal.error"; code: string; message: string; sessionId?: string }
+  | { type: "terminal.error"; code: string; message: string; sessionId?: string; runtimeId?: string }
   | { type: "terminal.pong" };
+
+/** Nachrichten, die der Client über den multiplexten Terminal-WebSocket sendet. */
+export type ClientMessage =
+  | { type: "terminal.create"; requestId: string; runtimeId?: string; kind: TerminalKind; projectId?: string; cwd?: string; mode?: "agent" | "login"; accountId?: string; cols: number; rows: number }
+  | { type: "terminal.subscribe"; runtimeId: string; sessionId?: string; cols?: number; rows?: number; state?: { epoch: number; lastSequence: number } }
+  | { type: "terminal.unsubscribe"; runtimeId: string }
+  | { type: "terminal.sync"; runtimeId: string; state: { epoch: number; lastSequence: number } }
+  | { type: "terminal.takeControl"; runtimeId: string; cols?: number; rows?: number }
+  | { type: "terminal.input"; sessionId: string; data: string }
+  | { type: "terminal.resize"; sessionId: string; cols: number; rows: number }
+  | { type: "terminal.clear"; sessionId: string }
+  | { type: "terminal.restart"; sessionId: string }
+  | { type: "terminal.close"; sessionId: string }
+  | { type: "terminal.ping" };
 
 /** Imperative Methoden, die der Terminal-Bereich über eine Ref aufruft. */
 export interface WebTerminalHandle {
   clear(): void;
   restart(): void;
   close(): void;
+  /** Renderer-Resync: fordert vom Server einen frischen Snapshot an. */
+  resync(): void;
   focus(): void;
   /** Schickt eine Sondertaste (Esc, Tab, Pfeile, Strg-Kombination) an die Sitzung. */
   sendKey(key: string, modifiers?: { ctrl?: boolean; alt?: boolean }): void;
@@ -50,3 +69,6 @@ export interface TerminalMeta {
   cols: number;
   rows: number;
 }
+
+/** Transport-Status eines Renderers. */
+export type RendererStatus = "idle" | "connecting" | "syncing" | "ready" | "resyncing" | "error";

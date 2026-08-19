@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import type { Panel } from "@workbench/contracts";
+import type { Panel } from "@wrapt/contracts";
 import { HermesAdminFrame, safeHermesPath } from "./HermesAdminFrame";
 import { useWorkspaceStore } from "../../stores/workspace";
 import { useRouteActivity } from "../../lib/routeActivity";

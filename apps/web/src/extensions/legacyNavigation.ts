@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { navigationContributionSchema } from "@workbench/extension-contracts";
+import { navigationContributionSchema } from "@wrapt/extension-contracts";
 import {
   BrowserIcon,
   ClaudeCodeIcon,
@@ -55,8 +55,8 @@ export interface LegacyNavigationOwner {
 const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
   Object.freeze([
     {
-      ownerId: "workbench.dashboard",
-      routeId: "workbench.dashboard.route.main",
+      ownerId: "wrapt.dashboard",
+      routeId: "wrapt.dashboard.route.main",
       label: "Dashboard",
       description: "Server, Dienste und Projekte",
       icon: DashboardIcon,
@@ -66,8 +66,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "dashboard",
     },
     {
-      ownerId: "workbench.inbox",
-      routeId: "workbench.inbox.route.main",
+      ownerId: "wrapt.inbox",
+      routeId: "wrapt.inbox.route.main",
       label: "Inbox",
       description: "Aufgaben, Rückfragen und Fehler",
       icon: InboxIcon,
@@ -77,8 +77,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "inbox",
     },
     {
-      ownerId: "workbench.orbit",
-      routeId: "workbench.orbit.route.main",
+      ownerId: "wrapt.orbit",
+      routeId: "wrapt.orbit.route.main",
       label: "Workbench",
       description: "Werkzeuge und Previews öffnen",
       icon: WorkbenchIcon,
@@ -88,8 +88,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "workbench",
     },
     {
-      ownerId: "workbench.tech-tldrs",
-      routeId: "workbench.tech-tldrs.route.main",
+      ownerId: "wrapt.tech-tldrs",
+      routeId: "wrapt.tech-tldrs.route.main",
       label: "Tech TLDRs",
       description: "Tech-News lesen und verstehen",
       icon: TechTldrsIcon,
@@ -99,8 +99,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "tech-tldrs",
     },
     {
-      ownerId: "workbench.projects",
-      routeId: "workbench.projects.route.list",
+      ownerId: "wrapt.projects",
+      routeId: "wrapt.projects.route.list",
       label: "Projekte",
       description: "Konfigurierte Arbeitsbereiche",
       icon: ProjekteIcon,
@@ -110,8 +110,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "projects",
     },
     {
-      ownerId: "workbench.t3-code",
-      routeId: "workbench.t3-code.route.main",
+      ownerId: "wrapt.t3-code",
+      routeId: "wrapt.t3-code.route.main",
       label: "T3 Code",
       description: "Codex-Arbeitsumgebung",
       icon: T3CodeIcon,
@@ -121,8 +121,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "t3-code",
     },
     {
-      ownerId: "workbench.hermes",
-      routeId: "workbench.hermes.route.main",
+      ownerId: "wrapt.hermes",
+      routeId: "wrapt.hermes.route.main",
       label: "Hermes Agent",
       description:
         "Offizielle Hermes-SPA für Chat, Automatisierungen und Verwaltung",
@@ -133,8 +133,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "hermes-agent",
     },
     {
-      ownerId: "workbench.code-server",
-      routeId: "workbench.code-server.route.main",
+      ownerId: "wrapt.code-server",
+      routeId: "wrapt.code-server.route.main",
       label: "Code-Server",
       description: "VS Code im Browser",
       icon: CodeServerIcon,
@@ -144,8 +144,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "code-editor",
     },
     {
-      ownerId: "workbench.terminal",
-      routeId: "workbench.terminal.route.main",
+      ownerId: "wrapt.terminal",
+      routeId: "wrapt.terminal.route.main",
       label: "Terminal",
       description: "Interaktive Server-Shell",
       icon: TerminalIcon,
@@ -155,8 +155,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "terminal",
     },
     {
-      ownerId: "workbench.opencode",
-      routeId: "workbench.opencode.route.main",
+      ownerId: "wrapt.opencode",
+      routeId: "wrapt.opencode.route.main",
       label: "OpenCode",
       description: "OpenCode Web",
       icon: OpenCodeIcon,
@@ -166,8 +166,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "opencode",
     },
     {
-      ownerId: "workbench.codex",
-      routeId: "workbench.codex.route.main",
+      ownerId: "wrapt.codex",
+      routeId: "wrapt.codex.route.main",
       label: "Codex",
       description: "Codex CLI im Browser",
       icon: CodexIcon,
@@ -177,8 +177,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "codex",
     },
     {
-      ownerId: "workbench.claude",
-      routeId: "workbench.claude.route.main",
+      ownerId: "wrapt.claude",
+      routeId: "wrapt.claude.route.main",
       label: "Claude Code",
       description: "Claude Code CLI im Browser",
       icon: ClaudeCodeIcon,
@@ -188,8 +188,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "claude",
     },
     {
-      ownerId: "workbench.previews",
-      routeId: "workbench.previews.route.main",
+      ownerId: "wrapt.previews",
+      routeId: "wrapt.previews.route.main",
       label: "Previews",
       description: "Lokale Apps und laufende Ports",
       icon: PreviewsIcon,
@@ -199,8 +199,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "previews",
     },
     {
-      ownerId: "workbench.files",
-      routeId: "workbench.files.route.main",
+      ownerId: "wrapt.files",
+      routeId: "wrapt.files.route.main",
       label: "Dateien",
       description: "Server-Dateien verwalten und durchsuchen",
       icon: FinderIcon,
@@ -210,8 +210,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "files",
     },
     {
-      ownerId: "workbench.browser",
-      routeId: "workbench.browser.route.main",
+      ownerId: "wrapt.browser",
+      routeId: "wrapt.browser.route.main",
       label: "Browser",
       description: "Chromium für Recherche und lokale Apps",
       icon: BrowserIcon,
@@ -221,8 +221,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "browser",
     },
     {
-      ownerId: "workbench.skills",
-      routeId: "workbench.skills.route.main",
+      ownerId: "wrapt.skills",
+      routeId: "wrapt.skills.route.main",
       label: "KI-Skills",
       description: "Globale Skills und Agenten-Regeln bearbeiten",
       icon: SkillsIcon,
@@ -232,8 +232,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "ki-skills",
     },
     {
-      ownerId: "workbench.usage",
-      routeId: "workbench.usage.route.main",
+      ownerId: "wrapt.usage",
+      routeId: "wrapt.usage.route.main",
       label: "Nutzung",
       description: "Codex und OpenCode Go",
       icon: NutzungIcon,
@@ -243,8 +243,8 @@ const legacyNavigationDefinitions: readonly LegacyNavigationDefinition[] =
       legacyVisibilityKey: "usage",
     },
     {
-      ownerId: "workbench.settings",
-      routeId: "workbench.settings.route.main",
+      ownerId: "wrapt.settings",
+      routeId: "wrapt.settings.route.main",
       label: "Einstellungen",
       description: "Lokaler Workspace und Sicherheit",
       icon: EinstellungenIcon,

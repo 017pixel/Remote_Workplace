@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-// `WORKBENCH_E2E_URL` zeigt auf den Origin des Testservers; die Workbench
+// `WRAPT_E2E_URL` zeigt auf den Origin des Testservers; die Wrapt
 // selbst wird unter dem `/workbench`-Basispfad ausgeliefert.
-const workbench = process.env.WORKBENCH_E2E_URL
-  ? `${process.env.WORKBENCH_E2E_URL.replace(/\/$/, "")}/workbench`
+const workbench = process.env.WRAPT_E2E_URL
+  ? `${process.env.WRAPT_E2E_URL.replace(/\/$/, "")}/wrapt`
   : undefined;
 
 test.use({
@@ -18,9 +18,12 @@ test.use({
 test.skip(({ browserName }) => browserName !== "chromium", "Zwischenablage-Automatisierung wird in Chromium geprüft.");
 
 test("copies terminal selections with Ctrl+Shift+C and pastes with Ctrl+Shift+V", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.goto(`${workbench}/terminal`);
-  await expect(page.locator(".terminal-state.is-connected")).toBeVisible({ timeout: 20_000 });
+  // V2: Beim ersten Besuch öffnet der Empty-State das erste Terminal.
+  const emptyButton = page.locator(".terminal-empty-state button");
+  if (await emptyButton.count() > 0 && await emptyButton.isVisible().catch(() => false)) await emptyButton.click();
+  await expect(page.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 20_000 });
   const input = page.locator(".xterm-helper-textarea");
   const marker = `https://github.com/login/device?code=CLIP-${Date.now()}`;
   // Erst auf den Shell-Prompt warten: Tippt der Test vor dem Spawn der
@@ -43,7 +46,7 @@ test("copies terminal selections with Ctrl+Shift+C and pastes with Ctrl+Shift+V"
     return text.replace(/\s+/g, "").includes(expected.replace(/\s+/g, ""));
   }, marker), { timeout: 10_000 }).toBe(true);
 
-  await page.evaluate(() => navigator.clipboard.writeText("http://127.0.0.1:5173/workbench/"));
+  await page.evaluate(() => navigator.clipboard.writeText("http://127.0.0.1:5173/wrapt/"));
   const screen = page.locator(".xterm-screen");
   const box = await screen.boundingBox();
   const cursorTop = await input.evaluate((element) => Number.parseFloat((element as HTMLElement).style.top || "0"));
@@ -67,7 +70,7 @@ test("copies terminal selections with Ctrl+Shift+C and pastes with Ctrl+Shift+V"
 });
 
 test("keeps VS Code on standard Ctrl+C and Ctrl+V inside the editor frame", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.goto(`${workbench}/code-editor`);
   const frameElement = page.locator('iframe[title="Editor"]');
   const editor = page.frameLocator('iframe[title="Editor"]');
@@ -97,7 +100,7 @@ test("keeps VS Code on standard Ctrl+C and Ctrl+V inside the editor frame", asyn
 });
 
 test("keeps T3 Code focused so standard Ctrl+C belongs to the embedded app", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.goto(`${workbench}/t3-code`);
   const frame = page.locator('iframe[title="T3 Code"]');
   const t3Available = await frame.waitFor({ state: "visible", timeout: 15_000 }).then(() => true).catch(() => false);
@@ -110,7 +113,7 @@ test("keeps T3 Code focused so standard Ctrl+C belongs to the embedded app", asy
 });
 
 test("does not grant embedded previews extra clipboard permissions", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.goto(`${workbench}/previews`);
   for (const frame of await page.locator('iframe[title*="Preview"]').all()) {
     expect(await frame.getAttribute("allow")).toBeNull();
@@ -118,8 +121,8 @@ test("does not grant embedded previews extra clipboard permissions", async ({ pa
 });
 
 test("routes Orbit paste to the focused editor, canvas or terminal only", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-  await page.goto(`${workbench}/workbench`);
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+  await page.goto(`${workbench}/wrapt`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await page.getByRole("button", { name: /Neue Notiz/ }).click();
   const note = page.getByLabel("Neue Notiz bearbeiten").last();

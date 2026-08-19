@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
@@ -19,7 +19,7 @@ function node(id: string, type: "project" | "note" | "todo" | "tool", title: str
 
 test("covers precise canvas chrome, menus, zoom and editable routing", async ({ page }) => {
   test.setTimeout(90_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Orbit test server.");
   const orbitUrl = new URL("/api/v1/orbit", workbench).toString();
   const current = await (await page.request.get(orbitUrl, { headers: apiIdentityHeaders("user@example.com") })).json();
   const boardId = `improvements-${Date.now()}`;
@@ -40,7 +40,7 @@ test("covers precise canvas chrome, menus, zoom and editable routing", async ({ 
   } } });
   await expect(seed).toBeOK();
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByLabel("Gespeicherte Szene öffnen")).toHaveCount(0);
   await page.getByRole("button", { name: "Arbeitsfläche umbenennen" }).click();

@@ -1,4 +1,4 @@
-import type { PreviewDevicePreference } from "@workbench/contracts";
+import type { PreviewDevicePreference } from "@wrapt/contracts";
 import { devicePresets, type DeviceOrientation, type DevicePresetId } from "../config/devicePresets";
 
 /** Verbindlicher Fallback, wenn weder Slot noch Benutzerpräferenz etwas vorgeben. */

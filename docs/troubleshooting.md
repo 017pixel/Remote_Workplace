@@ -2,10 +2,10 @@
 
 ## Web-Push kommt nicht an
 
-- Die Workbench muss über ihren privaten HTTPS-Origin geöffnet sein. `http://` auf einer
+- Die Wrapt muss über ihren privaten HTTPS-Origin geöffnet sein. `http://` auf einer
   Tailscale-IP ist kein sicherer Kontext und unterstützt Push sowie Service Worker nicht zuverlässig.
 - Auf iPadOS die Seite in Safari über „Teilen → Zum Home-Bildschirm“ installieren und danach nur
-  über das neue Home-Screen-Symbol öffnen. In einem normalen Safari-Tab fordert die Workbench
+  über das neue Home-Screen-Symbol öffnen. In einem normalen Safari-Tab fordert die Wrapt
   absichtlich keine Berechtigung an.
 - Der Status „Nicht aktiviert“ bedeutet, dass dieses Gerät noch keine lokale Subscription besitzt.
   In den Einstellungen „Auf diesem Gerät aktivieren“ wählen. Die Permission wird nie beim Laden
@@ -13,7 +13,7 @@
 - Bei „Blockiert“ die Benachrichtigungsberechtigung in den Browser- oder Systemeinstellungen
   freigeben. JavaScript darf eine verweigerte Permission nicht selbst zurücksetzen.
 - „Lokal aktiv, Server-Synchronisierung fehlgeschlagen“ bedeutet, dass das Browser-Abo besteht,
-  sein idempotenter Server-Upsert aber fehlgeschlagen ist. Netzwerk und Workbench-Identität prüfen
+  sein idempotenter Server-Upsert aber fehlgeschlagen ist. Netzwerk und Wrapt-Identität prüfen
   und die Benachrichtigungseinstellungen erneut öffnen oder „Erneut aktivieren“ wählen.
 - Der Knopf „Testbenachrichtigung an dieses Gerät senden“ prüft die vollständige Serverkette,
   verschmutzt die Inbox aber nicht. Er ist nur bei einem lokal und serverseitig synchronisierten
@@ -30,41 +30,41 @@
   Servercheck ist `curl -I --max-time 10 https://web.push.apple.com`; eine HTTP-Fehlermeldung ist
   dabei in Ordnung, ein DNS- oder Verbindungsfehler nicht.
 
-Die aktuelle Gerätezahl in den Einstellungen gilt für die aktive Workbench-Identität. Die Inbox
+Die aktuelle Gerätezahl in den Einstellungen gilt für die aktive Wrapt-Identität. Die Inbox
 selbst ist global, deshalb wird ein wichtiges neues Ereignis an jedes registrierte Gerät aller
 erlaubten Identitäten geschickt. Das Deaktivieren eines Geräts löscht nur dessen Endpoint.
 
 ## Orbit-Daten und Sicherungen
 
-Der produktive Datenbestand liegt unter `/home/your-user/.local/share/remote-workplace/workbench.sqlite` und damit außerhalb des Repositorys. Builds, Quellcodewechsel und Deployments dürfen diese Datei nicht ersetzen. Jede bestätigte Orbit-Revision wird zusätzlich unter `/home/your-user/.local/share/remote-workplace/orbit-backups/` abgelegt; `current.json` enthält die letzte Revision mit SHA-256-Prüfsumme, die nummerierten Dateien bleiben unverändert erhalten.
+Der produktive Datenbestand liegt unter `/home/your-user/.local/share/wrapt/wrapt.sqlite` und damit außerhalb des Repositorys. Builds, Quellcodewechsel und Deployments dürfen diese Datei nicht ersetzen. Jede bestätigte Orbit-Revision wird zusätzlich unter `/home/your-user/.local/share/wrapt/orbit-backups/` abgelegt; `current.json` enthält die letzte Revision mit SHA-256-Prüfsumme, die nummerierten Dateien bleiben unverändert erhalten.
 
-Wenn die SQLite-Datei fehlt, stellt der Server beim nächsten Start automatisch `current.json` wieder her. Eine beschädigte Sicherung führt absichtlich zu einem Startfehler statt zu einer leeren Arbeitsfläche. Vor manuellen Eingriffen immer den Workbench-Dienst anhalten und sowohl die Datenbank als auch den vollständigen Backup-Ordner kopieren. Bei einer manuellen Reparatur konservierte Rohdaten sollten getrennt unter `/home/your-user/.local/share/remote-workplace/emergency-backups/` abgelegt werden.
+Wenn die SQLite-Datei fehlt, stellt der Server beim nächsten Start automatisch `current.json` wieder her. Eine beschädigte Sicherung führt absichtlich zu einem Startfehler statt zu einer leeren Arbeitsfläche. Vor manuellen Eingriffen immer den Wrapt-Dienst anhalten und sowohl die Datenbank als auch den vollständigen Backup-Ordner kopieren. Bei einer manuellen Reparatur konservierte Rohdaten sollten getrennt unter `/home/your-user/.local/share/wrapt/emergency-backups/` abgelegt werden.
 
 Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreibt den aktiven Serverstand nicht. Der abweichende Browserentwurf liegt in `orbit_conflict_backups`; die aktuelle Arbeitsfläche bleibt in `orbit_documents` und `orbit_document_revisions` erhalten.
 
 ## Terminal verbindet nicht
 
-- `journalctl -u remote-workplace.service -n 100 --no-pager` auf WebSocket- oder PTY-Fehler prüfen.
+- `journalctl -u wrapt.service -n 100 --no-pager` auf WebSocket- oder PTY-Fehler prüfen.
 - Sicherstellen, dass `TERMINAL_ALLOWED_USERS` den Tailscale-Login in Kleinschreibung enthält.
 - Der Server muss mit `@fastify/websocket` v11 den Socket direkt verwenden; `connection.socket` ist die alte API und führt zu Code 1006.
-- Nach einem Produktionsbuild den Workbench-Dienst neu starten, damit `dist/` nicht hinter dem Source-Code zurückbleibt.
-- Für schreibende Befehle darf die Workbench-Unit nicht `ProtectHome=read-only` verwenden.
+- Nach einem Produktionsbuild den Wrapt-Dienst neu starten, damit `dist/` nicht hinter dem Source-Code zurückbleibt.
+- Für schreibende Befehle darf die Wrapt-Unit nicht `ProtectHome=read-only` verwenden.
 
 ## Codex oder OpenCode startet nicht
 
 - `CODEX_CLI_PATH` beziehungsweise `OPENCODE_CLI_PATH` mit `test -x <pfad>` prüfen.
-- Die CLI unter demselben Benutzer wie den Workbench-Dienst einmal direkt im Terminal starten und Anmeldung sowie Konfiguration prüfen.
+- Die CLI unter demselben Benutzer wie den Wrapt-Dienst einmal direkt im Terminal starten und Anmeldung sowie Konfiguration prüfen.
 - Bei `TOO_MANY_SESSIONS` nicht mehr benötigte Instanzen schließen; standardmäßig sind jeweils vier Codex- und OpenCode-Prozesse erlaubt.
-- Die Workbench setzt keine Auto-Approve- oder Sandbox-Bypass-Flags. Rückfragen der CLI sind daher erwartetes Verhalten.
+- Die Wrapt setzt keine Auto-Approve- oder Sandbox-Bypass-Flags. Rückfragen der CLI sind daher erwartetes Verhalten.
 
 ### OpenCode Web
 
 - `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user status opencode-web.service` und
   `journalctl --user -u opencode-web.service -n 100 --no-pager` prüfen.
 - `curl -f http://127.0.0.1:3774/` muss die OpenCode-Web-Seite liefern; Port und Binary stehen in
-  `config/workbench.local.json` unter `opencodeWeb`.
+  `config/wrapt.local.json` unter `opencodeWeb`.
 - Wenn die Oberfläche lädt, aber keine Sessions oder Events zeigt, muss der Zugriff über
-  `/opencode` erfolgen. Die Workbench-Bridge scoped absolute OpenCode-API-, Asset- und
+  `/opencode` erfolgen. Die Wrapt-Bridge scoped absolute OpenCode-API-, Asset- und
   WebSocket-URLs; ein direktes Einbetten des Loopback-Ports umgeht diese Route.
 - Nach einem Binary-, Port- oder Unit-Änderung `bash scripts/install-opencode-web-unit.sh` und
   anschließend `bash scripts/restart-backend.sh` ausführen.
@@ -80,8 +80,8 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 
 - `systemctl --user status code-server.service` und `curl -f http://127.0.0.1:8080/healthz` prüfen.
 - Die öffentliche URL muss `https://HOST:8443/editor/` sein, nicht eine HTTP-IP und nicht ein separater, unkonfigurierter Port.
-- `/editor/` braucht HTTP- und WebSocket-Weiterleitung; die Workbench übernimmt beides.
-- `WS_ERR_UNSUPPORTED_MESSAGE_LENGTH` oder `Max payload size exceeded` bedeutet, dass eine alte Workbench noch das frühere 64-KiB-Transportlimit nutzt. Neu bauen und den Dienst neu starten; `WEBSOCKET_MAX_PAYLOAD_BYTES` steht standardmäßig auf 16 MiB.
+- `/editor/` braucht HTTP- und WebSocket-Weiterleitung; die Wrapt übernimmt beides.
+- `WS_ERR_UNSUPPORTED_MESSAGE_LENGTH` oder `Max payload size exceeded` bedeutet, dass eine alte Wrapt noch das frühere 64-KiB-Transportlimit nutzt. Neu bauen und den Dienst neu starten; `WEBSOCKET_MAX_PAYLOAD_BYTES` steht standardmäßig auf 16 MiB.
 - Ein Dialog `Unable to read file ... (Canceled)` ist meist die Folge dieses abgerissenen code-server-WebSockets, kein Dateirechtefehler. Nach stabiler Socket-Verbindung lässt sich dieselbe Datei ohne Reload wieder öffnen.
 - Auf Mobilgeräten den Editor maximieren oder extern öffnen. Der Container entfernt Abstände und hält die Aktionsleiste unten; die interne VS-Code-Oberfläche selbst bleibt code-server-eigen.
 
@@ -89,10 +89,10 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 
 - Den Vite-Dienst lokal mit `curl -f http://127.0.0.1:1234/` prüfen.
 - Die Preview-URL muss mit Slash enden: `https://HOST:8443/editor/absproxy/1234/`.
-- Der alte Workbench-Fetch-Proxy kann relative Assets, Cookies und HMR nicht vollständig abbilden und wird für Panels nicht mehr benutzt.
+- Der alte Wrapt-Fetch-Proxy kann relative Assets, Cookies und HMR nicht vollständig abbilden und wird für Panels nicht mehr benutzt.
 - Nach externem Öffnen bleibt das eingebettete Iframe gemountet. Bei einer alten Version Hard-Reload ausführen und danach den neuen Build deployen.
 - Meldet Firefox für `.ts`, `.tsx` oder Vite-Abhängigkeiten den MIME-Typ `application/json`, den Response-Status und Body prüfen. Eine JSON-Antwort mit `RATE_LIMITED` stammt von einer alten globalen Limitierung; `/editor/**` darf keine `x-ratelimit-*`-Header mehr tragen.
-- Wenn der primäre HMR-Socket unter `wss://HOST:8443/editor/absproxy/...` scheitert und Vite anschließend localhost versucht, zuerst Workbench-Logs auf 429- oder WebSocket-Payload-Fehler prüfen. Der localhost-Versuch ist nur Vites Fallback.
+- Wenn der primäre HMR-Socket unter `wss://HOST:8443/editor/absproxy/...` scheitert und Vite anschließend localhost versucht, zuerst Wrapt-Logs auf 429- oder WebSocket-Payload-Fehler prüfen. Der localhost-Versuch ist nur Vites Fallback.
 
 ## Dev-Server im Preview Hub startet nicht
 
@@ -102,7 +102,7 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 - Automatisch erkannte Dienste erhalten projektübergreifend freie Ports aus der konfigurierten Preview-Port-Palette. Feste Zahlenports in `preview.config.json` bleiben reserviert; bei parallelen Projekten kann Version 2 stattdessen `"port": "auto"` verwenden.
 - `PREVIEW_RUNTIME_PORT_CAPACITY` bedeutet, dass die geöffneten Laufzeiten gemeinsam mehr Browserports benötigen als die Palette noch hergibt. Ein Projekt-Tab kann geschlossen bleiben, seine Laufzeit muss zum Freigeben aber ausdrücklich gestoppt werden.
 - Nach einem Backend-Neustart darf der Prozess nicht neu gestartet werden: Der Hub verbindet sich wieder mit der vorhandenen tmux-Sitzung.
-- Preview-Prozesse laufen dafür auf dem eigenen tmux-Socket `remote-workplace-previews` in einer separaten systemd-Scope. Sie gehören nicht zur Cgroup des Workbench-Dienstes.
+- Preview-Prozesse laufen dafür auf dem eigenen tmux-Socket `wrapt-previews` in einer separaten systemd-Scope. Sie gehören nicht zur Cgroup des Wrapt-Dienstes.
 - Lässt der Browser kein Popup zu, wird einmalig auf einen neuen Tab zurückgefallen; alternativ den Öffnungsmodus dauerhaft auf „Neuer Tab“ stellen.
 
 ## Preview-Slot steht in Quarantäne
@@ -158,18 +158,18 @@ Ein `ORBIT_REVISION_CONFLICT` oder `ORBIT_DESTRUCTIVE_SAVE_BLOCKED` überschreib
 ### Offizieller Hermes-Chat getrennt oder Events Feed nicht verbunden
 
 Die sichtbare Hermes-Oberfläche verwendet die offiziellen PTY- und Events-WebSockets über den
-Workbench-Pfad `/hermes`. Der direkte Hermes-Port bleibt absichtlich nur auf Loopback erreichbar.
+Wrapt-Pfad `/hermes`. Der direkte Hermes-Port bleibt absichtlich nur auf Loopback erreichbar.
 Der Proxy setzt für den Upstream `Host: 127.0.0.1:9119` und übersetzt beim WebSocket-Handshake den
-äußeren Browser-Origin auf den Loopback-Origin. Die Workbench prüft den ursprünglichen Origin vor
+äußeren Browser-Origin auf den Loopback-Origin. Die Wrapt prüft den ursprünglichen Origin vor
 der Weiterleitung.
 
 Wenn Hermes trotzdem `Chat disconnected` oder `events feed disconnected` anzeigt, zuerst
 `/api/v1/hermes/diagnostics` und die User-Unit `hermes-dashboard.service` prüfen. Danach die
-Workbench-Seite neu laden. Ein Reload löscht keine Session, die offizielle Hermes-Chatroute kann
+Wrapt-Seite neu laden. Ein Reload löscht keine Session, die offizielle Hermes-Chatroute kann
 eine bestehende Session über `?resume=<id>` wieder aufnehmen.
 
 Die ACP-Bridge und die Fehlercodes `ACP_CRASHED`, `ACP_UNAVAILABLE` und `SESSION_NOT_FOUND`
-betreffen nur interne Workbench-Hintergrundfunktionen, nicht die sichtbare Hermes-Weboberfläche.
+betreffen nur interne Wrapt-Hintergrundfunktionen, nicht die sichtbare Hermes-Weboberfläche.
 
 ### Update fehlgeschlagen
 
@@ -184,8 +184,8 @@ cd <hermes-checkout>/web && npm ci && npm run build
 XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user restart hermes-dashboard.service hermes-gateway.service
 ```
 
-Hat der Hermes-Checkout kein `package-lock.json`, verwendet der Workbench-Updatepfad bewusst
+Hat der Hermes-Checkout kein `package-lock.json`, verwendet der Wrapt-Updatepfad bewusst
 `npm install --no-audit --no-fund` statt `npm ci`.
 
 Alternativ das offizielle Backup mit `hermes import <backup>.zip` zurückspielen. Der Checkout,
-`HERMES_HOME`, Gateway und Telegram werden von der Workbench nicht verschoben oder gelöscht.
+`HERMES_HOME`, Gateway und Telegram werden von der Wrapt nicht verschoben oder gelöscht.

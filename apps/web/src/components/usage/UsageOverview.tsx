@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { UsageTimelineResponse } from "@workbench/contracts";
+import type { UsageTimelineResponse } from "@wrapt/contracts";
 import { useUsagePreferences } from "../../stores/usagePreferences";
 import { buildTimelineLane } from "../../lib/quotaTimeline";
 import {

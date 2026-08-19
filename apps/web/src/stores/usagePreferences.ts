@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { UsageProviderId } from "@workbench/contracts";
+import type { UsageProviderId } from "@wrapt/contracts";
 
 /**
  * Darstellungspräferenzen für "Nutzung & Limits".
@@ -12,7 +12,7 @@ import type { UsageProviderId } from "@workbench/contracts";
  */
 
 export const USAGE_PREFERENCES_VERSION = 1;
-export const USAGE_PREFERENCES_STORAGE_KEY = "remote-workplace.usage-preferences.v1";
+export const USAGE_PREFERENCES_STORAGE_KEY = "wrapt.usage-preferences.v1";
 
 export type UsagePreset = "custom" | "compact" | "standard" | "analysis";
 export type LimitsView = "list" | "timeline" | "both";

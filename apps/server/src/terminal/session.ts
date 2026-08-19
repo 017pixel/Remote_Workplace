@@ -1,5 +1,8 @@
 import type { PtyProcess } from "./NodePtyAdapter.js";
 import type { ServerTerminalMessage, TerminalErrorCode, TerminalKind } from "./protocol.js";
+import type { GeometryLease } from "./runtime/GeometryLease.js";
+import type { HeadlessTerminal } from "./runtime/HeadlessTerminal.js";
+import type { OutputJournal } from "./runtime/OutputJournal.js";
 
 export type TerminalStatus = "starting" | "running" | "exited" | "interrupted" | "closed";
 export type TerminalClient = (message: ServerTerminalMessage) => void;
@@ -26,12 +29,21 @@ export interface TerminalSession {
   exitCode: number | null;
   exitSignal: number | null;
   sequence: number;
+  /** Zählt Runtime-Neuerzeugungen (Restart, Host-Reboot-Restore). Innerhalb
+   *  eines Epoch steigt `sequence` monoton. */
+  epoch: number;
   lastPersistedAt: number | undefined;
   clients: Map<string, TerminalClient>;
   clientViewports: Map<string, TerminalClientViewport>;
   primaryClientId: string | null;
   dataListener: { dispose(): void } | null;
   exitListener: { dispose(): void } | null;
+  /** Autoritativer Terminalzustand auf dem Server. */
+  headless: HeadlessTerminal | null;
+  /** Ringpuffer der jüngsten Deltas für Fast Reconnect. */
+  journal: OutputJournal;
+  /** Deterministische Geometrie-Eigentümerschaft. */
+  geometry: GeometryLease;
 }
 
 export class TerminalFailure extends Error {

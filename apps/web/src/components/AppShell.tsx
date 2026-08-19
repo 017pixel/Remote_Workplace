@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
+import { useShallow } from "zustand/react/shallow";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRightIcon, MenuIcon, RestoreIcon } from "./icons";
 import { Sidebar } from "./Sidebar";
@@ -8,9 +9,9 @@ import { StatusBar } from "./StatusBar";
 import { useSidebarLayout } from "../lib/useSidebarLayout";
 import { PersistentOutlet } from "./PersistentOutlet";
 import { useWorkspaceStore } from "../stores/workspace";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { ProjectPicker } from "./ProjectPicker";
-import { useTerminalStore } from "../stores/terminals";
+import { terminalAreaView, useTerminalWorkspaceStore } from "../stores/terminalWorkspace";
 import { TerminalWorkspaceSync } from "./terminal/TerminalWorkspaceSync";
 import { TerminalSessionsSync } from "./terminal/TerminalSessionsSync";
 import { apiClient } from "../lib/apiClient";
@@ -18,10 +19,10 @@ import { useResponsiveShell, useVisualViewportVariables } from "../lib/useRespon
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import { pageRouteRegistry } from "../extensions/pageRouteRegistry";
 import { addBreadcrumb } from "../lib/crashReport";
-import type { ProjectsResponse, TerminalKind } from "@workbench/contracts";
+import type { ProjectsResponse, TerminalKind } from "@wrapt/contracts";
 import { ToolActionMenu } from "./ToolActionMenu";
 import { NotificationCenter } from "./NotificationCenter";
-import { WorkbenchNotice } from "./WorkbenchNotice";
+import { WraptNotice } from "./WraptNotice";
 import { useViewPresence } from "../lib/useViewPresence";
 
 function ContextProjectPicker() {
@@ -29,9 +30,9 @@ function ContextProjectPicker() {
   const [search] = useSearchParams();
   const selectProject = useWorkspaceStore((state) => state.selectProject);
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const addTerminalTab = useTerminalStore((state) => state.addTab);
-  const activateProject = useTerminalStore((state) => state.activateProject);
-  const { data } = useQuery(workbenchQueries.projects());
+  const addTerminalTab = useTerminalWorkspaceStore((state) => state.addTab);
+  const activateProject = useTerminalWorkspaceStore((state) => state.activateProject);
+  const { data } = useQuery(wraptQueries.projects());
   const queryClient = useQueryClient();
   const context = location.pathname === "/code-editor" ? "editor"
     : location.pathname === "/previews" ? "preview"
@@ -43,10 +44,10 @@ function ContextProjectPicker() {
     ? search.get("kind") === "claude" ? "claude" : "shell"
     : context === "codex" || context === "claude" ? context : null;
   const terminalAreaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
-  const terminalArea = useTerminalStore((state) => terminalAreaId ? state.areas[terminalAreaId] : undefined);
+  const terminalArea = useTerminalWorkspaceStore(useShallow((state) => terminalAreaId ? terminalAreaView(state, terminalAreaId) : undefined));
   const activeTerminalTab = terminalArea?.tabs.find((tab) => tab.id === terminalArea.activeTabId);
-  const activeRuntimeCwd = useTerminalStore((state) => activeTerminalTab ? state.runtimeCwds[activeTerminalTab.id] : undefined);
-  const terminalSessions = useQuery({ ...workbenchQueries.terminalSessions(), enabled: terminalKind !== null });
+  const activeRuntimeCwd = useTerminalWorkspaceStore((state) => activeTerminalTab ? state.runtimeCwds[activeTerminalTab.id] : undefined);
+  const terminalSessions = useQuery({ ...wraptQueries.terminalSessions(), enabled: terminalKind !== null });
   const baseProjects = (data?.projects ?? []).filter((project) =>
     context === "editor" ? project.links.codeServer !== null
       : project.availability === "available",
@@ -131,9 +132,11 @@ function StandaloneRouteActions({ terminalFocus, onTerminalFocusChange }: { term
       : location.pathname === "/claude" ? "claude"
           : null;
   const areaId = terminalKind === null ? null : terminalKind === "shell" ? "standalone" : `${terminalKind}-standalone`;
-  const area = useTerminalStore((state) => areaId ? state.areas[areaId] : undefined);
+  const area = useTerminalWorkspaceStore((state) => areaId ? terminalAreaView(state, areaId) : undefined);
   const [nativeFullscreen, setNativeFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
 
+  // Terminal-Aktionen liegen bewusst in der Terminal-Sidebar. Dadurch gibt es
+  // auf der Terminalseite keinen zweiten „…“-Button oben rechts.
   useEffect(() => {
     const update = () => setNativeFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", update);
@@ -154,7 +157,7 @@ function StandaloneRouteActions({ terminalFocus, onTerminalFocusChange }: { term
     ? new URL(`${import.meta.env.BASE_URL}terminal/fenster/${encodeURIComponent(activeTabId)}`, window.location.origin).toString()
     : window.location.href;
 
-  return (
+  return terminalKind !== null ? null : (
     <ToolActionMenu
       className="is-topbar"
       externalHref={externalHref}
@@ -172,15 +175,15 @@ export function AppShell() {
     () => Object.fromEntries(navigation.items.map((item) => [item.value.route.path, item.value.contribution.label])),
     [navigation],
   );
-  const title = routeTitles[location.pathname] ?? "Remote Workplace";
+  const title = routeTitles[location.pathname] ?? "Wrapt";
   // Shell-Sonderfälle kommen aus der gematchten Route statt aus Pfadabfragen;
   // die Route-Contribution bleibt damit die einzige Quelle für die Darstellung.
   const activeRouteId = pageRouteRegistry.matchRoute(location.pathname)?.route.contributionId;
-  const isProjectDetail = activeRouteId === "workbench.projects.route.detail";
-  const isOrbit = activeRouteId === "workbench.orbit.route.main";
-  const isNews = activeRouteId === "workbench.tech-tldrs.route.main";
-  const isStandaloneT3 = activeRouteId === "workbench.t3-code.route.main";
-  const isStandaloneOpenCode = activeRouteId === "workbench.opencode.route.main";
+  const isProjectDetail = activeRouteId === "wrapt.projects.route.detail";
+  const isOrbit = activeRouteId === "wrapt.orbit.route.main";
+  const isNews = activeRouteId === "wrapt.tech-tldrs.route.main";
+  const isStandaloneT3 = activeRouteId === "wrapt.t3-code.route.main";
+  const isStandaloneOpenCode = activeRouteId === "wrapt.opencode.route.main";
   const isTerminalRoute = ["/terminal", "/codex", "/claude"].includes(location.pathname);
   const hasStandaloneToolMenu =
     pageRouteRegistry.matchRoute(location.pathname)?.route.value.contribution.standaloneActions === true;
@@ -272,7 +275,7 @@ export function AppShell() {
       <TerminalSessionsSync />
       <NotificationCenter />
       <ViewPresenceReporter />
-      <WorkbenchNotice />
+      <WraptNotice />
       {responsive.mode === "desktop" ? <Sidebar
         collapsed={sidebar.collapsed}
         width={sidebar.width}
@@ -294,7 +297,7 @@ export function AppShell() {
             <MenuIcon className="h-[18px] w-[18px]" />
           </button> : null}
           <div className="page-crumb min-w-0">
-            <Link to="/" className="page-crumb-root shell-desktop-only">Remote Workplace</Link>
+            <Link to="/" className="page-crumb-root shell-desktop-only">Wrapt</Link>
             <ChevronRightIcon className="page-crumb-separator shell-desktop-only" aria-hidden />
             {isProjectDetail ? (
               <>

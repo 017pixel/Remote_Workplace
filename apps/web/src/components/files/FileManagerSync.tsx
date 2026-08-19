@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
-import { fileManagerStateSchema, type FileManagerState } from "@workbench/contracts";
+import { fileManagerStateSchema, type FileManagerState } from "@wrapt/contracts";
 import { FILE_MANAGER_STORAGE_KEY, useFileManagerStore } from "../../stores/fileManager";
 import { useRouteActivity } from "../../lib/routeActivity";
 

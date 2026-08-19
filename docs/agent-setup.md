@@ -1,7 +1,7 @@
-# Agent-Setup — Remote Workplace einrichten
+# Agent-Setup — Wrapt einrichten
 
 Diese Datei ist eine präzise Schritt-für-Schritt-Anleitung **für einen Coding-Agent**
-(z. B. Claude Code, Codex, OpenCode), der Remote Workplace auf einem Server einrichtet.
+(z. B. Claude Code, Codex, OpenCode), der Wrapt auf einem Server einrichtet.
 Der Agent führt die Schritte aus, fragt den Benutzer nach den benötigten Werten und
 verifiziert am Ende, dass alles läuft.
 
@@ -38,7 +38,7 @@ Stelle dem Benutzer diese Fragen und sammle die Antworten (Pflicht = *):
 3. **Tailscale-Hostname & IP** — z. B. `server-name.tailnet.ts.net` / `100.x.y.z`
    (nur nötig für Remote-Zugriff; sonst Platzhalter lassen).
 4. **HTTPS-Port für Tailscale** — Standard `8443`.
-5. **Erlaubte Login-E-Mails** — die Tailscale-Identitäten, die auf die Workbench dürfen
+5. **Erlaubte Login-E-Mails** — die Tailscale-Identitäten, die auf die Wrapt dürfen
    (z. B. `alice@example.com`).
 6. **Optionale CLI-Pfade** — `codex`, `opencode`, `claude`, `codexbar`, `tmux`, `chromium`
    (Standard: automatische Erkennung im PATH).
@@ -52,8 +52,8 @@ Stelle dem Benutzer diese Fragen und sammle die Antworten (Pflicht = *):
 
 Es gibt genau **zwei** lokale, gitignorierte Dateien mit persönlichen Werten:
 
-### a) `config/workbench.local.json`
-Kopiere `config/workbench.example.json` nach `config/workbench.local.json` und trage die
+### a) `config/wrapt.local.json`
+Kopiere `config/wrapt.example.json` nach `config/wrapt.local.json` und trage die
 Antworten aus Schritt 1 ein. Bedeutung der Felder:
 
 | Feld | Bedeutung |
@@ -70,7 +70,7 @@ Antworten aus Schritt 1 ein. Bedeutung der Felder:
 ### b) `.env`
 Kopiere `.env.example` nach `.env`. Hier gehören **nur Secrets und neutrale Runtime-Knöpfe**
 hinein — insbesondere `MISTRAL_API_KEY` (optional). Persönliche Pfade/Identität gehören
-**nicht** in die `.env`, sondern in `config/workbench.local.json`.
+**nicht** in die `.env`, sondern in `config/wrapt.local.json`.
 
 > Env-Variablen in `.env` überschreiben bei Bedarf einzelne Werte aus der zentralen Config.
 
@@ -105,7 +105,7 @@ bash deploy/proxy/configure-tailscale-serve.sh   # veröffentlicht privat im Tai
 sudo bash deploy/systemd/install-codexbar.sh # optionaler CodexBar-Dienst
 ```
 Die systemd-Units werden aus den Templates in `deploy/systemd/units/` gerendert und mit den
-Werten aus `config/workbench.local.json` gefüllt (siehe `deploy/systemd/render-units.mjs`).
+Werten aus `config/wrapt.local.json` gefüllt (siehe `deploy/systemd/render-units.mjs`).
 
 ---
 
@@ -117,7 +117,7 @@ Claude Code `.credentials.json`) ist ein Symlink in den Anmeldespeicher des akti
 Konfiguration, Sessions und Verlauf bleiben geteilt, es gibt also weiterhin nur einen
 Projekt- und Sessionbestand.
 
-1. Bestehende Anmeldungen erkennt die Workbench unter **Nutzung → Accounts** automatisch;
+1. Bestehende Anmeldungen erkennt die Wrapt unter **Nutzung → Accounts** automatisch;
    mit „Registrieren“ werden sie aufgenommen.
 2. Weitere Accounts über „Neu anmelden“ hinzufügen — die Anmeldung läuft in einem
    eingebetteten Terminal, bei Codex per Gerätecode ohne localhost-Rückruf.
@@ -130,7 +130,7 @@ scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug v
 ```
 
 Ein Account, der noch direkt auf das gemeinsame Home zeigt, bekommt beim ersten Aktivieren
-automatisch einen eigenen Anmeldespeicher unter `paths.workbenchProfilesRoot`. Zugangsdaten
+automatisch einen eigenen Anmeldespeicher unter `paths.wraptProfilesRoot`. Zugangsdaten
 werden dabei nie gelöscht, sondern verschoben und gesichert.
 
 ---
@@ -147,4 +147,4 @@ werden dabei nie gelöscht, sondern verschoben und gesichert.
 4. **Terminal/Browser/News/Usage** laden ohne Fehler.
 
 Melde dem Benutzer am Ende kurz: Was läuft, welche optionalen Dienste aktiv sind und
-welche Werte in `config/workbench.local.json` gesetzt wurden (ohne Secrets auszugeben).
+welche Werte in `config/wrapt.local.json` gesetzt wurden (ohne Secrets auszugeben).

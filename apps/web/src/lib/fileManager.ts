@@ -1,4 +1,4 @@
-import type { FilesystemEntry } from "@workbench/contracts";
+import type { FilesystemEntry } from "@wrapt/contracts";
 
 export type PreviewKind =
   | "code"

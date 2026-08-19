@@ -11,7 +11,7 @@ const directories: string[] = [];
 afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }); });
 
 function fixture() {
-  const directory = mkdtempSync(join(tmpdir(), "remote-workplace-t3-sync-")); directories.push(directory);
+  const directory = mkdtempSync(join(tmpdir(), "wrapt-t3-sync-")); directories.push(directory);
   const t3Path = join(directory, "t3.sqlite"); const db = new DatabaseSync(t3Path);
   db.exec(`CREATE TABLE orchestration_events(sequence INTEGER PRIMARY KEY, aggregate_kind TEXT, stream_id TEXT);
     CREATE TABLE projection_projects(project_id TEXT PRIMARY KEY,title TEXT,workspace_root TEXT,scripts_json TEXT,created_at TEXT,updated_at TEXT,deleted_at TEXT,default_model_selection_json TEXT);
@@ -19,7 +19,7 @@ function fixture() {
     CREATE TABLE projection_thread_sessions(thread_id TEXT PRIMARY KEY,status TEXT,last_error TEXT);
     CREATE TABLE projection_turns(row_id INTEGER PRIMARY KEY,thread_id TEXT,turn_id TEXT,state TEXT,started_at TEXT,completed_at TEXT);
     CREATE TABLE projection_thread_activities(thread_id TEXT,turn_id TEXT,kind TEXT,summary TEXT,created_at TEXT);`);
-  db.prepare("INSERT INTO projection_projects VALUES(?,?,?,?,?,?,NULL,NULL)").run("project-1", "Workbench", "/srv/projects/workbench", "{}", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+  db.prepare("INSERT INTO projection_projects VALUES(?,?,?,?,?,?,NULL,NULL)").run("project-1", "Workbench", "/srv/projects/wrapt", "{}", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
   const now = new Date(); const started = new Date(now.getTime() - 180_000).toISOString(); const completed = now.toISOString();
   db.prepare("INSERT INTO projection_threads VALUES(?,?,?,?,NULL,0,1,0,NULL)").run("thread-1", "Inbox bauen", "project-1", completed);
   db.prepare("INSERT INTO projection_thread_sessions VALUES(?,?,NULL)").run("thread-1", "running");
@@ -38,7 +38,7 @@ describe("T3-Status-Synchronisation", () => {
     const first = notifications.list().notifications[0]!;
     expect(first.kind).toBe("agent.input-required");
     // Tiefenlink in die SPA statt in den T3-Proxy; Body nennt Projekt und Thread.
-    expect(first.link).toBe("/workbench/t3-code?thread=thread-1&env=environment-1");
+    expect(first.link).toBe("/wrapt/t3-code?thread=thread-1&env=environment-1");
     expect(first.body).toBe("Workbench · Inbox bauen");
     const db = new DatabaseSync(dbPath); db.prepare("UPDATE projection_threads SET pending_user_input_count=0 WHERE thread_id='thread-1'").run(); db.prepare("INSERT INTO orchestration_events VALUES(2,'thread','thread-1')").run(); db.close();
     await sync.poll();
@@ -111,7 +111,7 @@ describe("T3-Status-Synchronisation", () => {
     syncWithRemote["process"](rows[0] as ThreadRow, "environment-2", () => [], false);
     const created = notifications.list().notifications[0]!;
     expect(created.kind).toBe("agent.input-required");
-    expect(created.link).toBe("/workbench/t3-code?thread=thread-1&env=environment-2");
+    expect(created.link).toBe("/wrapt/t3-code?thread=thread-1&env=environment-2");
     notifications.close();
   });
 });

@@ -6,7 +6,7 @@ import { useRouteActivity } from "../../lib/routeActivity";
 
 const AUTOSAVE_DELAY_MS = 700;
 const MAX_RETRY_DELAY_MS = 15_000;
-const ORBIT_DRAFT_KEY = "workbench.orbit.pending-draft.v1";
+const ORBIT_DRAFT_KEY = "wrapt.orbit.pending-draft.v1";
 
 function readPendingDraft() {
   try {

@@ -14,7 +14,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const dir = process.argv[1];
 let config = {};
-for (const name of ["workbench.local.json", "workbench.example.json"]) {
+for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
   try { config = JSON.parse(readFileSync(join(dir, name), "utf8")); break; } catch { /* nächster Kandidat */ }
 }
 process.stdout.write(config.opencodeWeb?.serviceUnit ?? "opencode-web.service");

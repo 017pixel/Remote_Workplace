@@ -11,7 +11,7 @@ import {
   saveOrbitDocumentRequestSchema,
   updateGalleryFileRequestSchema,
   updateGalleryFolderRequestSchema,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { RouteServices } from "../api/services.js";
@@ -32,7 +32,8 @@ export async function registerOrbitRoutes(app: FastifyInstance, services: RouteS
   app.get("/orbit", async () => orbitDocumentResponseSchema.parse(services.orbit.get()));
   app.put("/orbit", async (request) => {
     const input = saveOrbitDocumentRequestSchema.parse(request.body);
-    const supportsCurrentConflictHandling = request.headers["x-workbench-sync-version"] === "2";
+    const supportsCurrentConflictHandling = request.headers["x-wrapt-sync-version"] === "2"
+      || request.headers["x-workbench-sync-version"] === "2";
     const response = supportsCurrentConflictHandling
       ? services.orbit.save(input.document, input.expectedRevision)
       : services.orbit.saveLegacy(input.document, input.expectedRevision);

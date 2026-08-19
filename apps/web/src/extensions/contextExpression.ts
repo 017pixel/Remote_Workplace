@@ -3,7 +3,7 @@ import type {
   ContextExpression,
   ContextKey,
   ContextPrimitive,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 
 export type ShortcutContextValues = ReadonlyMap<ContextKey, ContextPrimitive>;
 

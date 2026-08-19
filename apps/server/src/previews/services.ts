@@ -5,8 +5,8 @@ import {
   previewServiceCandidateSchema,
   type PreviewServiceCandidate,
   type PreviewServiceRole,
-} from "@workbench/contracts";
-import type { LocalPort } from "@workbench/contracts";
+} from "@wrapt/contracts";
+import type { LocalPort } from "@wrapt/contracts";
 
 /**
  * Bekannte Framework-Hinweise. Sie stammen ausschließlich aus statisch gelesenen

@@ -1,4 +1,4 @@
-import type { TerminalKind, TerminalSession } from "@workbench/contracts";
+import type { TerminalKind, TerminalSession } from "@wrapt/contracts";
 import { CloseIcon, ListIcon, PlayIcon, PlusIcon } from "../icons";
 import { kindLabels } from "./terminal-labels";
 

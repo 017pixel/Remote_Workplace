@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { editorOpenEventSchema, WORKBENCH_LIMITS } from "@workbench/contracts";
+import { editorOpenEventSchema, WRAPT_LIMITS } from "@wrapt/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
-import { workbenchQueries } from "../lib/queryOptions";
-import { useWorkbenchNotice } from "../stores/workbenchNotice";
+import { wraptQueries } from "../lib/queryOptions";
+import { useWraptNotice } from "../stores/wraptNotice";
 
 /**
  * „Open in Editor" aus T3 Code: Das Server-Shim `code` meldet einen Pfad über
@@ -13,7 +13,7 @@ import { useWorkbenchNotice } from "../stores/workbenchNotice";
  * Sprung nach `/code-editor/?folder=…`.
  */
 export function EditorOpenBridge() {
-  const projects = useQuery(workbenchQueries.projects());
+  const projects = useQuery(wraptQueries.projects());
   const openPanel = useWorkspaceStore((state) => state.openPanel);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function EditorOpenBridge() {
           projectId: project.id,
           codeServerFolder: path,
         }) === null) {
-          useWorkbenchNotice.getState().show(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+          useWraptNotice.getState().show(`Es können höchstens ${WRAPT_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
         }
       };
       socket.onclose = () => { if (!closed) timer = window.setTimeout(connect, Math.min(15_000, 1_000 * 2 ** retry++)); };

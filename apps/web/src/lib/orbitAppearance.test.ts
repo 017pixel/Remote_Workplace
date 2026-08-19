@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OrbitNode } from "@workbench/contracts";
+import type { OrbitNode } from "@wrapt/contracts";
 import { nearestEdgeSides, projectColor } from "./orbitAppearance";
 
 function node(id: string, x: number): OrbitNode {
@@ -13,7 +13,7 @@ describe("Orbit appearance", () => {
   });
 
   it("returns a stable project color", () => {
-    expect(projectColor("remote-workplace")).toBe(projectColor("remote-workplace"));
-    expect(projectColor("remote-workplace")).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(projectColor("wrapt")).toBe(projectColor("wrapt"));
+    expect(projectColor("wrapt")).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });

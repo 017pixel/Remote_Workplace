@@ -1,4 +1,4 @@
-import { commandsResponseSchema, type CommandsResponse } from "@workbench/contracts";
+import { commandsResponseSchema, type CommandsResponse } from "@wrapt/contracts";
 import type { z } from "zod";
 import type { commandsConfigSchema } from "../config/schemas.js";
 

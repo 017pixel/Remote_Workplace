@@ -5,9 +5,9 @@ import {
 } from "./catalog.js";
 
 export const EXTENSION_CATALOG_V1_SCHEMA_ID =
-  "urn:remote-workplace:extension-catalog:v1";
+  "urn:wrapt:extension-catalog:v1";
 export const EXTENSION_PACKAGE_DESCRIPTOR_V1_SCHEMA_ID =
-  "urn:remote-workplace:extension-package-descriptor:v1";
+  "urn:wrapt:extension-package-descriptor:v1";
 
 function createJsonSchema(schema: z.ZodType, id: string, title: string) {
   return {
@@ -25,7 +25,7 @@ export function createExtensionCatalogV1JsonSchema() {
   return createJsonSchema(
     catalogSnapshotSchema,
     EXTENSION_CATALOG_V1_SCHEMA_ID,
-    "Remote Workplace Local Extension Catalog V1",
+    "Wrapt Local Extension Catalog V1",
   );
 }
 
@@ -33,7 +33,7 @@ export function createExtensionPackageDescriptorV1JsonSchema() {
   return createJsonSchema(
     extensionPackageDescriptorSchema,
     EXTENSION_PACKAGE_DESCRIPTOR_V1_SCHEMA_ID,
-    "Remote Workplace Extension Package Descriptor V1",
+    "Wrapt Extension Package Descriptor V1",
   );
 }
 

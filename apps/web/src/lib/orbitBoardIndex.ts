@@ -1,4 +1,4 @@
-import type { OrbitBoard, OrbitNode } from "@workbench/contracts";
+import type { OrbitBoard, OrbitNode } from "@wrapt/contracts";
 
 /**
  * Wiederverwendbare Lookups für die interaktiven Orbit-Hotpaths. Der Cache ist

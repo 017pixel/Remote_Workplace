@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { LocalPort, LocalPortsResponse } from "@workbench/contracts";
+import type { LocalPort, LocalPortsResponse } from "@wrapt/contracts";
 import { ExternalLinkIcon, NetworkIcon, RefreshIcon } from "../icons";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { useRouteActivity } from "../../lib/routeActivity";
 
 interface LocalPortsProps {
@@ -21,7 +21,7 @@ interface LocalPortsProps {
 export function LocalPorts({ onOpen, compact = false, projectId, projectName, allowAllPorts = false, dataOverride, loadingOverride, errorOverride, refreshOverride }: LocalPortsProps) {
   const sharedData = dataOverride !== undefined;
   const routeActive = useRouteActivity();
-  const query = useQuery({ ...workbenchQueries.localPorts(), enabled: routeActive && !sharedData });
+  const query = useQuery({ ...wraptQueries.localPorts(), enabled: routeActive && !sharedData });
   const [allPortsProjectId, setAllPortsProjectId] = useState<string | null>(null);
   const data = sharedData ? dataOverride : query.data;
   const isLoading = sharedData ? Boolean(loadingOverride) : query.isLoading;

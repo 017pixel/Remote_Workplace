@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { AccountUsage, ProviderUsage, UsageWindow } from "@workbench/contracts";
+import type { AccountUsage, ProviderUsage, UsageWindow } from "@wrapt/contracts";
 import type { CodexbarPayload } from "./codexbar-schemas.js";
 
 type WorkbenchProvider = "codex" | "opencode" | "claude";

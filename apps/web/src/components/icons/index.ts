@@ -4,7 +4,7 @@ export * from "./WorkbenchIcons";
 // all utility/action icons source-compatible. New product/navigation icons
 // should be added to ProductIcons instead of introducing vendor-colored SVGs.
 export {
-  RemoteWorkbenchIcon,
+  WraptIcon,
   DashboardIcon,
   WorkbenchIcon,
   TechTldrsIcon,

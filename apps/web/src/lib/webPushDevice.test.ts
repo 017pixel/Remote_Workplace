@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { notificationSettingsResponseSchema, type NotificationSettingsResponse } from "@workbench/contracts";
+import { notificationSettingsResponseSchema, type NotificationSettingsResponse } from "@wrapt/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { base64UrlBytes, WebPushDeviceClient, type WebPushEnvironment, type WebPushServer } from "./webPushDevice";
 

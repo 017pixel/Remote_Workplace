@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { hermesServiceActionRequestSchema, type HermesServiceState } from "@workbench/contracts";
+import { hermesServiceActionRequestSchema, type HermesServiceState } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { HermesClientError } from "./client.js";
 

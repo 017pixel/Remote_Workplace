@@ -18,7 +18,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const dir = process.argv[1];
 let config = {};
-for (const name of ["workbench.local.json", "workbench.example.json"]) {
+for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
   try { config = JSON.parse(readFileSync(join(dir, name), "utf8")); break; } catch { /* nächster Kandidat */ }
 }
 const home = config.system?.homeDirectory ?? process.env.HOME ?? "";
@@ -36,7 +36,7 @@ process.stdout.write(values.join("\n") + "\n");
 ' "$repo_root/config"
 }
 
-config_lines="$(read_config)" || fail "config/workbench.local.json konnte nicht gelesen werden."
+config_lines="$(read_config)" || fail "config/wrapt.local.json konnte nicht gelesen werden."
 {
   read -r cli_path
   read -r web_host

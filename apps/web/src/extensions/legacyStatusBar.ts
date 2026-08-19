@@ -1,4 +1,4 @@
-import { statusBarContributionSchema } from "@workbench/extension-contracts";
+import { statusBarContributionSchema } from "@wrapt/extension-contracts";
 import {
   statusBarRegistry,
   type StatusBarRegistry,
@@ -22,14 +22,14 @@ export interface LegacyStatusBarOwner {
 export const legacyStatusBarOwners: readonly LegacyStatusBarOwner[] =
   Object.freeze([
     Object.freeze({
-      ownerId: "workbench.usage",
+      ownerId: "wrapt.usage",
       registrations: Object.freeze([
         Object.freeze({
           contribution: statusBarContributionSchema.parse({
-            id: "workbench.usage.statusbar.codex",
+            id: "wrapt.usage.statusbar.codex",
             title: "Codex",
             kind: "text",
-            provider: "workbench.usage.statusbar.provider.codex",
+            provider: "wrapt.usage.statusbar.provider.codex",
             alignment: "right",
             order: 10,
             priority: 50,
@@ -39,10 +39,10 @@ export const legacyStatusBarOwners: readonly LegacyStatusBarOwner[] =
         }),
         Object.freeze({
           contribution: statusBarContributionSchema.parse({
-            id: "workbench.usage.statusbar.opencode",
+            id: "wrapt.usage.statusbar.opencode",
             title: "OpenCode",
             kind: "text",
-            provider: "workbench.usage.statusbar.provider.opencode",
+            provider: "wrapt.usage.statusbar.provider.opencode",
             alignment: "right",
             order: 20,
             priority: 50,
@@ -52,10 +52,10 @@ export const legacyStatusBarOwners: readonly LegacyStatusBarOwner[] =
         }),
         Object.freeze({
           contribution: statusBarContributionSchema.parse({
-            id: "workbench.usage.statusbar.claude",
+            id: "wrapt.usage.statusbar.claude",
             title: "Claude",
             kind: "text",
-            provider: "workbench.usage.statusbar.provider.claude",
+            provider: "wrapt.usage.statusbar.provider.claude",
             alignment: "right",
             order: 30,
             priority: 50,

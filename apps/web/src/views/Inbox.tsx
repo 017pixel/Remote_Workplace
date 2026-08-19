@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import ClaudeCodeColor from "@lobehub/icons/es/ClaudeCode/components/Color.js";
-import type { Notification, NotificationCategory, NotificationSourceIcon } from "@workbench/contracts";
+import type { Notification, NotificationCategory, NotificationSourceIcon } from "@wrapt/contracts";
 import { apiClient } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
-import { CheckIcon, ChevronRightIcon, CloseIcon, CodexIcon, CopyIcon, HermesIcon, InboxIcon, OpenCodeIcon, RemoteWorkbenchIcon, T3CodeIcon, TerminalIcon, TrashIcon, WarningIcon } from "../components/icons";
+import { CheckIcon, ChevronRightIcon, CloseIcon, CodexIcon, CopyIcon, HermesIcon, InboxIcon, OpenCodeIcon, WraptIcon, T3CodeIcon, TerminalIcon, TrashIcon, WarningIcon } from "../components/icons";
 
 const categories: Array<{ id: NotificationCategory; title: string; short: string; icon: ComponentType<{ className?: string }> }> = [
   { id: "hermes", title: "Hermes", short: "Hermes", icon: HermesIcon },
@@ -19,7 +19,7 @@ function SourceIcon({ source, className = "" }: { source: NotificationSourceIcon
   if (source === "codex") return <CodexIcon className={className} />;
   if (source === "claude") return <span className={`notification-source-claude ${className}`}><ClaudeCodeColor width={20} height={20} /></span>;
   if (source === "terminal") return <TerminalIcon className={className} />;
-  return <RemoteWorkbenchIcon className={className} />;
+  return <WraptIcon className={className} />;
 }
 
 export function Inbox() {
@@ -148,7 +148,7 @@ function ReportDialog({ notification, onClose }: { notification: Notification; o
   const [copied, setCopied] = useState(false);
   const report = notification.report;
   const text = useMemo(() => report ? [
-    "Arbeitsauftrag: Analysiere und behebe den folgenden Fehler in der Remote Workplace. Prüfe die Ursache, implementiere eine dauerhafte Lösung und verifiziere sie.",
+    "Arbeitsauftrag: Analysiere und behebe den folgenden Fehler in der Wrapt. Prüfe die Ursache, implementiere eine dauerhafte Lösung und verifiziere sie.",
     "", `Fehler: ${report.message}`, report.stack ? `\nStacktrace:\n${report.stack}` : "",
     `\nKontext:\n${Object.entries(report.context).map(([key, value]) => `${key}: ${value}`).join("\n")}`,
     report.logs.length ? `\nLetzte Schritte und Logs:\n${report.logs.join("\n")}` : "",
@@ -159,7 +159,7 @@ function ReportDialog({ notification, onClose }: { notification: Notification; o
   const openT3 = async () => {
     await copy();
     // In der Workbench-SPA öffnen, nicht im T3-Proxy-Vollbild.
-    window.open("/workbench/t3-code", "_blank", "noopener,noreferrer");
+    window.open("/wrapt/t3-code", "_blank", "noopener,noreferrer");
   };
   return <div className="notification-report-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="notification-report-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-report-title">
     <header><div><span>Diagnose</span><h2 id="notification-report-title">Fehlerbericht</h2></div><button type="button" onClick={onClose} aria-label="Dialog schließen"><CloseIcon className="h-4 w-4" /></button></header>

@@ -1,4 +1,4 @@
-import { hermesErrorCodeSchema, type HermesErrorCode } from "@workbench/contracts";
+import { hermesErrorCodeSchema, type HermesErrorCode } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { redactSensitive } from "./redaction.js";
 import { HermesSessionToken, hermesAuthority } from "./token.js";

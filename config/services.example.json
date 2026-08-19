@@ -21,8 +21,8 @@
       }
     },
     {
-      "id": "workbench-backend",
-      "name": "Workbench Backend",
+      "id": "wrapt-backend",
+      "name": "Wrapt Backend",
       "mode": "external",
       "publicUrl": null,
       "check": {

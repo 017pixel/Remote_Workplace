@@ -98,21 +98,21 @@ describe("TerminalManager", () => {
     expect(manager.getSessionMetadata("owner", session.id).cwd).toBe(nested);
   });
 
-  it("kürzt den Snapshot beim Verbinden auf den schlanken Anzeigeumfang", async () => {
+  it("serialisiert den autoritativen Terminalzustand in den Snapshot beim Verbinden", async () => {
     const root = await mkdtemp(join(tmpdir(), "workbench-terminal-snapshot-"));
-    const supervisor = new FakeSupervisor();
     const pty = new FakePty();
     manager = new TerminalManager({
       allowedRoots: [root], defaultCwd: root, maxSessions: 1,
-      supervisor: supervisor as unknown as TmuxSupervisor,
       adapter: { spawn: () => pty },
     });
     const session = await manager.createSession("owner", { cols: 80, rows: 24 });
-    pty.output("x".repeat(2_000_000));
+    pty.output("zeile-eins\r\nzeile-zwei");
+    await new Promise((resolve) => setTimeout(resolve, 20));
     const messages: unknown[] = [];
     manager.attachSession("owner", session.id, (message) => messages.push(message));
-    const snapshot = messages.find((message) => (message as { type: string }).type === "terminal.snapshot") as { history: string } | undefined;
-    expect(snapshot?.history.length).toBeLessThan(600_000);
+    const snapshot = messages.find((message) => (message as { type: string }).type === "terminal.snapshot") as { serialized: string; epoch: number } | undefined;
+    expect(snapshot?.serialized).toContain("zeile-eins");
+    expect(snapshot?.epoch).toBe(0);
   });
 
   it("behält eine Session mit lebender tmux-Sitzung, wenn das Anhängen fehlschlägt", async () => {
@@ -221,7 +221,7 @@ describe("TerminalManager", () => {
       allowedRoots: [root],
       defaultCwd: root,
       maxSessions: 3,
-      cliPaths: { codex: "/opt/workbench/codex", opencode: "/opt/workbench/opencode" },
+      cliPaths: { codex: "/opt/wrapt/codex", opencode: "/opt/wrapt/opencode" },
       adapter: {
         spawn: (file, args) => {
           spawns.push({ file, args });
@@ -234,8 +234,8 @@ describe("TerminalManager", () => {
     await manager.createSession("owner", { kind: "opencode", cols: 80, rows: 24 });
     expect(spawns).toEqual([
       { file: "/bin/bash", args: ["--login"] },
-      { file: "/opt/workbench/codex", args: [] },
-      { file: "/opt/workbench/opencode", args: [] },
+      { file: "/opt/wrapt/codex", args: [] },
+      { file: "/opt/wrapt/opencode", args: [] },
     ]);
   });
 

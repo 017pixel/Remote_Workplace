@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, SmartphoneIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { resolvePreviewDevice } from "../../lib/previewDevice";
 import { elementContainsEventTarget } from "../../lib/domEvents";
 import { findDevicePreset, getGroupedDevicePresets, type DeviceOrientation, type DevicePresetId } from "../../config/devicePresets";
@@ -24,7 +24,7 @@ export function PreviewDeviceMenu({ deviceId, orientation, onSlotDeviceChange, c
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const preference = useQuery(workbenchQueries.previewDevicePreference());
+  const preference = useQuery(wraptQueries.previewDevicePreference());
   const resolved = resolvePreviewDevice({ deviceId, orientation }, preference.data);
 
   useEffect(() => {

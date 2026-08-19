@@ -6,7 +6,7 @@ import type {
   PreviewServiceCandidate,
   PreviewServiceEdge,
   PreviewSlotState,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 
 export interface SlotRow {
   slotId: number;

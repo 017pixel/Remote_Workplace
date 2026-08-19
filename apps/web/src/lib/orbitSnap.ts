@@ -1,4 +1,4 @@
-import type { OrbitBoard, OrbitNode } from "@workbench/contracts";
+import type { OrbitBoard, OrbitNode } from "@wrapt/contracts";
 import { createOrbitBoardIndex, type OrbitBoardIndex } from "./orbitBoardIndex";
 import { previewSlotGeometry } from "../stores/orbit";
 

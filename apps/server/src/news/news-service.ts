@@ -1,4 +1,4 @@
-import type { NewsCategory, NewsChatMessage, NewsChatModel, NewsChatResponse, NewsItem } from "@workbench/contracts";
+import type { NewsCategory, NewsChatMessage, NewsChatModel, NewsChatResponse, NewsItem } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import type { NewsDatabase, NewsListQuery } from "./database.js";
 import { FeedService } from "./feed-service.js";

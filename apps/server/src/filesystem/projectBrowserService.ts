@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import type { Dirent, Stats } from "node:fs";
 import { access, lstat, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
-import { filesystemTreeResponseSchema, type FilesystemEntry, type FilesystemTreeResponse } from "@workbench/contracts";
+import { filesystemTreeResponseSchema, type FilesystemEntry, type FilesystemTreeResponse } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 
 interface CursorPayload {

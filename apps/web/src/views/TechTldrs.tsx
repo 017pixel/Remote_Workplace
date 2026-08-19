@@ -14,18 +14,18 @@ import type {
   NewsCollection,
   NewsItem,
   NewsListResponse,
-} from "@workbench/contracts";
-import { newsChatModelOptions } from "@workbench/contracts";
+} from "@wrapt/contracts";
+import { newsChatModelOptions } from "@wrapt/contracts";
 import { ArrowLeftIcon, BookmarkIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CloseIcon, CopyIcon, ExternalLinkIcon, FilterIcon, LibraryIcon, PlayIcon, PlusIcon, RefreshIcon, RetryIcon, SearchIcon, SendIcon, SparklesIcon, TechTldrsIcon, TrashIcon, WarningIcon } from "../components/icons";
 import { apiClient } from "../lib/apiClient";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { writeClipboardText } from "../lib/clipboard";
 import { ConfirmDialog, ModalFrame } from "../components/ModalDialog";
 import { useRouteActivity } from "../lib/routeActivity";
 
 const COMPACT_QUERY = "(max-width: 1180px)";
-const MODEL_STORAGE_KEY = "workbench.news.chatModel";
+const MODEL_STORAGE_KEY = "wrapt.news.chatModel";
 
 function useTypewriter(text: string, durationMs = 1200) {
   const [count, setCount] = useState(0);
@@ -1400,7 +1400,7 @@ function AiWorkspace({
               <h2>Was möchtest du wissen?</h2>
               <p>
                 {aiEnabled
-                  ? "Die Antwort entsteht ausschließlich aus den Nachrichten, die deine Workbench eingesammelt hat — mit Quellenangabe zum Nachlesen."
+                  ? "Die Antwort entsteht ausschließlich aus den Nachrichten, die Wrapt eingesammelt hat — mit Quellenangabe zum Nachlesen."
                   : "Ohne hinterlegten Mistral-Schlüssel liefert die Suche nur die passenden Nachrichten als Kurzfassung."}
               </p>
               <div className="news-ai-suggestions">
@@ -1562,7 +1562,7 @@ export function TechTldrs() {
     refetchInterval: 90_000,
     enabled: routeActive,
   });
-  const collections = useQuery({ ...workbenchQueries.newsCollections(), enabled: routeActive });
+  const collections = useQuery({ ...wraptQueries.newsCollections(), enabled: routeActive });
   const [syncError, setSyncError] = useState<string | null>(null);
   const sync = useMutation({
     mutationFn: () => apiClient.syncNews(),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SkillEditorCreateResponse, SkillEditorFile, SkillEditorGitResponse, SkillEditorNode } from "@workbench/contracts";
+import type { SkillEditorCreateResponse, SkillEditorFile, SkillEditorGitResponse, SkillEditorNode } from "@wrapt/contracts";
 import { apiClient } from "../lib/apiClient";
 import { skillForPath, skillFrontmatterWarnings, useAutosave } from "../lib/skillEditor";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
@@ -27,7 +27,7 @@ export function SkillEditor() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [treeQuery, setTreeQuery] = useState("");
-  const treePaneWidth = usePaneWidth({ storageKey: "remote-workplace.skills.tree-width.v1", initial: 280, min: 200, max: 460 });
+  const treePaneWidth = usePaneWidth({ storageKey: "wrapt.skills.tree-width.v1", initial: 280, min: 200, max: 460 });
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<SkillEditorNode | null>(null);
   const [deleting, setDeleting] = useState<SkillEditorNode | null>(null);

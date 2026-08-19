@@ -3,17 +3,22 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config_dir="${CONFIG_DIR:-$repo_root/config}"
-config_file="$config_dir/workbench.local.json"
+config_file="$config_dir/wrapt.local.json"
 user_unit_directory="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 generated_directory="$repo_root/deploy/systemd/generated"
-backup_directory="${HERMES_INSTALL_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/remote-workplace/hermes-install}"
+backup_directory="${HERMES_INSTALL_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/wrapt/hermes-install}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 keep_allowlist=false
 if [[ "${1:-}" == "--keep-allowlist" ]]; then keep_allowlist=true; fi
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-local_config_file="$config_dir/workbench.local.json"
-if [[ ! -f "$config_file" ]]; then config_file="$config_dir/workbench.example.json"; fi
+local_config_file="$config_dir/wrapt.local.json"
+if [[ ! -f "$config_file" && -f "$config_dir/workbench.local.json" ]]; then
+  config_file="$config_dir/workbench.local.json"
+  local_config_file="$config_dir/workbench.local.json"
+elif [[ ! -f "$config_file" ]]; then
+  config_file="$config_dir/wrapt.example.json"
+fi
 cli="${HERMES_CLI_PATH:-$(command -v hermes || true)}"
 if [[ -z "$cli" || ! -x "$cli" ]]; then echo "Hermes-CLI nicht gefunden. Dieses Skript installiert Hermes nicht neu." >&2; exit 1; fi
 version_output="$($cli version 2>&1)"
@@ -55,14 +60,14 @@ rm -f "$build_log"
 
 node "$repo_root/scripts/update-hermes-config.mjs" "$config_dir" "$cli" "$home_directory" "$checkout" "$python_path"
 mkdir -p "$home_directory/dashboard-themes" "$user_unit_directory" "$backup_directory"
-install -m 0644 "$repo_root/deploy/hermes/dashboard-themes/remote-workplace.yaml" "$home_directory/dashboard-themes/remote-workplace.yaml"
+install -m 0644 "$repo_root/deploy/hermes/dashboard-themes/wrapt.yaml" "$home_directory/dashboard-themes/wrapt.yaml"
 
 if [[ "$keep_allowlist" == true ]]; then
   "$python_path" "$repo_root/scripts/hermes-config.py" harden "$home_directory/config.yaml" --keep-allowlist
 else
   "$python_path" "$repo_root/scripts/hermes-config.py" harden "$home_directory/config.yaml"
 fi
-"$python_path" "$repo_root/scripts/hermes-config.py" theme "$home_directory/config.yaml" remote-workplace
+"$python_path" "$repo_root/scripts/hermes-config.py" theme "$home_directory/config.yaml" wrapt
 
 node "$repo_root/deploy/systemd/render-units.mjs"
 units=(hermes-dashboard.service hermes-update.service hermes-update.timer hermes-update-retry.timer)
@@ -96,7 +101,7 @@ for _ in {1..60}; do
   sleep 1
 done
 if [[ -n "$dashboard_token" ]]; then
-  curl -fsS --max-time 10 -X PUT -H 'Host: 127.0.0.1:9119' -H "X-Hermes-Session-Token: $dashboard_token" -H 'Content-Type: application/json' --data '{"name":"remote-workplace"}' http://127.0.0.1:9119/api/dashboard/theme >/dev/null || true
+  curl -fsS --max-time 10 -X PUT -H 'Host: 127.0.0.1:9119' -H "X-Hermes-Session-Token: $dashboard_token" -H 'Content-Type: application/json' --data '{"name":"wrapt"}' http://127.0.0.1:9119/api/dashboard/theme >/dev/null || true
 fi
 trap - ERR
 echo "Hermes-Dashboard und Update-Timer sind als User-Units installiert."

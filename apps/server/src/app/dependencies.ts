@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { PreviewServiceEdge } from "@workbench/contracts";
+import type { PreviewServiceEdge } from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { CodexOAuthPrimaryWindowFallback } from "../adapters/codexbar/codex-oauth-primary-window.js";
 import { CodexbarClient } from "../adapters/codexbar/codexbar-client.js";
@@ -49,7 +49,7 @@ import type { WorkbenchIdentityOptions } from "../security/workbench-identity.js
 import { SkillEditorService } from "../skills/skillEditorService.js";
 import { TerminalDatabase } from "../terminal/database.js";
 import { TerminalManager } from "../terminal/Manager.js";
-import { TmuxSupervisor } from "../terminal/TmuxSupervisor.js";
+import { defaultTerminalSocketPath, TmuxSupervisor } from "../terminal/TmuxSupervisor.js";
 import { AccountService } from "../usage/account-service.js";
 import { UsageDatabase } from "../usage/database.js";
 import { UsageTimelineService } from "../usage/timeline-service.js";
@@ -227,7 +227,7 @@ export async function createAppDependencies(app: FastifyInstance) {
     ...(settings.codexOauthPrimaryFallbackEnabled ? { primaryWindowFallback: new CodexOAuthPrimaryWindowFallback({ profileHomes: settings.codexOauthProfileHomes, configPath: settings.codexbarConfigPath, timeoutMilliseconds: settings.codexOauthTimeoutMilliseconds }) } : {}),
   });
   const analytics = new UsageAnalyticsService({ database: usageDatabase, client: codexbarClient, live: liveUsage, intervalMilliseconds: settings.usageSnapshotIntervalMilliseconds, monitoring: () => usageMonitoringService.get(), opencodeUsagePath: join(settings.sharedHomes.opencode.sharedHome, "opencode.db") });
-  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.workbenchProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
+  const accounts = new AccountService({ database: usageDatabase, allowedRoots: settings.terminalAllowedRoots, profilesRoot: settings.wraptProfilesRoot, codexbarConfigPath: settings.codexbarConfigPath, codexbarCliPath: settings.codexbarCliPath, claudeCliPath: settings.claudeCliPath, sharedHomes: settings.sharedHomes });
   const usageTimeline = new UsageTimelineService({ accounts, client: codexbarClient, live: liveUsage, database: usageDatabase, ttlMilliseconds: settings.codexbarCacheMilliseconds });
   const projectFiles = createProjectFileService(projects);
   const localPorts = createLocalPortService({
@@ -289,7 +289,11 @@ export async function createAppDependencies(app: FastifyInstance) {
     probeTimeoutMilliseconds: settings.localPortProbeTimeoutMilliseconds,
   });
   const previewRepair = new PreviewRepairService({ database: previewSlotDatabase, slots: previewSlots, scanCandidates });
-  const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath) : null;
+  // Dedizierter tmux-Socket unter $XDG_RUNTIME_DIR: Der Supervisor läuft als
+  // eigene systemd-Unit (wrapt-terminal-supervisor.service) und überlebt
+  // Backend-Neustarts. Die Workbench verbindet sich nur mit dem Server.
+  const terminalSupervisor = settings.terminalSupervisor === "tmux" ? new TmuxSupervisor(settings.tmuxPath, settings.tmuxSocketPath ?? defaultTerminalSocketPath()) : null;
+  if (settings.runtimeMode === "production") terminalSupervisor?.ensureSupervisorUnit();
   const terminals = new TerminalManager({
     allowedRoots: settings.terminalAllowedRoots,
     defaultCwd: settings.terminalDefaultCwd,

@@ -1,9 +1,9 @@
 # Konfiguration
 
-## Zentrale Personalisierung: `config/workbench.local.json`
+## Zentrale Personalisierung: `config/wrapt.local.json`
 
 Alle **persönlichen** Werte leben gebündelt in einer einzigen, gitignorierten Datei:
-`config/workbench.local.json` (Vorlage: `config/workbench.example.json`). Sie ist die primäre
+`config/wrapt.local.json` (Vorlage: `config/wrapt.example.json`). Sie ist die primäre
 Konfigurationsquelle für alles Umgebungsspezifische:
 
 - `branding` — Anzeigename der App (`appName`, `shortName`); fließt in Titel, Web-Manifest und Footer.
@@ -20,15 +20,15 @@ Konfigurationsquelle für alles Umgebungsspezifische:
 - `opencodeWeb` — offizielle OpenCode-Web-UI als Loopback-Dienst hinter `/opencode`.
 
 Der Server (`apps/server/src/config/settings.ts`) und der Vite-Build (`apps/web/vite.config.ts`)
-lesen diese Datei beim Start; fehlt sie, wird auf `config/workbench.example.json` zurückgegriffen.
+lesen diese Datei beim Start; fehlt sie, wird auf `config/wrapt.example.json` zurückgegriffen.
 Die Werte aus dieser Config bilden die **Defaults**; eine gesetzte Umgebungsvariable in `.env`
 überschreibt den jeweiligen Einzelwert.
 
 ## Hermes Agent
 
-Hermes wird nicht in den Workbench-Checkout verschoben. `hermes-agent` bleibt das Git-Repository,
+Hermes wird nicht in den Wrapt-Checkout verschoben. `hermes-agent` bleibt das Git-Repository,
 das `hermes update` aktualisiert; `homeDirectory` bleibt die Quelle für Sessions, Telegram, Cron,
-Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine Hermes-Credentials.
+Memory, Skills und Provider-Konfiguration. Der Wrapt-Adapter speichert keine Hermes-Credentials.
 
 ```json
 {
@@ -45,13 +45,13 @@ Memory, Skills und Provider-Konfiguration. Der Workbench-Adapter speichert keine
 }
 ```
 
-Die Workbench öffnet Hermes ausschließlich in der offiziellen Hermes-SPA. Chat, Cron,
+Die Wrapt öffnet Hermes ausschließlich in der offiziellen Hermes-SPA. Chat, Cron,
 Einstellungen, Skills, Webhooks, Kanäle, Profile und weitere Funktionen laufen damit über
 dieselbe eingebettete Oberfläche. Eine eigene Hermes-Agent-UI gibt es nicht mehr.
 
 Die Installationsroutine erkennt CLI, Checkout, virtuelle Python-Umgebung und `HERMES_HOME` und
 schreibt die erkannten Pfade atomar in die lokale Config. `host` muss Loopback sein, `port` darf
-nicht mit Workbench, T3 oder Preview-Ports kollidieren. Die Verwaltung läuft über den geschützten
+nicht mit Wrapt, T3 oder Preview-Ports kollidieren. Die Verwaltung läuft über den geschützten
 Pfad `/hermes`; deren sichtbarer Chat verwendet die offiziellen Hermes-WebSockets unter
 `/hermes/api/pty`, `/hermes/api/ws` und `/hermes/api/events`. Die ACP-Bridge unter
 `/api/v1/hermes/chat` bleibt für interne Hintergrundaufgaben verfügbar und ist kein
@@ -78,7 +78,7 @@ eine systemweite Unit gehören nicht zum Hermes-Integrationspfad.
 ## OpenCode Web
 
 Die offizielle OpenCode-Web-UI läuft als eigene User-Unit `opencode-web.service` auf Loopback und
-wird ausschließlich über `/opencode` in die Workbench eingebettet. Die CLI und die Web-UI verwenden
+wird ausschließlich über `/opencode` in die Wrapt eingebettet. Die CLI und die Web-UI verwenden
 dasselbe OpenCode-Home; Sessions, Verlauf und der aktive Account bleiben dadurch kompatibel.
 
 ```json
@@ -96,7 +96,7 @@ dasselbe OpenCode-Home; Sessions, Verlauf und der aktive Account bleiben dadurch
 ```
 
 `host` muss Loopback sein. Der Dienst hat bewusst kein eigenes Passwort, weil er nicht direkt
-veröffentlicht wird; der Workbench-Proxy prüft die erlaubte Tailscale-Identität. Bei einem Backend-
+veröffentlicht wird; der Wrapt-Proxy prüft die erlaubte Tailscale-Identität. Bei einem Backend-
 Neustart stellt `scripts/sync-opencode-web.sh` die Unit sicher, beendet veraltete Prozesse und
 wartet auf den HTTP-Healthcheck. Die Unit wird mit `scripts/install-opencode-web-unit.sh` installiert.
 Nach Änderungen an Port oder Binary ist ein Backend-Neustart erforderlich.
@@ -125,7 +125,7 @@ Ergebnis-Meldungen mit einer Stunde.
 ## Hermes-Modell
 
 Das Standardmodell liegt in der Hermes-eigenen Konfiguration (`~/.hermes/config.yaml`), nicht in
-der Workbench. Die Workbench liest es nur an und zeigt es in der Kopfzeile an. Der Wechsel auf
+der Wrapt. Die Wrapt liest es nur an und zeigt es in der Kopfzeile an. Der Wechsel auf
 einen OpenAI-kompatiblen Provider (etwa DeepSeek V4 Flash über den OpenCode-Go-Key) erfolgt dort
 als benannter Provider:
 
@@ -142,23 +142,23 @@ custom_providers:
     model: deepseek-v4-flash
 ```
 
-API-Schlüssel bleiben ausschließlich in `HERMES_HOME`; die Workbench speichert keine
+API-Schlüssel bleiben ausschließlich in `HERMES_HOME`; die Wrapt speichert keine
 Hermes-Credentials und schreibt sie weder in Logs noch in Browserzustand.
 
 Web-Push benötigt den privaten HTTPS-Origin und einen aktiven Service Worker unter
-`/workbench/`. Die Berechtigung wird ausschließlich nach einem Klick auf „Auf diesem Gerät
+`/wrapt/`. Die Berechtigung wird ausschließlich nach einem Klick auf „Auf diesem Gerät
 aktivieren“ angefragt. Android unterstützt denselben Standard sowohl im geeigneten Browser als
 auch in der installierten PWA. Auf iPadOS funktioniert Web-Push nur, wenn die PWA vorher über
 „Teilen → Zum Home-Bildschirm“ installiert und anschließend vom Home-Bildschirm gestartet wurde.
 
 Das VAPID-Schlüsselpaar wird beim ersten Start mit Dateirechten `0600` unter
 `<paths.dataDir>/notifications/vapid.json` erzeugt und bei jedem weiteren Start wiederverwendet.
-Diese Datei gehört zusammen mit der externen Workbench-SQLite-Datenbank in die Datensicherung.
+Diese Datei gehört zusammen mit der externen Wrapt-SQLite-Datenbank in die Datensicherung.
 Wird sie ersetzt, erkennt der Browser den Schlüsselwechsel und erneuert ein bereits erlaubtes
 Abo. Der private Schlüssel bleibt ausschließlich im Fastify-Server; das Frontend erhält nur den
 öffentlichen VAPID-Schlüssel.
 
-Push-Abos liegen selbst gehostet in der externen Workbench-SQLite-Datenbank. Es gibt keinen
+Push-Abos liegen selbst gehostet in der externen Wrapt-SQLite-Datenbank. Es gibt keinen
 externen Backend- oder Push-Datenbankdienst. Die standardisierte Push API nutzt dennoch den vom
 Browser vorgegebenen Zustelldienst. Deshalb muss der Server ausgehende HTTPS-Verbindungen zu den
 Subscription-Endpoints erlauben. Für Apple-Geräte darf insbesondere `*.push.apple.com` nicht
@@ -167,11 +167,11 @@ durch DNS-, Proxy- oder Firewallregeln blockiert sein.
 ## Umgebungsvariablen (`.env`)
 
 Die `.env` (Vorlage `.env.example`) enthält nur **Secrets und neutrale Runtime-Knöpfe**: Host, Port,
-Config-Verzeichnis, Web-Build-Verzeichnis, Log-Level sowie Cache-/Timeout-Werte. Der Mistral-Schlüssel für Tech TLDRs ist das einzige zusätzliche Secret und bleibt ausschließlich in der ignorierten `.env`. Persönliche Pfade und Identität gehören **nicht** in die `.env`, sondern nach `config/workbench.local.json`.
+Config-Verzeichnis, Web-Build-Verzeichnis, Log-Level sowie Cache-/Timeout-Werte. Der Mistral-Schlüssel für Tech TLDRs ist das einzige zusätzliche Secret und bleibt ausschließlich in der ignorierten `.env`. Persönliche Pfade und Identität gehören **nicht** in die `.env`, sondern nach `config/wrapt.local.json`.
 
 Der Request-Limiter schützt ausschließlich `/api/**`. Editor, Vite-Module und deren WebSockets laufen unter `/editor/**` und sind bewusst ausgenommen, weil schon ein normaler Modulgraph mehr als 180 Requests erzeugen kann. code-server darf WebSocket-Frames bis 16 MiB übertragen; das Terminal validiert seine Eingaben unabhängig davon weiterhin auf höchstens 64 KiB.
 
-Der Produktionsserver überträgt geeignete Antworten ab 1 KiB per Brotli oder Gzip und cached Vite-Dateien unter `/assets/` ein Jahr lang als `immutable`, weil ihre Dateinamen einen Inhalts-Hash tragen. `index.html` und `sw.js` werden dagegen bei jeder Nutzung revalidiert. Diese Optimierungen greifen nach dem Produktionsbuild und einem Neustart des Workbench-Dienstes.
+Der Produktionsserver überträgt geeignete Antworten ab 1 KiB per Brotli oder Gzip und cached Vite-Dateien unter `/assets/` ein Jahr lang als `immutable`, weil ihre Dateinamen einen Inhalts-Hash tragen. `index.html` und `sw.js` werden dagegen bei jeder Nutzung revalidiert. Diese Optimierungen greifen nach dem Produktionsbuild und einem Neustart des Wrapt-Dienstes.
 
 ```dotenv
 COMPRESSION_THRESHOLD_BYTES=1024
@@ -182,7 +182,7 @@ Qualitätsstufe 4 hält Buildzeit und Dateigröße in einem guten Verhältnis. D
 
 ## Dashboard
 
-Der Abschnitt `dashboard` in `config/workbench.local.json` steuert, welche Bereiche der Server an die Oberfläche freigibt und wie oft die Live-Daten abgefragt werden. Die Schlüssel unter `sections` sind `quickActions`, `server`, `metrics`, `services`, `runtime`, `diagnostics`, `usage`, `news` und `commands`. Die Intervalle unter `refresh` werden in Millisekunden angegeben und serverseitig begrenzt.
+Der Abschnitt `dashboard` in `config/wrapt.local.json` steuert, welche Bereiche der Server an die Oberfläche freigibt und wie oft die Live-Daten abgefragt werden. Die Schlüssel unter `sections` sind `quickActions`, `server`, `metrics`, `services`, `runtime`, `diagnostics`, `usage`, `news` und `commands`. Die Intervalle unter `refresh` werden in Millisekunden angegeben und serverseitig begrenzt.
 
 Die Schalter unter Einstellungen → Dashboard gelten nur für den aktuellen Browser und werden in `localStorage` gespeichert. Ein Bereich, der in `dashboard.sections` auf `false` steht, bleibt auch dort gesperrt. Nach Änderungen an der zentralen Config ist ein Backend-Neustart erforderlich.
 
@@ -193,7 +193,7 @@ WEBSOCKET_MAX_PAYLOAD_BYTES=16777216
 
 ## Projekte
 
-Alle direkten Unterordner aus `paths.projectsRoot` in `config/workbench.local.json` werden automatisch als Projekte erkannt. Die Projekte-Seite fragt diese Liste live über die API ab und benötigt keine hardcodierten Projektnamen. `config/projects.local.json` wird von Git ignoriert und kann für ausgewählte Projekte ergänzend feste IDs, Anzeigenamen, Beschreibungen, Reihenfolge und Previews liefern. Jede explizite Projekt-ID muss lowercase kebab-case und eindeutig sein; Pfade müssen absolut sein. Mit `PROJECT_DISCOVERY_ENABLED=false` kann die automatische Erkennung abgeschaltet werden.
+Alle direkten Unterordner aus `paths.projectsRoot` in `config/wrapt.local.json` werden automatisch als Projekte erkannt. Die Projekte-Seite fragt diese Liste live über die API ab und benötigt keine hardcodierten Projektnamen. `config/projects.local.json` wird von Git ignoriert und kann für ausgewählte Projekte ergänzend feste IDs, Anzeigenamen, Beschreibungen, Reihenfolge und Previews liefern. Jede explizite Projekt-ID muss lowercase kebab-case und eindeutig sein; Pfade müssen absolut sein. Mit `PROJECT_DISCOVERY_ENABLED=false` kann die automatische Erkennung abgeschaltet werden.
 
 Der Orbit-Projektbrowser kann zusätzlich alle Dateien und Ordner unter einer eigenen, read-only durchsuchten Root anzeigen. Nur echte lesbare Unterordner dürfen als Projekt registriert werden; die Root selbst, Dateien und symbolische Verweise sind ausgeschlossen. Verzeichnisantworten werden für große Ordner paginiert und liefern ausschließlich Namen sowie Metadaten, niemals Dateiinhalte.
 
@@ -233,7 +233,7 @@ Dienst konfliktfrei neben anderen Projekten laufen soll. Das Schließen eines Ta
 
 Das Hauptziel wird pro Benutzer gespeichert und beim Öffnen zusammen mit seinen HTTP- und
 WebSocket-Abhängigkeiten über Preview-Slots veröffentlicht. „Im neuen Tab öffnen“ verwendet die
-direkte Tailscale-/Slot-URL. Die Workbench-Hülle mit Gerätewerkzeugen bleibt eine erweiterte
+direkte Tailscale-/Slot-URL. Die Wrapt-Hülle mit Gerätewerkzeugen bleibt eine erweiterte
 Option. Als Dienstport ist nur ein Wert aus `previews.allowedProjectPorts` oder die Auto-Zuweisung
 einer Version-2-Konfiguration zulässig.
 
@@ -286,9 +286,9 @@ Die Statistikseite verwendet zusätzlich die lokale CLI für die nach Projekten 
 
 ```dotenv
 CODEXBAR_CLI_PATH=/home/your-user/.local/bin/codexbar
-DATABASE_PATH=/home/your-user/.local/share/remote-workplace/workbench.sqlite
+DATABASE_PATH=/home/your-user/.local/share/wrapt/wrapt.sqlite
 USAGE_SNAPSHOT_INTERVAL_MS=300000
-WORKBENCH_PROFILES_ROOT=/home/your-user/.workbench-profiles
+WRAPT_PROFILES_ROOT=/home/your-user/.wrapt-profiles
 CODEXBAR_CONFIG_PATH=/home/your-user/.config/codexbar/config.json
 CODEX_SHARED_HOME=/home/your-user/.codex
 CLAUDE_SHARED_HOME=/home/your-user/.claude
@@ -304,14 +304,14 @@ Der integrierte Browser sucht mit `CHROMIUM_PATH=auto` zuerst in lokalen Playwri
 ```dotenv
 CHROMIUM_PATH=auto
 BROWSER_MAX_SESSIONS=6
-BROWSER_PROFILES_ROOT=/home/your-user/.local/share/remote-workplace/browser-profiles
+BROWSER_PROFILES_ROOT=/home/your-user/.local/share/wrapt/browser-profiles
 BROWSER_STARTUP_TIMEOUT_MS=15000
 BROWSER_IDLE_TIMEOUT_MS=1800000
 LOCAL_PORT_CACHE_MS=5000
 LOCAL_PORT_PROBE_TIMEOUT_MS=450
 ```
 
-Die Profilwurzel liegt außerhalb des Repositorys. Darunter gespeicherte Cookies, Tokens und Website-Daten sind sensible Laufzeitdaten und müssen mit denselben Rechten wie CLI-Anmeldungen geschützt und aus Quellcode-Backups ausgeschlossen werden. Der Port-Scanner liest ausschließlich lokale TCP-Listener und prüft sie gegen Loopback. Er öffnet keine externen Netzwerkziele. Die Browser- und Terminal-WebSockets benötigen eine erlaubte Tailscale-Identität und einen identischen Workbench-Origin.
+Die Profilwurzel liegt außerhalb des Repositorys. Darunter gespeicherte Cookies, Tokens und Website-Daten sind sensible Laufzeitdaten und müssen mit denselben Rechten wie CLI-Anmeldungen geschützt und aus Quellcode-Backups ausgeschlossen werden. Der Port-Scanner liest ausschließlich lokale TCP-Listener und prüft sie gegen Loopback. Er öffnet keine externen Netzwerkziele. Die Browser- und Terminal-WebSockets benötigen eine erlaubte Tailscale-Identität und einen identischen Wrapt-Origin.
 
 ## Preview-Slots, Gateway und Diagnose
 
@@ -345,7 +345,7 @@ lassen sich einzeln aktivieren und wieder zurückrollen, ohne Daten zu verlieren
 - `gatewayV2Enabled` — atomarer Routing-Snapshot, gezielte Embedding-Anpassung statt pauschalem
   Entfernen von CSP und `X-Frame-Options`, Header- und Redirect-Regeln. `false` verwendet den
   bisherigen Gateway.
-- `bridgeEnabled` — injiziert das externe Bridge-Script `/__workbench/preview-bridge.v1.js`
+- `bridgeEnabled` — injiziert das externe Bridge-Script `/__wrapt/preview-bridge.v1.js`
   in HTML-Antworten (nur zusammen mit `gatewayV2Enabled`).
 - `diagnosticsEnabled` — Client- und Gatewaydiagnose samt redigierten JSONL-Logs unter
   `<paths.dataDir>/preview-logs/` (Verzeichnis `0700`, Dateien `0600`).
@@ -374,7 +374,7 @@ Zwei Werte sind ausschließlich für Entwicklung und Tests gedacht:
 # Slot-Origins als http://127.0.0.1:<internalPort> ausgeben statt HTTPS über Tailscale
 PREVIEW_PUBLIC_ORIGIN_MODE=loopback-http
 # Identität ohne vorgeschalteten Tailscale-Proxy (in Produktion leer lassen)
-WORKBENCH_DEV_TAILSCALE_USER=user@example.com
+WRAPT_DEV_TAILSCALE_USER=user@example.com
 ```
 
 Preview-Endpunkte verlangen immer eine erlaubte Tailscale-Identität aus
@@ -392,8 +392,8 @@ Der Orbit Workspace verwendet dieselbe `DATABASE_PATH`-Datei und legt darin ein 
 ```dotenv
 ORBIT_SYNC_INTERVAL_MS=5000
 ORBIT_DOCUMENT_MAX_BYTES=4194304
-ORBIT_BACKUP_DIR=/home/your-user/.local/share/remote-workplace/orbit-backups
-ORBIT_ASSET_DIR=/home/your-user/.local/share/remote-workplace/orbit-assets
+ORBIT_BACKUP_DIR=/home/your-user/.local/share/wrapt/orbit-backups
+ORBIT_ASSET_DIR=/home/your-user/.local/share/wrapt/orbit-assets
 ORBIT_ASSET_MAX_FILE_BYTES=104857600
 ORBIT_ASSET_MAX_TOTAL_BYTES=53687091200
 ORBIT_DESTRUCTIVE_DROP_PERCENT=50
@@ -405,7 +405,7 @@ Für mehrere Codex-Accounts wird pro Account ein separates Codex-Home mit eigene
 
 ### Aktiver Account je Werkzeug
 
-Serverweit ist je Werkzeug genau ein Account aktiv — für Codex, Claude Code und OpenCode. Umgeschaltet wird ausschließlich die Anmeldung: Die Anmeldedatei im gemeinsamen Home ist ein Symlink in den Anmeldespeicher des aktiven Accounts und wird beim Wechsel atomar umgehängt. Konfiguration, Sessions und Verlauf bleiben gemeinsam — es gibt weiterhin nur einen Projekt- und Sessionbestand. Jeder danach gestartete Prozess des Werkzeugs verwendet den neuen Account, auch außerhalb der Workbench (SSH, tmux, Skripte). Bereits laufende Prozesse behalten ihren Account, bis sie neu gestartet werden.
+Serverweit ist je Werkzeug genau ein Account aktiv — für Codex, Claude Code und OpenCode. Umgeschaltet wird ausschließlich die Anmeldung: Die Anmeldedatei im gemeinsamen Home ist ein Symlink in den Anmeldespeicher des aktiven Accounts und wird beim Wechsel atomar umgehängt. Konfiguration, Sessions und Verlauf bleiben gemeinsam — es gibt weiterhin nur einen Projekt- und Sessionbestand. Jeder danach gestartete Prozess des Werkzeugs verwendet den neuen Account, auch außerhalb der Wrapt (SSH, tmux, Skripte). Bereits laufende Prozesse behalten ihren Account, bis sie neu gestartet werden.
 
 | Werkzeug | Gemeinsames Home (Standard) | Anmeldedatei | Config-Feld / Env |
 |---|---|---|---|
@@ -413,7 +413,7 @@ Serverweit ist je Werkzeug genau ein Account aktiv — für Codex, Claude Code u
 | Claude Code | `<homeDirectory>/.claude` | `.credentials.json` | `paths.claudeSharedHome` / `CLAUDE_SHARED_HOME` |
 | OpenCode | `<homeDirectory>/.local/share/opencode` | `auth.json` | `paths.opencodeSharedHome` / `OPENCODE_SHARED_HOME` |
 
-Codex und OpenCode lesen und schreiben ihre Anmeldedatei durch den Symlink hindurch, ohne ihn zu ersetzen; aufgefrischte Token landen damit im Anmeldespeicher des Accounts, dem sie gehören. Claude Code entfernt den Symlink beim Abmelden. Damit in keinem Fall Zugangsdaten verloren gehen, verlässt sich die Workbench nicht auf dieses Verhalten: Findet sie an der Stelle des Symlinks wieder eine reguläre Datei, übernimmt sie deren — neuere — Inhalte in den Anmeldespeicher des zuletzt aktivierten Accounts und hängt den Symlink neu ein. Die vorherige Fassung bleibt als `*.ersetzt-<Zeitstempel>` daneben liegen.
+Codex und OpenCode lesen und schreiben ihre Anmeldedatei durch den Symlink hindurch, ohne ihn zu ersetzen; aufgefrischte Token landen damit im Anmeldespeicher des Accounts, dem sie gehören. Claude Code entfernt den Symlink beim Abmelden. Damit in keinem Fall Zugangsdaten verloren gehen, verlässt sich die Wrapt nicht auf dieses Verhalten: Findet sie an der Stelle des Symlinks wieder eine reguläre Datei, übernimmt sie deren — neuere — Inhalte in den Anmeldespeicher des zuletzt aktivierten Accounts und hängt den Symlink neu ein. Die vorherige Fassung bleibt als `*.ersetzt-<Zeitstempel>` daneben liegen.
 
 Ein gemeinsames Home ist selbst kein Account. Solange dort noch eine eigenständige Anmeldung liegt, wird sie zum Registrieren angeboten; beim ersten Aktivieren bekommt sie automatisch einen eigenen Anmeldespeicher unter `paths.workbenchProfilesRoot`. Danach taucht das gemeinsame Home nicht mehr in der Accountliste auf.
 
@@ -426,7 +426,7 @@ scripts/ki-account.sh use arbeit         # per Name, E-Mail oder Profilpfad akti
 scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug voranstellen
 ```
 
-Lokale automatisierte Browsertests können den ansonsten von Tailscale Serve gesetzten Identitätsheader über den Vite-Proxy ergänzen. `WORKBENCH_DEV_TAILSCALE_USER` ist ausschließlich zusammen mit einem isolierten Test-Backend und einer separaten Datenbank zu verwenden. Der Produktionsserver wertet diese Variable nicht aus und akzeptiert weiterhin nur den tatsächlich am Request vorhandenen Tailscale-Header.
+Lokale automatisierte Browsertests können den ansonsten von Tailscale Serve gesetzten Identitätsheader über den Vite-Proxy ergänzen. `WRAPT_DEV_TAILSCALE_USER` ist ausschließlich zusammen mit einem isolierten Test-Backend und einer separaten Datenbank zu verwenden. Der Produktionsserver wertet diese Variable nicht aus und akzeptiert weiterhin nur den tatsächlich am Request vorhandenen Tailscale-Header.
 
 ## Tech TLDRs
 
@@ -444,7 +444,7 @@ NEWS_MAX_ITEMS_PER_SOURCE=16
 NEWS_AI_CONCURRENCY=1
 ```
 
-Free-Mode-Limits sind organisations- und modellabhängig. Die Workbench speichert keine festen Mistral-Limits, sondern verarbeitet Beiträge seriell, respektiert Rate-Limit-Antworten und lässt unverarbeitete Meldungen mit regelbasiertem TLDR sichtbar. Nach einer Änderung der Modell-IDs ist ein Neustart des Backends erforderlich.
+Free-Mode-Limits sind organisations- und modellabhängig. Die Wrapt speichert keine festen Mistral-Limits, sondern verarbeitet Beiträge seriell, respektiert Rate-Limit-Antworten und lässt unverarbeitete Meldungen mit regelbasiertem TLDR sichtbar. Nach einer Änderung der Modell-IDs ist ein Neustart des Backends erforderlich.
 
 ## Codex- und OpenCode-Terminals
 

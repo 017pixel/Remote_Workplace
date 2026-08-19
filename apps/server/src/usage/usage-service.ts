@@ -1,4 +1,4 @@
-import type { UsageDashboardResponse, UsageForecast, UsageMonitoring, UsageRange, UsageResponse } from "@workbench/contracts";
+import type { UsageDashboardResponse, UsageForecast, UsageMonitoring, UsageRange, UsageResponse } from "@wrapt/contracts";
 import type { CodexbarClient } from "../adapters/codexbar/codexbar-client.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
 import type { CodexbarPayload } from "../adapters/codexbar/codexbar-schemas.js";

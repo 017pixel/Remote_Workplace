@@ -15,9 +15,9 @@ import {
   type ExtensionRegistrySnapshot,
   type ExtensionRegistrySummary,
   type ExtensionSource,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { AppError } from "../utils/errors.js";
-import type { LocalExtensionCatalog } from "./catalog.js";
+import { canonicalCatalogProviderId, type LocalExtensionCatalog } from "./catalog.js";
 import { defaultHealth, type ExtensionDatabase } from "./database.js";
 
 interface DiscoveredExtension {
@@ -384,7 +384,7 @@ export class ExtensionManager {
         throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
       }
       const entry = this.catalog.get(request.extensionId);
-      if (entry === undefined || entry.providerId !== request.source.providerId) {
+      if (entry === undefined || canonicalCatalogProviderId(entry.providerId) !== canonicalCatalogProviderId(request.source.providerId)) {
         throw new AppError(
           404,
           "not-found",
@@ -402,7 +402,7 @@ export class ExtensionManager {
         manifest,
         source: {
           kind: "catalog",
-          providerId: request.source.providerId,
+          providerId: canonicalCatalogProviderId(request.source.providerId),
           packageIntegrity: request.source.packageIntegrity,
         },
       };
@@ -487,7 +487,7 @@ export class ExtensionManager {
       throw new AppError(501, "staging-failed", "Der Local Catalog ist nicht verfügbar.");
     }
     const entry = this.catalog.get(request.extensionId);
-    if (entry === undefined || entry.providerId !== request.target.providerId) {
+    if (entry === undefined || canonicalCatalogProviderId(entry.providerId) !== canonicalCatalogProviderId(request.target.providerId)) {
       throw new AppError(
         404,
         "not-found",

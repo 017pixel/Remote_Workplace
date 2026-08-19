@@ -2,11 +2,11 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import type { Frame } from "@playwright/test";
 
-const workbench = (process.env.WORKBENCH_E2E_URL ?? "http://127.0.0.1:3010/workbench").replace(/\/$/, "");
+const workbench = (process.env.WRAPT_E2E_URL ?? "http://127.0.0.1:3010/wrapt").replace(/\/$/, "");
 const origin = new URL(workbench).origin;
 
 test.describe("T3-Performance", () => {
-  test.skip(process.env.WORKBENCH_T3_E2E !== "true", "Setze WORKBENCH_T3_E2E=true für den Test gegen die laufende T3-Instanz.");
+  test.skip(process.env.WRAPT_T3_E2E !== "true", "Setze WRAPT_T3_E2E=true für den Test gegen die laufende T3-Instanz.");
   test.use({
     extraHTTPHeaders: { "tailscale-user-login": "aistudioaccprgrm@gmail.com" },
     viewport: { width: 1440, height: 960 },
@@ -57,7 +57,7 @@ test.describe("T3-Performance", () => {
     });
     const startedAt = Date.now();
     await page.getByRole("link", { name: "T3 Code", exact: true }).click();
-    await expect(page).toHaveURL(/\/workbench\/t3-code$/);
+    await expect(page).toHaveURL(/\/wrapt\/t3-code$/);
     const standaloneT3Frame = '.tool-surface-standalone iframe[title="T3 Code"]';
     const frame = page.frameLocator(standaloneT3Frame);
     await expect(frame.getByText("Projects", { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -75,22 +75,22 @@ test.describe("T3-Performance", () => {
     });
 
     const routes = [
-      ["Inbox", "/workbench/inbox"],
-      ["Workbench", "/workbench/workbench"],
-      ["Tech TLDRs", "/workbench/tech-tldrs"],
-      ["Projekte", "/workbench/projects"],
-      ["Dateien", "/workbench/files"],
-      ["KI-Skills", "/workbench/ki-skills"],
-      ["Hermes Agent", "/workbench/hermes-agent"],
-      ["Code-Server", "/workbench/code-editor"],
-      ["Previews", "/workbench/previews"],
-      ["Browser", "/workbench/browser"],
-      ["Terminal", "/workbench/terminal"],
-      ["OpenCode", "/workbench/opencode"],
-      ["Codex", "/workbench/codex"],
-      ["Claude Code", "/workbench/claude"],
-      ["Nutzung", "/workbench/usage"],
-      ["Einstellungen", "/workbench/settings"],
+      ["Inbox", "/wrapt/inbox"],
+      ["Workbench", "/wrapt/wrapt"],
+      ["Tech TLDRs", "/wrapt/tech-tldrs"],
+      ["Projekte", "/wrapt/projects"],
+      ["Dateien", "/wrapt/files"],
+      ["KI-Skills", "/wrapt/ki-skills"],
+      ["Hermes Agent", "/wrapt/hermes-agent"],
+      ["Code-Server", "/wrapt/code-editor"],
+      ["Previews", "/wrapt/previews"],
+      ["Browser", "/wrapt/browser"],
+      ["Terminal", "/wrapt/terminal"],
+      ["OpenCode", "/wrapt/opencode"],
+      ["Codex", "/wrapt/codex"],
+      ["Claude Code", "/wrapt/claude"],
+      ["Nutzung", "/wrapt/usage"],
+      ["Einstellungen", "/wrapt/settings"],
     ] as const;
     const returnToT3 = async () => {
       const t3Link = page.getByRole("link", { name: "T3 Code", exact: true });
@@ -118,7 +118,7 @@ test.describe("T3-Performance", () => {
       await expect(page).toHaveURL(new RegExp(`${path.replaceAll("/", "\\/")}$`));
       const warmReturnStartedAt = Date.now();
       await returnToT3();
-      await expect(page).toHaveURL(/\/workbench\/t3-code$/);
+      await expect(page).toHaveURL(/\/wrapt\/t3-code$/);
       await expect(page.locator(standaloneT3Frame)).toBeVisible();
       expect(Date.now() - warmReturnStartedAt).toBeLessThan(10_000);
       expect(await page.evaluate(() => {

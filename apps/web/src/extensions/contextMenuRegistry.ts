@@ -9,7 +9,7 @@ import {
   type ContextMenuSurface,
   type ContributionId,
   type ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   commandRegistry,
   type CommandRegistry,

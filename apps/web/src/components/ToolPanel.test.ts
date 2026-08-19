@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
-import type { Panel, Project } from "@workbench/contracts";
+import type { Panel, Project } from "@wrapt/contracts";
 import { projectBoundCodeServerProxyUrl, projectBoundCodeServerUrl } from "./ToolPanel";
 import { ToolPanel } from "./ToolPanel";
 import { RouteActivityProvider } from "../lib/routeActivity";
@@ -12,16 +12,16 @@ afterEach(() => cleanup());
 
 describe("project-bound code-server URLs", () => {
   it("always includes the validated project folder", () => {
-    const path = "/home/user/projects/Remote_Workplace";
-    expect(projectBoundCodeServerProxyUrl(path)).toBe("/editor/?folder=%2Fhome%2Fuser%2Fprojects%2FRemote_Workplace");
-    expect(projectBoundCodeServerUrl("https://server.example/editor/", path)).toBe("https://server.example/editor/?folder=%2Fhome%2Fuser%2Fprojects%2FRemote_Workplace");
+    const path = "/home/user/projects/Wrapt";
+    expect(projectBoundCodeServerProxyUrl(path)).toBe("/editor/?folder=%2Fhome%2Fuser%2Fprojects%2FWrapt");
+    expect(projectBoundCodeServerUrl("https://server.example/editor/", path)).toBe("https://server.example/editor/?folder=%2Fhome%2Fuser%2Fprojects%2FWrapt");
   });
 });
 
 describe("standalone T3 Code actions", () => {
   it("behält das T3-iframe auch in einer geparkten Route", () => {
     const project = {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: "https://t3.example.test", codeServer: null },
     } satisfies Project;
@@ -45,7 +45,7 @@ describe("standalone T3 Code actions", () => {
     target.id = "topbar-tool-actions";
     document.body.append(target);
     const project = {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: "https://t3.example.test", codeServer: null },
     } satisfies Project;
@@ -76,7 +76,7 @@ describe("standalone T3 Code actions", () => {
     target.id = "topbar-tool-actions";
     document.body.append(target);
     const project = {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: null, codeServer: "https://editor.example.test" },
     } satisfies Project;
@@ -96,7 +96,7 @@ describe("standalone T3 Code actions", () => {
     target.id = "topbar-tool-actions";
     document.body.append(target);
     const project = {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: "https://t3.example.test", codeServer: "https://editor.example.test" },
     } satisfies Project;
@@ -121,7 +121,7 @@ describe("standalone T3 Code actions", () => {
 describe("eingebettete Werkzeug-Eingaben", () => {
   it("lässt Pointer-Gesten im Werkzeug nicht bis zum Canvas durch", () => {
     const project = {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: "https://t3.example.test", codeServer: null },
     } satisfies Project;
@@ -151,14 +151,14 @@ describe("T3 Open-in-VS-Code-Brücke", () => {
     // jsdom setzt bei window.postMessage kein event.origin; der Handler
     // prüft es aber wie im Browser gegen window.location.origin.
     window.dispatchEvent(new MessageEvent("message", {
-      data: { type: "remote-workplace:open-editor", ...(folder ? { folder } : {}) },
+      data: { type: "wrapt:open-editor", ...(folder ? { folder } : {}) },
       origin: window.location.origin,
     }));
   }
 
   function t3Project(): Project {
     return {
-      id: "remote-workplace", name: "Remote Workplace", description: "Workbench", path: "/tmp/remote-workplace", enabled: true, sortOrder: 1,
+      id: "wrapt", name: "Wrapt", description: "Workbench", path: "/tmp/wrapt", enabled: true, sortOrder: 1,
       availability: "available", activity: { lastWorkbenchUseAt: null, lastFilesystemChangeAt: null, lastGitCommitAt: null, effectiveAt: null },
       previews: [], links: { t3Code: "https://t3.example.test", codeServer: "https://editor.example.test" },
     };
@@ -203,7 +203,7 @@ describe("T3 Open-in-VS-Code-Brücke", () => {
 
     render(createElement(ToolPanel, { panel, project, isFocused: false, codeServerMode: "embedded" }));
 
-    window.dispatchEvent(new MessageEvent("message", { data: { type: "remote-workplace:open-browser", url: "http://127.0.0.1:4000" }, origin: window.location.origin }));
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "wrapt:open-browser", url: "http://127.0.0.1:4000" }, origin: window.location.origin }));
     window.dispatchEvent(new MessageEvent("message", { data: { type: "unrelated" }, origin: window.location.origin }));
 
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -7,7 +7,7 @@ import {
   type KeyboardShortcutContribution,
   type ShortcutKeybinding,
   type ShortcutKeyStroke,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   commandRegistry,
   type CommandRegistry,

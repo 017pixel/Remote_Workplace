@@ -31,7 +31,7 @@ export function HermesAdminFrame({ path, active = true, onPathChange }: { path: 
   const mountedSrc = useRef(frameUrl(safePath));
   const reportedPath = useRef(safePath);
   const sendActivity = useCallback(() => frameRef.current?.contentWindow?.postMessage(
-    { source: "remote-workplace-hermes", version: 1, type: "host.activity", active },
+    { source: "wrapt-hermes", version: 1, type: "host.activity", active },
     window.location.origin,
   ), [active]);
 
@@ -39,7 +39,7 @@ export function HermesAdminFrame({ path, active = true, onPathChange }: { path: 
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
-      if (data?.source !== "remote-workplace-hermes" || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
+      if (data?.source !== "wrapt-hermes" || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
       if (!data.path.startsWith("/hermes")) return;
       const next = safeHermesPath(data.path.slice("/hermes".length) || "/");
       reportedPath.current = next;
@@ -54,7 +54,7 @@ export function HermesAdminFrame({ path, active = true, onPathChange }: { path: 
     if (safePath === reportedPath.current) return;
     const target = frameUrl(safePath);
     frameRef.current?.contentWindow?.postMessage(
-      { source: "remote-workplace-hermes", version: 1, type: "route.navigate", path: target },
+      { source: "wrapt-hermes", version: 1, type: "route.navigate", path: target },
       window.location.origin,
     );
     const fallback = window.setTimeout(() => {

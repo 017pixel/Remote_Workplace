@@ -1,4 +1,4 @@
-import type { OrbitNode } from "@workbench/contracts";
+import type { OrbitNode } from "@wrapt/contracts";
 
 export interface OrbitEdgePoint { x: number; y: number }
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import type { NotificationPresenceItem, Panel, Workspace } from "@workbench/contracts";
+import { useShallow } from "zustand/react/shallow";
+import type { NotificationPresenceItem, Panel, Workspace } from "@wrapt/contracts";
 import { apiClient } from "./apiClient";
-import { useTerminalStore } from "../stores/terminals";
+import { terminalAreaView, useTerminalWorkspaceStore } from "../stores/terminalWorkspace";
 import { useWorkspaceStore, visiblePanels } from "../stores/workspace";
 import { usePanelPresenceStore } from "../stores/panelPresence";
 import { useResponsiveShell } from "./useResponsiveShell";
@@ -17,9 +18,9 @@ import { t3ThreadIdFromPath } from "./t3Thread";
  * erscheint in beiden Fällen.
  *
  * Die Referenzen kommen aus drei Quellen:
- *  - T3: Route-Bridge des T3-Proxys (`remote-workplace-t3`), meldet den
+ *  - T3: Route-Bridge des T3-Proxys (`wrapt-t3`), meldet den
  *    geöffneten Thread per postMessage aus dem iframe.
- *  - Hermes: Route-Bridge der Hermes-SPA (`remote-workplace-hermes`), meldet
+ *  - Hermes: Route-Bridge der Hermes-SPA (`wrapt-hermes`), meldet
  *    den Pfad samt `resume`-Sitzung.
  *  - Terminals: der aktive Tab des Terminal-Stores (seine id ist die
  *    `runtimeId` der Server-Sitzung), ersatzweise der `session`-URL-Parameter.
@@ -84,7 +85,15 @@ const HEARTBEAT_MS = 60_000;
 export function useViewPresence() {
   const location = useLocation();
   const responsive = useResponsiveShell();
-  const terminalAreas = useTerminalStore((state) => state.areas);
+  // Alle Terminalflächen des V2-Dokuments als Kompatibilitätssicht (aktive
+  // Runtime je Fläche) — Quelle für Presence und Benachrichtigungs-Handover.
+  // Der Selektor baut eine neue Objekt-Referenz; useShallow verhindert, dass
+  // useSyncExternalStore jeden Render als Store-Änderung wertet (React #185).
+  const terminalAreas = useTerminalWorkspaceStore(useShallow((state) => {
+    const areas: Record<string, { activeTabId: string | null; tabs: Array<{ id: string }> }> = {};
+    for (const areaId of Object.keys(state.document?.areaLayouts ?? {})) areas[areaId] = terminalAreaView(state, areaId);
+    return areas;
+  }));
   const workspacePanels = useWorkspaceStore((state) => state.panels);
   const workspacePage = useWorkspaceStore((state) => state.workspaces);
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
@@ -109,10 +118,10 @@ export function useViewPresence() {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
       if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
-      if (data.source === "remote-workplace-t3") {
+      if (data.source === "wrapt-t3") {
         setT3ThreadId(t3ThreadIdFromPath(data.path));
       }
-      if (data.source === "remote-workplace-hermes") {
+      if (data.source === "wrapt-hermes") {
         const path = data.path.startsWith("/hermes") ? data.path.slice("/hermes".length) : data.path;
         setHermesSessionId(new URLSearchParams(path.split("?")[1] ?? "").get("resume"));
       }

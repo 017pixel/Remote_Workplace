@@ -1,4 +1,4 @@
-import { contextMenuContributionSchema } from "@workbench/extension-contracts";
+import { contextMenuContributionSchema } from "@wrapt/extension-contracts";
 import {
   contextMenuRegistry,
   type ContextMenuRegistry,
@@ -20,13 +20,13 @@ export interface LegacyContextMenuOwner {
 export const legacyContextMenuOwners: readonly LegacyContextMenuOwner[] =
   Object.freeze([
     Object.freeze({
-      ownerId: "workbench.orbit",
+      ownerId: "wrapt.orbit",
       registrations: Object.freeze([
         Object.freeze({
           contribution: contextMenuContributionSchema.parse({
-            id: "workbench.orbit.menu.project-browser",
+            id: "wrapt.orbit.menu.project-browser",
             surface: "host.context-menu.orbit-pane",
-            commandId: "workbench.orbit.command.project-browser",
+            commandId: "wrapt.orbit.command.project-browser",
             group: "open",
             order: 10,
           }),

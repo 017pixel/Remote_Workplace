@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import type {
   ContributionId,
   ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import type { OrbitPaletteItem } from "../stores/sidebarPreferences";
 import type { OrbitPalettePayload } from "../lib/orbitPalette";
 import {

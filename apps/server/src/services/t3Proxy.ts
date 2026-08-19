@@ -25,7 +25,7 @@ const maxInjectedHtmlBytes = 4 * 1024 * 1024;
  * direkt per `PUT /api/v1/notifications/presence`. So gelten Benachrichtigungen
  * für einen Thread als gesehen, sobald der Nutzer genau diesen Chat öffnet.
  */
-export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
+export const t3RouteBridgeScript = `<script data-wrapt-t3-route="1">
 (() => {
   const prefix = "/t3";
   const pathname = window.location.pathname;
@@ -43,7 +43,7 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
     const normalized = legacyChatThread ? "/" + segments.slice(1).join("/") : nextPath;
     window.history.replaceState(window.history.state, "", normalized + window.location.search + window.location.hash);
   }
-  const historyIndexKey = "__remoteWorkplaceT3Index";
+  const historyIndexKey = "__wraptT3Index";
   let historyIndex = Number.isInteger(window.history.state?.[historyIndexKey]) ? window.history.state[historyIndexKey] : 0;
   window.history.replaceState({ ...window.history.state, [historyIndexKey]: historyIndex }, "", window.location.href);
   const presence = () => {
@@ -60,7 +60,7 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
         fetch("/api/v1/notifications/presence", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(presence()) });
       } catch { /* Presence ist Best Effort. */ }
     } else {
-      window.parent.postMessage({ source: "remote-workplace-t3", version: 1, type: "route.changed", path }, window.location.origin);
+      window.parent.postMessage({ source: "wrapt-t3", version: 1, type: "route.changed", path }, window.location.origin);
     }
   };
   const originalPushState = history.pushState.bind(history);
@@ -101,8 +101,8 @@ export const t3RouteBridgeScript = `<script data-remote-workplace-t3-route="1">
 // eigentliche Browser-Implementierung bleibt in `apps/web/src/components/browser`.
 export const remoteBrowserFallbackScript = `<script>
 (() => {
-  const messageType = "remote-workplace:open-browser";
-  const mark = "data-remote-workplace-browser-fallback";
+  const messageType = "wrapt:open-browser";
+  const mark = "data-wrapt-browser-fallback";
   const normalizeUrl = (value) => {
     if (typeof value !== "string" || !value.trim()) return null;
     try {
@@ -120,7 +120,7 @@ export const remoteBrowserFallbackScript = `<script>
     if (!button.textContent?.trim().startsWith("Browser")) return;
     if (button.getAttribute(mark) !== "true") {
       button.setAttribute(mark, "true");
-      button.title = "Remote-Workplace-Browser öffnen";
+      button.title = "Wrapt-Browser öffnen";
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -180,8 +180,8 @@ export const remoteBrowserFallbackScript = `<script>
 // Projekt des Panels.
 export const remoteEditorFallbackScript = `<script>
 (() => {
-  const messageType = "remote-workplace:open-editor";
-  const mark = "data-remote-workplace-editor-fallback";
+  const messageType = "wrapt:open-editor";
+  const mark = "data-wrapt-editor-fallback";
   const isOpenButton = (button) => {
     if (!(button instanceof HTMLButtonElement)) return false;
     if (button.getAttribute(mark) === "true") return false;
@@ -328,7 +328,7 @@ type T3UpstreamResponse = {
 };
 
 function upstreamPath(rawUrl: string): string {
-  const url = new URL(rawUrl, "http://workbench.local");
+  const url = new URL(rawUrl, "http://wrapt.local");
   const pathname = url.pathname === t3Prefix
     ? "/"
     : url.pathname.startsWith(`${t3Prefix}/`)

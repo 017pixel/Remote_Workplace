@@ -2,7 +2,7 @@ import {
   pageContributionSchema,
   routeContributionSchema,
   type NavigationContribution,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PageRouteRegistry } from "./pageRouteRegistry";
 import { FrontendRegistryError } from "./registryCore";

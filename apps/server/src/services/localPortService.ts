@@ -3,7 +3,7 @@ import { request as httpsRequest } from "node:https";
 import { readlink } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { execa } from "execa";
-import { localPortsResponseSchema, type LocalPort, type LocalPortsResponse } from "@workbench/contracts";
+import { localPortsResponseSchema, type LocalPort, type LocalPortsResponse } from "@wrapt/contracts";
 
 interface ListeningSocket {
   address: string;

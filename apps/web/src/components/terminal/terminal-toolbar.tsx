@@ -1,116 +1,82 @@
-import type { RefObject, ReactNode } from "react";
-import type { TerminalKind } from "@workbench/contracts";
-import { ChevronDownIcon, CloseIcon, ColumnsIcon, EraserIcon, MonitorOffIcon, PlusIcon, RetryIcon, SplitIcon } from "../icons";
-import type { TerminalTabState } from "../../stores/terminals";
-import type { TerminalMeta, WebTerminalHandle } from "./terminal-types";
-import { kindLabels, tabKindLabels } from "./terminal-labels";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import type { TerminalKind } from "@wrapt/contracts";
+import { ChevronDownIcon, CloseIcon, ColumnsIcon, EraserIcon, FolderTreeIcon, FullscreenIcon, PlusIcon, RefreshIcon, RetryIcon, SplitIcon } from "../icons";
+import { kindLabels } from "./terminal-labels";
 
 interface TerminalToolbarProps {
-  tabs: TerminalTabState[];
-  activeTabId: string | null;
-  splitTabIds: [string, string] | null;
-  meta: Record<string, TerminalMeta>;
   kind: TerminalKind;
-  maxTabs: number;
-  isMobile: boolean;
-  bento: boolean;
-  singlePane: boolean;
-  actionsOpen: boolean;
-  activeTab: TerminalTabState | undefined;
-  handles: Map<string, WebTerminalHandle>;
-  actionMenuRef: RefObject<HTMLDivElement | null>;
-  longPress: RefObject<number | null>;
-  projectName(projectId: string | null, cwd?: string): string;
-  onActivateTab(tabId: string): void;
-  onClose(tabId: string): void;
+  hasSplit: boolean;
+  hasActivePane: boolean;
   onCreate(): void;
-  onClearSplit(): void;
   onCreateSplit(): void;
-  onRunAction(action: () => void): void;
-  onSetActionsOpen(open: boolean): void;
-  onSetDraggingTabId(tabId: string | null): void;
+  onClearSplit(): void;
+  onCreateFolder?(): void;
+  onExpandAll?(): void;
+  onCollapseAll?(): void;
+  onRestart(): void;
+  onReload?(): void;
+  onFullscreen?(): void;
+  onClear(): void;
+  onClosePane(): void;
   sessionPicker: ReactNode;
 }
 
-/** Tab-Leiste und Aktionen-Menü der Terminalfläche. Die Tabs sind per Drag
- *  in ein Split-Pane ziehbar; auf Touch-Geräten entfällt das Drag. */
-export function TerminalToolbar(props: TerminalToolbarProps) {
-  const {
-    tabs, activeTabId, splitTabIds, meta, kind, maxTabs, isMobile, bento, singlePane,
-    actionsOpen, activeTab, handles, actionMenuRef, longPress, projectName,
-    onActivateTab, onClose, onCreate, onClearSplit, onCreateSplit, onRunAction,
-    onSetActionsOpen, onSetDraggingTabId, sessionPicker,
-  } = props;
+/** Gemeinsame Aktionszeile der Terminal-Sidebar. Es gibt bewusst keinen
+ * zweiten Header im Arbeitsbereich: Verwaltung und Aktionen bleiben links. */
+export function TerminalToolbar({ kind, hasSplit, hasActivePane, onCreate, onCreateSplit, onClearSplit, onCreateFolder, onExpandAll, onCollapseAll, onRestart, onReload, onFullscreen, onClear, onClosePane, sessionPicker }: TerminalToolbarProps) {
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setActionsOpen(false);
+    };
+    const closeOnKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActionsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnKeyDown);
+    };
+  }, [actionsOpen]);
+
+  const runAction = (action: () => void) => {
+    setActionsOpen(false);
+    action();
+  };
 
   return (
-    <header className="terminal-area-toolbar">
-      <div className="terminal-tabs" role="tablist" aria-label="Terminalsitzungen">
-        {tabs.map((tab, index) => {
-          const currentMeta = meta[tab.id];
-          const active = tab.id === activeTabId;
-          const split = splitTabIds?.includes(tab.id) ?? false;
-          return (
-            <div
-              key={tab.id}
-              className={`terminal-tab ${active ? "is-active" : ""} ${split ? "is-split" : ""}`}
-              draggable={!isMobile && !bento}
-              onDragStart={(event) => { onSetDraggingTabId(tab.id); event.dataTransfer.effectAllowed = "move"; }}
-              onDragEnd={() => onSetDraggingTabId(null)}
-              onPointerDown={() => {
-                if (isMobile || bento) return;
-                longPress.current = window.setTimeout(() => onSetDraggingTabId(tab.id), 450);
-              }}
-              onPointerUp={() => { if (longPress.current) window.clearTimeout(longPress.current); }}
-              onPointerCancel={() => { if (longPress.current) window.clearTimeout(longPress.current); }}
-              title={`${kindLabels[tab.kind]} ${index + 1} · ${projectName(tab.projectId, currentMeta?.cwd)}${currentMeta?.cwd ? ` · ${currentMeta.cwd}` : ""}`}
-            >
-              <button type="button" role="tab" aria-selected={active} onClick={() => onActivateTab(tab.id)}>
-                <span className={`terminal-state is-${currentMeta?.status ?? "connecting"}`} />
-                <span className="terminal-tab-index">{index + 1}</span>
-                <span className="terminal-tab-kind">{tabKindLabels[tab.kind]}</span>
-              </button>
-              <button type="button" className="terminal-tab-close" onClick={() => onClose(tab.id)} aria-label={`Terminal ${index + 1} schließen`}>
-                <CloseIcon className="h-3 w-3" />
-              </button>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          className="terminal-tab-add"
-          onClick={() => onCreate()}
-          disabled={tabs.length >= maxTabs}
-          aria-label="Neue Terminalsitzung"
-          title={tabs.length >= maxTabs ? `Maximal ${maxTabs} ${kindLabels[kind]}-Instanzen` : `${kindLabels[kind]} öffnen`}
-        >
-          <PlusIcon className="h-4 w-4" />
+    <div className="terminal-sidebar-controls" aria-label="Terminalaktionen">
+      <button type="button" className="terminal-toolbar-action" onClick={onCreate} aria-label={`${kindLabels[kind]} öffnen`} title={`${kindLabels[kind]} öffnen`}><PlusIcon className="h-4 w-4" /></button>
+      {onCreateFolder ? <button type="button" className="terminal-toolbar-action" onClick={onCreateFolder} aria-label="Neuer Ordner" title="Neuer Ordner"><FolderTreeIcon className="h-4 w-4" aria-hidden /></button> : null}
+      {hasSplit ? (
+        <button type="button" className="terminal-toolbar-action" onClick={onClearSplit} aria-label="Split schließen" title="Split schließen"><ColumnsIcon className="h-4 w-4" /></button>
+      ) : (
+        <button type="button" className="terminal-toolbar-action" onClick={onCreateSplit} disabled={!hasActivePane} aria-label="Neues Terminal rechts teilen" title="Split öffnen"><SplitIcon className="h-4 w-4" /></button>
+      )}
+      <div className="terminal-action-menu" ref={menuRef}>
+        <button type="button" className="terminal-toolbar-action" aria-haspopup="menu" aria-expanded={actionsOpen} aria-label="Weitere Terminalaktionen" title="Aktionen" onClick={() => setActionsOpen((open) => !open)}>
+          <ChevronDownIcon className={`h-4 w-4 ${actionsOpen ? "is-open" : ""}`} aria-hidden />
         </button>
+        {actionsOpen ? (
+          <div className="terminal-action-popover" role="menu" aria-label="Terminalaktionen">
+            <button type="button" role="menuitem" onClick={() => runAction(onCreate)}><PlusIcon className="h-4 w-4" aria-hidden /><span>Neues Terminal</span></button>
+            {onCreateFolder ? <button type="button" role="menuitem" onClick={() => runAction(onCreateFolder)}><FolderTreeIcon className="h-4 w-4" aria-hidden /><span>Neuer Ordner</span></button> : null}
+            {onExpandAll ? <button type="button" role="menuitem" onClick={() => runAction(onExpandAll)}><ChevronDownIcon className="h-4 w-4" aria-hidden /><span>Alle Ordner aufklappen</span></button> : null}
+            {onCollapseAll ? <button type="button" role="menuitem" onClick={() => runAction(onCollapseAll)}><ChevronDownIcon className="h-4 w-4 rotate-180" aria-hidden /><span>Alle Ordner zuklappen</span></button> : null}
+            <button type="button" role="menuitem" onClick={() => runAction(onRestart)} disabled={!hasActivePane}><RetryIcon className="h-4 w-4" aria-hidden /><span>Neustart</span></button>
+            <button type="button" role="menuitem" onClick={() => runAction(onClear)} disabled={!hasActivePane}><EraserIcon className="h-4 w-4" aria-hidden /><span>Leeren</span></button>
+            <button type="button" role="menuitem" className="danger" onClick={() => runAction(onClosePane)} disabled={!hasActivePane}><CloseIcon className="h-4 w-4" aria-hidden /><span>Pane schließen</span></button>
+            {onReload ? <button type="button" role="menuitem" onClick={() => runAction(onReload)}><RefreshIcon className="h-4 w-4" aria-hidden /><span>Neu laden</span></button> : null}
+            {onFullscreen ? <button type="button" role="menuitem" onClick={() => runAction(onFullscreen)}><FullscreenIcon className="h-4 w-4" aria-hidden /><span>Vollbild</span></button> : null}
+            {sessionPicker}
+          </div>
+        ) : null}
       </div>
-
-      {/* Auf dem Handy sitzen die Aktionen unten in der Bedienleiste, hier
-          bleiben sie hinter dem Aktionen-Menü verborgen. */}
-      <div className="terminal-actions terminal-action-bar" aria-label="Terminalaktionen" hidden={isMobile}>
-        <div className="terminal-action-menu" ref={actionMenuRef}>
-          <button type="button" className="terminal-action-trigger" aria-haspopup="menu" aria-expanded={actionsOpen} onClick={() => onSetActionsOpen(!actionsOpen)} aria-label="Terminalaktionen">
-            <ChevronDownIcon className={`h-4 w-4 ${actionsOpen ? "is-open" : ""}`} aria-hidden />
-            <span>Aktionen</span>
-          </button>
-          {actionsOpen ? (
-            <div className="terminal-action-popover" role="menu" aria-label="Terminalaktionen">
-              <button type="button" role="menuitem" onClick={() => onRunAction(() => onCreate())} disabled={tabs.length >= maxTabs} aria-label={`${kindLabels[kind]}-Instanz öffnen`}><PlusIcon className="h-4 w-4" aria-hidden /><span>Neu</span></button>
-              <button type="button" role="menuitem" onClick={() => onRunAction(() => activeTab && handles.get(activeTab.id)?.restart())} disabled={!activeTab} aria-label="Terminal neu starten"><RetryIcon className="h-4 w-4" aria-hidden /><span>Neustart</span></button>
-              <button type="button" role="menuitem" onClick={() => onRunAction(() => activeTab && handles.get(activeTab.id)?.clear())} disabled={!activeTab} aria-label="Terminal leeren"><EraserIcon className="h-4 w-4" aria-hidden /><span>Leeren</span></button>
-              {!bento && !singlePane ? (
-                splitTabIds ?
-                  <button type="button" role="menuitem" onClick={() => onRunAction(() => onClearSplit())} aria-label="Split schließen"><ColumnsIcon className="h-4 w-4" aria-hidden /><span>Einzeln</span></button> :
-                  <button type="button" role="menuitem" onClick={() => onRunAction(() => onCreateSplit())} disabled={!activeTab || tabs.length >= maxTabs} aria-label="Neues Terminal rechts teilen"><SplitIcon className="h-4 w-4" aria-hidden /><span>Split</span></button>
-              ) : null}
-              <button type="button" role="menuitem" className="danger" onClick={() => onRunAction(() => activeTab && onClose(activeTab.id))} disabled={!activeTab} aria-label="Terminal schließen"><MonitorOffIcon className="h-4 w-4" aria-hidden /><span>Schließen</span></button>
-              {sessionPicker}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </header>
+    </div>
   );
 }

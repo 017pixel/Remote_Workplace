@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { UsageTimelineResponse } from "@workbench/contracts";
+import type { UsageTimelineResponse } from "@wrapt/contracts";
 import { UsageOverview } from "./UsageOverview";
 import { useUsagePreferences, defaultUsagePreferences } from "../../stores/usagePreferences";
 

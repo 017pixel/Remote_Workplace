@@ -16,7 +16,7 @@ function catalogFixture(): { directory: string; manifest: string } {
     publisher: "workbench",
     description: "Aufgaben und Agent Runs",
     license: "MIT",
-    engines: { remoteWorkplace: "^0.44.0", extensionApi: "^1.0.0" },
+    engines: { wrapt: "^0.95.0", extensionApi: "^1.0.0" },
     trust: "catalog-first-party",
     entrypoints: { server: "./server.js" },
     permissions: [{ permission: "projects.read" }],

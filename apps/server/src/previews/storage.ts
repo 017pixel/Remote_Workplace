@@ -5,7 +5,7 @@ import {
   type PreviewLocalStorageEntry,
   type PreviewLocalStorageSnapshot,
   type PreviewLocalStorageState,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import type { PreviewSlotDatabase, SnapshotPayloadRow } from "./database.js";
 import type { PreviewSecrets } from "./keys.js";

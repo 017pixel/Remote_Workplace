@@ -4,6 +4,7 @@ import { kill } from "node:process";
 import type { PtyAdapter } from "./NodePtyAdapter.js";
 import type { TmuxSupervisor } from "./TmuxSupervisor.js";
 import type { ServerTerminalMessage, TerminalKind } from "./protocol.js";
+import { createHeadlessTerminal } from "./runtime/HeadlessTerminal.js";
 import { TerminalFailure, type TerminalSession } from "./session.js";
 import { broadcastSnapshot, limitHistory } from "./snapshots.js";
 
@@ -64,6 +65,10 @@ export function createProcessRuntime(deps: ProcessRuntimeDependencies): ProcessR
   function attachPty(session: TerminalSession, command: { file: string; args: string[] }, environment: Record<string, string>): void {
     session.dataListener?.dispose();
     session.exitListener?.dispose();
+    // Der autoritative Terminalzustand muss vor dem Spawn in der Zielgeometrie
+    // stehen, damit der erste Output bereits korrekt eingeordnet wird.
+    if (!session.headless) session.headless = createHeadlessTerminal(session.cols, session.rows);
+    else if (session.headless.cols !== session.cols || session.headless.rows !== session.rows) session.headless.resize(session.cols, session.rows);
     const pty = adapter.spawn(command.file, command.args, {
       name: "xterm-256color",
       cwd: session.cwd,
@@ -82,6 +87,9 @@ export function createProcessRuntime(deps: ProcessRuntimeDependencies): ProcessR
       session.history = limitHistory(session.history + data);
       session.sequence += 1;
       session.updatedAt = Date.now();
+      // Jedes Byte fließt zuerst in den autoritativen Terminalzustand.
+      session.headless?.write(data);
+      session.journal.push({ sequence: session.sequence, data });
       persist(session);
       emit(session, { type: "terminal.output", sessionId: session.id, data, sequence: session.sequence });
       scheduleCwdRefresh(session);

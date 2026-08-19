@@ -4,14 +4,14 @@ import { expect, test, type Page } from "@playwright/test";
 // `!collapsed &&` im JSX. Startete die Seite eingeklappt, fehlten alle Einträge unterhalb
 // von "Workspace", und beim Ausklappen sprang die Hook-Anzahl — React brach den Baum ab.
 
-const SIDEBAR_KEY = "remote-workplace.sidebar.v1";
+const SIDEBAR_KEY = "wrapt.sidebar.v1";
 
 /** Startet die Seite mit einer eingeklappten, persistierten Sidebar — wie nach F5 beim Nutzer. */
 async function openCollapsed(page: Page) {
   await page.addInitScript(([key]) => {
     window.localStorage.setItem(key, JSON.stringify({ collapsed: true, width: 256 }));
   }, [SIDEBAR_KEY]);
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   await expect(page.locator(".sidebar-shell")).toBeVisible();
 }
 
@@ -48,7 +48,7 @@ test("überlebt das Aus- und Einklappen ohne Absturz", async ({ page }) => {
 });
 
 test("klappt Sektionen zu und wieder auf, ohne Einträge zu verlieren", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   const sidebar = page.locator(".sidebar-shell");
   await expect(sidebar).toBeVisible();
 

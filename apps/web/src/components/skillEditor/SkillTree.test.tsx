@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SkillEditorFile, SkillEditorTreeResponse } from "@workbench/contracts";
+import type { SkillEditorFile, SkillEditorTreeResponse } from "@wrapt/contracts";
 import { SkillTree } from "./SkillTree";
 
 function file(path: string, name: string, overrides: Partial<SkillEditorFile> = {}): SkillEditorFile {

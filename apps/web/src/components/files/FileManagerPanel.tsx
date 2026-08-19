@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FilesystemEntry, Project, ProjectsResponse } from "@workbench/contracts";
-import { WORKBENCH_LIMITS } from "@workbench/contracts";
+import type { FilesystemEntry, Project, ProjectsResponse } from "@wrapt/contracts";
+import { WRAPT_LIMITS } from "@wrapt/contracts";
 import {
   ArrowLeftIcon, BookmarkIcon, ChevronRightIcon, CloseIcon, ColumnsIcon, DownloadIcon,
   CodeFileIcon, EditIcon, FileIcon, FolderCodeIcon, FolderIcon, FolderOpenIcon, FolderSearchIcon, FolderTreeIcon,
@@ -18,7 +18,7 @@ import { usePaneWidth } from "../../lib/usePaneWidth";
 import { ConfirmDialog, PromptDialog } from "../ModalDialog";
 import { FmTree } from "./FmTree";
 import { FilePreview, QuickLook } from "./QuickLook";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { useRouteActivity } from "../../lib/routeActivity";
 
 interface FmContextMenuState {
@@ -64,7 +64,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
   const toggleFavorite = useFileManagerStore((state) => state.toggleFavorite);
   const setExpanded = useFileManagerStore((state) => state.setExpanded);
   const openPanel = useWorkspaceStore((state) => state.openPanel);
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
 
   const [contextMenu, setContextMenu] = useState<FmContextMenuState | null>(null);
   const tree = useQuery({
@@ -91,7 +91,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
   const isCompact = responsive.mode === "compact";
   const isTablet = responsive.mode === "tablet";
   const touch = responsive.inputMode === "touch";
-  const treePane = usePaneWidth({ storageKey: "remote-workplace.files.tree-width.v1", initial: 240, min: 180, max: 420 });
+  const treePane = usePaneWidth({ storageKey: "wrapt.files.tree-width.v1", initial: 240, min: 180, max: 420 });
 
   const entries = useMemo(() => sortEntries(tree.data?.entries ?? [], sortKey, sortDirection), [sortKey, sortDirection, tree.data?.entries]);
   const visibleEntries = useMemo(() => {
@@ -201,7 +201,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
     }
     const panelId = openPanel({ type: "code-server", projectId: project.id });
     if (panelId === null) {
-      setActionError(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+      setActionError(`Es können höchstens ${WRAPT_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
     }
   }, [openPanel, projects.data?.projects]);
 
@@ -213,7 +213,7 @@ export function FileManagerPanel({ minimal = false, externalSync = false }: { mi
     }
     const panelId = openPanel({ type: "terminal", projectId: project.id });
     if (panelId === null) {
-      setActionError(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+      setActionError(`Es können höchstens ${WRAPT_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
     }
   }, [openPanel, projects.data?.projects]);
 

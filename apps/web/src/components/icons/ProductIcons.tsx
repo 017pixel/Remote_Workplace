@@ -25,7 +25,7 @@ function IconShell({ children, className, ...props }: IconShellProps) {
   );
 }
 
-export function RemoteWorkbenchIcon(props: ProductIconProps) {
+export function WraptIcon(props: ProductIconProps) {
   return <IconShell {...props}><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9.5 9.5 12 7 14.5M12 14.5h5M8 21h8M12 18v3"/></IconShell>;
 }
 

@@ -17,7 +17,7 @@ export const PASTEL_NODE_COLORS = [
 ] as const;
 
 const MAX_CUSTOM_COLORS = 12;
-const STORAGE_KEY = "remote-workplace.node-colors.v1";
+const STORAGE_KEY = "wrapt.node-colors.v1";
 
 const isHexColor = (value: string): boolean => /^#[0-9a-fA-F]{6}$/.test(value);
 

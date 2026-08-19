@@ -12,7 +12,7 @@ import {
   type NotificationSeverity,
   type NotificationSource,
   type NotificationSourceIcon,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { redactSensitive, truncateText } from "../hermes/redaction.js";
 
 interface NotificationRow {
@@ -87,7 +87,7 @@ export class NotificationDatabase {
     // Bestehende Datensätze sinnvoll in das neue Modell überführen.
     this.db.exec(`UPDATE notifications SET
       category = CASE WHEN source IN ('hermes', 'update') THEN 'hermes' ELSE 'terminal' END,
-      source_icon = CASE WHEN source IN ('hermes', 'update') THEN 'hermes' ELSE 'workbench' END
+      source_icon = CASE WHEN source IN ('hermes', 'update') THEN 'hermes' ELSE 'wrapt' END
       WHERE category = 'terminal' AND source_icon = 'workbench';`);
     const legacyUpdates = this.db.prepare("SELECT id, body, metadata_json metaJson FROM notifications WHERE state = 'active' AND source = 'update' AND kind IN ('hermes.update', 'hermes.updated')").all() as unknown as Array<{ id: string; body: string; metaJson: string }>;
     const resolvedAt = new Date().toISOString();

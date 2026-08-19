@@ -7,7 +7,7 @@ export function previewGroupWindowUrl(groupId: string, origin = window.location.
 }
 
 export function previewGroupSnapshotKey(groupId: string): string {
-  return `workbench:preview-group-snapshot:${groupId}`;
+  return `wrapt:preview-group-snapshot:${groupId}`;
 }
 
 export function openPreviewGroupWindow(groupId: string, document?: unknown): void {
@@ -17,7 +17,7 @@ export function openPreviewGroupWindow(groupId: string, document?: unknown): voi
   const width = Math.max(640, Math.round(window.screen.availWidth || 1_280));
   const height = Math.max(480, Math.round(window.screen.availHeight || 800));
   const features = `popup=yes,noopener=yes,noreferrer=yes,width=${width},height=${height},left=0,top=0`;
-  const opened = window.open(previewGroupWindowUrl(groupId), `workbench-preview-${groupId}`, features);
+  const opened = window.open(previewGroupWindowUrl(groupId), `wrapt-preview-${groupId}`, features);
   // Blockiert der Browser Popups, bleibt der Tab-Fallback als sichtbarer Weg.
   if (!opened) window.open(previewGroupWindowUrl(groupId), "_blank", "noopener,noreferrer");
 }

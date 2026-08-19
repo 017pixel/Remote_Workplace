@@ -28,17 +28,17 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, CommandIcon, CopyIcon, EditIcon, ExternalLinkIcon, FinderIcon, FolderSearchIcon, FrameIcon, FullscreenIcon, HandIcon, LocateIcon, LockIcon, MinusIcon, NoteIcon, PlusIcon, PointerIcon, PreviewsIcon, RedoIcon, RefreshIcon, SaveIcon, SearchIcon, SelectBoxIcon, TodoIcon, TrashIcon, UndoIcon } from "../components/icons";
-import type { OrbitBoard, OrbitNode, Project } from "@workbench/contracts";
+import type { OrbitBoard, OrbitNode, Project } from "@wrapt/contracts";
 import { OrbitNodeRuntimeProvider, OrbitNodeView } from "../components/orbit/OrbitNodeView";
 import { OrbitEdgeView } from "../components/orbit/OrbitEdgeView";
 import { OrbitSync } from "../components/orbit/OrbitSync";
 import { OrbitProjectBrowserDialog } from "../components/orbit/OrbitProjectBrowserDialog";
 import { consumeOrbitPayloads, dequeueOrbitPayload, type OrbitPalettePayload } from "../lib/orbitPalette";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { apiClient } from "../lib/apiClient";
 import { useResponsiveShell } from "../lib/useResponsiveShell";
 import { previewSlotsReleasedWithNode, releasePreviewSlots } from "../lib/previewSlotLifecycle";
-import { consumeOrbitIntents } from "../lib/workbenchActions";
+import { consumeOrbitIntents } from "../lib/wraptActions";
 import { resolveOrbitProjectId } from "../lib/orbitProjectBinding";
 import { nearestEdgeSides, orbitEdgeColor } from "../lib/orbitAppearance";
 import { OrbitColorPicker } from "../components/orbit/OrbitColorPicker";
@@ -442,7 +442,7 @@ function OrbitCanvas() {
   const renameBoard = useOrbitStore((state) => state.renameBoard);
   const removeBoard = useOrbitStore((state) => state.removeBoard);
   const replaceDocument = useOrbitStore((state) => state.replaceDocument);
-  const projectsQuery = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projectsQuery = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
   const projects = useMemo(
     () => projectsQuery.data?.projects.filter((project) => project.availability === "available") ?? [],
     [projectsQuery.data?.projects],
@@ -452,8 +452,8 @@ function OrbitCanvas() {
   const isMobile = useResponsiveShell().isTouchShell;
   const board = document.boards.find((candidate) => candidate.id === document.activeBoardId) ?? document.boards[0]!;
   const hasPreviewSlots = useMemo(() => board.nodes.some((node) => node.type === "previewSlot"), [board.nodes]);
-  const servicesQuery = useQuery({ ...workbenchQueries.services(), enabled: routeActive });
-  const localPortsQuery = useQuery({ ...workbenchQueries.localPorts(), enabled: routeActive && hasPreviewSlots });
+  const servicesQuery = useQuery({ ...wraptQueries.services(), enabled: routeActive });
+  const localPortsQuery = useQuery({ ...wraptQueries.localPorts(), enabled: routeActive && hasPreviewSlots });
   const refreshLocalPorts = localPortsQuery.refetch;
   const orbitNodeRuntime = useMemo(() => ({
     projects: projectsQuery.data?.projects ?? [],
@@ -496,7 +496,7 @@ function OrbitCanvas() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [mobileCanvasMode, setMobileCanvasMode] = useState<MobileCanvasMode>("navigate");
   const [mobileHintVisible, setMobileHintVisible] = useState(() => {
-    try { return window.localStorage.getItem("workbench:orbit-touch-hint:v1") !== "dismissed"; } catch { return true; }
+    try { return window.localStorage.getItem("wrapt:orbit-touch-hint:v1") !== "dismissed"; } catch { return true; }
   });
   const [toolbarOverflow, setToolbarOverflow] = useState({ before: false, after: false });
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>([]);
@@ -1271,7 +1271,7 @@ function OrbitCanvas() {
         <div className="orbit-quick-primary"><button type="button" onClick={() => { setCommandQuery(""); setCommandOpen(true); }}><CommandIcon className="h-4 w-4" /><span>Befehl</span></button><button type="button" className="orbit-compact-action" onClick={compactTerritory}><SelectBoxIcon className="h-4 w-4" /><span>Kompaktieren</span></button>{isMobile ? <><button type="button" className="orbit-mobile-mode" onClick={toggleMobileCanvasMode} aria-pressed={mobileCanvasMode === "interact"} aria-label={mobileCanvasMode === "navigate" ? "Canvas-Modus: Navigieren. Zu Inhalt benutzen wechseln" : "Canvas-Modus: Inhalt benutzen. Zu Navigieren wechseln"}>{mobileCanvasMode === "navigate" ? <HandIcon className="h-4 w-4" /> : <PointerIcon className="h-4 w-4" />}<span>{mobileCanvasMode === "navigate" ? "Canvas" : "Inhalt"}</span></button></> : null}</div>
         <div className="orbit-zoom-row" aria-label="Canvas-Ansicht"><button type="button" onClick={() => instanceRef.current?.zoomOut({ duration: 160 })} aria-label="Verkleinern" title="Verkleinern"><MinusIcon className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.zoomIn({ duration: 160 })} aria-label="Vergrößern" title="Vergrößern"><PlusIcon className="h-4 w-4" /></button><button type="button" onClick={() => instanceRef.current?.fitView({ duration: 220, padding: .18 })} aria-label="Alles zeigen" title="Alles zeigen"><FullscreenIcon className="h-4 w-4" /></button></div>
       </div>
-      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => { setMobileHintVisible(false); try { window.localStorage.setItem("workbench:orbit-touch-hint:v1", "dismissed"); } catch { /* Hint remains session-local without storage. */ } }} aria-label="Gestenhinweis schließen"><CloseIcon className="h-4 w-4" /></button></div> : null}
+      {isMobile && mobileHintVisible ? <div className="orbit-mobile-hint" role="status"><div><strong>Zwei Finger bewegen und zoomen</strong><span>Wechsle zu Inhalt, um Tools und Notizen zu bedienen.</span></div><button type="button" onClick={() => { setMobileHintVisible(false); try { window.localStorage.setItem("wrapt:orbit-touch-hint:v1", "dismissed"); } catch { /* Hint remains session-local without storage. */ } }} aria-label="Gestenhinweis schließen"><CloseIcon className="h-4 w-4" /></button></div> : null}
       <OrbitNodeRuntimeProvider data={orbitNodeRuntime}>
         <ReactFlow
           key={board.id}

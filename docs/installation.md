@@ -12,7 +12,7 @@ Der empfohlene Weg ist die Einrichtung durch einen Coding-Agent
 
 ## Anwendung vorbereiten
 
-1. `config/workbench.example.json` nach `config/workbench.local.json` kopieren und mit den
+1. `config/wrapt.example.json` nach `config/wrapt.local.json` kopieren und mit den
    echten Werten füllen (Benutzer, Home, Projekt-Root, Tailscale, erlaubte Login-E-Mails,
    CLI-Pfade). Diese Datei ist die zentrale Personalisierung und wird von Git ignoriert.
 2. `.env.example` nach `.env` kopieren; nur Secrets/Runtime-Knöpfe setzen (`MISTRAL_API_KEY`
@@ -29,35 +29,35 @@ Der empfohlene Weg ist die Einrichtung durch einen Coding-Agent
 **Produktion (manuell):** `pnpm build && pnpm start`.
 
 **Produktion (systemd):** `bash deploy/systemd/install.sh` rendert die User-Units aus
-`deploy/systemd/units/` mit den Werten aus `config/workbench.local.json`, baut als
+`deploy/systemd/units/` mit den Werten aus `config/wrapt.local.json`, baut als
 aktueller Benutzer, prüft Typen und Build, sichert vorhandene User-Units und führt einen
 Healthcheck aus. code-server wird nur eingebunden, wenn es im PATH vorhanden ist. Die kanonische
-Unit heißt `workbench.service` und liegt unter `~/.config/systemd/user/`; sie entspricht damit
+Unit heißt `wrapt.service` und liegt unter `~/.config/systemd/user/`; sie entspricht damit
 den tatsächlichen Schreibpfaden in Repository, Datenverzeichnis, Browserprofilen und CLI-Homes.
 
 code-server bindet an `127.0.0.1:8080`, deaktiviert eigene TLS-Terminierung und wird
-ausschließlich durch die private Workbench unter `/editor/` erreicht. Die User-Unit liest
+ausschließlich durch die privates Wrapt unter `/editor/` erreicht. Die User-Unit liest
 `config/code-server.yaml`; fehlt die lokale, ignorierte Datei beim Installieren, wird sie einmalig
 aus `config/code-server.yaml.example` angelegt. Workspace Trust ist dort deaktiviert, weil dieser
 private Einzelbenutzer-Editor alle geöffneten Projektordner mit vollständigem Zugriff nutzt.
 
 ## Tailscale Serve (optional)
 
-`bash deploy/proxy/configure-tailscale-serve.sh` veröffentlicht die Workbench privat im Tailnet
-über den in `config/workbench.local.json` gesetzten HTTPS-Port. Editor und Previews benötigen
+`bash deploy/proxy/configure-tailscale-serve.sh` veröffentlicht Wrapt privat im Tailnet
+über den in `config/wrapt.local.json` gesetzten HTTPS-Port. Editor und Previews benötigen
 keinen weiteren Tailscale-Port, weil Fastify `/editor/` und code-server `/absproxy/<port>/` am
 selben Origin bereitstellen. Funnel und öffentliche Portweiterleitungen bleiben deaktiviert.
 
 ## Abschlussprüfung
 
-- `systemctl --user status workbench.service`
+- `systemctl --user status wrapt.service`
 - `curl -f http://127.0.0.1:3010/api/v1/health`
 - Optional: `curl -f http://127.0.0.1:8080/healthz` (code-server), `tailscale serve status`
-- Private Workbench, Terminal, Codex, OpenCode und Editor im Browser testen.
+- Private Wrapt, Terminal, Codex, OpenCode und Editor im Browser testen.
 
-Ein bestehender alter Systemdienst `remote-workplace.service` muss nach erfolgreichem
+Ein bestehender alter Systemdienst `workbench.service` muss nach erfolgreichem
 Healthcheck bewusst deaktiviert werden, damit nicht zwei Prozesse um Port 3010 konkurrieren:
-`sudo systemctl disable --now remote-workplace.service`. Für den normalen Betrieb und spätere
+`systemctl --user disable --now workbench.service`. Für den normalen Betrieb und spätere
 Updates ist danach kein `sudo` erforderlich.
 
 ## Hermes Agent
@@ -71,7 +71,7 @@ bash scripts/install-hermes.sh
 ```
 
 Das Skript erstellt zunächst ein offizielles Hermes-Backup, baut die Dashboard-SPA, erkennt die
-lokalen Pfade, installiert das Workbench-Theme und rendert `hermes-dashboard.service`,
+lokalen Pfade, installiert das Wrapt-Theme und rendert `hermes-dashboard.service`,
 `hermes-update.service`, `hermes-update.timer` sowie den Retry-Timer als User-Units. Die bestehende
 `hermes-gateway.service` bleibt unverändert und wird nur aktiviert, falls sie noch nicht aktiviert
 ist. Approval-Härtung wird mit Vorher-/Nachher-Anzahl der Dauerfreigaben ausgegeben.
@@ -89,5 +89,5 @@ curl -f -H 'Host: 127.0.0.1:9119' http://127.0.0.1:9119/api/status
 ```
 
 Der direkte Hermes-Port wird nicht veröffentlicht. Zugriff auf die offizielle Hermes-SPA erfolgt
-nur über die identitätsgeschützte Workbench-URL `/hermes/`; die Workbench öffnet sie unter
-`/workbench/hermes-agent`.
+nur über die identitätsgeschützte Wrapt-URL `/hermes/`; die Wrapt öffnet sie unter
+`/wrapt/hermes-agent`.

@@ -1,4 +1,4 @@
-import { type CommandContribution, type KeyboardShortcutContribution } from "@workbench/extension-contracts";
+import { type CommandContribution, type KeyboardShortcutContribution } from "@wrapt/extension-contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandRegistry } from "./commandRegistry";
 import {

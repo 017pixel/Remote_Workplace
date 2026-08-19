@@ -1,4 +1,4 @@
-import type { PreviewSlotState } from "@workbench/contracts";
+import type { PreviewSlotState } from "@wrapt/contracts";
 import type { AffinityRow, BindingRow, PreviewSlotDatabase, SessionRow } from "./database.js";
 
 export interface PreviewSlotDefinition {

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { LocalPort, Project } from "@workbench/contracts";
+import type { LocalPort, Project } from "@wrapt/contracts";
 import { PreviewDevServerManager, sanitizeDevServerPath, type PreviewRuntimePublication } from "./DevServerManager.js";
 import { PreviewDevServerDatabase } from "./devServerDatabase.js";
 
@@ -192,9 +192,9 @@ describe("PreviewDevServerManager", () => {
 
   it("entfernt fremde node_modules-Bins aus dem PATH, behält aber globale und System-Werkzeuge", () => {
     const ambient = [
-      "/home/bbecker/projects/Remote_Workplace/apps/server/node_modules/.bin",
+      "/home/bbecker/projects/Wrapt/apps/server/node_modules/.bin",
       "/home/bbecker/.npm-global/lib/node_modules/pnpm/dist/node-gyp-bin",
-      "/home/bbecker/projects/Remote_Workplace/node_modules/.bin",
+      "/home/bbecker/projects/Wrapt/node_modules/.bin",
       "/home/bbecker/.npm-global/bin",
       "/home/bbecker/projects/anderes-projekt/node_modules/.bin",
       "/usr/local/sbin",
@@ -208,7 +208,7 @@ describe("PreviewDevServerManager", () => {
     expect(result).toContain("/home/bbecker/projects/projekt/node_modules/.bin");
     expect(result).toContain("/home/bbecker/.npm-global/bin");
     expect(result).toContain("/usr/bin");
-    expect(result).not.toContain("Remote_Workplace");
+    expect(result).not.toContain("Wrapt");
     expect(result).not.toContain("node-gyp-bin");
     expect(result).not.toContain("anderes-projekt");
     expect(result).not.toMatch(/(^|:)node_modules\/\.bin(:|$)/);

@@ -1,4 +1,4 @@
-import { type CommandContribution } from "@workbench/extension-contracts";
+import { type CommandContribution } from "@wrapt/extension-contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FrontendRegistryError } from "./registryCore";
 import {
@@ -56,6 +56,13 @@ describe("CommandRegistry", () => {
     const executed = await registry.execute("workbench.test.command.main");
     expect(executed).toBe(true);
     expect(registration.runtime.execute).toHaveBeenCalledWith({ surface: "global" });
+  });
+
+  it("löst alte workbench-IDs auf einen Wrapt-Command auf", async () => {
+    const registration = command("wrapt.test");
+    registry.replaceOwner("wrapt.test", [registration]);
+    expect(await registry.execute("workbench.test.command.main")).toBe(true);
+    expect(registry.get("workbench.test.command.main")?.ownerId).toBe("wrapt.test");
   });
 
   it("meldet einen unbekannten Command als nicht ausführbar", async () => {

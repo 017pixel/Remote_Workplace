@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UsageForecast, UsageResponse } from "@workbench/contracts";
+import type { UsageForecast, UsageResponse } from "@wrapt/contracts";
 import { enrichAndDeduplicateForecasts } from "./usage-service.js";
 
 describe("usage forecast presentation", () => {

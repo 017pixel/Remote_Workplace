@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Veröffentlicht die Workbench privat im Tailnet über einen eigenen HTTPS-Port.
-# Hostname und Port stammen aus config/workbench.local.json (tailscale.*).
+# Veröffentlicht Wrapt privat im Tailnet über einen eigenen HTTPS-Port.
+# Hostname und Port stammen aus config/wrapt.local.json (tailscale.*).
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -13,7 +13,7 @@ mapfile -t serve_config < <(node -e '
   const { readFileSync } = require("node:fs");
   const { join } = require("node:path");
   const dir = join(process.argv[1], "config");
-  for (const name of ["workbench.local.json", "workbench.example.json"]) {
+  for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
     try {
       const c = JSON.parse(readFileSync(join(dir, name), "utf8"));
       const internal = c.previews?.slotPorts ?? [3901,3902,3903,3904,3905,3906,3907,3908,3909,3910,3911,3912];
@@ -24,11 +24,11 @@ mapfile -t serve_config < <(node -e '
       process.exit(0);
     } catch (e) { if (e.code !== "ENOENT") throw e; }
   }
-  throw new Error("config/workbench.local.json oder .example.json fehlt.");
+  throw new Error("config/wrapt.local.json oder config/wrapt.example.json fehlt.");
 ' "$repo_root")
 read -r tailscale_host https_port <<<"${serve_config[0]}"
 
-workbench_url="https://${tailscale_host}:${https_port}/api/v1/health"
+wrapt_url="https://${tailscale_host}:${https_port}/api/v1/health"
 
 mkdir -p "$backup_directory"
 # Der aktuelle Tailscale-CLI-Zweig trennt Service- und Node-Konfigurationen.
@@ -62,9 +62,9 @@ for mapping in "${serve_config[@]:1}"; do
   read -r public_port internal_port <<<"$mapping"
   sudo tailscale serve --bg --https="$public_port" "http://127.0.0.1:${internal_port}"
 done
-curl --fail --silent --show-error --max-time 15 "$workbench_url" >/dev/null
+curl --fail --silent --show-error --max-time 15 "$wrapt_url" >/dev/null
 trap - ERR
 
-echo "Remote Workplace ist privat über Port ${https_port} erreichbar (${tailscale_host})."
+echo "Wrapt ist privat über Port ${https_port} erreichbar (${tailscale_host})."
 slot_count=$((${#serve_config[@]} - 1))
 echo "Preview-Slots wurden auf ${slot_count} getrennten HTTPS-Ports eingerichtet."

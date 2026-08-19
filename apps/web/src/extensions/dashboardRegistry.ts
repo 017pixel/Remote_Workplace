@@ -1,8 +1,8 @@
 import type {
   ContributionId,
   ExtensionId,
-} from "@workbench/extension-contracts";
-import type { DashboardSection } from "@workbench/contracts";
+} from "@wrapt/extension-contracts";
+import type { DashboardSection } from "@wrapt/contracts";
 import {
   FrontendContributionRegistry,
   type FrontendRegistrySnapshot,

@@ -3,11 +3,13 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   terminalWorkspaceSchema,
+  terminalWorkspaceV2Schema,
   type TerminalKind,
   type TerminalSessionStatus,
-  type TerminalWorkspace,
-} from "@workbench/contracts";
+  type TerminalWorkspaceV2,
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
+import { emptyTerminalWorkspaceV2, migrateTerminalWorkspaceV1 } from "./workspace/terminalWorkspaceMigrations.js";
 
 export interface StoredTerminalSession {
   id: string;
@@ -27,6 +29,7 @@ export interface StoredTerminalSession {
   updatedAt: number;
   exitCode: number | null;
   exitSignal: number | null;
+  epoch: number;
 }
 
 interface SessionRow {
@@ -47,11 +50,12 @@ interface SessionRow {
   updatedAt: number;
   exitCode: number | null;
   exitSignal: number | null;
+  epoch: number;
 }
 
 interface WorkspaceRow { documentJson: string; revision: number; updatedAt: string; }
 
-const DEFAULT_WORKSPACE: TerminalWorkspace = { version: 1, areas: {} };
+const DEFAULT_WORKSPACE: TerminalWorkspaceV2 = emptyTerminalWorkspaceV2();
 
 function rowToSession(row: SessionRow): StoredTerminalSession { return { ...row }; }
 
@@ -102,6 +106,9 @@ export class TerminalDatabase {
     if (!columns.some((column) => column.name === "supervisor_name")) {
       this.db.exec("ALTER TABLE terminal_sessions ADD COLUMN supervisor_name TEXT");
     }
+    if (!columns.some((column) => column.name === "epoch")) {
+      this.db.exec("ALTER TABLE terminal_sessions ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0");
+    }
   }
 
   close() { this.db.close(); }
@@ -121,7 +128,7 @@ export class TerminalDatabase {
   findSession(userId: string, runtimeId: string): StoredTerminalSession | undefined {
     const row = this.db.prepare(`SELECT id, owner_id userId, runtime_id runtimeId, kind, mode,
       project_id projectId, profile_path profilePath, supervisor_name supervisorName, cwd, pid, cols, rows, status,
-      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal
+      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal, epoch
       FROM terminal_sessions WHERE owner_id = ? AND runtime_id = ?`).get(userId, runtimeId) as SessionRow | undefined;
     return row ? rowToSession(row) : undefined;
   }
@@ -129,7 +136,7 @@ export class TerminalDatabase {
   findSessionById(userId: string, sessionId: string): StoredTerminalSession | undefined {
     const row = this.db.prepare(`SELECT id, owner_id userId, runtime_id runtimeId, kind, mode,
       project_id projectId, profile_path profilePath, supervisor_name supervisorName, cwd, pid, cols, rows, status,
-      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal
+      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal, epoch
       FROM terminal_sessions WHERE owner_id = ? AND id = ?`).get(userId, sessionId) as SessionRow | undefined;
     return row ? rowToSession(row) : undefined;
   }
@@ -137,7 +144,7 @@ export class TerminalDatabase {
   findSessionBySupervisor(supervisorName: string): StoredTerminalSession | undefined {
     const row = this.db.prepare(`SELECT id, owner_id userId, runtime_id runtimeId, kind, mode,
       project_id projectId, profile_path profilePath, supervisor_name supervisorName, cwd, pid, cols, rows, status,
-      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal
+      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal, epoch
       FROM terminal_sessions WHERE supervisor_name = ?`).get(supervisorName) as SessionRow | undefined;
     return row ? rowToSession(row) : undefined;
   }
@@ -145,7 +152,7 @@ export class TerminalDatabase {
   listSessions(userId: string, connectedClients: (sessionId: string) => number) {
     const rows = this.db.prepare(`SELECT id, owner_id userId, runtime_id runtimeId, kind, mode,
       project_id projectId, profile_path profilePath, supervisor_name supervisorName, cwd, pid, cols, rows, status,
-      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal
+      created_at createdAt, updated_at updatedAt, exit_code exitCode, exit_signal exitSignal, epoch
       FROM terminal_sessions WHERE owner_id = ? AND status <> 'closed' ORDER BY updated_at DESC`).all(userId) as unknown as SessionRow[];
     return rows.map((row) => ({ ...rowToSession(row), connectedClients: connectedClients(row.id) }));
   }
@@ -153,17 +160,17 @@ export class TerminalDatabase {
   saveSession(session: StoredTerminalSession) {
     this.db.prepare(`INSERT INTO terminal_sessions(
       id, owner_id, runtime_id, kind, mode, project_id, profile_path, supervisor_name, cwd, pid, cols, rows,
-      status, created_at, updated_at, exit_code, exit_signal
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      status, created_at, updated_at, exit_code, exit_signal, epoch
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       runtime_id=excluded.runtime_id, kind=excluded.kind, mode=excluded.mode,
       project_id=excluded.project_id, profile_path=excluded.profile_path, supervisor_name=excluded.supervisor_name, cwd=excluded.cwd,
       pid=excluded.pid, cols=excluded.cols, rows=excluded.rows, status=excluded.status,
       created_at=excluded.created_at, updated_at=excluded.updated_at,
-      exit_code=excluded.exit_code, exit_signal=excluded.exit_signal`).run(
+      exit_code=excluded.exit_code, exit_signal=excluded.exit_signal, epoch=excluded.epoch`).run(
       session.id, session.userId, session.runtimeId, session.kind, session.mode, session.projectId,
       session.profilePath, session.supervisorName, session.cwd, session.pid, session.cols, session.rows, session.status,
-      session.createdAt, session.updatedAt, session.exitCode, session.exitSignal,
+      session.createdAt, session.updatedAt, session.exitCode, session.exitSignal, session.epoch,
     );
   }
 
@@ -174,13 +181,33 @@ export class TerminalDatabase {
   }
 
   getWorkspace(userId: string) {
-    const row = this.db.prepare("SELECT document_json documentJson, revision, updated_at updatedAt FROM terminal_workspaces WHERE owner_id = ?").get(userId) as WorkspaceRow | undefined;
-    if (!row) return { document: DEFAULT_WORKSPACE, revision: 0, updatedAt: new Date(0).toISOString() };
-    return { document: terminalWorkspaceSchema.parse(JSON.parse(row.documentJson) as unknown), revision: row.revision, updatedAt: row.updatedAt };
+    const found = this.readWorkspace(userId);
+    if (!found) return { document: DEFAULT_WORKSPACE, revision: 0, updatedAt: new Date(0).toISOString() };
+    // V1-Dokumente werden beim Lesen einmalig nach V2 migriert und zurück-
+    // geschrieben. Das passiert bewusst als einzelnes atomares Statement und
+    // nicht über saveWorkspace(), weil saveWorkspace() selbst die Revision
+    // liest und eine Transaktion startet — ein Aufruf von dort würde in eine
+    // laufende Transaktion hinein rekursieren (Fehler 500).
+    if (found.raw.version === 1) {
+      const migrated = migrateTerminalWorkspaceV1(terminalWorkspaceSchema.parse(found.raw));
+      const revision = found.row.revision + 1;
+      const updatedAt = new Date().toISOString();
+      this.db.prepare(`INSERT INTO terminal_workspaces(owner_id, document_json, revision, updated_at)
+        VALUES (?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET document_json=excluded.document_json,
+        revision=excluded.revision, updated_at=excluded.updated_at`).run(userId, JSON.stringify(migrated), revision, updatedAt);
+      return { document: migrated, revision, updatedAt };
+    }
+    return { document: terminalWorkspaceV2Schema.parse(found.raw), revision: found.row.revision, updatedAt: found.row.updatedAt };
   }
 
-  saveWorkspace(userId: string, document: TerminalWorkspace, expectedRevision: number | null) {
-    const parsed = terminalWorkspaceSchema.parse(document);
+  private readWorkspace(userId: string): { row: WorkspaceRow; raw: { version?: unknown } } | null {
+    const row = this.db.prepare("SELECT document_json documentJson, revision, updated_at updatedAt FROM terminal_workspaces WHERE owner_id = ?").get(userId) as WorkspaceRow | undefined;
+    if (!row) return null;
+    return { row, raw: JSON.parse(row.documentJson) as { version?: unknown } };
+  }
+
+  saveWorkspace(userId: string, document: TerminalWorkspaceV2, expectedRevision: number | null) {
+    const parsed = terminalWorkspaceV2Schema.parse(document);
     let revision: number;
     let updatedAt: string;
     let committed = false;
@@ -189,11 +216,15 @@ export class TerminalDatabase {
       // Revision und Dokument müssen unter derselben Schreibsperre gelesen
       // und geschrieben werden. Sonst können zwei Tabs denselben Stand lesen
       // und der spätere Save überschreibt die Änderung des ersten Tabs.
-      const current = this.getWorkspace(userId);
-      if (expectedRevision !== null && expectedRevision !== current.revision) {
+      // readWorkspace() statt getWorkspace(): getWorkspace() würde ein
+      // V1-Dokument migrieren und dabei selbst schreiben — innerhalb der
+      // laufenden Transaktion führt das zu einer zweiten Transaktion.
+      const current = this.readWorkspace(userId);
+      const currentRevision = current?.row.revision ?? 0;
+      if (expectedRevision !== null && expectedRevision !== currentRevision) {
         throw new AppError(409, "TERMINAL_WORKSPACE_CONFLICT", "Das Terminal-Layout wurde auf einem anderen Gerät geändert.");
       }
-      revision = current.revision + 1;
+      revision = currentRevision + 1;
       updatedAt = new Date().toISOString();
       this.db.prepare(`INSERT INTO terminal_workspaces(owner_id, document_json, revision, updated_at)
         VALUES (?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET document_json=excluded.document_json,

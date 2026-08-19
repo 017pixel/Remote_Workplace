@@ -4,10 +4,16 @@ import { join } from "node:path";
 
 const [, , configDirectory, cliPath, homeDirectory, checkoutDirectory, pythonPath] = process.argv;
 if (!configDirectory || !cliPath || !homeDirectory || !checkoutDirectory || !pythonPath) throw new Error("Hermes-Konfigurationsargumente fehlen.");
-const localPath = join(configDirectory, "workbench.local.json");
-const examplePath = join(configDirectory, "workbench.example.json");
+const localPath = join(configDirectory, "wrapt.local.json");
+const legacyPath = join(configDirectory, "workbench.local.json");
+const examplePath = join(configDirectory, "wrapt.example.json");
 let base;
-try { base = JSON.parse(readFileSync(localPath, "utf8")); } catch { base = JSON.parse(readFileSync(examplePath, "utf8")); }
+let writePath = localPath;
+try { base = JSON.parse(readFileSync(localPath, "utf8")); }
+catch {
+  try { base = JSON.parse(readFileSync(legacyPath, "utf8")); }
+  catch { base = JSON.parse(readFileSync(examplePath, "utf8")); }
+}
 const hermes = base.hermes && typeof base.hermes === "object" ? base.hermes : {};
 delete hermes.defaultSurface;
 base.hermes = {
@@ -33,7 +39,7 @@ base.hermes = {
   taskPollSeconds: hermes.taskPollSeconds ?? 6,
   resultPollSeconds: hermes.resultPollSeconds ?? 20,
 };
-const temporary = `${localPath}.${process.pid}.tmp`;
+const temporary = `${writePath}.${process.pid}.tmp`;
 writeFileSync(temporary, `${JSON.stringify(base, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-renameSync(temporary, localPath);
-chmodSync(localPath, 0o600);
+renameSync(temporary, writePath);
+chmodSync(writePath, 0o600);

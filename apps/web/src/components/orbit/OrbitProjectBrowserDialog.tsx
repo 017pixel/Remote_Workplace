@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { FilesystemEntry, FilesystemTreeResponse, ProjectsResponse } from "@workbench/contracts";
+import type { FilesystemEntry, FilesystemTreeResponse, ProjectsResponse } from "@wrapt/contracts";
 import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon, FolderSearchIcon, LinkIcon, SearchIcon, UnknownFileIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
 import { ModalFrame } from "../ModalDialog";

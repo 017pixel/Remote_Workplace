@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "ui-check@example.com" },
@@ -10,7 +10,7 @@ test.use({
 
 test("shows real recent projects, collapsed separators and shared Notion", async ({ page }) => {
   test.setTimeout(60_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   const projects = await (await page.request.get(new URL("/api/v1/projects", workbench).toString(), { headers: apiIdentityHeaders("ui-check@example.com") })).json() as {
     projects: Array<{ id: string; name: string; path: string; availability: string; activity: { effectiveAt: string | null } }>;
     recentLimit: number;
@@ -18,7 +18,7 @@ test("shows real recent projects, collapsed separators and shared Notion", async
   const selectedProject = projects.projects.find((project) => project.availability === "available");
   expect(selectedProject).toBeDefined();
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByRole("button", { name: /neue-datei\.ts/ })).toHaveCount(0);
   const projectSectionButtons = page.locator(".sidebar-section").nth(1).locator("button.orbit-palette-item");

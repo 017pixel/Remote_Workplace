@@ -8,7 +8,7 @@ let shuttingDown = false;
 const shutdown = async (signal: string, exitCode = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
-  app.log.info({ signal }, "Workbench wird beendet");
+  app.log.info({ signal }, "Wrapt wird beendet");
   // Hängt close() (z. B. an einer offenen WebSocket-Verbindung), beendet der Timer den
   // Prozess trotzdem — sonst müsste systemd erst nach TimeoutStopSec hart nachhelfen.
   const forced = setTimeout(() => {
@@ -44,6 +44,6 @@ process.on("unhandledRejection", (reason) => {
 try {
   await app.listen({ host: settings.host, port: settings.port });
 } catch (error) {
-  app.log.fatal({ err: error }, "Workbench konnte nicht gestartet werden");
+  app.log.fatal({ err: error }, "Wrapt konnte nicht gestartet werden");
   process.exit(1);
 }

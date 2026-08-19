@@ -2,7 +2,7 @@
 # Gemeinsame Helfer für die Neustart-Skripte (restart-frontend/-backend/-all.sh).
 # Wird per `source` eingebunden, nicht direkt ausgeführt.
 
-SERVICE_UNIT="workbench.service"
+SERVICE_UNIT="wrapt.service"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root" || { echo "[fehler] Projektverzeichnis nicht erreichbar: $repo_root" >&2; exit 1; }
@@ -160,18 +160,18 @@ log "pnpm: $pnpm_cmd — node: $(command -v node || echo 'nicht gefunden') $(nod
 
 # Baut die Verträge (contracts). Web und Server hängen davon ab, deshalb immer zuerst.
 build_contracts() {
-  step "Baue @workbench/contracts …"
-  run_pnpm --filter @workbench/contracts build
+  step "Baue @wrapt/contracts …"
+  run_pnpm --filter @wrapt/contracts build
 }
 
 build_frontend() {
-  step "Baue Frontend (@workbench/web) …"
-  run_pnpm --filter @workbench/web build
+  step "Baue Frontend (@wrapt/web) …"
+  run_pnpm --filter @wrapt/web build
 }
 
 build_backend() {
-  step "Baue Backend (@workbench/server) …"
-  run_pnpm --filter @workbench/server build
+  step "Baue Backend (@wrapt/server) …"
+  run_pnpm --filter @wrapt/server build
 }
 
 # Wendet einen in den Einstellungen gewählten T3-Kanal an (stable ⇄ nightly).
@@ -197,7 +197,7 @@ sync_opencode_web() {
 
 # Plant den Dienst-Neustart in einer eigenen, transienten systemd-Einheit ein.
 # Nötig, weil der Aufrufer (Server-Prozess oder ein Workbench-Terminal) selbst in der
-# Cgroup von workbench.service liegen kann — ein direkter Neustart würde ihn mitten im
+# Cgroup von wrapt.service liegen kann — ein direkter Neustart würde ihn mitten im
 # Ablauf killen. Die transiente Einheit läuft außerhalb dieser Cgroup und überlebt.
 schedule_service_restart() {
   step "Plane Neustart von $SERVICE_UNIT ein …"
@@ -212,7 +212,7 @@ schedule_service_restart() {
   fi
   step "Dienst-Neustart eingeplant; warte anschließend auf Health-Nachweis …"
   if ! systemd-run --user --collect --quiet \
-    --unit="workbench-restart-$(date +%s)" \
+    --unit="wrapt-restart-$(date +%s)" \
     /bin/bash "$repo_root/scripts/verify-service-restart.sh" \
       "$repo_root" "$SERVICE_UNIT" "$restart_target" "$restart_job_id" "$restart_started_at" \
       "${RESTART_LOG_FILE:-}" "$lock_dir" "${RESTART_BASELINE_BOOT_ID:-}"; then
@@ -227,8 +227,8 @@ schedule_service_restart() {
 health_value() {
   local key="$1" payload
   # Der Health-Check läuft gegen den konfigurierten Port; das Backend setzt
-  # WORKBENCH_HEALTH_URL beim Spawn des Neustart-Skripts (F01-07/F03-4).
-  local health_url="${WORKBENCH_HEALTH_URL:-http://127.0.0.1:3010}"
+  # WRAPT_HEALTH_URL beim Spawn des Neustart-Skripts (F01-07/F03-4).
+  local health_url="${WRAPT_HEALTH_URL:-http://127.0.0.1:3010}"
   payload="$(curl -fsS --max-time 2 "${health_url}/api/v1/health" 2>/dev/null)" || return 1
   printf '%s' "$payload" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p"
 }

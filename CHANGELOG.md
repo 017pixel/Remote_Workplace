@@ -2,6 +2,54 @@
 
 Alle Änderungen werden in fünf kurzen Stichpunkten pro Kategorie dokumentiert.
 
+## [0.95.0] - 2026-08-19
+
+### Verändert
+
+- Hauptversion von Wrapt auf 0.95.0 angehoben
+- Root-Paket, Backend und Frontend verwenden dieselbe Produktversion
+- Server-Standardwert für die Health-Anzeige auf 0.95.0 synchronisiert
+- Produktionskonfiguration meldet nach dem Neustart die neue Version
+- Contract-Paketversionen bleiben als getrennte Schnittstellen-Versionen unverändert
+
+### Umbenennung
+
+- Das Produkt wurde vollständig von Remote Workplace zu Wrapt umbenannt
+- Package-Scope, Config-, Daten-, Profil- und systemd-Namespace verwenden die neuen Wrapt-Namen
+- `/wrapt/` ist der kanonische App-Pfad; alte `/workbench/*`-Links werden kompatibel weitergeleitet
+- Legacy-Configs, Browser-Storage, Extension-IDs und laufende Terminal-Sessions bleiben migrierbar
+- Das bestehende GitHub-Repository und die lokale Checkout-Struktur werden ohne Historienverlust auf Wrapt umgestellt
+
+---
+
+## [0.91.0] - 2026-08-19
+
+### Features
+
+- Vertikale Terminal-Sidebar ersetzt die horizontale Tab-Leiste: Ordner, Unterordner, Pins und Drag & Drop organisieren die Sitzungen
+- Terminal-Sitzungen überleben einen Backend-Neustart: eigener tmux-Supervisor als User-Unit mit dediziertem Socket
+- Der Server hält für jede Sitzung eine autoritative Headless-xterm-Instanz; Reconnect liefert einen konsistenten Snapshot plus fortlaufende Deltas
+- Split Views mit getrenntem Pane-Layout pro Terminalfläche, auf Desktop und Tablet-Landscape bis zu zwei Panes
+- Persistente Terminals werden nach einem Host-Neustart aus der SQLite-Registry wiederhergestellt
+
+### Behoben
+
+- Browser komplett schließen, Reload sowie Terminal- und Gerätewechsel verzerren oder beschädigen TUI-Inhalte nicht mehr
+- Ein WebSocket-Abbruch beendet keinen laufenden Terminalprozess mehr (Client detacht nur)
+- Mouse-Reporting und Alternate Screen werden aus dem echten Terminalmodus gelesen statt aus dem Terminaltyp geraten
+- Resize-Flut entfällt: Änderungen werden pro Frame gebündelt und nur bei geänderten Spalten/Zeilen gesendet
+- Multi-Device-Nutzung zerstört die Geometrie des jeweils anderen Geräts nicht mehr (expliziter Geometry-Owner)
+
+### Verändert
+
+- Ein multiplexter Terminal-WebSocket pro Browserseite statt eines Sockets pro Terminal
+- Eingaben gehen ohne künstliche Verzögerung direkt an die PTY, Ausgabe wird höchstens pro Renderframe gebündelt
+- Nicht sichtbare Terminals werden nicht mehr dauerhaft im Browser geparst; sie detachen und synchronisieren bei Rückkehr
+- Starre UI-Tab-Limits der alten horizontalen Tabarchitektur entfernt, serverseitige Ressourcenlimits bleiben bestehen
+- Terminal-Server und -Client um Headless-Renderer, Sync-Protokoll und Workspace-V2-Modell erweitert
+
+---
+
 ## [0.90.0] - 2026-08-18
 
 ### Features

@@ -20,7 +20,7 @@ interface AppPreferencesState {
   setDefaultPage: (page: PageRouteId) => void;
 }
 
-const STORAGE_KEY = "remote-workplace.app-preferences.v1";
+const STORAGE_KEY = "wrapt.app-preferences.v1";
 const PERSIST_VERSION = 1;
 
 export const useAppPreferences = create<AppPreferencesState>()(

@@ -6,8 +6,10 @@ import type { TmuxSupervisor } from "./TmuxSupervisor.js";
 import type { ServerTerminalMessage, TerminalKind } from "./protocol.js";
 import { createProcessRuntime, type ProcessRuntime } from "./process.js";
 import { fromStored, importSupervisorSessions, validateCwd } from "./restore.js";
+import { GeometryLease } from "./runtime/GeometryLease.js";
+import { OutputJournal } from "./runtime/OutputJournal.js";
 import { EXITED_SESSION_TTL_MS, TerminalFailure, type TerminalClientViewport, type TerminalSession } from "./session.js";
-import { applyResize, broadcastSnapshot, snapshotMessage } from "./snapshots.js";
+import { applyResize, broadcastSnapshot, sendSync } from "./snapshots.js";
 
 // Behält den öffentlichen Export bei, damit bestehende Importe stabil bleiben.
 export { TerminalFailure } from "./session.js";
@@ -143,8 +145,10 @@ export class TerminalManager {
       id: randomUUID(), userId, runtimeId, kind, mode: input.mode ?? "agent", profilePath,
       projectId: input.projectId ?? null, supervisorName: null, pty: null, pid: 0, cwd, cols: input.cols, rows: input.rows,
       status: "starting", history: "", createdAt: now, updatedAt: now, exitCode: null, exitSignal: null, sequence: 0,
-      clients: new Map(), clientViewports: new Map(), primaryClientId: input.clientId ?? null,
+      epoch: 0, clients: new Map(), clientViewports: new Map(), primaryClientId: input.clientId ?? null,
       dataListener: null, exitListener: null, lastPersistedAt: undefined,
+      headless: null, journal: new OutputJournal(),
+      geometry: new GeometryLease(input.cols, input.rows, input.clientId ?? null),
     };
     this.sessions.set(session.id, session);
     this.persist(session);
@@ -162,7 +166,7 @@ export class TerminalManager {
     }
   }
 
-  attachSession(userId: string, sessionId: string, client: (message: ServerTerminalMessage) => void, clientId: string = randomUUID(), viewport?: TerminalClientViewport): () => void {
+  attachSession(userId: string, sessionId: string, client: (message: ServerTerminalMessage) => void, clientId: string = randomUUID(), viewport?: TerminalClientViewport, sync?: { epoch: number; lastSequence: number } | null): () => void {
     const session = this.owned(userId, sessionId);
     session.clients.set(clientId, client);
     if (viewport) {
@@ -180,13 +184,47 @@ export class TerminalManager {
       try { applyResize(session, viewport.cols, viewport.rows, (s) => this.persist(s)); }
       catch { throw new TerminalFailure("PTY_RESIZE_FAILED", "Die Terminalgröße konnte nicht angepasst werden."); }
     }
-    client(snapshotMessage(session, clientId, this.options.supervisor));
+    // Ein Client mit konsistentem Zustand bekommt Deltas statt eines vollen
+    // Snapshots (Fast Reconnect); sonst den vollen serialisierten Zustand.
+    sendSync(session, clientId, client, this.options.supervisor, sync);
     let attached = true;
     return () => {
       if (!attached) return;
       attached = false;
       this.detachClientFromSession(session, clientId);
     };
+  }
+
+  /** Fordert einen erneuten Sync an (z. B. nach einer erkannten Sequenzlücke). */
+  syncSession(userId: string, sessionId: string, clientId: string, sync: { epoch: number; lastSequence: number }) {
+    const session = this.owned(userId, sessionId);
+    const client = session.clients.get(clientId);
+    if (!client) return;
+    sendSync(session, clientId, client, this.options.supervisor, sync);
+  }
+
+  /** Echte Nutzerinteraktion: übernimmt die Geometrie-Eigentümerschaft. */
+  takeControl(userId: string, sessionId: string, clientId: string, cols?: number, rows?: number) {
+    const session = this.running(userId, sessionId);
+    if (!session.clients.has(clientId)) return;
+    if (cols !== undefined && rows !== undefined) this.validateViewport(cols, rows);
+    session.primaryClientId = clientId;
+    const target = cols !== undefined && rows !== undefined ? { cols, rows } : session.clientViewports.get(clientId);
+    if (!target) return;
+    try { applyResize(session, target.cols, target.rows, (s) => this.persist(s)); }
+    catch { throw new TerminalFailure("PTY_RESIZE_FAILED", "Die Terminalgröße konnte nicht angepasst werden."); }
+  }
+
+  /** Löst eine Runtime-ID zu ihrer Session auf (legt sie aus der Registry an). */
+  resolveRuntime(userId: string, runtimeId: string): TerminalSession {
+    const session = this.findByRuntime(userId, runtimeId);
+    if (!session) throw new TerminalFailure("SESSION_NOT_FOUND", "Die Terminalsitzung wurde nicht gefunden.");
+    return session;
+  }
+
+  /** Löst eine Session-ID zu ihrer Session auf (legitimiert gegen den Owner). */
+  resolveSession(userId: string, sessionId: string): TerminalSession {
+    return this.owned(userId, sessionId);
   }
 
   /** Entfernt auch einen Client, der nach `create` vor `attach` getrennt wurde. */
@@ -244,6 +282,12 @@ export class TerminalManager {
     if (session.status === "closed") throw new TerminalFailure("SESSION_ALREADY_CLOSED", "Die Terminalsitzung wurde bereits beendet.");
     if (session.status === "running") this.process.stopProcess(session, true);
     session.history = ""; session.exitCode = null; session.exitSignal = null; session.status = "starting"; session.updatedAt = Date.now();
+    // Ein echter Neustart erzeugt die Runtime neu: neuer Epoch, frischer
+    // Terminalzustand, leeres Journal.
+    session.epoch += 1;
+    session.sequence = 0;
+    session.headless?.reset();
+    session.journal.clear();
     this.persist(session); this.process.spawn(session);
     broadcastSnapshot(session, this.options.supervisor);
     return session;
@@ -262,7 +306,7 @@ export class TerminalManager {
 
   getSessionMetadata(userId: string, sessionId: string) {
     const session = this.owned(userId, sessionId);
-    return { id: session.id, runtimeId: session.runtimeId, userId: session.userId, kind: session.kind, projectId: session.projectId, pid: session.pid, cwd: session.cwd, cols: session.cols, rows: session.rows, status: session.status, createdAt: session.createdAt, updatedAt: session.updatedAt, exitCode: session.exitCode, exitSignal: session.exitSignal, sequence: session.sequence, connectedClients: session.clients.size };
+    return { id: session.id, runtimeId: session.runtimeId, userId: session.userId, kind: session.kind, projectId: session.projectId, pid: session.pid, cwd: session.cwd, cols: session.cols, rows: session.rows, status: session.status, createdAt: session.createdAt, updatedAt: session.updatedAt, exitCode: session.exitCode, exitSignal: session.exitSignal, sequence: session.sequence, epoch: session.epoch, connectedClients: session.clients.size };
   }
 
   shutdown() {
@@ -289,7 +333,7 @@ export class TerminalManager {
 
   private persist(session: TerminalSession) {
     if (session.status === "running" && session.lastPersistedAt !== undefined && session.updatedAt - session.lastPersistedAt < 1_000) return;
-    this.options.database?.updateSession({ id: session.id, userId: session.userId, runtimeId: session.runtimeId, kind: session.kind, mode: session.mode, projectId: session.projectId, profilePath: session.profilePath, supervisorName: session.supervisorName, cwd: session.cwd, pid: session.pid, cols: session.cols, rows: session.rows, status: session.status, createdAt: session.createdAt, updatedAt: session.updatedAt, exitCode: session.exitCode, exitSignal: session.exitSignal });
+    this.options.database?.updateSession({ id: session.id, userId: session.userId, runtimeId: session.runtimeId, kind: session.kind, mode: session.mode, projectId: session.projectId, profilePath: session.profilePath, supervisorName: session.supervisorName, cwd: session.cwd, pid: session.pid, cols: session.cols, rows: session.rows, status: session.status, createdAt: session.createdAt, updatedAt: session.updatedAt, exitCode: session.exitCode, exitSignal: session.exitSignal, epoch: session.epoch });
     session.lastPersistedAt = session.updatedAt;
   }
 

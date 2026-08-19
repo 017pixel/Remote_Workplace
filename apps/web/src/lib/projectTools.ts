@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { PanelType, Project } from "@workbench/contracts";
+import type { PanelType, Project } from "@wrapt/contracts";
 import {
   BrowserIcon,
   CodeServerIcon,

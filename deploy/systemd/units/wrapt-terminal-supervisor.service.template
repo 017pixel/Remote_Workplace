@@ -1,0 +1,41 @@
+[Unit]
+Description=Wrapt Terminal Supervisor (tmux)
+After=network-online.target
+Wants=network-online.target
+# Der Supervisor gehört nicht zum Lebenszyklus des Backends: Ein normaler
+# wrapt.service-Neustart berührt diese Unit nicht, laufende Terminals
+# überleben. StartLimitBurst=0 verhindert das systemd-typische Aufgeben nach
+# wiederholten Fehlstarts.
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
+[Service]
+# tmux new-session -d startet den Server und beendet den Client sofort.
+# oneshot + RemainAfterExit hält die Unit trotzdem als Supervisor-Grundlage
+# aktiv, ohne dass systemd den bereits laufenden tmux-Prozess als fehlenden
+# Fork interpretiert und versehentlich ExecStop ausführt.
+Type=oneshot
+RemainAfterExit=true
+Environment=HOME=__HOME__
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+ExecStart=__TMUX_BIN__ -S __TERMINAL_SOCKET__ new-session -d -s wrapt-supervisor
+# Expliziter Stopp beendet alle Terminal-Sessions am dedizierten Socket.
+ExecStop=__TMUX_BIN__ -S __TERMINAL_SOCKET__ kill-server
+TimeoutStopSec=10s
+UMask=0077
+
+# Der Socket liegt unter $XDG_RUNTIME_DIR/wrapt (kein /tmp), damit
+# er nicht in PrivateTmp-Bereichen anderer Dienste landet und nur der
+# Wrapt-Benutzer Zugriff hat. Deshalb bewusst kein PrivateTmp hier.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectKernelTunables=true
+# Bewusst ohne ProtectKernelModules: Auf diesem System scheitert das Droppen
+# der Capabilities mit dieser Option ("Failed to drop capabilities: Operation
+# not permitted", Status 218) und der Supervisor startet nicht mehr.
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=default.target

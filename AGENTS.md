@@ -1,6 +1,6 @@
 # AGENTS.md — Anleitung für Coding-Agenten
 
-Diese Datei ist die zentrale Anleitung für KI-/Coding-Agenten, die an **Remote Workplace**
+Diese Datei ist die zentrale Anleitung für KI-/Coding-Agenten, die an **Wrapt**
 arbeiten. Sie gilt für alle Tools, die `AGENTS.md` lesen (Codex, OpenCode, u. a.).
 Claude Code liest zusätzlich `CLAUDE.md`, die auf diese Datei verweist.
 
@@ -14,9 +14,9 @@ benutzt, um an sich selbst weiterzuentwickeln — Änderungen am Code werden im 
 neu gebaut und neu gestartet.
 
 - **pnpm-Monorepo** (`pnpm@10`, Node ≥ 22), TypeScript überall.
-- `apps/server` — Fastify-Backend (`@workbench/server`), Port 3010, API unter `/api/v1`.
-- `apps/web` — React/Vite-Frontend (`@workbench/web`), wird als statisches `dist/` vom Server ausgeliefert.
-- `packages/contracts` — geteilte Zod-Schemas (`@workbench/contracts`). **Muss vor Server/Web gebaut werden.**
+- `apps/server` — Fastify-Backend (`@wrapt/server`), Port 3010, API unter `/api/v1`.
+- `apps/web` — React/Vite-Frontend (`@wrapt/web`), wird als statisches `dist/` vom Server ausgeliefert.
+- `packages/contracts` — geteilte Zod-Schemas (`@wrapt/contracts`). **Muss vor Server/Web gebaut werden.**
 
 ## Wichtigste Befehle
 
@@ -30,7 +30,7 @@ neu gebaut und neu gestartet.
 | End-to-End-Tests | `pnpm test:e2e` |
 | Health-Check | `curl -s http://127.0.0.1:3010/api/v1/health` |
 
-Contracts nach Schema-Änderungen zuerst bauen: `pnpm --filter @workbench/contracts build`.
+Contracts nach Schema-Änderungen zuerst bauen: `pnpm --filter @wrapt/contracts build`.
 Vor jedem Abschluss `pnpm typecheck` (und bei Bedarf `pnpm lint`) laufen lassen.
 
 ## Neustart-Workflow (Frontend / Backend / beides)
@@ -83,11 +83,11 @@ Das Frontend (Einstellungen → „Dienst neu starten") macht genau das und läd
 
 ### Produktion vs. Entwicklung
 
-- **Produktion:** Der Server läuft als **User-**systemd-Dienst `workbench.service`
+- **Produktion:** Der Server läuft als **User-**systemd-Dienst `wrapt.service`
   (`~/.config/systemd/user/`, `Restart=always`, `StartLimitIntervalSec=0` in `[Unit]` —
   in `[Service]` ignoriert systemd den Schlüssel und der Dienst gibt nach 5 Fehlstarts auf).
   Steuern:
-  `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user <status|restart|stop> workbench.service`.
+  `XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user <status|restart|stop> wrapt.service`.
   `sudo` kann auf dem Server vorhanden sein, wird von der Workbench aber bewusst nicht verwendet.
   Alle Workbench-, T3- und Hermes-Dienste sind User-Units und werden mit `systemctl --user` gesteuert.
 - **Entwicklung (`pnpm dev`):** `tsx watch` startet das Backend bei Dateiänderung selbst neu,
@@ -126,7 +126,7 @@ Flächen (Panel, Orbit, Projekt-Detail, Seite „T3 Code") hängen am selben Pro
 keinen Parallelbetrieb beider Kanäle.
 
 - **Umschalten:** Einstellungen → „T3 Code Kanal" (Stable = `t3@latest`, Nightly = `t3@nightly`).
-  Der Wert landet in `config/workbench.local.json` unter `t3.channel` und überlebt Neustarts.
+  Der Wert landet in `config/wrapt.local.json` unter `t3.channel` und überlebt Neustarts.
 - **Wirksam wird der Wechsel erst beim nächsten Neustart** (Backend oder Beides). Es gibt bewusst
   keinen Auto-Neustart; die Card zeigt bis dahin „Neustart erforderlich".
 - **Was beim Neustart passiert** (`scripts/sync-t3-channel.sh`, aufgerufen aus `lib-restart.sh`):
@@ -144,9 +144,14 @@ keinen Parallelbetrieb beider Kanäle.
 ## Keine Daten verlieren
 
 - **Workspace-Zustand** (geöffnete Panels, Arbeitsflächen) liegt im Browser-`localStorage` → von Neustarts unberührt.
-- **Orbit-Daten, Galerie, Accounts** liegen in SQLite unter `~/.local/share/remote-workplace/workbench.sqlite`
-  (NICHT `data/workbench.sqlite` im Repo — das ist eine alte Kopie) → unberührt.
-- **Laufende Terminals** werden beim **Backend-**Neustart unterbrochen — unvermeidlich, so erwartet.
+- **Orbit-Daten, Galerie, Accounts** liegen in SQLite unter `~/.local/share/wrapt/wrapt.sqlite`
+  (NICHT `data/wrapt.sqlite` im Repo — das ist eine alte Kopie) → unberührt.
+- **Laufende Terminals** überleben einen **Backend-**Neustart: Sie laufen in einem dedizierten
+  tmux-Supervisor (`wrapt-terminal-supervisor.service`, eigene User-Unit) mit eigenem Socket
+  unter `$XDG_RUNTIME_DIR/wrapt/`. Der Fastify-Prozess verbindet sich beim Start nur
+  mit diesem tmux-Server. Ein normaler `wrapt.service`-Neustart beendet die Terminal-Prozesse
+  deshalb nicht. Nur ein Host-Reboot unterbricht sie physisch — als persistent markierte Terminals
+  werden danach aus der SQLite-Registry wiederhergestellt (CWD, Name, Ordner, Pin).
 
 ## Aktiver KI-Account (Codex, Claude Code, OpenCode)
 
@@ -183,7 +188,7 @@ scripts/ki-account.sh use claude privat  # bei mehrdeutigen Namen das Werkzeug v
 - **Externe URLs erreichen den lokalen Preview-Gateway nie.** Sie werden im echten Client-Browser oder im Server-Chromium geöffnet.
 - Alle Preview-Endpunkte verlangen eine erlaubte Tailscale-Identität, mutierende zusätzlich Same-Origin. Benutzer sehen nur eigene Sessions, Snapshots und Storage-Profile; fremde Slots erscheinen nur als „belegt".
 - Ein Slot, dessen Storage-Reset nicht verifizierbar war, bleibt fail-closed in Quarantäne und wird nicht neu vergeben.
-- Die Feature-Flags stehen unter `previews` in `config/workbench.local.json` (`gatewayV2Enabled`, `bridgeEnabled`, `diagnosticsEnabled`, `storageSyncMode`, `slotResetEnabled`) — Details in [`docs/configuration.md`](docs/configuration.md).
+- Die Feature-Flags stehen unter `previews` in `config/wrapt.local.json` (`gatewayV2Enabled`, `bridgeEnabled`, `diagnosticsEnabled`, `storageSyncMode`, `slotResetEnabled`) — Details in [`docs/configuration.md`](docs/configuration.md).
 - Der eigenständige Browser bleibt ein serverseitiger Chromium-Stream. Seine lokale Portübersicht öffnet ein Preview-Panel beziehungsweise eine 1er-Preview-Gruppe.
 - Nach Änderungen an Preview-Ports einmalig `sudo bash deploy/proxy/configure-tailscale-serve.sh` ausführen.
 
@@ -218,7 +223,7 @@ Preview-Sessions und ihre Devserver gehören dem Nutzer und laufen oft über Stu
 kein Testmaterial und werden nicht umkonfiguriert. Verbindlich:
 
 - **Niemals** laufende Preview-Devserver stoppen, neu starten oder deren Prozesse killen —
-  weder per tmux (`workbench-preview-*`), `kill`/`pkill`/`fuser` auf ihren Ports noch per
+  weder per tmux (`wrapt-preview-*`), `kill`/`pkill`/`fuser` auf ihren Ports noch per
   API (`POST /api/v1/previews/dev-servers/:projectId/stop|restart`). Die Workbench startet
   abgestürzte Devserver selbst wieder; eigene Kills brechen das Preview unnötig ab.
 - **Keinen eigenen Devserver auf einem Port starten**, den ein aktives Preview nutzt. Vorher
@@ -248,7 +253,7 @@ und nicht so vollständig wie CDP/Chrome DevTools. Vollständige Anleitung:
 
 Vor Änderungen an Preview-, Diagnose-, Storage-, Quarantäne- oder Browser-Komponenten sind die
 Skills `design-system-guide` und `mobile-design` zu lesen und anzuwenden. Das bestehende
-Remote-Workplace-Design hat Vorrang; einzige Farbquelle bleibt der `@theme`-Block in
+Wrapt-Design hat Vorrang; einzige Farbquelle bleibt der `@theme`-Block in
 `apps/web/src/index.css`. Keine Gradients, keine Emojis, keine neuen Hex-Farben in Komponenten,
 Touch-Ziele ab 44 × 44 px, Diagnose mobil als Bottom Sheet.
 
@@ -274,7 +279,7 @@ ganz oben in `apps/web/src/index.css` — Farben gehören dort hinein, nicht in 
 
 ## Konventionen
 
-- Globale/konfigurierbare Werte gehören in `config/workbench.local.json` bzw. `.env`, nicht hartkodiert.
+- Globale/konfigurierbare Werte gehören in `config/wrapt.local.json` bzw. `.env`, nicht hartkodiert.
 - API-Verträge zuerst in `packages/contracts` (Zod) definieren, dann Server und Client anpassen.
 - Deutsch schreiben (Commits, Kommentare, UI). Bestehenden Stil der Nachbardateien übernehmen.
 - Vor dem Abschluss: `pnpm typecheck` grün, relevante Tests laufen lassen.

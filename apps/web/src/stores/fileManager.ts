@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { FileManagerState, FilesystemEntry } from "@workbench/contracts";
+import type { FileManagerState, FilesystemEntry } from "@wrapt/contracts";
 
-export const FILE_MANAGER_STORAGE_KEY = "workbench.file-manager.pending.v1";
+export const FILE_MANAGER_STORAGE_KEY = "wrapt.file-manager.pending.v1";
 
 export interface FileManagerUiState {
   expanded: ReadonlySet<string>;

@@ -16,7 +16,7 @@ import {
   type FilesystemEntry,
   type FileManagerTextPreviewResponse,
   type FileManagerSearchResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 
 const DEFAULT_TEXT_PREVIEW_BYTES = 300 * 1024;
@@ -475,7 +475,7 @@ export class FileManagerService {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
     const byteLimit = input.byteLimit ?? this.maxUploadBytes;
-    const temporary = join(directory, `.workbench-upload-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.tmp`);
+    const temporary = join(directory, `.wrapt-upload-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.tmp`);
     let bytes = 0;
     const counter = new Transform({
       transform(chunk: Buffer, _encoding, callback) {

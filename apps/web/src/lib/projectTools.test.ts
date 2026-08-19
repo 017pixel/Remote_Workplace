@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Project } from "@workbench/contracts";
+import type { Project } from "@wrapt/contracts";
 import { projectToolOptions } from "./projectTools";
 
 const project = (overrides: Partial<Project> = {}): Project => ({

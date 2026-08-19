@@ -2,10 +2,10 @@ import { NavLink, useLocation } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from "react";
-import type { OrbitNode } from "@workbench/contracts";
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, FolderCodeIcon, FolderSearchIcon, RemoteWorkbenchIcon } from "./icons";
+import type { OrbitNode } from "@wrapt/contracts";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, FolderCodeIcon, FolderSearchIcon, WraptIcon } from "./icons";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
 import { commandRegistry } from "../extensions/commandRegistry";
@@ -34,7 +34,7 @@ function beginOrbitDrag(event: ReactDragEvent, payload: OrbitPalettePayload) {
 }
 
 function requestOrbitProjectBrowser() {
-  void commandRegistry.execute("workbench.orbit.command.project-browser");
+  void commandRegistry.execute("wrapt.orbit.command.project-browser");
 }
 
 
@@ -198,8 +198,8 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) {
   const location = useLocation();
-  const projects = useQuery(workbenchQueries.projects());
-  const notifications = useQuery(workbenchQueries.notifications());
+  const projects = useQuery(wraptQueries.projects());
+  const notifications = useQuery(wraptQueries.notifications());
   const orbitMode = location.pathname === "/workbench";
   // Das Set abonnieren, nicht die (stabile) Methode: sonst rechnen die Memos unten
   // beim Umschalten der Seiten-Sichtbarkeit nie neu.
@@ -253,8 +253,8 @@ export function Sidebar({ collapsed, width, onToggle, onResize }: SidebarProps) 
     >
       <aside className="workspace-sidebar flex-col">
         <div className="sidebar-brand">
-          <div className="sidebar-mark"><RemoteWorkbenchIcon className="h-[18px] w-[18px]" /></div>
-          {!collapsed ? <div className="sidebar-label">Remote Workplace</div> : null}
+          <div className="sidebar-mark"><WraptIcon className="h-[18px] w-[18px]" /></div>
+          {!collapsed ? <div className="sidebar-label">Wrapt</div> : null}
           <button
             type="button"
             className="sidebar-toggle"

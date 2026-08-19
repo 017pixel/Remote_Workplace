@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
+import { hasPrivateWrapt, privateWraptReason, workbenchUrl } from "./helpers/environment";
 
 // Braucht synchronisierte News und einen Mistral-Schlüssel für Fragen und Sammlungen.
-test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+test.skip(() => !hasPrivateWrapt, privateWraptReason);
 
 const workbench=workbenchUrl;
 const apiOrigin=new URL(workbench).origin;

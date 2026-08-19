@@ -2,9 +2,9 @@
 
 ## Prozesse und Netzwerk
 
-- T3 Code läuft unabhängig auf `127.0.0.1:3773` und bleibt über Tailscale Serve HTTPS 443 erreichbar. Für die eingebettete Ansicht stellt das Workbench-Backend zusätzlich einen gleich-originigen HTTP-/WebSocket-Proxy unter `/t3` bereit; dadurch bleibt T3 Codes eigener `frame-ancestors 'self'`-Schutz intakt.
+- T3 Code läuft unabhängig auf `127.0.0.1:3773` und bleibt über Tailscale Serve HTTPS 443 erreichbar. Für die eingebettete Ansicht stellt das Wrapt-Backend zusätzlich einen gleich-originigen HTTP-/WebSocket-Proxy unter `/t3` bereit; dadurch bleibt T3 Codes eigener `frame-ancestors 'self'`-Schutz intakt.
 - OpenCode Web läuft als eigene User-Unit auf `127.0.0.1:3774`. Der gleich-originige Proxy unter `/opencode` scoped HTML-Assets sowie absolute API-/Event-/WebSocket-Ziele und verwendet weiterhin dasselbe OpenCode-Home wie die CLI.
-- Workbench-Backend und gebautes Frontend laufen gemeinsam auf `127.0.0.1:3010`; Tailscale Serve veröffentlicht diesen Dienst privat auf HTTPS 8443.
+- Wrapt-Backend und gebautes Frontend laufen gemeinsam auf `127.0.0.1:3010`; Tailscale Serve veröffentlicht diesen Dienst privat auf HTTPS 8443.
 - code-server bindet ausschließlich an `127.0.0.1:8080`. Fastify leitet `/editor/*` inklusive WebSocket-Upgrades dorthin weiter. Dieser datenintensive Pfad ist nicht Teil des API-Request-Limits; der WebSocket-Transport erlaubt die größeren Initialisierungsframes von VS Code.
 - Lokale Development-Server binden ebenfalls nur an Loopback. Zwölf interne Preview-Listener auf den konfigurierten `previews.slotPorts` leiten HTTP und WebSocket am Root an zugewiesene Devserver weiter. Tailscale Serve veröffentlicht sie 1:1 auf getrennten HTTPS-Ports; Preview-Sessions reservieren Haupt- und bestätigte Projekt-Begleitdienste atomar und überbrücken deren lokale URLs.
 - Ein kurzzeitig gecachter Port-Scanner ermittelt lokale TCP-Listener, prüft HTTP und HTTPS und stellt erreichbare Dienste als Schnellstart bereit. Angezeigt werden nur Projekt-Devserver: privilegierte Ports unter 1024, bekannte Systemprozesse und Listener ohne HTTP-Antwort bleiben ausgeblendet. Prozessdetails bleiben auf Name und Port begrenzt.
@@ -15,7 +15,7 @@ Verwaltungsoberfläche ist ausschließlich die offizielle Hermes-SPA im Iframe. 
 Events Feed verwenden die offiziellen WebSocket-Endpunkte `/api/pty`, `/api/ws`, `/api/pub` und
 `/api/events`. Der Dashboard-Proxy liegt ausschließlich unter `/hermes`, setzt den Upstream-
 `Host` auf die Hermes-Bind-Adresse, leitet `X-Forwarded-Prefix` weiter und übersetzt den äußeren
-Browser-Origin beim WebSocket-Handshake auf den Loopback-Upstream. Die Workbench prüft den
+Browser-Origin beim WebSocket-Handshake auf den Loopback-Upstream. Die Wrapt prüft den
 äußeren Same-Origin-Zugriff vorher. ACP-Funktionen können intern für Hintergrundaufgaben bestehen;
 eine zweite sichtbare Chatfläche gibt es nicht. Das ephemere Hermes-Session-Token wird nur
 serverseitig aus dem Dashboard-HTML gelesen und nie an den Browser oder in Logs weitergereicht.
@@ -23,16 +23,16 @@ Telegram, Cron und Web schreiben weiterhin in denselben Hermes-Sessionbestand.
 
 Das Iframe wird genau einmal montiert; Seitenwechsel laufen über eine Routen-Brücke, die der
 Proxy vor `</head>` injiziert und die in beide Richtungen spricht. `route.changed` meldet den
-offiziellen Hermes-Pfad an die Workbench, `route.navigate` nimmt Deep-Links aus der Workbench
+offiziellen Hermes-Pfad an die Wrapt, `route.navigate` nimmt Deep-Links aus der Wrapt
 entgegen. Die Brücke prüft Origin und Pfadform. Fällt sie aus, lädt der iframe den offiziellen
 Pfad direkt neu.
 
-**Markenzeichen.** Die Workbench verwendet das offizielle Hermes-Agent-Icon (MIT © 2025 Nous
+**Markenzeichen.** Die Wrapt verwendet das offizielle Hermes-Agent-Icon (MIT © 2025 Nous
 Research) aus `apps/desktop/assets/icon.png` des Hermes-Checkouts. `scripts/build-hermes-icon.mjs`
 leitet daraus `apps/web/public/icons/hermes-agent.png` ab; `HermesIcon` bettet es ein, damit alle
 Aufrufstellen es wie jedes andere Werkzeugicon verwenden können.
 
-**Theme.** `deploy/hermes/dashboard-themes/remote-workplace.yaml` wird nach
+**Theme.** `deploy/hermes/dashboard-themes/wrapt.yaml` wird nach
 `$HERMES_HOME/dashboard-themes/` installiert und überlebt damit jedes `hermes update`. Es bleibt
 absichtlich nah am Hermes-Original und ändert nur den Akzent. Eine Falle steckt in der Benennung
 der Palette (`hermes_cli/web_server.py`, `web/src/themes/context.tsx`): `midground` ist nicht die
@@ -47,7 +47,7 @@ Das Terminal besteht aus xterm.js im Browser, einem versionierten JSON-WebSocket
 
 ## Browser und lokale Previews
 
-Der Browser-Manager startet einen echten headless Chromium-Prozess mit einem isolierten, dauerhaften Profil und steuert ihn über das Chrome DevTools Protocol. Profilverzeichnisse werden aus Benutzeridentität und validiertem Profilnamen gehasht, mit Modus `0700` angelegt und niemals an den Client ausgeliefert. Cookies und Loginzustände überleben Leerlauf, Backend-Neustarts und Gerätewechsel; SQLite speichert zusätzlich Profilbindung und letzte URL einer stabilen Browserinstanz. Der Browser empfängt JPEG-Screencasts, Navigation sowie typisierte Maus-, Tastatur- und Resize-Ereignisse über einen eigenen WebSocket. Sitzungen gehören zur bestätigten Tailscale-Identität, WebSocket-Upgrades müssen vom Workbench-Origin stammen, und der Client erhält weder den DevTools-Port noch Zugriff auf den Chromium-Prozess.
+Der Browser-Manager startet einen echten headless Chromium-Prozess mit einem isolierten, dauerhaften Profil und steuert ihn über das Chrome DevTools Protocol. Profilverzeichnisse werden aus Benutzeridentität und validiertem Profilnamen gehasht, mit Modus `0700` angelegt und niemals an den Client ausgeliefert. Cookies und Loginzustände überleben Leerlauf, Backend-Neustarts und Gerätewechsel; SQLite speichert zusätzlich Profilbindung und letzte URL einer stabilen Browserinstanz. Der Browser empfängt JPEG-Screencasts, Navigation sowie typisierte Maus-, Tastatur- und Resize-Ereignisse über einen eigenen WebSocket. Sitzungen gehören zur bestätigten Tailscale-Identität, WebSocket-Upgrades müssen vom Wrapt-Origin stammen, und der Client erhält weder den DevTools-Port noch Zugriff auf den Chromium-Prozess.
 
 Das Browser-Werkzeug übernimmt die schnelle Preview-Logik für lokale Ziele: Löst sich die eingegebene oder aus der Portübersicht gewählte Adresse auf einen lokalen Port auf, übernimmt `BrowserPanel` (`apps/web/src/components/browser/BrowserPanel.tsx`) die Anzeige über denselben Slot-Proxy-Mechanismus wie Previews (`isolate: false`, geteilter Slot pro Zielport) statt über den Chromium-Stream. Ein Umschalter erlaubt weiterhin den expliziten Wechsel auf den Server-Chromium für dasselbe lokale Ziel, etwa für geräteübergreifend geteilte Sessions. Der Chromium-Prozess startet erst bei echter externer Navigation oder explizitem Umschalten – der bloße Blank-Zustand mit der Portübersicht verbraucht keine der begrenzten Browser-Sessions. Dieselbe Komponente läuft unverändert als eigenständige Route und als Orbit-Werkzeugknoten im Infinite Canvas; Entfernen des Knotens gibt einen gehaltenen Preview-Slot beim Unmount frei.
 
@@ -60,7 +60,7 @@ besitzt, übernimmt ein neuer Backendprozess dieselbe Sitzung, statt den Dev-Ser
 Das Standardziel ist ein eigenes Browserfenster; ein persistierter Tab-Modus ist optional. Die
 Route `/previews/live` zeigt dieselbe lokale Preview als Xcode-artige Gerätefläche ohne App-Shell.
 
-Slot-Zuordnungen liegen in SQLite und überleben Backend-Neustarts. Die API `/api/v1/previews/slots` weist freie Slots atomar zu, kann ein Ziel bewusst teilen und gibt Slots wieder frei. Orbit-Preview-Gruppen verwenden dasselbe System für Layouts mit einem, zwei, drei oder sechs Slots. Neue Slots starten mit iPhone-13-Maßen; ein Layoutwechsel behält die Slot-Größe bei und lässt die Gruppe zur freien Seite wachsen. Ziel, Label, Gerätewahl, Isolation und Laufzeit liegen im Orbit-Dokument. Die Route `/previews/gruppe/:id` rendert dieselbe Gruppe ohne Canvas, `/previews/fenster/:id` zusätzlich ohne Workbench-Navigation für ein eigenes Browserfenster; beide folgen dem Orbit-Dokument und übernehmen Gerät, Ausrichtung und Laufzeit jedes Slots.
+Slot-Zuordnungen liegen in SQLite und überleben Backend-Neustarts. Die API `/api/v1/previews/slots` weist freie Slots atomar zu, kann ein Ziel bewusst teilen und gibt Slots wieder frei. Orbit-Preview-Gruppen verwenden dasselbe System für Layouts mit einem, zwei, drei oder sechs Slots. Neue Slots starten mit iPhone-13-Maßen; ein Layoutwechsel behält die Slot-Größe bei und lässt die Gruppe zur freien Seite wachsen. Ziel, Label, Gerätewahl, Isolation und Laufzeit liegen im Orbit-Dokument. Die Route `/previews/gruppe/:id` rendert dieselbe Gruppe ohne Canvas, `/previews/fenster/:id` zusätzlich ohne Wrapt-Navigation für ein eigenes Browserfenster; beide folgen dem Orbit-Dokument und übernehmen Gerät, Ausrichtung und Laufzeit jedes Slots.
 
 In Orbit erscheint bei fokussierten Preview-Gruppen eine kontextuelle Aktionsinsel. Sie bietet
 nur die zur Anzahl aktiver Panels passenden Raster, gemeinsamen Reload, externes Öffnen und den
@@ -68,13 +68,13 @@ Sprung in den Preview Hub; bei anderen Werkzeugen bleibt sie vollständig verbor
 
 ## Projekte und Workspace
 
-Alle direkten, nicht versteckten Verzeichnisse unter `PROJECTS_ROOT` werden bei der Abfrage erkannt. `projects.local.json` überschreibt diese Erkennung nicht, sondern ergänzt explizite Metadaten und Preview-URLs. Eine gecachte Aktivitätsanalyse kombiniert den letzten Workbench-Zugriff, die jüngste relevante Dateiänderung und den letzten Git-Commit. Die Sidebar zeigt daraus nur die neuesten Projekte; eine Suche stellt weiterhin sämtliche verfügbaren Verzeichnisse bereit. Projektpfade werden nur serverseitig erzeugt; der Browser übermittelt Projekt-IDs.
+Alle direkten, nicht versteckten Verzeichnisse unter `PROJECTS_ROOT` werden bei der Abfrage erkannt. `projects.local.json` überschreibt diese Erkennung nicht, sondern ergänzt explizite Metadaten und Preview-URLs. Eine gecachte Aktivitätsanalyse kombiniert den letzten Wrapt-Zugriff, die jüngste relevante Dateiänderung und den letzten Git-Commit. Die Sidebar zeigt daraus nur die neuesten Projekte; eine Suche stellt weiterhin sämtliche verfügbaren Verzeichnisse bereit. Projektpfade werden nur serverseitig erzeugt; der Browser übermittelt Projekt-IDs.
 
 Der Orbit-Serverbrowser ergänzt diese flache Erkennung durch einen lazy geladenen Dateibaum unter einer separaten Allowlist-Root. Die API liefert nur Metadaten direkter Kinder, paginiert große Ordner und folgt keinen symbolischen Verweisen. Ein ausgewählter Unterordner wird nach kanonischer Pfadprüfung mit einer stabilen, pfadgebundenen ID in SQLite registriert. Danach verhält er sich für Orbit, Terminal, Agenten und Code-Server wie jedes konfigurierte Projekt. Der Root-Ordner selbst bleibt ausgeschlossen.
 
 Der aktive Workspace verwendet das validierte Orbit-Schema Version 6. Boards enthalten Knoten, Kanten, Viewport und Arbeitsgebietsgrenzen. Projekt-Hubs stellen den gemeinsamen Kontext her; Werkzeuge, Preview-Gruppen und ihre Slot-Kinder, Notizen, Snippets, Dateien, Bereiche und Nutzungsanzeigen bleiben frei beweglich und skalierbar. Preview-Slots verwenden `parentId`, folgen dadurch einer Gruppe ohne iframe-Neuladen und können aus ihr herausgelöst oder wieder angedockt werden.
 
-Die kanonische Orbit-Datei liegt revisioniert in derselben lokalen SQLite-Datenbank wie die Nutzungsdaten. Der Browser speichert Änderungen nach kurzer Ruhezeit und fragt in einem konfigurierbaren Intervall nach neueren Revisionen. Bei einem Revisionskonflikt wird die aktuelle Serverrevision geladen und die noch nicht gespeicherte lokale Änderung erneut darauf geschrieben. Hermes-Status, Aufgaben, Cron und Ergebnisse sind additive Knotentypen; alte Dokumente der Versionen 6 und 7 bleiben lesbar, geschrieben wird Version 8. Da die Workbench für eine Person ausgelegt ist, genügt dieses deterministische Last-Edit-Verfahren ohne Mehrbenutzer-CRDT.
+Die kanonische Orbit-Datei liegt revisioniert in derselben lokalen SQLite-Datenbank wie die Nutzungsdaten. Der Browser speichert Änderungen nach kurzer Ruhezeit und fragt in einem konfigurierbaren Intervall nach neueren Revisionen. Bei einem Revisionskonflikt wird die aktuelle Serverrevision geladen und die noch nicht gespeicherte lokale Änderung erneut darauf geschrieben. Hermes-Status, Aufgaben, Cron und Ergebnisse sind additive Knotentypen; alte Dokumente der Versionen 6 und 7 bleiben lesbar, geschrieben wird Version 8. Da die Wrapt für eine Person ausgelegt ist, genügt dieses deterministische Last-Edit-Verfahren ohne Mehrbenutzer-CRDT.
 
 Ein vorhandener Workspace der Schema-Version 3 in `localStorage` wird nur dann in Orbit-Boards migriert, wenn auf dem Server noch kein Orbit-Dokument existiert. Gruppen und Tabs werden als Live-Werkzeugknoten übernommen, Projekt-Hubs und Verbindungen ergänzt. Anschließend ist SQLite die geräteübergreifende Quelle; der alte lokale Zustand bleibt als Rückfallkopie unangetastet.
 
@@ -82,7 +82,7 @@ Besuchte React-Routen bleiben für die Dauer der Browser-Session in einem persis
 
 ## Tech TLDRs
 
-Der News-Bereich verwendet ein eigenes SQLite-Modul in derselben Workbench-Datenbank. RSS-, Atom-, Hacker-News- und YouTube-Adapter normalisieren Beiträge in ein gemeinsames Schema; FTS5 indexiert Titel, TLDR und Inhalt. Ein Cursor aus Wichtigkeit und Veröffentlichungszeit ermöglicht stabiles fortlaufendes Nachladen.
+Der News-Bereich verwendet ein eigenes SQLite-Modul in derselben Wrapt-Datenbank. RSS-, Atom-, Hacker-News- und YouTube-Adapter normalisieren Beiträge in ein gemeinsames Schema; FTS5 indexiert Titel, TLDR und Inhalt. Ein Cursor aus Wichtigkeit und Veröffentlichungszeit ermöglicht stabiles fortlaufendes Nachladen.
 
 Mistral Small verarbeitet Übersetzung, Kategorie, TLDR und Wichtigkeit; Mistral Embed erzeugt Suchvektoren, während Mistral Medium nur für komplexe Mehrquellenfragen vorgesehen ist. Der Feed funktioniert bei Rate Limits weiter mit regelbasierten Kategorien und Originalteasern. API-Schlüssel verlassen den Server nie.
 
@@ -109,8 +109,8 @@ Projekt registrieren oder als Orbit-Knoten einbetten.
 
 Das Benachrichtigungsmodul (`apps/server/src/notifications/`) sammelt Einträge aus T3 Code,
 Hermes, Codex, OpenCode, Claude Code und langen Terminal-Prozessen in einer eigenen SQLite-Tabelle.
-Die Inbox ist bewusst ein globaler Workbench-Verlauf: Jede erlaubte Workbench-Identität sieht
-dieselben Einträge. Push-Abos sind dagegen einer konkreten Tailscale-/Workbench-Identität
+Die Inbox ist bewusst ein globaler Wrapt-Verlauf: Jede erlaubte Wrapt-Identität sieht
+dieselben Einträge. Push-Abos sind dagegen einer konkreten Tailscale-/Wrapt-Identität
 zugeordnet. `user_id` begrenzt Registrierung, Entfernen und Testversand, während ein neues globales
 Inbox-Ereignis an alle registrierten Geräte mit aktivierter Quellen-Policy zugestellt wird.
 
@@ -130,7 +130,7 @@ Stunde für Abschlüsse bis zu 24 Stunden für Rückfragen, Pläne und Fehler.
 Das VAPID-Schlüsselpaar wird einmalig unter
 `<paths.dataDir>/notifications/vapid.json` erzeugt und mit Modus `0600` gespeichert. Nur der
 öffentliche Schlüssel erreicht den Browser. Kleine versionierte Payloads übernehmen ausschließlich
-erlaubte relative Workbench-Deep-Links. Der Service Worker zeigt jeden empfangenen Push sichtbar,
+erlaubte relative Wrapt-Deep-Links. Der Service Worker zeigt jeden empfangenen Push sichtbar,
 markiert den Eintrag beim Klick nach Möglichkeit als gelesen und fokussiert oder öffnet die PWA.
 Quellen-Synchronisierer (`agent-session-sync`, `t3-status-sync`, `terminal-status-sync`) binden
 den Gelesen-/Erledigt-Zustand an den tatsächlichen Status der zugehörigen Aufgabe. Schwellen und
@@ -154,10 +154,10 @@ Das Observability-Modul (`apps/server/src/observability/`) stellt zwei Bausteine
 `OperationalMetrics` sammelt pro Route Zähler, Fehlerquote und Dauer-Perzentile, misst die
 Event-Loop-Verzögerung über `monitorEventLoopDelay` und verwaltet einen aktiven-Request-Zähler.
 `OperationalAuditDatabase` schreibt eine append-only, hashverkettete Auditspur kritischer
-Workbench-Mutationen; Request-Bodies und Secrets werden nie übernommen. Das Dashboard verdichtet
+Wrapt-Mutationen; Request-Bodies und Secrets werden nie übernommen. Das Dashboard verdichtet
 diese Werte mit Hostfakten und Laufwerken in einer Kennzahlenleiste samt Verlauf
 (`dashboardRuntime.ts` gruppiert lokale Ports und Terminal-Sessions pro Projekt) und führt im
-Bereich „Workbench-Diagnose" Bereitschaftsprüfungen, Betriebshinweise, Audit und Preview-Slots.
+Bereich „Wrapt-Diagnose" Bereitschaftsprüfungen, Betriebshinweise, Audit und Preview-Slots.
 
 ## Monorepo
 
@@ -173,7 +173,7 @@ Bereich „Workbench-Diagnose" Bereitschaftsprüfungen, Betriebshinweise, Audit 
 
 CodexBar bleibt die Quelle für Live-Limits und lokale Token-/Kostenstatistiken. Das Backend importiert die HTTP-Antworten regelmäßig in eine lokale SQLite-Datenbank und ergänzt die Projektgruppierung über die CodexBar-CLI. Tages-, Modell- und Projektdaten werden idempotent aktualisiert; Limitfenster werden als Messreihe gespeichert. Prognosen entstehen erst ab drei Messpunkten desselben Fensters und bleiben klar von absoluten Tokenquoten getrennt.
 
-Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade. Credentials verbleiben in den Profilen der jeweiligen CLI. Neue Logins laufen in einem typisierten PTY-Modus, der ausschließlich `codex login` oder `opencode auth login` mit einem isolierten Profil starten kann. Entfernen deregistriert den Account in Workbench und CodexBar, löscht aber weder Profilordner noch Anmeldedaten oder historische Statistiken.
+Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade. Credentials verbleiben in den Profilen der jeweiligen CLI. Neue Logins laufen in einem typisierten PTY-Modus, der ausschließlich `codex login` oder `opencode auth login` mit einem isolierten Profil starten kann. Entfernen deregistriert den Account in Wrapt und CodexBar, löscht aber weder Profilordner noch Anmeldedaten oder historische Statistiken.
 
 ## Sicherheitsgrenzen
 
@@ -183,7 +183,7 @@ Die Accountregistry speichert nur Anzeigenamen, Provider und lokale Profilpfade.
 - Terminalzugriff erfordert einen erlaubten Tailscale-Login und akzeptiert ausschließlich typisierte Protokollnachrichten.
 - Browserzugriff erfordert dieselbe erlaubte Tailscale-Identität und einen passenden Origin; DevTools und dauerhafte Profile sind nicht direkt über das Netzwerk erreichbar.
 - Projekt-CWDs müssen innerhalb der konfigurierten Wurzelverzeichnisse liegen; freie Shell-Pfade werden kanonisch geprüft.
-- Editor und Workbench teilen ihren privaten HTTPS-Origin; Preview-Slots erhalten bewusst eigene private HTTPS-Origins für getrennte Web-Storage-Sitzungen.
+- Editor und Wrapt teilen ihren privaten HTTPS-Origin; Preview-Slots erhalten bewusst eigene private HTTPS-Origins für getrennte Web-Storage-Sitzungen.
 - CSP-Framequellen entstehen ausschließlich aus validierten Service- und Preview-Konfigurationen.
 - Der Hermes-Dashboard-Port bleibt Loopback-only; `/hermes` ist identitätsgeschützt, mutierende Aktionen verlangen zusätzlich Same-Origin.
 - Hermes-Freigaben stehen auf `ask`; die offizielle SPA bietet keine dauerhafte globale Freigabe für destruktive Befehle.

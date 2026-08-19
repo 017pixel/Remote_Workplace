@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installiert die Workbench als kanonischen User-systemd-Dienst.
+# Installiert Wrapt als kanonischen User-systemd-Dienst.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -8,7 +8,7 @@ user_unit_directory="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 backup_directory="$repo_root/deploy/backups"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 pnpm_binary="$(command -v pnpm || true)"
-units=("workbench.service")
+units=("wrapt.service")
 installed_units=()
 code_server_config="$repo_root/config/code-server.yaml"
 
@@ -48,7 +48,7 @@ rollback() {
     fi
   done
   systemctl --user daemon-reload
-  systemctl --user restart workbench.service || true
+  systemctl --user restart wrapt.service || true
 }
 trap rollback ERR
 
@@ -68,7 +68,7 @@ if [[ -r "$repo_root/scripts/install-opencode-web-unit.sh" ]]; then
 fi
 
 ready=false
-health_url="${WORKBENCH_HEALTH_URL:-http://127.0.0.1:3010}/api/v1/health"
+health_url="${WRAPT_HEALTH_URL:-${WORKBENCH_HEALTH_URL:-http://127.0.0.1:3010}}/api/v1/health"
 for _ in {1..30}; do
   if curl --fail --silent --show-error --max-time 2 "$health_url" >/dev/null; then
     ready=true
@@ -82,5 +82,5 @@ if [[ "$ready" != true ]]; then
 fi
 trap - ERR
 
-echo "Remote Workplace ist als User-Dienst aktiv."
+echo "Wrapt ist als User-Dienst aktiv."
 echo "Logs: journalctl --user -u ${units[*]}"

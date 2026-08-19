@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { UsageMonitoring, UsageResponse } from "@workbench/contracts";
+import type { UsageMonitoring, UsageResponse } from "@wrapt/contracts";
 import { createCodexbarUsageService } from "./codexbar-cache.js";
 import type { CodexbarClient } from "./codexbar-client.js";
 import type { CodexbarPayload } from "./codexbar-schemas.js";

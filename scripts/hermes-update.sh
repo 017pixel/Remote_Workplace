@@ -3,8 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config_dir="${CONFIG_DIR:-$repo_root/config}"
-config_file="$config_dir/workbench.local.json"
-if [[ ! -f "$config_file" ]]; then config_file="$config_dir/workbench.example.json"; fi
+config_file="$config_dir/wrapt.local.json"
+if [[ ! -f "$config_file" && -f "$config_dir/workbench.local.json" ]]; then config_file="$config_dir/workbench.local.json"; elif [[ ! -f "$config_file" ]]; then config_file="$config_dir/wrapt.example.json"; fi
 
 config_value() {
   local key="$1"

@@ -1,4 +1,4 @@
-import type { PreviewExternalOpenMode } from "@workbench/contracts";
+import type { PreviewExternalOpenMode } from "@wrapt/contracts";
 
 export interface PreviewLiveWindowInput {
   projectId: string;
@@ -23,7 +23,7 @@ export function openPreviewLiveWindow(input: PreviewLiveWindowInput): Window | n
   if (input.mode === "tab") return window.open(url, "_blank", "noopener,noreferrer");
   const width = Math.max(640, Math.round(window.screen.availWidth || 1_280));
   const height = Math.max(480, Math.round(window.screen.availHeight || 800));
-  const name = `workbench-preview-${input.projectId}-${Date.now()}`;
+  const name = `wrapt-preview-${input.projectId}-${Date.now()}`;
   const opened = window.open(url, name, `popup=yes,noopener=yes,noreferrer=yes,width=${width},height=${height},left=0,top=0`);
   return opened ?? window.open(url, "_blank", "noopener,noreferrer");
 }

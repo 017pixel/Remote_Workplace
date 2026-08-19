@@ -1,7 +1,7 @@
 import type { MutableRefObject } from "react";
 import type { Terminal } from "@xterm/xterm";
 import { splitTerminalInput, terminalClipboardAction } from "../../lib/clipboard";
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind } from "@wrapt/contracts";
 import { isDeviceAnswer, shouldForwardTerminalData, touchScrollLines } from "./terminal-utils";
 
 /** Gemeinsame Zustände und Callbacks, die die Eingabe-Handler benötigen. */

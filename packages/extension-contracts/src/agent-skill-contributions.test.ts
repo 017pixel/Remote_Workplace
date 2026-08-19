@@ -9,7 +9,7 @@ import {
 const skill = {
   id: "workbench.agent-tasks.agent-skill.task-management",
   name: "workbench-agent-tasks-task-management",
-  description: "Verwaltet Agent Tasks in Remote Workplace.",
+  description: "Verwaltet Agent Tasks in Wrapt.",
   path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
   targets: ["codex", "claude-code", "opencode"],
   enabledByDefault: false,

@@ -9,9 +9,9 @@ describe("OpenCode-Web-Proxy", () => {
 
   it("injiziert die Route-Bridge vor dem Head-Ende und scoped Assets", () => {
     const html = injectOpenCodeHtmlBridge("<!doctype html><html><head><script src=\"/assets/app.js\"></script></head><body></body></html>");
-    expect(html).toContain('data-remote-workplace-opencode-route="1"');
+    expect(html).toContain('data-wrapt-opencode-route="1"');
     expect(html).toContain('src="/opencode/assets/app.js"');
-    expect(html.indexOf('data-remote-workplace-opencode-route="1"')).toBeLessThan(html.indexOf("</head>"));
+    expect(html.indexOf('data-wrapt-opencode-route="1"')).toBeLessThan(html.indexOf("</head>"));
   });
 
   it("normalisiert den Workbench-Präfix und die OpenCode-Session-Deep-Links", () => {
@@ -32,7 +32,7 @@ describe("OpenCode-Web-Proxy", () => {
 
   it("meldet OpenCode-Presence im Standalone- und iframe-Modus", () => {
     expect(opencodeRouteBridgeScript).toContain('source: "opencode"');
-    expect(opencodeRouteBridgeScript).toContain('source: "remote-workplace-opencode"');
+    expect(opencodeRouteBridgeScript).toContain('source: "wrapt-opencode"');
     expect(opencodeRouteBridgeScript).toContain('type: "route.changed"');
     expect(opencodeRouteBridgeScript).toContain("/api/v1/notifications/presence");
     expect(opencodeRouteBridgeScript).toContain('segments[index + 1] || null');

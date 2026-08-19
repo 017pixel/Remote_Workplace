@@ -52,14 +52,14 @@ Service Workern und Browser-internen Mechanismen erscheinen **nicht**.
 Preview-Sessions, Slots und Devserver gehören dem Nutzer und laufen oft über Stunden. Diese
 Regeln gelten für Coding-Agenten, die neben aktiven Previews arbeiten.
 
-- Laufende Preview-Devserver sind auf dem eigenen tmux-Socket `remote-workplace-previews`
+- Laufende Preview-Devserver sind auf dem eigenen tmux-Socket `wrapt-previews`
   laufende Sessions mit Namen `workbench-preview-<hash>` und dem
-  Marker `@workbench_kind=preview-dev-server`. Sie werden **niemals** gestoppt, neu gestartet
+  Marker `@wrapt_kind=preview-dev-server`. Sie werden **niemals** gestoppt, neu gestartet
   oder gekillt — weder über tmux, `kill`/`pkill`/`fuser` noch über die Devserver-API
   (`POST /api/v1/previews/dev-servers/:projectId/stop|restart`). Stirbt ein Devserver,
-  startet ihn die Workbench selbst wieder (Auto-Restart mit Backoff).
+  startet ihn die Wrapt selbst wieder (Auto-Restart mit Backoff).
 - Eigene Testserver nur auf freien Ports starten. Vorher prüfen, ob der gewünschte Port von
-  einem aktiven Preview genutzt wird: lokale Portübersicht in der Workbench (Dashboard →
+  einem aktiven Preview genutzt wird: lokale Portübersicht in der Wrapt (Dashboard →
   „Lokale Ports") oder `GET /api/v1/services/ports`. Ein Port, auf dem ein Preview-Devserver
   lauscht, ist tabu.
 - Preview-Sessions des Nutzers werden nicht geschlossen (`DELETE /api/v1/previews/sessions/...`
@@ -155,10 +155,10 @@ localStorage-App und eine fehlerhafte App. Die Ports stehen in
 ausgeführt und nichts zurückgelassen.
 
 ```bash
-WORKBENCH_E2E_USER=<erlaubte-adresse> pnpm test:e2e
+WRAPT_E2E_USER=<erlaubte-adresse> pnpm test:e2e
 ```
 
-Ohne `WORKBENCH_E2E_USER` überspringen sich die Preview-Szenarien, statt an `401`
+Ohne `WRAPT_E2E_USER` überspringen sich die Preview-Szenarien, statt an `401`
 zu scheitern.
 
 ## Manuelle Tailscale-Abnahme

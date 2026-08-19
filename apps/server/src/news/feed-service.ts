@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import type { NewsSource } from "@workbench/contracts";
+import type { NewsSource } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { fetchPublic, readBodyLimited } from "../security/public-http.js";
 import type { IncomingNewsItem, NewsDatabase } from "./database.js";
@@ -189,7 +189,7 @@ async function discoverArticleImage(url: string, signal?: AbortSignal) {
       ...(signal ? { signal } : {}),
       headers: {
         Accept: "text/html,application/xhtml+xml;q=0.9",
-        "User-Agent": "RemoteWorkplace-TechTLDRs/0.20",
+        "User-Agent": "Wrapt-TechTLDRs/0.20",
       },
     });
     const type = response.headers.get("content-type") ?? "";
@@ -212,7 +212,7 @@ export class FeedService {
     try {
       const headers: Record<string, string> = {
         Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9",
-        "User-Agent": "RemoteWorkplace-TechTLDRs/0.20",
+        "User-Agent": "Wrapt-TechTLDRs/0.20",
       };
       if (state?.etag) headers["If-None-Match"] = state.etag;
       if (state?.lastModified) headers["If-Modified-Since"] = state.lastModified;

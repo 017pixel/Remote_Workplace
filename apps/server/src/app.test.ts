@@ -4,20 +4,20 @@ import { settings } from "./config/settings.js";
 
 const apps: Awaited<ReturnType<typeof buildApp>>[] = [];
 const authenticatedHeaders = {
-  "tailscale-user-login": settings.terminalAllowedUsers[0] ?? "test@workbench.invalid",
+  "tailscale-user-login": settings.terminalAllowedUsers[0] ?? "test@wrapt.invalid",
 };
 
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
 
-describe("Workbench API", () => {
+describe("Wrapt API", () => {
   it("liefert für fehlende Frontend-Assets keinen HTML-SPA-Fallback", async () => {
     const app = await buildApp({ startBackgroundServices: false });
     apps.push(app);
     const response = await app.inject({
       method: "GET",
-      url: "/workbench/assets/does-not-exist.js",
+      url: "/wrapt/assets/does-not-exist.js",
       headers: { accept: "*/*" },
     });
     expect(response.statusCode).toBe(404);
@@ -179,7 +179,7 @@ describe("Workbench API", () => {
           project.id === "chappie" && project.availability === "available",
       ),
     ).toBe(true);
-    expect(payload.projects.some((project) => project.id === "remote-workplace")).toBe(true);
+    expect(payload.projects.some((project) => project.id === "wrapt")).toBe(true);
   });
 
   it("returns the typed Tech TLDRs feed and collection endpoints", async () => {

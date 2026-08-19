@@ -9,9 +9,9 @@ import {
   notificationSourceSchema,
   pushEndpointRequestSchema,
   pushSubscriptionRegistrationSchema,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { z } from "zod";
-import { persistNotificationPreferences } from "../config/workbench-config.js";
+import { persistNotificationPreferences } from "../config/wrapt-config.js";
 import { isSameOriginRequest } from "../security/same-origin.js";
 import { resolveWorkbenchUser, type WorkbenchIdentityOptions } from "../security/workbench-identity.js";
 import { AppError } from "../utils/errors.js";
@@ -81,7 +81,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, options: 
         context: z.record(z.string(), z.string().max(2_000)).default({}), logs: z.array(z.string().max(2_000)).max(100).default([]),
         environment: z.record(z.string(), z.string().max(2_000)).default({}) }),
     }).parse(request.body);
-    const notification = database.create({ source: "workbench", category: "terminal", sourceIcon: "workbench", kind: "workbench.crash", severity: "error", ...parsed });
+    const notification = database.create({ source: "wrapt", category: "terminal", sourceIcon: "wrapt", kind: "wrapt.crash", severity: "error", ...parsed });
     return reply.status(201).send(notification);
   });
   app.get("/notifications/settings", async (request) => settingsResponse(resolveWorkbenchUser(request, options.identity)));

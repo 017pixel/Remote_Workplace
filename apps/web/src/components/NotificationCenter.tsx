@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Notification, NotificationEvent } from "@workbench/contracts";
-import { notificationEventSchema } from "@workbench/contracts";
+import type { Notification, NotificationEvent } from "@wrapt/contracts";
+import { notificationEventSchema } from "@wrapt/contracts";
 import { CloseIcon } from "./icons";
 import { apiClient } from "../lib/apiClient";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { subscribeUiToasts, type UiToast } from "../lib/uiToasts";
 
 const important = (item: Notification) => item.severity === "error" || item.kind === "agent.input-required" || item.kind === "agent.plan-ready" || item.kind === "agent.completed" || item.kind === "terminal.failed";
@@ -41,8 +41,8 @@ export function NotificationCenter() {
   const uiLeaving = useRef(new Set<string>());
   const uiLifecycleTimers = useRef(new Map<string, number>());
   const queryClient = useQueryClient();
-  const query = useQuery(workbenchQueries.notifications());
-  const settings = useQuery(workbenchQueries.notificationSettings());
+  const query = useQuery(wraptQueries.notifications());
+  const settings = useQuery(wraptQueries.notificationSettings());
 
   const clearLifecycleTimer = useCallback((id: string) => {
     const timer = lifecycleTimers.current.get(id);
@@ -74,7 +74,7 @@ export function NotificationCenter() {
     // Sie werden nach dem erfolgreichen Abruf nicht erneut als Start-Toast gezeigt.
     if (!initialized.current) return;
     const preferences = settings.data?.preferences;
-    if (!preferences?.toastsEnabled || !preferences.sources[item.source].toast || !important(item) || seen.current.has(item.id)) return;
+    if (!preferences?.toastsEnabled || !(preferences.sources[item.source] ?? preferences.sources.wrapt).toast || !important(item) || seen.current.has(item.id)) return;
     seen.current.add(item.id);
     if (seen.current.size > SEEN_RETENTION) {
       seen.current = new Set([...seen.current].slice(-SEEN_RETENTION));

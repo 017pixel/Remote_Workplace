@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { UsageTimelineResponse } from "@workbench/contracts";
+import type { UsageTimelineResponse } from "@wrapt/contracts";
 import { Badge } from "../primitives";
 import { ChevronLeftIcon, ChevronRightIcon, CoinsIcon, WarningIcon } from "../icons";
 import {

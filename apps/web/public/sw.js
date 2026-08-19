@@ -1,17 +1,17 @@
 /* global self, caches */
 
-const BASE = "/workbench";
-const CACHE = "workbench-v19";
+const BASE = "/wrapt";
+const CACHE = "wrapt-v20";
 const SHELL = [
   BASE + "/",
   BASE + "/index.html",
-  BASE + "/manifest.webmanifest?v=3",
-  BASE + "/favicon.svg?v=3",
-  BASE + "/icons/favicon-32.png?v=3",
-  BASE + "/icons/icon-192.png?v=3",
-  BASE + "/icons/icon-512.png?v=3",
-  BASE + "/icons/icon-maskable-512.png?v=3",
-  BASE + "/icons/apple-touch-icon.png?v=3",
+  BASE + "/manifest.webmanifest?v=5",
+  BASE + "/favicon.svg?v=5",
+  BASE + "/icons/favicon-32.png?v=5",
+  BASE + "/icons/icon-192.png?v=5",
+  BASE + "/icons/icon-512.png?v=5",
+  BASE + "/icons/icon-maskable-512.png?v=5",
+  BASE + "/icons/apple-touch-icon.png?v=5",
 ];
 
 self.addEventListener("install", (event) => {
@@ -95,7 +95,7 @@ function safeNotificationLink(value) {
 function pushPayload(event) {
   const fallback = {
     id: null,
-    title: "Remote Workplace",
+    title: "Wrapt",
     body: "Neue Benachrichtigung",
     link: BASE + "/inbox",
     severity: "info",
@@ -120,9 +120,9 @@ self.addEventListener("push", (event) => {
   const payload = pushPayload(event);
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
-    icon: BASE + "/icons/icon-192.png?v=3",
-    badge: BASE + "/icons/favicon-32.png?v=3",
-    tag: payload.id || `workbench-notification-${Date.now()}`,
+    icon: BASE + "/icons/icon-192.png?v=5",
+    badge: BASE + "/icons/favicon-32.png?v=5",
+    tag: payload.id || `wrapt-notification-${Date.now()}`,
     silent: false,
     requireInteraction: payload.severity === "error",
     data: { link: payload.link, notificationId: payload.id },

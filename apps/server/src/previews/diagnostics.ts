@@ -12,7 +12,7 @@ import {
   type PreviewCaptureSession,
   type PreviewDiagnosticEvent,
   type PreviewDiagnosticSeverity,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { PreviewSecrets } from "./keys.js";
 
 /** Header, deren Werte niemals in Diagnose oder Logs auftauchen. */

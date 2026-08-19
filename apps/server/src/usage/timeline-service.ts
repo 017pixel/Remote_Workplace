@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ManagedAccount, UsageTimelineLane, UsageTimelineResponse, UsageWindow } from "@workbench/contracts";
+import type { ManagedAccount, UsageTimelineLane, UsageTimelineResponse, UsageWindow } from "@wrapt/contracts";
 import type { CodexbarClient, ClaudeProfileUsage } from "../adapters/codexbar/codexbar-client.js";
 import type { CodexbarPayload } from "../adapters/codexbar/codexbar-schemas.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";

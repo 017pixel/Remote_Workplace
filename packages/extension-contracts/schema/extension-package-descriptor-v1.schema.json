@@ -78,6 +78,6 @@
     "files"
   ],
   "additionalProperties": false,
-  "$id": "urn:remote-workplace:extension-package-descriptor:v1",
-  "title": "Remote Workplace Extension Package Descriptor V1"
+  "$id": "urn:wrapt:extension-package-descriptor:v1",
+  "title": "Wrapt Extension Package Descriptor V1"
 }

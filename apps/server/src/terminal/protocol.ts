@@ -1,10 +1,15 @@
 import { z } from "zod";
-import { terminalKindSchema, type TerminalKind } from "@workbench/contracts";
+import { terminalKindSchema, type TerminalKind } from "@wrapt/contracts";
 
 const sessionId = z.string().uuid();
 const runtimeId = z.string().uuid();
 const dimensions = z.object({ cols: z.number().int().min(2).max(500), rows: z.number().int().min(1).max(300) });
 export type { TerminalKind };
+
+const syncStateSchema = z.object({
+  epoch: z.number().int().nonnegative(),
+  lastSequence: z.number().int().nonnegative(),
+});
 
 export const clientTerminalMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -19,6 +24,20 @@ export const clientTerminalMessageSchema = z.discriminatedUnion("type", [
     ...dimensions.shape,
   }),
   z.object({ type: z.literal("terminal.attach"), sessionId, cols: z.number().int().min(2).max(500).optional(), rows: z.number().int().min(1).max(300).optional() }),
+  // Abonnieren einer Runtime auf dem multiplexten Socket. `state` signalisiert
+  // einen bereits konsistenten Client-Zustand für den Fast Reconnect; ohne
+  // `state` wird immer ein voller Snapshot erzeugt.
+  z.object({
+    type: z.literal("terminal.subscribe"),
+    runtimeId,
+    sessionId: sessionId.optional(),
+    cols: z.number().int().min(2).max(500).optional(),
+    rows: z.number().int().min(1).max(300).optional(),
+    state: syncStateSchema.optional(),
+  }),
+  z.object({ type: z.literal("terminal.unsubscribe"), runtimeId }),
+  z.object({ type: z.literal("terminal.sync"), runtimeId, state: syncStateSchema }),
+  z.object({ type: z.literal("terminal.takeControl"), runtimeId, cols: z.number().int().min(2).max(500).optional(), rows: z.number().int().min(1).max(300).optional() }),
   z.object({ type: z.literal("terminal.input"), sessionId, data: z.string().min(1).max(65_536) }),
   z.object({ type: z.literal("terminal.resize"), sessionId, ...dimensions.shape }),
   z.object({ type: z.literal("terminal.clear"), sessionId }),
@@ -35,14 +54,17 @@ export type TerminalErrorCode =
   | "SESSION_RUNTIME_CONFLICT" | "TOO_MANY_SESSIONS" | "INVALID_MESSAGE" | "INTERNAL_ERROR"
   | "CLI_NOT_FOUND";
 
+export interface TerminalDelta { sequence: number; data: string; }
+
 export type ServerTerminalMessage =
   | { type: "terminal.created"; requestId: string; sessionId: string; runtimeId: string; kind: TerminalKind; projectId: string | null; status: string; cwd: string; pid: number }
-  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; history: string; sequence: number; cols: number; rows: number; ownsGeometry: boolean; alternate: boolean }
+  | { type: "terminal.snapshot"; sessionId: string; runtimeId: string; kind: TerminalKind; status: string; projectId: string | null; cwd: string; epoch: number; sequence: number; cols: number; rows: number; ownsGeometry: boolean; alternate: boolean; mouseTracking: boolean; serialized: string }
+  | { type: "terminal.deltas"; sessionId: string; runtimeId: string; epoch: number; startSequence: number; deltas: TerminalDelta[] }
   | { type: "terminal.geometry"; sessionId: string; cols: number; rows: number; ownsGeometry: boolean }
   | { type: "terminal.output"; sessionId: string; data: string; sequence: number }
   | { type: "terminal.cwd"; sessionId: string; cwd: string }
   | { type: "terminal.exited"; sessionId: string; exitCode: number | null; signal: number | null; sequence: number }
   | { type: "terminal.restarting"; sessionId: string; reason: string; sequence: number }
   | { type: "terminal.cleared"; sessionId: string; sequence: number }
-  | { type: "terminal.error"; sessionId?: string; code: TerminalErrorCode; message: string }
+  | { type: "terminal.error"; sessionId?: string; runtimeId?: string; code: TerminalErrorCode; message: string }
   | { type: "terminal.pong" };

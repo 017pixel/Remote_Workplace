@@ -9,7 +9,9 @@ import {
   type ExtensionManagementOperation,
   type ExtensionPermissionReview,
   type ExtensionRegistryDetail,
-} from "@workbench/extension-contracts";
+  type ExtensionSource,
+} from "@wrapt/extension-contracts";
+import { canonicalCatalogProviderId } from "./catalog.js";
 
 interface ExtensionRow {
   id: string;
@@ -63,6 +65,13 @@ const defaultHealth: ExtensionHealth = Object.freeze({
   status: "unknown",
   consecutiveFailures: 0,
 });
+
+function sourceFromJson(value: string): ExtensionSource {
+  const source = JSON.parse(value) as ExtensionSource;
+  return source.kind === "catalog"
+    ? { ...source, providerId: canonicalCatalogProviderId(source.providerId) }
+    : source;
+}
 
 /**
  * Serverseitige Extension Registry. Sie hält installierte Versionen,
@@ -337,7 +346,7 @@ export class ExtensionDatabase {
       name: row.name,
       description: row.description,
       publisher: row.publisher,
-      source: JSON.parse(row.source_json) as ExtensionRegistryDetail["source"],
+      source: sourceFromJson(row.source_json),
       effectiveTrust: row.effective_trust as ExtensionRegistryDetail["effectiveTrust"],
       lifecycle: row.lifecycle as ExtensionRegistryDetail["lifecycle"],
       desiredEnablement: row.desired_enablement as ExtensionRegistryDetail["desiredEnablement"],

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HermesResultSync, shouldNotifyHermesMessage, shouldNotifyHermesSession } from "./result-sync.js";
-import type { HermesServerMessage } from "@workbench/contracts";
+import type { HermesServerMessage } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 
 function testSync(pollEnabled = true) {
@@ -49,7 +49,7 @@ describe("Hermes Task-Lebenszyklus-Benachrichtigungen", () => {
       kind: "hermes.approval",
       severity: "error",
       title: "Hermes braucht deine Freigabe",
-      link: "/workbench/hermes-agent?path=%2Fchat%3Fresume%3Dsess-1",
+      link: "/wrapt/hermes-agent?path=%2Fchat%3Fresume%3Dsess-1",
       remoteId: "approval:req-1",
     }));
     sync.stop();

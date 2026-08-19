@@ -6,9 +6,9 @@ Abnahme nicht ersetzen.
 
 ## Voraussetzungen
 
-- Workbench über den produktiven privaten HTTPS-Origin öffnen.
+- Wrapt über den produktiven privaten HTTPS-Origin öffnen.
 - Globalen Server-Push und die betroffenen Quellen in den Einstellungen aktivieren.
-- `<paths.dataDir>/notifications/vapid.json` und die Workbench-SQLite-Datenbank sichern.
+- `<paths.dataDir>/notifications/vapid.json` und die Wrapt-SQLite-Datenbank sichern.
 - Sicherstellen, dass der Server ausgehendes HTTPS zu den Push-Endpoints und für Apple zu
   `*.push.apple.com` erreicht.
 
@@ -34,7 +34,7 @@ Abnahme nicht ersetzen.
     verwenden; für den Mehrgerätetest ein echtes relevantes Inbox-Ereignis verwenden.
 13. Das iPad muss weiterhin empfangen, Android nicht.
 14. Android erneut aktivieren. Beide Endpoints müssen wieder getrennt vorhanden sein.
-15. Den Workbench-Server neu starten, ohne die VAPID-Datei zu verändern.
+15. Den Wrapt-Server neu starten, ohne die VAPID-Datei zu verändern.
 16. Auf beiden Geräten einen neuen Push empfangen. Es darf keine neue Permission-Abfrage geben.
 17. Die Notification-Berechtigung eines Geräts in den Systemeinstellungen blockieren. Die
     Einstellungen müssen danach „Blockiert“ anzeigen und weiterhin das lokale Gerät einzeln
@@ -49,10 +49,10 @@ Service-Worker-Testwerkzeug prüfen:
 
 - Gültige Payload mit `version: 1` zeigt Titel, Text, Icon, Badge und stabilen Tag.
 - Kaputtes JSON und eine unbekannte Payload-Version erzeugen trotzdem eine sichtbare generische
-  Workbench-Benachrichtigung.
+  Wrapt-Benachrichtigung.
 - Ein Link außerhalb von `/workbench` oder `/t3`, ein Protokoll-Link und `//fremder-host` öffnen
-  ausschließlich `/workbench/inbox`.
-- Der Klick fokussiert einen bestehenden Workbench-Client, navigiert ihn und markiert eine gültige
+  ausschließlich `/wrapt/inbox`.
+- Der Klick fokussiert einen bestehenden Wrapt-Client, navigiert ihn und markiert eine gültige
   Notification-ID bestmöglich als gelesen. Ohne Client öffnet er eine neue PWA-Ansicht.
 - Zwei Zustellungen mit derselben Notification-ID ersetzen sich über denselben Tag und erscheinen
   nicht doppelt.

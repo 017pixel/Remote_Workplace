@@ -1,7 +1,7 @@
 {
   "branding": {
-    "appName": "Remote Workplace",
-    "shortName": "Workplace"
+    "appName": "Wrapt",
+    "shortName": "Wrapt"
   },
   "system": {
     "user": "your-user",
@@ -22,16 +22,16 @@
       "/home/your-user"
     ],
     "terminalDefaultCwd": "/home/your-user",
-    "dataDir": "/home/your-user/.local/share/remote-workplace",
-    "browserProfilesRoot": "/home/your-user/.local/share/remote-workplace/browser-profiles",
-    "orbitBackupDir": "/home/your-user/.local/share/remote-workplace/orbit-backups",
-    "orbitAssetDir": "/home/your-user/.local/share/remote-workplace/orbit-assets",
-    "fileGalleryDir": "/home/your-user/.local/share/remote-workplace/file-gallery",
-    "workbenchProfilesRoot": "/home/your-user/.workbench-profiles",
+    "dataDir": "/home/your-user/.local/share/wrapt",
+    "browserProfilesRoot": "/home/your-user/.local/share/wrapt/browser-profiles",
+    "orbitBackupDir": "/home/your-user/.local/share/wrapt/orbit-backups",
+    "orbitAssetDir": "/home/your-user/.local/share/wrapt/orbit-assets",
+    "fileGalleryDir": "/home/your-user/.local/share/wrapt/file-gallery",
+    "wraptProfilesRoot": "/home/your-user/.wrapt-profiles",
     "codexSharedHome": "/home/your-user/.codex",
     "claudeSharedHome": "/home/your-user/.claude",
     "opencodeSharedHome": "/home/your-user/.local/share/opencode",
-    "databasePath": "/home/your-user/.local/share/remote-workplace/workbench.sqlite"
+    "databasePath": "/home/your-user/.local/share/wrapt/wrapt.sqlite"
   },
   "cli": {
     "codexbar": "/home/your-user/.local/bin/codexbar",
@@ -80,7 +80,7 @@
         "codex": { "toast": true, "push": false },
         "claude": { "toast": true, "push": false },
         "terminal": { "toast": true, "push": false },
-        "workbench": { "toast": true, "push": true },
+        "wrapt": { "toast": true, "push": true },
         "update": { "toast": false, "push": false }
       }
     },

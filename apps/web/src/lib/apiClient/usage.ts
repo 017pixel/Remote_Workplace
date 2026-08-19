@@ -11,7 +11,7 @@ import {
   usageTimelineResponseSchema,
   type CreateAccountRequest,
   type UpdateAccountRequest,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { mutate, request } from "./transport.js";
 
 export const usageApi = {

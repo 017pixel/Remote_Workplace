@@ -13,8 +13,8 @@ describe("HTML-Bridge", () => {
   it("injiziert genau ein externes Script in den head", () => {
     const result = injectBridgeScript(Buffer.from("<!doctype html><html><head><title>App</title></head><body>ok</body></html>"), options);
     expect(result.status).toBe("injected");
-    expect(result.html).toContain(`<script src="${PREVIEW_BRIDGE_ROUTE}" data-workbench-preview-bridge=""></script>`);
-    expect(result.html?.match(/data-workbench-preview-bridge/g)).toHaveLength(1);
+    expect(result.html).toContain(`<script src="${PREVIEW_BRIDGE_ROUTE}" data-wrapt-preview-bridge=""></script>`);
+    expect(result.html?.match(/data-wrapt-preview-bridge/g)).toHaveLength(1);
     expect(result.html).toContain("<title>App</title>");
   });
 
@@ -57,14 +57,14 @@ describe("HTML-Bridge", () => {
       slotId: 2,
       mapping: { "4000": "https://server.test:8452/" },
       workbenchOrigins: ["https://server.test:8443"],
-      resetRoute: "/__workbench/preview-reset",
+      resetRoute: "/__wrapt/preview-reset",
       diagnosticsEnabled: true,
       storageSyncEnabled: false,
       maxStorageBytes: 262_144,
       maxStorageKeys: 1_000,
     });
     expect(source).toContain("\"4000\":\"https://server.test:8452/\"");
-    expect(source).toContain("workbench.preview.hello-request");
+    expect(source).toContain("wrapt.preview.hello-request");
     // Die Bridge darf keine privilegierte Aktion auslösen können.
     expect(source).not.toContain("/api/v1/previews/repair");
   });

@@ -8,6 +8,7 @@ data/
 .env.local
 .env.*.local
 config/*.local.json
+config/wrapt.local.json
 config/workbench.local.json
 config/code-server.yaml
 deploy/backups/

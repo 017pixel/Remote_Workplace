@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyIcon, DownloadIcon, EditIcon, ExternalLinkIcon, FileIcon, FolderIcon, FolderOpenIcon, GalerieIcon, PlusIcon, RefreshIcon, SearchIcon, TrashIcon, UploadIcon } from "../icons";
-import type { OrbitAsset, GalleryFolder } from "@workbench/contracts";
+import type { OrbitAsset, GalleryFolder } from "@wrapt/contracts";
 import { apiClient } from "../../lib/apiClient";
 import { ContentDialog } from "../ModalDialog";
 

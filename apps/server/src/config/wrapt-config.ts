@@ -1,11 +1,12 @@
 import { chmodSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { ensureWraptLocalConfig, migrateLegacyConfigValue, migrateLegacyPersistentData, WRAPT_EXAMPLE_CONFIG, WRAPT_LOCAL_CONFIG } from "./legacy-migration.js";
 import { join } from "node:path";
-import { dashboardConfigSchema, notificationPreferencesSchema, t3ChannelSchema, usageMonitoringSchema, type NotificationPreferences, type T3Channel, type UsageMonitoring } from "@workbench/contracts";
+import { dashboardConfigSchema, notificationPreferencesSchema, t3ChannelSchema, usageMonitoringSchema, type NotificationPreferences, type T3Channel, type UsageMonitoring } from "@wrapt/contracts";
 import { z } from "zod";
 
 const absolutePath = z.string().startsWith("/");
 
-export const workbenchConfigSchema = z.object({
+export const wraptConfigSchema = z.object({
   branding: z.object({
     appName: z.string().min(1),
     shortName: z.string().min(1),
@@ -30,7 +31,7 @@ export const workbenchConfigSchema = z.object({
     orbitBackupDir: absolutePath,
     orbitAssetDir: absolutePath,
     fileGalleryDir: absolutePath.optional(),
-    workbenchProfilesRoot: absolutePath,
+    wraptProfilesRoot: absolutePath,
     // Gemeinsame Homes der KI-Werkzeuge für Sessions und Konfiguration; der Accountwechsel
     // tauscht nur die darin liegende Anmeldedatei aus. Ohne Angabe `<home>/.codex`,
     // `<home>/.claude` und `<home>/.local/share/opencode`.
@@ -135,7 +136,7 @@ export const workbenchConfigSchema = z.object({
   }).prefault({}),
   // Werkzeug „KI-Skills": bearbeitet den globalen Harness-Ordner (AGENTS.md + Skills).
   // Alle Pfade sind optional; ohne Angabe werden sie aus `system.homeDirectory` abgeleitet.
-  // Persönliche Pfade gehören ausschließlich in `workbench.local.json`.
+  // Persönliche Pfade gehören ausschließlich in `wrapt.local.json`.
   skillEditor: z.object({
     // Hauptordner, der im Baum/Editor angezeigt wird. Default: <home>/.config/opencode
     rootDirectory: absolutePath.optional(),
@@ -227,33 +228,36 @@ export const workbenchConfigSchema = z.object({
   }
 });
 
-export type WorkbenchConfig = z.infer<typeof workbenchConfigSchema>;
+export type WraptConfig = z.infer<typeof wraptConfigSchema>;
 
 /**
- * Lädt die zentrale Workbench-Konfiguration synchron: erst `workbench.local.json`
+ * Lädt die zentrale Workbench-Konfiguration synchron: erst `wrapt.local.json`
  * (persönliche Werte, gitignored), sonst Fallback auf das committete
- * `workbench.example.json`. Synchron, weil `settings.ts` die Werte bereits beim
+ * `wrapt.example.json`. Synchron, weil `settings.ts` die Werte bereits beim
  * Modul-Load als Defaults benötigt.
  */
-export function loadWorkbenchConfig(configDirectory: string): WorkbenchConfig {
-  const candidates = ["workbench.local.json", "workbench.example.json"];
+export function loadWraptConfig(configDirectory: string): WraptConfig {
+  ensureWraptLocalConfig(configDirectory, (value) => wraptConfigSchema.parse(value));
+  const candidates = [WRAPT_LOCAL_CONFIG, WRAPT_EXAMPLE_CONFIG];
   let lastError: unknown;
 
   for (const candidate of candidates) {
     try {
       const content = readFileSync(join(configDirectory, candidate), "utf8");
-      return workbenchConfigSchema.parse(JSON.parse(content) as unknown);
+      const config = wraptConfigSchema.parse(migrateLegacyConfigValue(JSON.parse(content) as unknown));
+      migrateLegacyPersistentData(config.system.homeDirectory, config.paths.dataDir, config.paths.wraptProfilesRoot, config.paths.browserProfilesRoot, config.paths.databasePath);
+      return config;
     } catch (error) {
       lastError = error;
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 
-  throw lastError ?? new Error("Workbench-Konfiguration fehlt (config/workbench.local.json oder .example.json).");
+  throw lastError ?? new Error("Wrapt-Konfiguration fehlt (config/wrapt.local.json oder config/wrapt.example.json).");
 }
 
-const localConfigName = "workbench.local.json";
-const exampleConfigName = "workbench.example.json";
+const localConfigName = WRAPT_LOCAL_CONFIG;
+const exampleConfigName = WRAPT_EXAMPLE_CONFIG;
 
 /**
  * Liest den eingestellten T3-Kanal frisch von der Platte. Bewusst nicht aus `settings`,
@@ -261,20 +265,20 @@ const exampleConfigName = "workbench.example.json";
  * `settings` beim Serverstart eingefroren wird.
  */
 export function readConfiguredT3Channel(configDirectory: string): T3Channel {
-  return loadWorkbenchConfig(configDirectory).t3.channel;
+  return loadWraptConfig(configDirectory).t3.channel;
 }
 
 /**
- * Schreibt den gewünschten Kanal nach `workbench.local.json` — nur dieses eine Feld,
+ * Schreibt den gewünschten Kanal nach `wrapt.local.json` — nur dieses eine Feld,
  * alle übrigen Werte bleiben unverändert. Existiert noch keine lokale Datei, dient
- * `workbench.example.json` als Grundlage. Geschrieben wird über eine temporäre Datei
+ * `wrapt.example.json` als Grundlage. Geschrieben wird über eine temporäre Datei
  * und `rename`, damit ein Abbruch keine halbe Konfiguration hinterlässt.
  */
 export function persistT3Channel(configDirectory: string, channel: T3Channel): void {
   const localPath = join(configDirectory, localConfigName);
   let base: Record<string, unknown>;
   try {
-    base = JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>;
+    base = migrateLegacyConfigValue(JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>) as Record<string, unknown>;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     base = JSON.parse(readFileSync(join(configDirectory, exampleConfigName), "utf8")) as Record<string, unknown>;
@@ -283,7 +287,7 @@ export function persistT3Channel(configDirectory: string, channel: T3Channel): v
   const previousT3 = (base.t3 ?? {}) as Record<string, unknown>;
   const next = { ...base, t3: { ...previousT3, channel } };
   // Erst prüfen, dann schreiben: eine ungültige Datei würde den nächsten Serverstart verhindern.
-  workbenchConfigSchema.parse(next);
+  wraptConfigSchema.parse(next);
 
   const temporaryPath = `${localPath}.tmp`;
   writeFileSync(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -295,14 +299,14 @@ export function persistNotificationPreferences(configDirectory: string, preferen
   const localPath = join(configDirectory, localConfigName);
   let base: Record<string, unknown>;
   try {
-    base = JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>;
+    base = migrateLegacyConfigValue(JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>) as Record<string, unknown>;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     base = JSON.parse(readFileSync(join(configDirectory, exampleConfigName), "utf8")) as Record<string, unknown>;
   }
   const previous = (base.notifications ?? {}) as Record<string, unknown>;
   const next = { ...base, notifications: { ...previous, preferences } };
-  workbenchConfigSchema.parse(next);
+  wraptConfigSchema.parse(next);
   const temporaryPath = `${localPath}.tmp`;
   writeFileSync(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   renameSync(temporaryPath, localPath);
@@ -315,20 +319,20 @@ export function persistNotificationPreferences(configDirectory: string, preferen
  * während `settings` beim Serverstart eingefroren wird.
  */
 export function readUsageMonitoring(configDirectory: string): UsageMonitoring {
-  return loadWorkbenchConfig(configDirectory).usage.monitoring;
+  return loadWraptConfig(configDirectory).usage.monitoring;
 }
 
 /**
- * Schreibt die Limitüberwachung nach `workbench.local.json` — nur dieses eine Feld,
+ * Schreibt die Limitüberwachung nach `wrapt.local.json` — nur dieses eine Feld,
  * alle übrigen Werte bleiben unverändert. Existiert noch keine lokale Datei, dient
- * `workbench.example.json` als Grundlage. Geschrieben wird über eine temporäre Datei
+ * `wrapt.example.json` als Grundlage. Geschrieben wird über eine temporäre Datei
  * und `rename`, damit ein Abbruch keine halbe Konfiguration hinterlässt.
  */
 export function persistUsageMonitoring(configDirectory: string, monitoring: UsageMonitoring): void {
   const localPath = join(configDirectory, localConfigName);
   let base: Record<string, unknown>;
   try {
-    base = JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>;
+    base = migrateLegacyConfigValue(JSON.parse(readFileSync(localPath, "utf8")) as Record<string, unknown>) as Record<string, unknown>;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     base = JSON.parse(readFileSync(join(configDirectory, exampleConfigName), "utf8")) as Record<string, unknown>;
@@ -336,7 +340,7 @@ export function persistUsageMonitoring(configDirectory: string, monitoring: Usag
   const previousUsage = (base.usage ?? {}) as Record<string, unknown>;
   const next = { ...base, usage: { ...previousUsage, monitoring } };
   // Erst prüfen, dann schreiben: eine ungültige Datei würde den nächsten Serverstart verhindern.
-  workbenchConfigSchema.parse(next);
+  wraptConfigSchema.parse(next);
   const temporaryPath = `${localPath}.tmp`;
   writeFileSync(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   renameSync(temporaryPath, localPath);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SkillEditorGitResponse, SkillEditorRepositoryStatus } from "@workbench/contracts";
+import type { SkillEditorGitResponse, SkillEditorRepositoryStatus } from "@wrapt/contracts";
 import { ConfirmDialog } from "../ModalDialog";
 import { CheckIcon, CopyIcon, GitBranchIcon, LoaderIcon, UploadIcon, WarningIcon } from "../icons";
 import { writeClipboardText } from "../../lib/clipboard";

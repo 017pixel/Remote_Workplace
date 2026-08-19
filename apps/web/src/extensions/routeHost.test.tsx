@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   pageContributionSchema,
   routeContributionSchema,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { registerLegacyPageRoutes } from "./legacyPageRoutes";
 import { PageRouteRegistry } from "./pageRouteRegistry";
 import { routeHostElements } from "./routeHost";

@@ -6,7 +6,7 @@ import {
   projectsResponseSchema,
   registerProjectRequestSchema,
   registerProjectResponseSchema,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { RouteServices } from "../api/services.js";

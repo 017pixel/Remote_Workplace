@@ -15,7 +15,7 @@ afterEach(async () => {
 });
 
 async function fixture(listen = false) {
-  const directory = mkdtempSync(join(tmpdir(), "remote-workplace-editor-")); directories.push(directory);
+  const directory = mkdtempSync(join(tmpdir(), "wrapt-editor-")); directories.push(directory);
   const secrets = new EditorOpenSecrets(directory);
   const app = Fastify(); apps.push(app);
   await app.register(websocket);
@@ -37,7 +37,7 @@ describe("Open-in-Editor-API", () => {
     expect(secrets.matchesToken("falsch")).toBe(false);
     expect(() => secrets.matchesToken("")).not.toThrow();
 
-    const brokenDirectory = mkdtempSync(join(tmpdir(), "remote-workplace-editor-broken-")); directories.push(brokenDirectory);
+    const brokenDirectory = mkdtempSync(join(tmpdir(), "wrapt-editor-broken-")); directories.push(brokenDirectory);
     writeFileSync(join(brokenDirectory, "editor-open-capability"), "kein-base64-token\n");
     const broken = new EditorOpenSecrets(brokenDirectory);
     expect(() => broken.token()).toThrow(/beschädigt/);
@@ -65,7 +65,7 @@ describe("Open-in-Editor-API", () => {
   });
 
   it("normalisiert Dateipfade auf den übergeordneten Ordner und behält Ordnernamen", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-editor-files-")); directories.push(directory);
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-editor-files-")); directories.push(directory);
     const file = join(directory, "datei.txt");
     writeFileSync(file, "inhalt");
     expect(normalizeEditorTarget(file)).toBe(directory);

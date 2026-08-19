@@ -43,8 +43,14 @@ export const semanticVersionRangeSchema = z
 
 export type SemanticVersionRange = z.infer<typeof semanticVersionRangeSchema>;
 
-export const remoteWorkplaceVersionSchema = semanticVersionSchema;
-export const remoteWorkplaceCompatibilitySchema = semanticVersionRangeSchema;
+export const wraptVersionSchema = semanticVersionSchema;
+export const wraptCompatibilitySchema = semanticVersionRangeSchema;
+// Legacy-Exports bleiben für bestehende Extensions und gespeicherte Integrationen
+// verfügbar; neue Manifeste verwenden ausschließlich die Wrapt-Bezeichnungen.
+/** @deprecated Use wraptVersionSchema. */
+export const remoteWorkplaceVersionSchema = wraptVersionSchema;
+/** @deprecated Use wraptCompatibilitySchema. */
+export const remoteWorkplaceCompatibilitySchema = wraptCompatibilitySchema;
 export const extensionApiCompatibilitySchema = semanticVersionRangeSchema;
 
 export function isVersionCompatible(version: string, range: string): boolean {

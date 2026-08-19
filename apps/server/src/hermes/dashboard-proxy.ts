@@ -23,7 +23,7 @@ type HermesUpstreamResponse = {
 };
 
 export function upstreamPath(rawUrl: string): string {
-  const url = new URL(rawUrl, "http://workbench.local");
+  const url = new URL(rawUrl, "http://wrapt.local");
   const pathname = url.pathname === prefix
     ? "/"
     : url.pathname.startsWith(`${prefix}/`)
@@ -121,20 +121,20 @@ export function rewriteHtmlAssetUrls(source: string, proxyPrefix = prefix): stri
  * Seitenwechsel das Iframe neu.
  */
 export function routeBridgeScript(): string {
-  return `<script data-remote-workplace-hermes-bridge="1">(() => {
+  return `<script data-wrapt-hermes-bridge="1">(() => {
   let hostActive = true;
   const nativeSetInterval = window.setInterval.bind(window);
   window.setInterval = (callback, delay, ...args) => nativeSetInterval((...values) => {
     if (hostActive) callback(...values);
   }, delay, ...args);
   const here = () => location.pathname + location.search + location.hash;
-  const notify = () => window.parent.postMessage({source:"remote-workplace-hermes",version:1,type:"route.changed",path:here()}, location.origin);
+  const notify = () => window.parent.postMessage({source:"wrapt-hermes",version:1,type:"route.changed",path:here()}, location.origin);
   for (const name of ["pushState","replaceState"]) { const original = history[name]; history[name] = function (...args) { const result = original.apply(this, args); notify(); return result; }; }
   addEventListener("popstate", notify); addEventListener("hashchange", notify);
   addEventListener("message", (event) => {
     if (event.origin !== location.origin) return;
     const data = event.data;
-    if (!data || data.source !== "remote-workplace-hermes" || data.version !== 1) return;
+    if (!data || data.source !== "wrapt-hermes" || data.version !== 1) return;
     if (data.type === "host.activity" && typeof data.active === "boolean") {
       const changed = hostActive !== data.active;
       hostActive = data.active;

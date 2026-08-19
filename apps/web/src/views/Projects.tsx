@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { FolderCodeIcon } from "../components/icons";
-import type { Project } from "@workbench/contracts";
-import { workbenchQueries } from "../lib/queryOptions";
+import type { Project } from "@wrapt/contracts";
+import { wraptQueries } from "../lib/queryOptions";
 import { QueryBoundary } from "../components/QueryBoundary";
 import { ProjectCard } from "../components/ProjectCard";
 import { EmptyState } from "../components/EmptyState";
@@ -27,7 +27,7 @@ function ProjectGroup({ title, description, projects }: { title: string; descrip
 
 export function Projects() {
   const routeActive = useRouteActivity();
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
 
   return (
     <div className="page-scroll">

@@ -11,9 +11,9 @@ afterEach(() => {
 
 describe("Benachrichtigungsdatenbank", () => {
   it("dedupliziert Remote-Ergebnisse und verwaltet Lesestatus", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const first = database.create({ source: "hermes", category: "hermes", sourceIcon: "hermes", kind: "hermes.result", severity: "success", title: "Ergebnis", body: "fertig", remoteId: "result-1" });
     const duplicate = database.create({ source: "hermes", category: "hermes", sourceIcon: "hermes", kind: "hermes.result", severity: "success", title: "Ergebnis erneut", body: "fertig", remoteId: "result-1" });
     expect(duplicate.id).toBe(first.id);
@@ -24,9 +24,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("blendet erledigte und verworfene Einträge sofort aus", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const resolved = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.input-required", severity: "warning", title: "Input", body: "wartet", remoteId: "thread:1:input" });
     const dismissed = database.create({ source: "terminal", category: "terminal", sourceIcon: "terminal", kind: "terminal.completed", severity: "success", title: "Fertig", body: "fertig" });
     database.resolveByRemoteId("t3", "agent.input-required", "thread:1:input");
@@ -41,9 +41,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("pusht verworfene Remote-Zustände beim Dienstneustart nicht erneut", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const first = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.plan-ready", severity: "warning", title: "Plan", body: "bereit", remoteId: "thread:1:plan:version-1" });
     database.dismiss(first.id);
     const repeated = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.plan-ready", severity: "warning", title: "Plan", body: "bereit", remoteId: "thread:1:plan:version-1" });
@@ -54,9 +54,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("löscht alle aktiven Einträge gemeinsam und behält sie als verworfen", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const first = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig" });
     database.create({ source: "terminal", category: "terminal", sourceIcon: "terminal", kind: "terminal.failed", severity: "error", title: "Fehler", body: "fehlgeschlagen" });
 
@@ -68,9 +68,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("löscht erledigte und alte gelesene Einträge nach 48 Stunden", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"), 48);
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"), 48);
     const resolved = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.input-required", severity: "warning", title: "Input", body: "wartet", remoteId: "thread:2:input" });
     const read = database.create({ source: "terminal", category: "terminal", sourceIcon: "terminal", kind: "terminal.completed", severity: "success", title: "Fertig", body: "fertig" });
     database.resolveByRemoteId("t3", "agent.input-required", "thread:2:input");
@@ -82,9 +82,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("markiert neue Benachrichtigungen für die sichtbare Chat-Ansicht sofort gelesen", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     database.setPresence({ source: "t3", threadId: "thread-1" });
     const visible = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-1" } });
     const otherThread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", meta: { threadId: "thread-2" } });
@@ -97,9 +97,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("liest beim Ansichtswechsel passende aktive Benachrichtigungen automatisch", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const thread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "thread:1:complete:1", meta: { threadId: "thread-1" } });
     const session = database.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "opencode:1", meta: { sessionId: "sitzung-1", runtimeId: "laufzeit-1" } });
     const fremd = database.create({ source: "hermes", category: "hermes", sourceIcon: "hermes", kind: "hermes.result", severity: "success", title: "Ergebnis", body: "fertig", remoteId: "result:1", meta: { sessionId: "sitzung-9" } });
@@ -120,9 +120,9 @@ describe("Benachrichtigungsdatenbank", () => {
   });
 
   it("passt zu keiner Benachrichtigung, wenn die Ansicht keine Referenz hat", () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
     temporaryDirectories.push(directory);
-    const database = new NotificationDatabase(join(directory, "workbench.sqlite"));
+    const database = new NotificationDatabase(join(directory, "wrapt.sqlite"));
     const thread = database.create({ source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed", severity: "success", title: "Fertig", body: "fertig", remoteId: "thread:3:complete:1", meta: { threadId: "thread-3" } });
     expect(database.setPresence({ source: "t3", threadId: null })).toBe(0);
     expect(database.get(thread.id)?.readAt).toBeNull();
@@ -132,9 +132,9 @@ describe("Benachrichtigungsdatenbank", () => {
   it("meldet mehrere gleichzeitig sichtbare Chats und verwirft alte nach der TTL", () => {
     vi.useFakeTimers();
     try {
-      const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+      const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
       temporaryDirectories.push(directory);
-      const database = new NotificationDatabase(join(directory, "workbench.sqlite"), 48, 10_000);
+      const database = new NotificationDatabase(join(directory, "wrapt.sqlite"), 48, 10_000);
       database.setPresence([
         { source: "t3", threadId: "thread-a" },
         { source: "opencode", sessionId: "laufzeit-1" },
@@ -160,9 +160,9 @@ describe("Benachrichtigungsdatenbank", () => {
   it("zählt jeden Presence-Heartbeat als aktive Workbench, auch ohne Chat", () => {
     vi.useFakeTimers();
     try {
-      const directory = mkdtempSync(join(tmpdir(), "remote-workplace-notifications-"));
+      const directory = mkdtempSync(join(tmpdir(), "wrapt-notifications-"));
       temporaryDirectories.push(directory);
-      const database = new NotificationDatabase(join(directory, "workbench.sqlite"), 48, 10_000);
+      const database = new NotificationDatabase(join(directory, "wrapt.sqlite"), 48, 10_000);
       expect(database.hasActiveWorkbench()).toBe(false);
       database.setPresence([]);
       expect(database.hasActiveWorkbench()).toBe(true);

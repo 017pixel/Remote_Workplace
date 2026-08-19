@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
@@ -9,7 +9,7 @@ test.use({
 });
 
 test("keeps every visible resize point centered on its window corner", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Orbit test server.");
   const orbitUrl = new URL("/api/v1/orbit", workbench).toString();
   const current = await (await page.request.get(orbitUrl, { headers: apiIdentityHeaders("user@example.com") })).json();
   const nodeId = `corner-${Date.now()}`;
@@ -34,7 +34,7 @@ test("keeps every visible resize point centered on its window corner", async ({ 
   const saved = await page.request.put(orbitUrl, { data: { expectedRevision: current.revision, document: current.document }, headers: apiIdentityHeaders("user@example.com") });
   await expect(saved).toBeOK();
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   const node = page.locator(`.react-flow__node-orbit[data-id="${nodeId}"]`);
   await node.locator(".orbit-node-header").click();
   const result = await node.evaluate((element) => {

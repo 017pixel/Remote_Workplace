@@ -16,7 +16,7 @@ describe("Preview-Fenster", () => {
   it("öffnet den Fenster- und Tab-Modus getrennt", () => {
     const open = vi.spyOn(window, "open").mockReturnValue({} as Window);
     openPreviewLiveWindow({ projectId: "projekt", port: 5173, mode: "window" });
-    expect(open.mock.calls[0]?.[1]).toContain("workbench-preview-projekt-");
+    expect(open.mock.calls[0]?.[1]).toContain("wrapt-preview-projekt-");
     expect(open.mock.calls[0]?.[2]).toContain("popup=yes");
     openPreviewLiveWindow({ projectId: "projekt", port: 5173, mode: "tab" });
     expect(open.mock.calls[1]?.[1]).toBe("_blank");

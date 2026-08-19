@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { NewsCategory, NewsChatModel, NewsItem } from "@workbench/contracts";
+import type { NewsCategory, NewsChatModel, NewsItem } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { readBodyLimited } from "../security/public-http.js";
 

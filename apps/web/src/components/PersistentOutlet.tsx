@@ -1,6 +1,6 @@
 import { Fragment, useRef, type ReactNode } from "react";
 import { useLocation, useOutlet } from "react-router";
-import { WORKBENCH_LIMITS } from "@workbench/contracts";
+import { WRAPT_LIMITS } from "@wrapt/contracts";
 import { RouteActivityProvider } from "../lib/routeActivity";
 
 /**
@@ -40,7 +40,7 @@ export function PersistentOutlet() {
   if (!routes.current.has(routeKey)) routes.current.set(routeKey, outlet);
   lastVisited.current.set(routeKey, ++visitCounter.current);
 
-  while (routes.current.size > WORKBENCH_LIMITS.maxCachedRoutes) {
+  while (routes.current.size > WRAPT_LIMITS.maxCachedRoutes) {
     let oldestKey: string | null = null;
     let oldestVisit = Number.POSITIVE_INFINITY;
     for (const key of routes.current.keys()) {

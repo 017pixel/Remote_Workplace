@@ -10,7 +10,7 @@ const directories: string[] = [];
 afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }); });
 
 function fixture() {
-  const directory = mkdtempSync(join(tmpdir(), "remote-workplace-agent-sync-"));
+  const directory = mkdtempSync(join(tmpdir(), "wrapt-agent-sync-"));
   directories.push(directory);
   const opencodePath = join(directory, "opencode.sqlite");
   const db = new DatabaseSync(opencodePath);

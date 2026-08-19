@@ -1,19 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
-import { MonitorOffIcon, PlusIcon } from "../icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TerminalKind, TerminalSession } from "@workbench/contracts";
+import { useQuery } from "@tanstack/react-query";
 import { Group, Panel, Separator, type Layout, type LayoutChangedMeta } from "react-resizable-panels";
+import type { TerminalKind, TerminalPaneLayout, TerminalSession } from "@wrapt/contracts";
+import { ChevronRightIcon, MenuIcon, MonitorOffIcon, PlusIcon, TerminalIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { useResponsiveShell } from "../../lib/useResponsiveShell";
+import { usePaneWidth } from "../../lib/usePaneWidth";
 import { useRouteActivity } from "../../lib/routeActivity";
-import { MAX_TERMINAL_TABS, useTerminalStore } from "../../stores/terminals";
-import { WebTerminal, type WebTerminalHandle } from "./WebTerminal";
-import { TerminalToolbar } from "./terminal-toolbar";
+import { useTerminalWorkspaceStore } from "../../stores/terminalWorkspace";
+import { kindLabels, statusLabel } from "./terminal-labels";
 import { TerminalKeybar } from "./terminal-keybar";
 import { TerminalSessionPicker } from "./terminal-session-picker";
-import { kindLabels, statusLabel } from "./terminal-labels";
+import { TerminalSidebar } from "./sidebar/TerminalSidebar";
+import { WebTerminal, type WebTerminalHandle } from "./WebTerminal";
 import type { TerminalMeta } from "./terminal-types";
+import {
+  createTerminalOps,
+  layoutRuntimeIds,
+  openEntryOps,
+  paneForRuntime,
+  removeRuntimeFromLayout,
+} from "./workspace/terminalWorkspaceModel";
 
 interface TerminalAreaProps {
   areaId?: string;
@@ -26,300 +34,349 @@ interface TerminalAreaProps {
   requestedSessionId?: string | null;
 }
 
+interface VisiblePane { id: string; runtimeId: string; }
+
+function layoutPanes(layout: TerminalPaneLayout | null): VisiblePane[] {
+  if (!layout) return [];
+  return layout.type === "pane" ? [{ id: layout.id, runtimeId: layout.runtimeId }] : layout.children;
+}
+
 export function TerminalArea({
   areaId = "standalone",
   initialProjectId = null,
   kind = "shell",
   renderScale = 1,
   layout = "tabs",
-  maxTabs = MAX_TERMINAL_TABS,
   minimal = false,
   requestedSessionId = null,
 }: TerminalAreaProps) {
   const responsive = useResponsiveShell();
   const routeActive = useRouteActivity();
   const isMobile = responsive.isTouchShell;
-  const singlePane = responsive.mode === "compact" || (responsive.mode === "tablet" && responsive.orientation === "portrait");
   const bento = layout === "bento";
-  const area = useTerminalStore((state) => state.areas[areaId]);
-  const ensureArea = useTerminalStore((state) => state.ensureArea);
-  const addTab = useTerminalStore((state) => state.addTab);
-  const addExistingTab = useTerminalStore((state) => state.addExistingTab);
-  const activateTab = useTerminalStore((state) => state.activateTab);
-  const removeTab = useTerminalStore((state) => state.closeTab);
-  const openSplit = useTerminalStore((state) => state.openSplit);
-  const splitTab = useTerminalStore((state) => state.splitTab);
-  const clearSplit = useTerminalStore((state) => state.clearSplit);
-  const setSplitSizes = useTerminalStore((state) => state.setSplitSizes);
-  const setRuntimeCwd = useTerminalStore((state) => state.setRuntimeCwd);
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
-  const sessions = useQuery({ ...workbenchQueries.terminalSessions(), refetchInterval: false, enabled: routeActive });
+  const terminalSidebar = usePaneWidth({ storageKey: "wrapt.terminal-sidebar.v1", initial: 256, min: 220, max: 420 });
+  const document = useTerminalWorkspaceStore((state) => state.document);
+  const queueOps = useTerminalWorkspaceStore((state) => state.queueOps);
+  const setRuntimeCwd = useTerminalWorkspaceStore((state) => state.setRuntimeCwd);
+  const runtimeCwds = useTerminalWorkspaceStore((state) => state.runtimeCwds);
+  const sessions = useQuery({ ...wraptQueries.terminalSessions(), refetchInterval: false, enabled: routeActive });
+  const health = useQuery(wraptQueries.health());
   const handles = useRef(new Map<string, WebTerminalHandle>());
-  const longPress = useRef<number | null>(null);
   const splitSaveFrame = useRef<number | null>(null);
-  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const requestedHandledRef = useRef(false);
   const [meta, setMeta] = useState<Record<string, TerminalMeta>>({});
-  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
-  // Die Aktionen in der Toolbar liegen hinter einem Aufklappmenü, damit die
-  // Werkzeugleiste ruhig bleibt. Das Menü schließt bei Außenklick und Escape.
-  const [actionsOpen, setActionsOpen] = useState(false);
-  // Die Bedienleiste auf dem Handy zeigt entweder die Sondertasten oder die
-  // Sitzungsaktionen. Strg und Alt rasten für genau einen Tastendruck ein.
+  const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
   const [keyboardRow, setKeyboardRow] = useState<"keys" | "actions">("keys");
   const [stickyCtrl, setStickyCtrl] = useState(false);
   const [stickyAlt, setStickyAlt] = useState(false);
-  const activeTab = area?.tabs.find((tab) => tab.id === area.activeTabId);
-  const activeMeta = activeTab ? meta[activeTab.id] : undefined;
 
-  useEffect(() => ensureArea(areaId, initialProjectId, kind), [areaId, ensureArea, initialProjectId, kind]);
   useEffect(() => {
-    if (!actionsOpen) return;
-    const closeOnPointerDown = (event: PointerEvent) => {
-      if (!actionMenuRef.current?.contains(event.target as Node)) setActionsOpen(false);
-    };
-    const closeOnKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActionsOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnPointerDown);
-    document.addEventListener("keydown", closeOnKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnPointerDown);
-      document.removeEventListener("keydown", closeOnKeyDown);
-    };
-  }, [actionsOpen]);
-  useEffect(() => {
-    if (!routeActive || !requestedSessionId || !sessions.data || !area) return;
-    const session = sessions.data.sessions.find((candidate) => candidate.id === requestedSessionId || candidate.runtimeId === requestedSessionId);
-    if (!session) return;
-    if (!area.tabs.some((tab) => tab.id === session.runtimeId)) addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind, initialCwd: session.cwd });
-    if (area.activeTabId !== session.runtimeId) activateTab(areaId, session.runtimeId);
-  }, [activateTab, addExistingTab, area, areaId, requestedSessionId, routeActive, sessions.data]);
+    globalThis.document.documentElement.style.setProperty("--terminal-sidebar-width", `${terminalSidebar.width}px`);
+  }, [terminalSidebar.width]);
 
-  const projectName = (projectId: string | null, cwd?: string) => projects.data?.projects.find((project) => project.id === projectId)?.name
-    ?? (cwd ? projects.data?.projects.find((project) => project.path === cwd)?.name : undefined)
-    ?? "Standardpfad";
-  const create = useCallback(
-    (projectId: string | null = null) => {
-      // Ohne Projektkontext startet das neue Terminal dort, wo das letzte
-      // aufgehört hat. Mit Projektkontext (Picker, Projektseite) öffnet der
-      // Server den Projektordner.
-      const lastCwd = activeTab ? (meta[activeTab.id]?.cwd.startsWith("/") ? meta[activeTab.id]!.cwd : null) : null;
-      const effectiveProjectId = projectId ?? (lastCwd ? null : (activeTab?.projectId ?? null));
-      addTab(areaId, effectiveProjectId, kind, effectiveProjectId ? null : lastCwd);
-    },
-    [addTab, activeTab, areaId, kind, meta],
-  );
-  const runAction = (action: () => void) => {
-    setActionsOpen(false);
-    action();
-  };
-  // Im Tab-Layout startet ein neues Terminal ohne Projektkontext im letzten
-  // Arbeitsverzeichnis statt im statisch gespeicherten Projekt des Tabs.
-  const nextProjectId = bento ? initialProjectId : (activeTab ? null : initialProjectId);
+  const toggleNativeFullscreen = useCallback(() => {
+    if (globalThis.document.fullscreenElement) void globalThis.document.exitFullscreen();
+    else void globalThis.document.documentElement.requestFullscreen?.();
+  }, []);
 
-  const close = (tabId: string) => {
-    handles.current.get(tabId)?.close();
-    removeTab(areaId, tabId);
-    setMeta((current) => {
-      const next = { ...current };
-      delete next[tabId];
-      return next;
+  const areaLayout = document?.areaLayouts[areaId] ?? null;
+  const paneLayout = areaLayout?.paneLayout ?? null;
+  const focusedPaneId = areaLayout?.focusedPaneId ?? null;
+  const panes = layoutPanes(paneLayout);
+  const focusedRuntimeId = (() => {
+    if (!paneLayout) return null;
+    if (paneLayout.type === "pane") return paneLayout.runtimeId;
+    return paneLayout.children.find((pane) => pane.id === focusedPaneId)?.runtimeId ?? paneLayout.children[0]!.runtimeId;
+  })();
+  const activeMeta = focusedRuntimeId ? meta[focusedRuntimeId] : undefined;
+  const hasActivePane = panes.length > 0;
+  const hasSplit = paneLayout?.type === "split";
+  const showSingleMobilePane = isMobile && responsive.orientation === "portrait";
+
+  const openEntry = useCallback((runtimeId: string) => {
+    const state = useTerminalWorkspaceStore.getState();
+    if (!state.document) return;
+    queueOps(openEntryOps(state.document, areaId, runtimeId));
+  }, [areaId, queueOps]);
+
+  const openInSplit = useCallback((runtimeId: string) => {
+    const state = useTerminalWorkspaceStore.getState();
+    const doc = state.document;
+    if (!doc) return;
+    const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
+    const currentPanes = layoutPanes(current);
+    const targetPane = paneForRuntime(runtimeId);
+    let next: TerminalPaneLayout;
+    if (currentPanes.length === 0) next = targetPane;
+    else if (current?.type === "pane") {
+      next = { type: "split", id: `split-${Date.now()}`, orientation: "horizontal", sizes: [50, 50], children: [current, targetPane] };
+    } else if (current) {
+      const focusIndex = Math.max(0, current.children.findIndex((pane) => pane.id === focusedPaneId));
+      const otherIndex = focusIndex === 0 ? 1 : 0;
+      const children = current.children.map((pane, index) => index === otherIndex ? targetPane : pane);
+      next = { ...current, children };
+    } else {
+      next = targetPane;
+    }
+    queueOps([
+      { type: "setPaneLayout", areaId, layout: next },
+      { type: "setFocusedPane", areaId, paneId: targetPane.id },
+    ]);
+  }, [areaId, focusedPaneId, queueOps]);
+
+  const create = useCallback((folderId: string | null = null, projectId: string | null = initialProjectId) => {
+    const state = useTerminalWorkspaceStore.getState();
+    if (!state.document) return null;
+    const count = state.document.entries.filter((entry) => entry.kind === kind).length + 1;
+    const { ops, runtimeId } = createTerminalOps(state.document, areaId, {
+      kind,
+      projectId,
+      name: `${kindLabels[kind]} ${count}`,
+      ...(folderId !== null ? { parentFolderId: folderId } : {}),
     });
-  };
+    queueOps(ops);
+    return runtimeId;
+  }, [areaId, initialProjectId, kind, queueOps]);
 
-  const openExisting = (session: TerminalSession) => {
-    addExistingTab(areaId, { id: session.runtimeId, projectId: session.projectId, kind: session.kind, initialCwd: session.cwd });
-  };
+  const createSplit = useCallback(() => {
+    const state = useTerminalWorkspaceStore.getState();
+    const doc = state.document;
+    if (!doc) return;
+    const count = doc.entries.filter((entry) => entry.kind === kind).length + 1;
+    const { ops, runtimeId } = createTerminalOps(doc, areaId, { kind, name: `${kindLabels[kind]} ${count}` });
+    if (!hasActivePane) { state.queueOps(ops); return; }
+    const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
+    const targetPane = paneForRuntime(runtimeId);
+    let next: TerminalPaneLayout;
+    if (current === null || current.type === "pane") {
+      const source = current ?? paneForRuntime(focusedRuntimeId ?? layoutRuntimeIds(current ?? null)[0] ?? "");
+      next = { type: "split", id: `split-${Date.now()}`, orientation: "horizontal", sizes: [50, 50], children: [source, targetPane] };
+    } else {
+      const focusIndex = Math.max(0, current.children.findIndex((pane) => pane.id === focusedPaneId));
+      const otherIndex = focusIndex === 0 ? 1 : 0;
+      next = { ...current, children: current.children.map((pane, index) => index === otherIndex ? targetPane : pane) };
+    }
+    state.queueOps([...ops, { type: "setPaneLayout", areaId, layout: next }, { type: "setFocusedPane", areaId, paneId: targetPane.id }]);
+  }, [areaId, focusedPaneId, focusedRuntimeId, hasActivePane, kind]);
 
-  const closeOrphan = async (session: TerminalSession) => {
-    await apiClient.closeTerminalSession(session.id);
-    await sessions.refetch();
-  };
+  const closePane = useCallback((runtimeId: string) => {
+    const state = useTerminalWorkspaceStore.getState();
+    const doc = state.document;
+    if (!doc) return;
+    const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
+    const next = removeRuntimeFromLayout(current, runtimeId);
+    queueOps([{ type: "setPaneLayout", areaId, layout: next }]);
+  }, [areaId, queueOps]);
 
-  const restartOrphan = async (session: TerminalSession) => {
-    await apiClient.restartTerminalSession(session.id);
-    await sessions.refetch();
-  };
+  const clearSplit = useCallback(() => {
+    if (!focusedRuntimeId) return;
+    const state = useTerminalWorkspaceStore.getState();
+    if (!state.document) return;
+    queueOps([
+      { type: "setPaneLayout", areaId, layout: paneForRuntime(focusedRuntimeId) },
+      { type: "setFocusedPane", areaId, paneId: paneForRuntime(focusedRuntimeId).id },
+    ]);
+  }, [areaId, focusedRuntimeId, queueOps]);
 
-  const drop = (side: "left" | "right") => {
-    if (draggingTabId && !isMobile) splitTab(areaId, draggingTabId, side);
-    setDraggingTabId(null);
-  };
-
-  const createSplit = () => {
-    if (!activeTab) return;
-    const currentCwd = activeMeta?.cwd.startsWith("/") ? activeMeta.cwd : activeTab.initialCwd;
-    openSplit(areaId, activeTab.projectId, activeTab.kind, currentCwd);
-  };
-
-  const saveSplitLayout = (layout: Layout, details: LayoutChangedMeta) => {
-    if (!details.isUserInteraction) return;
-    if (!area?.splitTabIds) return;
-    const firstRaw = layout[area.splitTabIds[0]];
-    const secondRaw = layout[area.splitTabIds[1]];
+  const saveSplitLayout = useCallback((layoutData: Layout, details: LayoutChangedMeta) => {
+    if (!details.isUserInteraction || paneLayout?.type !== "split") return;
+    const children = paneLayout.children;
+    const firstRaw = layoutData[children[0]!.id];
+    const secondRaw = layoutData[children[1]!.id];
     if (firstRaw === undefined || secondRaw === undefined || firstRaw + secondRaw <= 0) return;
     const first = Math.max(20, Math.min(80, (firstRaw / (firstRaw + secondRaw)) * 100));
     if (splitSaveFrame.current !== null) window.cancelAnimationFrame(splitSaveFrame.current);
     splitSaveFrame.current = window.requestAnimationFrame(() => {
       splitSaveFrame.current = null;
-      setSplitSizes(areaId, [first, 100 - first]);
+      const state = useTerminalWorkspaceStore.getState();
+      if (!state.document) return;
+      const current = state.document.areaLayouts[areaId]?.paneLayout;
+      if (current?.type === "split") {
+        queueOps([{ type: "setPaneLayout", areaId, layout: { ...current, sizes: [first, 100 - first] } }]);
+      }
     });
-  };
+  }, [areaId, paneLayout, queueOps]);
 
   useEffect(() => () => {
     if (splitSaveFrame.current !== null) window.cancelAnimationFrame(splitSaveFrame.current);
   }, []);
 
+  // Tiefenlink: eine laufende Session in dieser Fläche öffnen.
+  useEffect(() => {
+    if (!routeActive || !requestedSessionId || requestedHandledRef.current || !document || !sessions.data) return;
+    const session = sessions.data.sessions.find((candidate) => candidate.id === requestedSessionId || candidate.runtimeId === requestedSessionId);
+    if (!session) return;
+    requestedHandledRef.current = true;
+    const existing = document.entries.find((entry) => entry.runtimeId === session.runtimeId);
+    const state = useTerminalWorkspaceStore.getState();
+    if (existing) state.queueOps(openEntryOps(document, areaId, session.runtimeId));
+    else {
+      const count = document.entries.filter((entry) => entry.kind === session.kind).length + 1;
+      state.queueOps([
+        { type: "createEntry", entry: { id: `entry-${session.runtimeId}`, runtimeId: session.runtimeId, name: `${kindLabels[session.kind]} ${count}`, parentFolderId: null, sortOrder: document.entries.length, pinned: false, persistent: false, kind: session.kind, projectId: session.projectId, initialCwd: session.cwd } },
+        ...openEntryOps(document, areaId, session.runtimeId),
+      ]);
+    }
+  }, [areaId, document, requestedSessionId, routeActive, sessions.data]);
+
   const sessionPicker = minimal ? null : (
     <TerminalSessionPicker
       kind={kind}
       sessions={sessions.data?.sessions ?? []}
-      openTabIds={area?.tabs.map((tab) => tab.id) ?? []}
-      onOpen={openExisting}
-      onRestart={restartOrphan}
-      onClose={closeOrphan}
+      openTabIds={panes.map((pane) => pane.runtimeId)}
+      onOpen={(session) => openEntry(session.runtimeId)}
+      onRestart={async (session: TerminalSession) => { await apiClient.restartTerminalSession(session.id); void sessions.refetch(); }}
+      onClose={async (session: TerminalSession) => { await apiClient.closeTerminalSession(session.id); void sessions.refetch(); }}
     />
   );
 
-  const activeHandle = () => (activeTab ? handles.current.get(activeTab.id) ?? null : null);
+  const activeHandle = () => (focusedRuntimeId ? handles.current.get(focusedRuntimeId) ?? null : null);
   const pressKey = (key: string) => {
     activeHandle()?.sendKey(key, { ctrl: stickyCtrl, alt: stickyAlt });
     setStickyCtrl(false);
     setStickyAlt(false);
   };
 
-  if (!area) return <div className="terminal-area-loading">Terminal wird vorbereitet…</div>;
+  if (!document) return <div className="terminal-area-loading">Terminal wird vorbereitet…</div>;
+
+  const renderPane = (pane: VisiblePane, visible: boolean, position?: "left" | "right") => (
+    <div
+      key={pane.id}
+      data-pane-id={pane.id}
+      data-pane-position={position}
+      className={`terminal-session-pane ${focusedRuntimeId === pane.runtimeId ? "is-focused" : ""} ${visible ? "is-visible" : "is-parked"}`}
+      inert={!visible}
+      onPointerDown={() => visible && pane.runtimeId !== focusedRuntimeId && queueOps([{ type: "setFocusedPane", areaId, paneId: pane.id }])}
+    >
+      <WebTerminal
+        ref={(handle) => { if (handle) handles.current.set(pane.runtimeId, handle); else handles.current.delete(pane.runtimeId); }}
+        instanceId={pane.runtimeId}
+        kind={kind}
+        active={routeActive && visible}
+        renderScale={renderScale}
+        onMetaChange={(next) => {
+          setRuntimeCwd(pane.runtimeId, next.cwd);
+          setMeta((current) => {
+            const previous = current[pane.runtimeId];
+            if (previous?.status === next.status && previous.cwd === next.cwd && previous.error === next.error && previous.cols === next.cols && previous.rows === next.rows) return current;
+            return { ...current, [pane.runtimeId]: next };
+          });
+        }}
+      />
+    </div>
+  );
+
+  const renderWorkspace = () => {
+    if (panes.length === 0) {
+      return (
+        <div className="terminal-empty-state">
+          <MonitorOffIcon className="h-6 w-6" />
+          <strong>Kein Terminal geöffnet</strong>
+          <button type="button" className="quiet-button-primary" onClick={() => create(null, initialProjectId)}><PlusIcon className="h-4 w-4" /> {kindLabels[kind]} öffnen</button>
+        </div>
+      );
+    }
+    if (bento) {
+      return <div className={`terminal-canvas is-bento has-${Math.min(panes.length, 4)}`}>{panes.slice(0, 4).map((pane, index) => renderPane(pane, !isMobile || pane.runtimeId === focusedRuntimeId, index === 0 ? "left" : index === 1 ? "right" : undefined))}</div>;
+    }
+    if (paneLayout?.type === "split") {
+      if (showSingleMobilePane) {
+        const focusedPane = panes.find((pane) => pane.runtimeId === focusedRuntimeId) ?? panes[0]!;
+        return <div className="terminal-canvas is-mobile-single-pane">{renderPane(focusedPane, true)}</div>;
+      }
+      return (
+        <div className="terminal-canvas">
+          <Group
+            key={panes.map((pane) => pane.id).join(":")}
+            id={`terminal-split-${areaId}`}
+            className="terminal-split-group"
+            orientation="horizontal"
+            defaultLayout={{
+              [panes[0]!.id]: paneLayout.sizes[0] ?? 50,
+              [panes[1]!.id]: paneLayout.sizes[1] ?? 50,
+            } as Layout}
+            onLayoutChanged={saveSplitLayout}
+            resizeTargetMinimumSize={{ coarse: 44, fine: 20 }}
+          >
+            <Panel id={panes[0]!.id} minSize="20%" defaultSize={`${paneLayout.sizes[0]}%`}>{renderPane(panes[0]!, true, "left")}</Panel>
+            <Separator className="terminal-split-handle" aria-label="Terminal-Aufteilung anpassen" />
+            <Panel id={panes[1]!.id} minSize="20%" defaultSize={`${paneLayout.sizes[1]}%`}>{renderPane(panes[1]!, true, "right")}</Panel>
+          </Group>
+        </div>
+      );
+    }
+    return <div className="terminal-canvas">{renderPane(panes[0]!, true)}</div>;
+  };
 
   return (
-    <section className="terminal-area" data-split={Boolean(area.splitTabIds)}>
+    <section className="terminal-area" data-split={hasSplit ? "true" : undefined}>
       {minimal ? <span className="sr-only terminal-connection-status" aria-live="polite">{activeMeta ? statusLabel[activeMeta.status] : statusLabel.connecting}</span> : null}
-      {!minimal ? (
-        <TerminalToolbar
-          tabs={area.tabs}
-          activeTabId={area.activeTabId}
-          splitTabIds={area.splitTabIds}
-          meta={meta}
-          kind={kind}
-          maxTabs={maxTabs}
-          isMobile={isMobile}
-          bento={bento}
-          singlePane={singlePane}
-          actionsOpen={actionsOpen}
-          activeTab={activeTab}
-          handles={handles.current}
-          actionMenuRef={actionMenuRef}
-          longPress={longPress}
-          projectName={projectName}
-          onActivateTab={(tabId) => activateTab(areaId, tabId)}
-          onClose={close}
-          onCreate={() => create(nextProjectId)}
-          onClearSplit={() => clearSplit(areaId)}
-          onCreateSplit={createSplit}
-          onRunAction={runAction}
-          onSetActionsOpen={setActionsOpen}
-          onSetDraggingTabId={setDraggingTabId}
-          sessionPicker={sessionPicker}
-        />
-      ) : null}
-
-      <div className={`terminal-canvas ${bento ? `is-bento has-${area.tabs.length}` : ""} ${draggingTabId ? "is-dragging" : ""}`}>
-        {area.tabs.length === 0 ? (
-          <div className="terminal-empty-state">
-            <MonitorOffIcon className="h-6 w-6" />
-            <strong>Keine Terminalsitzung geöffnet</strong>
-            <button type="button" className="quiet-button-primary" onClick={() => create(initialProjectId)}><PlusIcon className="h-4 w-4" /> {kindLabels[kind]} öffnen</button>
-          </div>
+      <div className={`terminal-area-body ${sidebarVisible ? "has-sidebar" : ""}`}>
+        {!minimal ? (
+          <TerminalSidebar
+            areaId={areaId}
+            kind={kind}
+            meta={meta}
+            sessions={sessions.data?.sessions ?? []}
+            cwds={runtimeCwds}
+            isMobile={isMobile}
+            open={sidebarVisible}
+            activeRuntimeId={focusedRuntimeId}
+            hasSplit={hasSplit}
+            hasActivePane={hasActivePane}
+            onClose={() => setSidebarVisible(false)}
+            onNewTerminal={() => create(null, initialProjectId)}
+            onNewTerminalInFolder={(folderId) => create(folderId, initialProjectId)}
+            onOpenEntry={openEntry}
+            onOpenInSplit={openInSplit}
+            onResync={(runtimeId) => handles.current.get(runtimeId)?.resync()}
+            onRestart={(runtimeId) => handles.current.get(runtimeId)?.restart()}
+            onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+            onCreateSplit={createSplit}
+            onClearSplit={clearSplit}
+            onClear={() => activeHandle()?.clear()}
+            onClosePane={() => focusedRuntimeId && closePane(focusedRuntimeId)}
+            sessionPicker={sessionPicker}
+            sidebarWidth={terminalSidebar.width}
+            onResizeStart={terminalSidebar.startResize}
+            onResizeKeyboard={terminalSidebar.resizeWithKeyboard}
+            version={health.data?.version ?? null}
+            onReload={() => globalThis.window.location.reload()}
+            onFullscreen={toggleNativeFullscreen}
+          />
         ) : null}
-        {(() => {
-          const renderPane = (tab: typeof area.tabs[number], visible: boolean, position?: "left" | "right") => (
-            <div
-              key={tab.id}
-              data-terminal-index={area.tabs.indexOf(tab)}
-              data-pane-position={position}
-              className={`terminal-session-pane ${tab.id === area.activeTabId ? "is-focused" : ""} ${visible ? "is-visible" : "is-parked"}`}
-              inert={!visible}
-              onPointerDown={() => visible && activateTab(areaId, tab.id)}
-            >
-              <WebTerminal
-                ref={(handle) => { if (handle) handles.current.set(tab.id, handle); else handles.current.delete(tab.id); }}
-                instanceId={tab.id}
-                kind={tab.kind}
-                projectId={tab.projectId}
-                initialCwd={tab.initialCwd}
-                active={routeActive && visible}
-                // Hintergrund-Tabs und geparkte Routen bleiben verbunden: Ihre
-                // Ausgabe läuft in den Puffer, die Statuskugel bleibt grün und
-                // beim Zurückwechseln ist der Inhalt sofort da.
-                keepAlive
-                renderScale={renderScale}
-                onMetaChange={(next) => {
-                  setRuntimeCwd(tab.id, next.cwd);
-                  setMeta((current) => {
-                    const previous = current[tab.id];
-                    if (previous?.status === next.status && previous.cwd === next.cwd && previous.error === next.error && previous.cols === next.cols && previous.rows === next.rows) return current;
-                    return { ...current, [tab.id]: next };
-                  });
-                }}
-              />
-            </div>
-          );
-          if (bento) return area.tabs.map((tab) => renderPane(tab, !isMobile || tab.id === area.activeTabId));
-          const splitTabs = !singlePane && area.splitTabIds
-            ? area.splitTabIds.map((tabId) => area.tabs.find((tab) => tab.id === tabId)).filter((tab): tab is typeof area.tabs[number] => Boolean(tab))
-            : [];
-          const visibleIds = new Set(splitTabs.length === 2 ? splitTabs.map((tab) => tab.id) : area.activeTabId ? [area.activeTabId] : []);
-          return (
-            <>
-              {splitTabs.length === 2 ? (
-                <Group
-                  key={splitTabs.map((tab) => tab.id).join(":")}
-                  id={`terminal-split-${areaId}`}
-                  className="terminal-split-group"
-                  orientation="horizontal"
-                  defaultLayout={{ [splitTabs[0]!.id]: area.splitSizes[0], [splitTabs[1]!.id]: area.splitSizes[1] }}
-                  onLayoutChanged={saveSplitLayout}
-                  resizeTargetMinimumSize={{ coarse: 44, fine: 20 }}
-                >
-                  <Panel id={splitTabs[0]!.id} minSize="20%" defaultSize={`${area.splitSizes[0]}%`}>{renderPane(splitTabs[0]!, true, "left")}</Panel>
-                  <Separator className="terminal-split-handle" aria-label="Terminal-Aufteilung anpassen" />
-                  <Panel id={splitTabs[1]!.id} minSize="20%" defaultSize={`${area.splitSizes[1]}%`}>{renderPane(splitTabs[1]!, true, "right")}</Panel>
-                </Group>
-              ) : area.activeTabId ? (() => {
-                const tab = area.tabs.find((candidate) => candidate.id === area.activeTabId);
-                return tab ? renderPane(tab, true) : null;
-              })() : null}
-              {area.tabs.filter((tab) => !visibleIds.has(tab.id)).map((tab) => renderPane(tab, false))}
-            </>
-          );
-        })()}
-        {draggingTabId && !isMobile ? (
-          <div className="terminal-drop-zones">
-            <button type="button" onDragOver={(event) => event.preventDefault()} onDrop={() => drop("left")} onClick={() => drop("left")}>Links öffnen</button>
-            <button type="button" onDragOver={(event) => event.preventDefault()} onDrop={() => drop("right")} onClick={() => drop("right")}>Rechts öffnen</button>
-          </div>
-        ) : null}
+        <div className="terminal-area-main">
+          {!minimal && !sidebarVisible ? (
+            <button type="button" className="terminal-sidebar-reopen" onClick={() => setSidebarVisible(true)} aria-label="Terminal-Sidebar einblenden" title="Terminal-Sidebar einblenden">
+              <TerminalIcon className="h-4 w-4" />
+              <MenuIcon className="h-4 w-4" aria-hidden />
+              <span>Terminals</span>
+              <ChevronRightIcon className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+          {renderWorkspace()}
+          {!minimal && isMobile ? (
+            <TerminalKeybar
+              keyboardRow={keyboardRow}
+              stickyCtrl={stickyCtrl}
+              stickyAlt={stickyAlt}
+              hasActiveTab={hasActivePane}
+              tabsFull={false}
+              sessionPicker={sessionPicker}
+              onSendKey={pressKey}
+              onPaste={() => activeHandle()?.pasteFromClipboard()}
+              onFocus={() => activeHandle()?.focus()}
+              onCreate={() => create(null, initialProjectId)}
+              onRestart={() => activeHandle()?.restart()}
+              onClear={() => activeHandle()?.clear()}
+              onClose={() => focusedRuntimeId && closePane(focusedRuntimeId)}
+              onToggleCtrl={() => setStickyCtrl(!stickyCtrl)}
+              onToggleAlt={() => setStickyAlt(!stickyAlt)}
+              onSetKeyboardRow={setKeyboardRow}
+            />
+          ) : null}
+        </div>
       </div>
-
-      {!minimal && isMobile ? (
-        <TerminalKeybar
-          keyboardRow={keyboardRow}
-          stickyCtrl={stickyCtrl}
-          stickyAlt={stickyAlt}
-          hasActiveTab={Boolean(activeTab)}
-          tabsFull={area.tabs.length >= maxTabs}
-          sessionPicker={sessionPicker}
-          onSendKey={pressKey}
-          onPaste={() => activeHandle()?.pasteFromClipboard()}
-          onFocus={() => activeHandle()?.focus()}
-          onCreate={() => create(nextProjectId)}
-          onRestart={() => activeHandle()?.restart()}
-          onClear={() => activeHandle()?.clear()}
-          onClose={() => activeTab && close(activeTab.id)}
-          onToggleCtrl={() => setStickyCtrl(!stickyCtrl)}
-          onToggleAlt={() => setStickyAlt(!stickyAlt)}
-          onSetKeyboardRow={setKeyboardRow}
-        />
-      ) : null}
     </section>
   );
 }

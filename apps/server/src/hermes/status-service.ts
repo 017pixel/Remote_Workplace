@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { hermesStatusSchema, hermesUpdateStateSchema, type HermesStatus, type HermesUpdateState } from "@workbench/contracts";
+import { hermesStatusSchema, hermesUpdateStateSchema, type HermesStatus, type HermesUpdateState } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { HermesClientError } from "./client.js";
 import type { HermesDashboardClient } from "./client.js";

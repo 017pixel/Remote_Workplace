@@ -8,7 +8,7 @@ import {
   pushSubscriptionResponseSchema,
   pushTestResponseSchema,
   type NotificationPresenceItem,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { z } from "zod";
 import { mutate, request } from "./transport.js";
 

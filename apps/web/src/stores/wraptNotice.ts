@@ -5,7 +5,7 @@ import { create } from "zustand";
  * (z. B. „Panel-Limit erreicht" beim Öffnen eines Werkzeugs außerhalb der
  * Workbench-Seite). Verschwindet nach ein paar Sekunden von selbst.
  */
-interface WorkbenchNoticeState {
+interface WraptNoticeState {
   message: string | null;
   show: (message: string) => void;
   clear: () => void;
@@ -13,7 +13,7 @@ interface WorkbenchNoticeState {
 
 let hideTimer: number | null = null;
 
-export const useWorkbenchNotice = create<WorkbenchNoticeState>()((set) => ({
+export const useWraptNotice = create<WraptNoticeState>()((set) => ({
   message: null,
   show: (message) => {
     if (hideTimer !== null) window.clearTimeout(hideTimer);

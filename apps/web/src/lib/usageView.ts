@@ -1,4 +1,4 @@
-import type { UsageTimelineLane } from "@workbench/contracts";
+import type { UsageTimelineLane } from "@wrapt/contracts";
 import { buildTimelineLane, type TimelineLane, type TimelineLimit } from "./quotaTimeline";
 
 /**

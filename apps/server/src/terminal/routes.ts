@@ -1,12 +1,14 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { ZodError, z } from "zod";
-import { saveTerminalWorkspaceRequestSchema, terminalWorkspaceSchema } from "@workbench/contracts";
+import { saveTerminalWorkspaceRequestSchema, terminalWorkspaceOpsRequestSchema, terminalWorkspaceSchema, terminalWorkspaceV2Schema } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { TerminalFailure } from "./Manager.js";
 import type { TerminalManager } from "./Manager.js";
 import type { TerminalDatabase } from "./database.js";
 import { clientTerminalMessageSchema, type ServerTerminalMessage, type TerminalErrorCode } from "./protocol.js";
+import { TerminalWorkspaceService } from "./workspace/TerminalWorkspaceService.js";
+import { migrateTerminalWorkspaceV1 } from "./workspace/terminalWorkspaceMigrations.js";
 import { isSameOriginRequest } from "../security/same-origin.js";
 import { createWebSocketSendQueue } from "../utils/websocketSendQueue.js";
 
@@ -52,7 +54,7 @@ function sessionResponse(session: ReturnType<TerminalManager["listSessions"]>[nu
     exitCode: session.exitCode,
     exitSignal: session.exitSignal,
     supervisor: session.supervisorName ? "tmux" as const : "direct" as const,
-    managed: session.supervisorName?.startsWith("workbench-") ?? false,
+    managed: session.supervisorName?.startsWith("wrapt-") || session.supervisorName?.startsWith("workbench-") || false,
     connectedClients: session.connectedClients,
   };
 }
@@ -77,7 +79,24 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
     const userId = httpIdentity(request, options.allowedUsers, options.developmentUser);
     if (!options.database) throw new AppError(500, "INTERNAL_ERROR", "Die Terminal-Registry ist nicht verfügbar.");
     const parsed = saveTerminalWorkspaceRequestSchema.parse(request.body);
-    return options.database.saveWorkspace(userId, terminalWorkspaceSchema.parse(parsed.document), parsed.expectedRevision);
+    const document = parsed.document.version === 1
+      ? migrateTerminalWorkspaceV1(terminalWorkspaceSchema.parse(parsed.document))
+      : terminalWorkspaceV2Schema.parse(parsed.document);
+    return options.database.saveWorkspace(userId, document, parsed.expectedRevision);
+  });
+  // Serverseitige Workspace-Operationen: verlustfreie, transaktionale
+  // Mutationen statt blindem Überschreiben des ganzen Dokuments.
+  app.post("/terminal/workspace/ops", async (request) => {
+    const userId = httpIdentity(request, options.allowedUsers, options.developmentUser);
+    if (!options.database) throw new AppError(500, "INTERNAL_ERROR", "Die Terminal-Registry ist nicht verfügbar.");
+    const parsed = terminalWorkspaceOpsRequestSchema.parse(request.body);
+    const current = options.database.getWorkspace(userId);
+    if (current.revision !== parsed.expectedRevision) {
+      throw new AppError(409, "TERMINAL_WORKSPACE_CONFLICT", "Das Terminal-Layout wurde auf einem anderen Gerät geändert.");
+    }
+    const service = new TerminalWorkspaceService();
+    const updated = service.applyOperations(current.document, parsed.operations);
+    return options.database.saveWorkspace(userId, updated, parsed.expectedRevision);
   });
   app.post("/terminal/sessions/:sessionId/restart", async (request) => {
     const userId = httpIdentity(request, options.allowedUsers, options.developmentUser);
@@ -107,7 +126,14 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
     const sendQueue = createWebSocketSendQueue<ServerTerminalMessage>({ socket, maxQueueBytes: 8 * 1024 * 1024 });
     const send = (message: ServerTerminalMessage) => { sendQueue.send(message); };
     const clientId = randomUUID();
-    let detach: (() => void) | undefined;
+    // Multiplexter Socket: Ein Browser-Tab hält einen WebSocket und mehrere
+    // Runtime-Subscriptions. Jede Subscription besitzt ihren eigenen Detach.
+    const subscriptions = new Map<string, () => void>();
+    const detachSubscription = (runtimeId: string) => {
+      const detach = subscriptions.get(runtimeId);
+      if (detach) { detach(); subscriptions.delete(runtimeId); }
+    };
+    const sessionOf = (runtimeId: string) => options.manager.resolveRuntime(userId, runtimeId);
     socket.on("message", (raw: unknown) => {
       try {
         if (typeof raw !== "string" && !Buffer.isBuffer(raw)) throw new TerminalFailure("INVALID_MESSAGE", "Die Terminalnachricht ist ungültig.");
@@ -132,9 +158,29 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
             break;
           }
           case "terminal.attach": {
-            detach?.();
             const viewport = message.cols !== undefined && message.rows !== undefined ? { cols: message.cols, rows: message.rows } : undefined;
-            detach = options.manager.attachSession(userId, message.sessionId, send, clientId, viewport);
+            const session = options.manager.resolveSession(userId, message.sessionId);
+            const detach = options.manager.attachSession(userId, session.id, send, clientId, viewport);
+            subscriptions.set(session.runtimeId, detach);
+            break;
+          }
+          case "terminal.subscribe": {
+            const session = sessionOf(message.runtimeId);
+            detachSubscription(session.runtimeId);
+            const viewport = message.cols !== undefined && message.rows !== undefined ? { cols: message.cols, rows: message.rows } : undefined;
+            const detach = options.manager.attachSession(userId, session.id, send, clientId, viewport, message.state ?? null);
+            subscriptions.set(session.runtimeId, detach);
+            break;
+          }
+          case "terminal.unsubscribe": detachSubscription(message.runtimeId); break;
+          case "terminal.sync": {
+            const session = sessionOf(message.runtimeId);
+            options.manager.syncSession(userId, session.id, clientId, message.state);
+            break;
+          }
+          case "terminal.takeControl": {
+            const session = sessionOf(message.runtimeId);
+            options.manager.takeControl(userId, session.id, clientId, message.cols, message.rows);
             break;
           }
           case "terminal.input":
@@ -150,12 +196,40 @@ export async function registerTerminalRoutes(app: FastifyInstance, options: {
             break;
           case "terminal.clear": options.manager.clearSessionHistory(userId, message.sessionId); break;
           case "terminal.restart": options.manager.restartSession(userId, message.sessionId); break;
-          case "terminal.close": options.manager.closeSession(userId, message.sessionId); detach?.(); detach = undefined; break;
+          case "terminal.close": {
+            const session = options.manager.resolveSession(userId, message.sessionId);
+            const runtimeId = session.runtimeId;
+            options.manager.closeSession(userId, message.sessionId);
+            detachSubscription(runtimeId);
+            break;
+          }
           case "terminal.ping": send({ type: "terminal.pong" }); break;
         }
-      } catch (error) { send({ type: "terminal.error", ...errorMessage(error) }); }
+      } catch (error) {
+        // Auf dem multiplexten Socket trägt der Fehler die Runtime-ID des
+        // auslösenden Clients, damit der Transport ihn der richtigen
+        // Subscription zuordnen kann (z. B. SESSION_NOT_FOUND beim Subscribe).
+        let runtimeId: string | undefined;
+        try {
+          const rawMessage = typeof raw === "string" ? JSON.parse(raw) : Buffer.isBuffer(raw) ? JSON.parse(raw.toString()) : null;
+          if (rawMessage && typeof rawMessage === "object" && "runtimeId" in rawMessage && typeof (rawMessage as { runtimeId?: unknown }).runtimeId === "string") {
+            runtimeId = (rawMessage as { runtimeId: string }).runtimeId;
+          }
+        } catch { /* Ohne Runtime-ID bleibt der Fehler socketweit. */ }
+        send({ type: "terminal.error", ...(runtimeId ? { runtimeId } : {}), ...errorMessage(error) });
+      }
     });
-    socket.on("close", () => { sendQueue.dispose(); detach?.(); options.manager.detachClient(userId, clientId); });
-    socket.on("error", () => { sendQueue.dispose(); detach?.(); options.manager.detachClient(userId, clientId); });
+    socket.on("close", () => {
+      for (const detach of subscriptions.values()) detach();
+      subscriptions.clear();
+      sendQueue.dispose();
+      options.manager.detachClient(userId, clientId);
+    });
+    socket.on("error", () => {
+      for (const detach of subscriptions.values()) detach();
+      subscriptions.clear();
+      sendQueue.dispose();
+      options.manager.detachClient(userId, clientId);
+    });
   });
 }

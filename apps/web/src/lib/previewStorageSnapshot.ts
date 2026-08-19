@@ -1,4 +1,4 @@
-import type { PreviewLocalStorageEntry } from "@workbench/contracts";
+import type { PreviewLocalStorageEntry } from "@wrapt/contracts";
 import { sha256Hex } from "./sha256";
 
 /** Dieselbe kanonische Form wie auf dem Server: nach Schlüssel sortierte Paare. */

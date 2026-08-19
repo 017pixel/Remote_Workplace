@@ -62,7 +62,7 @@ restart_last_step="Prüfe Health und neuen Serverprozess"
 write_status "running" "null" "Warte auf den neuen Serverprozess …"
 deadline=$((SECONDS + 90))
 # Der Health-Check läuft gegen den konfigurierten Port (F01-07/F03-4).
-health_url="${WORKBENCH_HEALTH_URL:-http://127.0.0.1:3010}/api/v1/health"
+health_url="${WRAPT_HEALTH_URL:-http://127.0.0.1:3010}/api/v1/health"
 while (( SECONDS < deadline )); do
   health="$(curl -fsS --max-time 2 "$health_url" 2>/dev/null || true)"
   current_boot_id="$(printf '%s' "$health" | sed -n 's/.*"bootId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"

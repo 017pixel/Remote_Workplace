@@ -1,7 +1,7 @@
 import type {
   ContributionId,
   ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   FrontendContributionRegistry,
   type FrontendRegistrySnapshot,

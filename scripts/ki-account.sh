@@ -14,7 +14,7 @@ set -euo pipefail
 
 command -v python3 >/dev/null || { echo "Fehler: python3 wird benoetigt." >&2; exit 1; }
 
-WORKBENCH_API="${WORKBENCH_API:-http://127.0.0.1:3010/api/v1}" \
+WRAPT_API="${WRAPT_API:-http://127.0.0.1:3010/api/v1}" \
 CODEX_ACCOUNT_ARGS="$*" python3 - <<'PY'
 import json
 import os
@@ -22,7 +22,7 @@ import sys
 import urllib.error
 import urllib.request
 
-api = os.environ["WORKBENCH_API"].rstrip("/")
+api = os.environ["WRAPT_API"].rstrip("/")
 args = os.environ["CODEX_ACCOUNT_ARGS"].split()
 command = args[0] if args else "list"
 
@@ -46,7 +46,7 @@ def call(path, method="GET"):
         fail(detail or f"Die Workbench antwortete mit HTTP {error.code}.")
     except urllib.error.URLError as error:
         fail(f"Die Workbench ist unter {api} nicht erreichbar ({error.reason}). "
-             "Laeuft der Dienst? systemctl --user status workbench.service")
+             "Laeuft der Dienst? systemctl --user status wrapt.service")
 
 
 TOOLS = {"codex": "Codex", "claude": "Claude Code", "opencode": "OpenCode"}

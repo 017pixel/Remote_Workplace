@@ -3,8 +3,8 @@ import type {
   ContextMenuContribution,
   StatusBarContribution,
   TopbarContribution,
-} from "@workbench/extension-contracts";
-import { pageContributionSchema, routeContributionSchema } from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
+import { pageContributionSchema, routeContributionSchema } from "@wrapt/extension-contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CommandRegistry } from "./commandRegistry";
 import { ContextMenuRegistry, ContextMenuRegistryError } from "./contextMenuRegistry";

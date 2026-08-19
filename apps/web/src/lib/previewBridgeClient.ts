@@ -3,7 +3,7 @@ import {
   type PreviewDiagnosticEvent,
   type PreviewLocalStorageEntry,
   type PreviewSlotResetReport,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { generateId } from "./id";
 
 export interface BridgeStatus {
@@ -123,15 +123,15 @@ export class PreviewBridgeClient {
     if (!message || typeof message !== "object" || typeof message.type !== "string") return;
     if (JSON.stringify(message).length > maximumMessageBytes) return;
 
-    if (message.type === "workbench.preview.hello-request") {
-      this.post({ type: "workbench.preview.hello" });
+    if (message.type === "wrapt.preview.hello-request") {
+      this.post({ type: "wrapt.preview.hello" });
       return;
     }
     // Alles Weitere zählt nur innerhalb der aktuellen Epoche.
     if (Number(message.epoch) !== this.epoch) return;
 
     switch (message.type) {
-      case "workbench.preview.ready": {
+      case "wrapt.preview.ready": {
         this.connected = true;
         this.handlers.onStatus?.({
           connected: true,
@@ -141,7 +141,7 @@ export class PreviewBridgeClient {
         });
         return;
       }
-      case "workbench.preview.diagnostics": {
+      case "wrapt.preview.diagnostics": {
         if (!Array.isArray(message.events)) return;
         const events = message.events.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null);
         const parsed: PreviewDiagnosticEvent[] = [];
@@ -172,7 +172,7 @@ export class PreviewBridgeClient {
         this.pushEvents(parsed, Number(message.dropped ?? 0));
         return;
       }
-      case "workbench.preview.storage": {
+      case "wrapt.preview.storage": {
         if (!Array.isArray(message.entries)) return;
         const entries = message.entries
           .filter((entry): entry is { key: string; value: string } => typeof entry === "object" && entry !== null && typeof (entry as { key?: unknown }).key === "string")
@@ -180,8 +180,8 @@ export class PreviewBridgeClient {
         (this.storageHandler ?? this.handlers.onStorage)?.(entries);
         return;
       }
-      case "workbench.preview.reset.report":
-      case "workbench.preview.inventory.report": {
+      case "wrapt.preview.reset.report":
+      case "wrapt.preview.inventory.report": {
         const resolve = this.pendingResolvers.get("reset");
         if (resolve) {
           this.pendingResolvers.delete("reset");
@@ -189,7 +189,7 @@ export class PreviewBridgeClient {
         }
         return;
       }
-      case "workbench.preview.storage.restored": {
+      case "wrapt.preview.storage.restored": {
         const requestId = typeof message.requestId === "string" ? message.requestId : "restore";
         const resolve = this.pendingResolvers.get(requestId);
         if (resolve) {
@@ -229,14 +229,14 @@ export class PreviewBridgeClient {
   }
 
   navigate(action: "reload" | "back" | "forward") {
-    this.post({ type: "workbench.preview.navigate", action });
+    this.post({ type: "wrapt.preview.navigate", action });
   }
 
   restoreStorage(entries: PreviewLocalStorageEntry[]): Promise<number | null> {
     const requestId = generateId();
     return new Promise((resolve) => {
       this.pendingResolvers.set(requestId, (value) => resolve(value as number | null));
-      this.post({ type: "workbench.preview.storage.restore", entries, requestId });
+      this.post({ type: "wrapt.preview.storage.restore", entries, requestId });
       window.setTimeout(() => {
         if (this.pendingResolvers.delete(requestId)) resolve(null);
       }, 10_000);
@@ -258,7 +258,7 @@ export class PreviewBridgeClient {
           verifiable: Boolean(report.verifiable),
         } : null);
       });
-      this.post({ type: "workbench.preview.reset", nonce });
+      this.post({ type: "wrapt.preview.reset", nonce });
       window.setTimeout(() => {
         if (this.pendingResolvers.delete("reset")) resolve(null);
       }, 30_000);

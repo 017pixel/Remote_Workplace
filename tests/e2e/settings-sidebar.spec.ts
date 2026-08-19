@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test.use({ extraHTTPHeaders: { "tailscale-user-login": "user@example.com" } });
+test.use({ extraHTTPHeaders: { "tailscale-user-login": process.env.WRAPT_E2E_USER ?? "user@example.com" } });
 
-const SIDEBAR_PREFERENCES_KEY = "remote-workplace.sidebar-preferences.v1";
+const SIDEBAR_PREFERENCES_KEY = "wrapt.sidebar-preferences.v1";
 
 async function startWithDefaultSidebarPreferences(page: Page) {
   await page.addInitScript((key) => {
@@ -18,7 +18,7 @@ function settingsSection(page: Page, title: string) {
 }
 
 async function openSurfaceTab(page: Page) {
-  await page.goto("/workbench/settings");
+  await page.goto("/wrapt/settings");
   await page.getByRole("button", { name: "Oberfläche", exact: true }).click();
 }
 
@@ -52,7 +52,7 @@ test("wendet Orbit-Sidebar-Schalter sofort und nach Reload an", async ({ page })
   const orbitSettings = settingsSection(page, "Orbit-Sidebar");
   await orbitSettings.getByRole("button", { name: "OpenCode OpenCode", exact: true }).click();
 
-  await page.goto("/workbench/workbench");
+  await page.goto("/wrapt/wrapt");
   const orbitTools = page.locator(".sidebar-section")
     .filter({ has: page.locator(".sidebar-section-header", { hasText: "Werkzeuge" }) })
     .filter({ has: page.locator(".orbit-palette-item") })
@@ -79,9 +79,10 @@ test("macht Claude Code als optionale CLI-Seite verfügbar", async ({ page }) =>
   await claude.click();
   await expect(page.locator(".workspace-sidebar").getByRole("link", { name: "Claude Code", exact: true })).toBeVisible();
   await page.locator(".workspace-sidebar").getByRole("link", { name: "Claude Code", exact: true }).click();
-  await expect(page).toHaveURL(/\/workbench\/claude$/);
-  // Die CLI-Seite rendert die Terminal-Oberfläche mit einer ersten Instanz.
-  // Der Ladezustand „wird vorbereitet" ist nur beim allerersten Besuch ohne
-  // gecachte Projektdaten sichtbar und deshalb kein stabiler Assertionspunkt.
-  await expect(page.getByRole("tablist", { name: "Terminalsitzungen" })).toBeVisible();
+  await expect(page).toHaveURL(/\/wrapt\/claude$/);
+  // Die CLI-Seite rendert die neue Terminalfläche mit vertikaler Sidebar.
+  // Ohne konfiguriertes Projekt darf sie leer starten; die Sidebar und der
+  // kind-spezifische Öffnen-Button sind der stabile Nutzervertrag.
+  await expect(page.getByRole("complementary", { name: "Terminal-Sidebar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Claude Code öffnen" }).first()).toBeVisible();
 });

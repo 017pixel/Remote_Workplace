@@ -1,4 +1,4 @@
-import type { TerminalKind } from "@workbench/contracts";
+import type { TerminalKind } from "@wrapt/contracts";
 import type { TerminalStatus } from "./terminal-types";
 
 export const kindLabels: Record<TerminalKind, string> = {

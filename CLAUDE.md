@@ -6,14 +6,14 @@ Diese Datei ergänzt nur Claude-spezifische Hinweise.
 
 ## Schnellreferenz
 
-- **Projekt:** Selbst gehostete Remote-Development-Workbench (pnpm-Monorepo, Node ≥ 22, TypeScript).
-  Server `@workbench/server` auf `127.0.0.1:3010`, Web `@workbench/web`, Verträge `@workbench/contracts`.
+- **Projekt:** Selbst gehostete Remote-Development-Wrapt (pnpm-Monorepo, Node ≥ 22, TypeScript).
+  Server `@wrapt/server` auf `127.0.0.1:3010`, Web `@wrapt/web`, Verträge `@wrapt/contracts`.
 - **Sprache:** Deutsch (Commits, Kommentare, UI-Texte).
-- **Vor Abschluss:** `pnpm typecheck` (nach Schema-Änderungen `pnpm --filter @workbench/contracts build` zuerst).
+- **Vor Abschluss:** `pnpm typecheck` (nach Schema-Änderungen `pnpm --filter @wrapt/contracts build` zuerst).
 
 ## Projekt neu starten
 
-Nach Code-Änderungen die laufende Workbench neu bauen/starten — Details und Hintergründe in `AGENTS.md`:
+Nach Code-Änderungen die laufende Wrapt neu bauen/starten — Details und Hintergründe in `AGENTS.md`:
 
 ```bash
 bash scripts/restart-frontend.sh   # nur Frontend neu bauen (danach Seite neu laden)
@@ -29,5 +29,5 @@ curl -s -X POST http://127.0.0.1:3010/api/v1/system/restart \
 ```
 
 Fertig-Erkennung über `GET /api/v1/health`: `bootId` wechselt bei Backend-Neustart,
-`webBuildId` bei Frontend-Rebuild. Der Dienst läuft root-frei als User-Unit `workbench.service`
+`webBuildId` bei Frontend-Rebuild. Der Dienst läuft root-frei als User-Unit `wrapt.service`
 (`systemctl --user`, kein `sudo`). Workspace-, Orbit- und Galerie-Daten bleiben bei Neustarts erhalten.

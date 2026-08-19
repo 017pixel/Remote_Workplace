@@ -24,11 +24,11 @@ const manifest = {
   id: "workbench.agent-tasks",
   name: "Agent Tasks",
   version: "1.0.0",
-  publisher: "remote-workplace",
+  publisher: "wrapt",
   description: "Aufgaben und Agent Runs verwalten",
   license: "MIT",
   engines: {
-    remoteWorkplace: ">=0.44.0",
+    wrapt: ">=0.95.0",
     extensionApi: "^1",
   },
   trust: "catalog-first-party",

@@ -12,12 +12,12 @@ import {
 
 const validManifest = {
   $schema:
-    "./node_modules/@workbench/extension-contracts/schema/extension-manifest-v1.schema.json",
+    "./node_modules/@wrapt/extension-contracts/schema/extension-manifest-v1.schema.json",
   manifestVersion: 1,
   id: "workbench.agent-tasks",
   name: "Agent Tasks",
   version: "1.0.0",
-  publisher: "remote-workplace",
+  publisher: "wrapt",
   description: "Aufgaben und Agent Runs verwalten",
   license: "MIT",
   category: "productivity",
@@ -27,7 +27,7 @@ const validManifest = {
   changelog: "./CHANGELOG.md",
   dataSchemaVersion: 1,
   engines: {
-    remoteWorkplace: ">=0.50.0",
+    wrapt: ">=0.95.0",
     extensionApi: "^1",
   },
   trust: "catalog-first-party",
@@ -313,16 +313,24 @@ describe("Extension Manifest V1", () => {
     );
   });
 
+  it("migriert das alte engines.remoteWorkplace beim Einlesen", () => {
+    const result = extensionManifestV1Schema.parse({
+      ...validManifest,
+      engines: { remoteWorkplace: ">=0.44.0", extensionApi: "^1" },
+    });
+    expect(result.engines).toEqual({ wrapt: ">=0.44.0", extensionApi: "^1" });
+  });
+
   it("akzeptiert ein Manifest ohne optionale Metadaten", () => {
     const manifest = {
       manifestVersion: 1,
       id: "workbench.agent-tasks",
       name: "Agent Tasks",
       version: "1.0.0",
-      publisher: "remote-workplace",
+      publisher: "wrapt",
       description: "Aufgaben und Agent Runs verwalten",
       license: "MIT",
-      engines: { remoteWorkplace: ">=0.50.0", extensionApi: "^1" },
+      engines: { wrapt: ">=0.95.0", extensionApi: "^1" },
       trust: "catalog-first-party",
       entrypoints: { server: "./dist/server.js" },
       permissions: [],
@@ -372,7 +380,7 @@ describe("Extension Manifest V1", () => {
       "Workbench Range",
       {
         ...validManifest,
-        engines: { ...validManifest.engines, remoteWorkplace: "latest" },
+        engines: { ...validManifest.engines, wrapt: "latest" },
       },
     ],
     [
@@ -2489,7 +2497,7 @@ describe("Extension Manifest V1", () => {
             {
               id: "workbench.agent-tasks.agent-skill.task-management",
               name: "workbench-agent-tasks-task-management",
-              description: "Verwaltet Agent Tasks in Remote Workplace.",
+              description: "Verwaltet Agent Tasks in Wrapt.",
               path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
               targets: ["codex", "claude-code", "opencode"],
               enabledByDefault: false,
@@ -2504,7 +2512,7 @@ describe("Extension Manifest V1", () => {
     const agentSkill = {
       id: "workbench.agent-tasks.agent-skill.task-management",
       name: "workbench-agent-tasks-task-management",
-      description: "Verwaltet Agent Tasks in Remote Workplace.",
+      description: "Verwaltet Agent Tasks in Wrapt.",
       path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
       targets: ["codex", "claude-code", "opencode"],
       enabledByDefault: false,
@@ -2544,7 +2552,7 @@ describe("Extension Manifest V1", () => {
             {
               id: "workbench.agent-tasks.command.create",
               name: "workbench-agent-tasks-task-management",
-              description: "Verwaltet Agent Tasks in Remote Workplace.",
+              description: "Verwaltet Agent Tasks in Wrapt.",
               path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
               targets: ["codex"],
               enabledByDefault: false,
@@ -3186,7 +3194,7 @@ describe("Extension Manifest V1", () => {
           {
             id: "workbench.agent-tasks.agent-skill.task-management",
             name: "workbench-agent-tasks-task-management",
-            description: "Verwaltet Agent Tasks in Remote Workplace.",
+            description: "Verwaltet Agent Tasks in Wrapt.",
             path: "./skills/workbench-agent-tasks-task-management/SKILL.md",
             targets: ["codex"],
             enabledByDefault: false,

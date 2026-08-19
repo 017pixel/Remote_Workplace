@@ -1,6 +1,6 @@
 import { access, lstat, mkdir, readFile, readlink, rename, symlink, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import type { UsageProviderId } from "@workbench/contracts";
+import type { UsageProviderId } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 
 /**

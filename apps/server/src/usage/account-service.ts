@@ -4,7 +4,7 @@ import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { execa } from "execa";
 import { z } from "zod";
-import type { CreateAccountRequest, DiscoveredAccount, ManagedAccount, UpdateAccountRequest, UsageProviderId } from "@workbench/contracts";
+import type { CreateAccountRequest, DiscoveredAccount, ManagedAccount, UpdateAccountRequest, UsageProviderId } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { AccountSwitch, type ProviderLayout } from "./account-switch.js";
 import type { UsageDatabase } from "./database.js";

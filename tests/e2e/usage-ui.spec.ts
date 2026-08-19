@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
+import { hasPrivateWrapt, privateWraptReason, workbenchUrl } from "./helpers/environment";
 
 // Braucht echte Nutzungsdaten und verbundene Accounts (CodexBar, Profile).
-test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+test.skip(() => !hasPrivateWrapt, privateWraptReason);
 
 const workbench = workbenchUrl;
 

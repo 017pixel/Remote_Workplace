@@ -7,7 +7,7 @@ import {
   type ExtensionId,
   type PageContribution,
   type RouteContribution,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   FrontendContributionRegistry,
   type FrontendRegistrySnapshot,

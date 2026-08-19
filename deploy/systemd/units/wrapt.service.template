@@ -1,5 +1,5 @@
 [Unit]
-Description=Remote Workplace Workbench (user-managed, port 3010)
+Description=Wrapt (user-managed, port 3010)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=0
@@ -12,20 +12,21 @@ Environment=NODE_ENV=production
 Environment=HOME=__HOME__
 Environment=PATH=__PNPM_BIN_DIR__:__HOME__/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-__REPO_ROOT__/.env
-ExecStart=__PNPM_BIN__ --filter @workbench/server start
+ExecStart=__PNPM_BIN__ --filter @wrapt/server start
 Restart=always
 RestartSec=5s
 TimeoutStopSec=20s
 KillSignal=SIGTERM
 UMask=0077
 
-# Die Workbench schreibt bewusst in Repository, Datenverzeichnis, Browserprofile
+# Wrapt schreibt bewusst in Repository, Datenverzeichnis, Browserprofile
 # und CLI-Homes des Benutzers. ProtectHome wäre daher sachlich falsch.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectKernelTunables=true
-ProtectKernelModules=true
+# ProtectKernelModules ist auf diesem Host in User-Units nicht verfügbar
+# (systemd beendet den Dienst sonst mit Status 218/CAPABILITIES).
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true

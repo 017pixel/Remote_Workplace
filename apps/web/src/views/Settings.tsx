@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyIcon, DeviceRotateIcon, DownloadIcon, ExtensionsIcon, EyeIcon, GitBranchIcon, InboxIcon, InfoIcon, LayersIcon, LoaderIcon, NutzungIcon, RefreshIcon, RocketIcon, ServerIcon, ShieldIcon, TrashIcon, UploadIcon, WarningIcon } from "../components/icons";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { apiClient, ApiClientError } from "../lib/apiClient";
 import { writeClipboardText } from "../lib/clipboard";
 import { usePwaInstall } from "../lib/usePwaInstall";
@@ -8,7 +8,7 @@ import { useWorkspaceStore, WORKSPACE_STORAGE_KEY } from "../stores/workspace";
 import { Card } from "../components/Card";
 import { Badge } from "../components/primitives";
 import { ExtensionSettings } from "../components/extensions/ExtensionSettings";
-import { WORKBENCH_LIMITS, type DashboardConfig, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@workbench/contracts";
+import { WRAPT_LIMITS, type DashboardConfig, type NotificationPreferences, type NotificationSource, type RestartTarget, type T3Channel, type UsageMonitoring, type UsageProviderId } from "@wrapt/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/ModalDialog";
 import { useHashTab } from "../lib/hashTabs";
@@ -36,8 +36,8 @@ const TAB_HASH_PREFIX = "einstellungen:";
 
 export function Settings() {
   const routeActive = useRouteActivity();
-  const health = useQuery({ ...workbenchQueries.health(), enabled: routeActive });
-  const dashboardConfig = useQuery({ ...workbenchQueries.dashboardConfig(), enabled: routeActive });
+  const health = useQuery({ ...wraptQueries.health(), enabled: routeActive });
+  const dashboardConfig = useQuery({ ...wraptQueries.dashboardConfig(), enabled: routeActive });
   const resetWorkspace = useWorkspaceStore((s) => s.resetWorkspace);
   const panelCount = useWorkspaceStore((s) => s.panels.length);
   const workspaceCount = useWorkspaceStore((s) => s.workspaces.length);
@@ -83,14 +83,14 @@ export function Settings() {
 
         {tab === "allgemein" ? (
           <>
-            <Card title="Startseite" subtitle="Welche Seite beim Öffnen der Workbench geladen wird">
+            <Card title="Startseite" subtitle="Welche Seite beim Öffnen von Wrapt geladen wird">
               <HomePageSettings />
             </Card>
 
             <Card title="App installieren" subtitle="Für einen schnellen Zugriff vom Homescreen oder Desktop">
-              {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Workbench-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
+              {pwa.updateAvailable ? <div className="settings-update-row" role="status"><div><strong>Update verfügbar</strong><span>Eine neue Wrapt-Version ist bereit.</span></div><button type="button" className="quiet-button-primary" onClick={() => void pwa.applyUpdate()}><DownloadIcon className="h-3.5 w-3.5" /> Aktualisieren</button></div> : null}
               {pwa.isInstalled ? (
-                <p className="text-[13px] text-muted">Die Workbench ist bereits als App installiert.</p>
+                <p className="text-[13px] text-muted">Wrapt ist bereits als App installiert.</p>
               ) : pwa.canInstall ? (
                 <div className="flex flex-wrap items-center gap-3">
                   <button type="button" onClick={() => void pwa.install()} className="quiet-button-primary">
@@ -104,7 +104,7 @@ export function Settings() {
                 </p>
               ) : (
                 <p className="text-[13px] text-muted">
-                  Öffne die Workbench in Chrome oder Edge und wähle im Browsermenü <span className="text-text">App installieren</span>.
+                  Öffne Wrapt in Chrome oder Edge und wähle im Browsermenü <span className="text-text">App installieren</span>.
                 </p>
               )}
             </Card>
@@ -114,7 +114,7 @@ export function Settings() {
                 <span className="text-xl font-medium tracking-tight text-text">
                   {health.data?.version ?? "—"}
                 </span>
-                <Badge tone="accent">Remote Workplace</Badge>
+                <Badge tone="accent">Wrapt</Badge>
               </div>
               {health.data ? (
                 <p className="mt-2 text-[12px] text-faint">Backend-Status: {health.data.status}</p>
@@ -194,11 +194,11 @@ export function Settings() {
             <div className="space-y-3 text-[13px]">
               <div className="data-row px-0">
                 <span className="text-muted">Geöffnete Panels</span>
-                <span className="font-mono text-text">{panelCount} / {WORKBENCH_LIMITS.maxResidentTools}</span>
+                <span className="font-mono text-text">{panelCount} / {WRAPT_LIMITS.maxResidentTools}</span>
               </div>
               <div className="data-row px-0">
                 <span className="text-muted">Arbeitsflächen</span>
-                <span className="font-mono text-text">{workspaceCount} / {WORKBENCH_LIMITS.maxWorkspaces}</span>
+                <span className="font-mono text-text">{workspaceCount} / {WRAPT_LIMITS.maxWorkspaces}</span>
               </div>
               <div className="data-row px-0">
                 <span className="text-muted">Speicherort</span>
@@ -215,7 +215,7 @@ export function Settings() {
           </Card>
         ) : null}
 
-        <footer className="settings-system-footer"><span>{health.data?.appName ?? "Remote Workplace"}</span><strong>Version {health.data?.version ?? "–"}</strong><span>Lokale Remote-Entwicklungsumgebung</span></footer>
+        <footer className="settings-system-footer"><span>{health.data?.appName ?? "Wrapt"}</span><strong>Version {health.data?.version ?? "–"}</strong><span>Lokale Remote-Entwicklungsumgebung</span></footer>
         <ConfirmDialog open={resetOpen} title="Workspace zurücksetzen?" description="Alle geöffneten Panels, Arbeitsflächen und Auswahlen werden lokal gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." confirmLabel="Workspace zurücksetzen" danger onConfirm={resetWorkspace} onClose={() => setResetOpen(false)} />
       </div>
     </div>
@@ -246,7 +246,7 @@ function HomePageSettings() {
 
   return (
     <div>
-      <p className="mb-2 text-[12px] text-muted">Das Dashboard ist der Standard. Wählst du eine andere Seite, leitet die Workbench den Root-Pfad dorthin weiter.</p>
+      <p className="mb-2 text-[12px] text-muted">Das Dashboard ist der Standard. Wählst du eine andere Seite, leitet Wrapt den Root-Pfad dorthin weiter.</p>
       {options.map((option) => {
         const isHidden = !isPageVisibleIn(hiddenPages, option.key);
         const selected = defaultPage === option.key;
@@ -274,7 +274,7 @@ function HomePageSettings() {
 
 const notificationSourceLabels: Record<NotificationSource, string> = {
   hermes: "Hermes", t3: "T3 Code", opencode: "OpenCode", codex: "Codex", claude: "Claude Code",
-  terminal: "Terminal", workbench: "Workbench", update: "Updates",
+  terminal: "Terminal", wrapt: "Wrapt", workbench: "Legacy Workbench", update: "Updates",
 };
 
 const pushDeviceStatus: Record<WebPushDeviceStatus, { label: string; tone: "default" | "ok" | "warn" | "bad" | "accent" }> = {
@@ -292,7 +292,7 @@ const pushDeviceStatus: Record<WebPushDeviceStatus, { label: string; tone: "defa
 
 function NotificationSettings() {
   const queryClient = useQueryClient();
-  const settings = useQuery(workbenchQueries.notificationSettings());
+  const settings = useQuery(wraptQueries.notificationSettings());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const preferences = settings.data?.preferences;
@@ -319,7 +319,7 @@ function NotificationSettings() {
         {deviceActive ? <button type="button" className="quiet-button" disabled={pushDevice.working} onClick={() => void pushDevice.deactivate().then(() => settings.refetch())}>Auf diesem Gerät deaktivieren</button> : null}
         <button type="button" className="quiet-button" disabled={pushDevice.working || pushDevice.device.status !== "active-synced"} onClick={() => void pushDevice.test()}>Testbenachrichtigung an dieses Gerät senden</button>
       </div>
-      <small className="push-device-count">Für deine Workbench-Identität registriert: {settings.data?.subscriptionCount ?? 0} {settings.data?.subscriptionCount === 1 ? "Gerät" : "Geräte"}</small>
+      <small className="push-device-count">Für deine Wrapt-Identität registriert: {settings.data?.subscriptionCount ?? 0} {settings.data?.subscriptionCount === 1 ? "Gerät" : "Geräte"}</small>
       {pushDevice.actionMessage ? <p className="push-device-feedback" role="status">{pushDevice.actionMessage}</p> : null}
     </section>
     <button type="button" className="settings-toggle-row" disabled={saving} onClick={() => void save({ ...preferences, pushEnabled: !preferences.pushEnabled })}>
@@ -341,7 +341,7 @@ const usageMonitoringOrder: UsageProviderId[] = ["opencode", "codex", "claude"];
 
 function UsageMonitoringSettings() {
   const queryClient = useQueryClient();
-  const monitoring = useQuery(workbenchQueries.usageMonitoring());
+  const monitoring = useQuery(wraptQueries.usageMonitoring());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const current = monitoring.data?.monitoring;
@@ -350,7 +350,7 @@ function UsageMonitoringSettings() {
     setSaving(true); setMessage("");
     try {
       const response = await apiClient.saveUsageMonitoring(next);
-      if (response) queryClient.setQueryData(workbenchQueries.usageMonitoring().queryKey, response);
+      if (response) queryClient.setQueryData(wraptQueries.usageMonitoring().queryKey, response);
       setMessage("Die Limitüberwachung wurde gespeichert.");
       // Nutzung und Limitanzeige sollen den neuen Stand sofort zeigen.
       void queryClient.invalidateQueries({ queryKey: ["usage"] });
@@ -465,7 +465,7 @@ function RestartControls() {
     return {
       ok: false,
       message: scriptFinished
-        ? "Der Build lief durch, aber der Dienst meldet sich nicht zurück. Prüfe: systemctl --user status workbench.service"
+        ? "Der Build lief durch, aber der Dienst meldet sich nicht zurück. Prüfe: systemctl --user status wrapt.service"
         : "Zeitüberschreitung — der Neustart hat zu lange gebraucht.",
       logTail: lastLogTail,
     };
@@ -575,7 +575,7 @@ const t3Channels: T3Channel[] = ["stable", "nightly"];
 // automatischen Neustarts.
 function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void }) {
   const queryClient = useQueryClient();
-  const channel = useQuery(workbenchQueries.t3Channel());
+  const channel = useQuery(wraptQueries.t3Channel());
   const [saving, setSaving] = useState<T3Channel | null>(null);
   const [error, setError] = useState("");
   const [pendingDowngrade, setPendingDowngrade] = useState(false);
@@ -598,7 +598,7 @@ function T3ChannelControls({ onJumpToRestart }: { onJumpToRestart: () => void })
     setError("");
     try {
       const updated = await apiClient.setT3Channel(next);
-      if (updated) queryClient.setQueryData(workbenchQueries.t3Channel().queryKey, updated);
+      if (updated) queryClient.setQueryData(wraptQueries.t3Channel().queryKey, updated);
     } catch (caught) {
       setError(caught instanceof ApiClientError ? caught.message : "Der Kanal konnte nicht gespeichert werden.");
       void channel.refetch();

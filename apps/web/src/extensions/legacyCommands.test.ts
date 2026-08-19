@@ -9,9 +9,9 @@ describe("legacyCommands", () => {
 
     const snapshot = registry.getSnapshot();
     expect(snapshot.commands.map((item) => item.contributionId)).toEqual([
-      "workbench.orbit.command.project-browser",
-      "workbench.shell.command.fullscreen-toggle",
-      "workbench.shell.command.reload",
+      "wrapt.orbit.command.project-browser",
+      "wrapt.shell.command.fullscreen-toggle",
+      "wrapt.shell.command.reload",
     ]);
   });
 
@@ -21,7 +21,7 @@ describe("legacyCommands", () => {
     const registry = new CommandRegistry();
     registerLegacyCommands(registry);
 
-    expect(await registry.execute("workbench.orbit.command.project-browser")).toBe(true);
+    expect(await registry.execute("wrapt.orbit.command.project-browser")).toBe(true);
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect((dispatch.mock.calls[0]![0] as Event).type).toBe("orbit:project-browser");
     vi.unstubAllGlobals();

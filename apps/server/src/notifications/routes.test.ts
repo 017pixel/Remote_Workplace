@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type webPush from "web-push";
 import Fastify from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { notificationPreferencesSchema, type PushSubscription } from "@workbench/contracts";
+import { notificationPreferencesSchema, type PushSubscription } from "@wrapt/contracts";
 import { NotificationDatabase } from "./database.js";
 import { NotificationPushService } from "./push.js";
 import { registerNotificationRoutes } from "./routes.js";
@@ -21,13 +21,13 @@ function subscription(name: string): PushSubscription {
 }
 
 async function fixture() {
-  const directory = mkdtempSync(join(tmpdir(), "remote-workplace-push-routes-")); directories.push(directory);
-  const databasePath = join(directory, "workbench.sqlite");
+  const directory = mkdtempSync(join(tmpdir(), "wrapt-push-routes-")); directories.push(directory);
+  const databasePath = join(directory, "wrapt.sqlite");
   const notifications = new NotificationDatabase(databasePath);
   const sendNotification = vi.fn(async () => ({ statusCode: 201, body: "", headers: {} })) as unknown as typeof webPush.sendNotification;
   const push = new NotificationPushService({
     databasePath, dataDirectory: directory, subject: "mailto:test@example.com", notifications, sendNotification,
-    preferences: notificationPreferencesSchema.parse({ pushEnabled: true, sources: { workbench: { toast: true, push: true } } }),
+    preferences: notificationPreferencesSchema.parse({ pushEnabled: true, sources: { wrapt: { toast: true, push: true } } }),
   });
   const app = Fastify(); apps.push(app);
   await app.register(registerNotificationRoutes, {

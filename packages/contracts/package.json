@@ -1,5 +1,5 @@
 {
-  "name": "@workbench/contracts",
+  "name": "@wrapt/contracts",
   "version": "0.10.0",
   "private": true,
   "type": "module",

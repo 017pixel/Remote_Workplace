@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
-import type { FilesystemEntry } from "@workbench/contracts";
+import type { FilesystemEntry } from "@wrapt/contracts";
 import { ChevronRightIcon, FolderIcon, FolderOpenIcon, FolderSearchIcon, FileIcon, LinkIcon, UnknownFileIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
 import { parentPath } from "../../lib/fileManager";

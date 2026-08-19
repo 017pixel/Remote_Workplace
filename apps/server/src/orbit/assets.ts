@@ -5,7 +5,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { DatabaseSync } from "node:sqlite";
-import type { OrbitAsset, GalleryFolder } from "@workbench/contracts";
+import type { OrbitAsset, GalleryFolder } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 
 interface AssetRow { id: string; filename: string; mimeType: string; bytes: number; sha256: string; storagePath: string; createdAt: string; folderId: string | null; }

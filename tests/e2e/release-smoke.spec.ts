@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-// `WORKBENCH_E2E_URL` zeigt auf den Origin des Testservers; die Workbench
-// selbst wird unter dem `/workbench`-Basispfad ausgeliefert.
-const workbench = process.env.WORKBENCH_E2E_URL
-  ? `${process.env.WORKBENCH_E2E_URL.replace(/\/$/, "")}/workbench`
+// `WRAPT_E2E_URL` zeigt auf den Origin des Testservers; die Wrapt
+// selbst wird unter dem `/wrapt`-Basispfad ausgeliefert.
+const workbench = process.env.WRAPT_E2E_URL
+  ? `${process.env.WRAPT_E2E_URL.replace(/\/$/, "")}/wrapt`
   : undefined;
 
 test.use({
@@ -13,7 +13,7 @@ test.use({
 
 test("verifies Browser, local ports and direct project tool navigation", async ({ page }) => {
   test.setTimeout(90_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
 
   await page.goto(`${workbench}/browser`);
   const address = page.getByLabel("Browser-Adresse");
@@ -30,18 +30,18 @@ test("verifies Browser, local ports and direct project tool navigation", async (
   await page.reload();
   await expect(page.getByLabel("Browser-Adresse")).toHaveValue(/https:\/\/example\.com\/?/, { timeout: 25_000 });
   await expect(page.getByAltText("Gerenderte Chromium-Seite")).toHaveAttribute("src", /^data:image\/jpeg;base64,/, { timeout: 25_000 });
-  await page.screenshot({ path: "/tmp/workbench-011-browser.png", fullPage: true });
+  await page.screenshot({ path: "/tmp/wrapt-011-browser.png", fullPage: true });
 
-  await page.goto(`${workbench}/projects/remote-workplace`);
+  await page.goto(`${workbench}/projects/wrapt`);
   await page.getByRole("button", { name: "Editor", exact: true }).click();
-  await expect(page).toHaveURL(/\/workbench\/code-editor$/);
-  await page.goto(`${workbench}/projects/remote-workplace`);
+  await expect(page).toHaveURL(/\/wrapt\/code-editor$/);
+  await page.goto(`${workbench}/projects/wrapt`);
   await page.getByRole("button", { name: /T3/ }).first().click();
-  await expect(page).toHaveURL(/\/workbench\/t3-code$/);
+  await expect(page).toHaveURL(/\/wrapt\/t3-code$/);
 
   await page.goto(`${workbench}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
-  await expect(page).toHaveURL(/\/workbench\/previews\?preview=/);
+  await expect(page).toHaveURL(/\/wrapt\/previews\?preview=/);
 
   await page.goto(`${workbench}/previews`);
   await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 20_000 });
@@ -54,9 +54,9 @@ test("verifies Browser, local ports and direct project tool navigation", async (
 
 test("resizes selected Orbit nodes and keeps properties collapsed", async ({ page }) => {
   test.setTimeout(90_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/wrapt`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   const syncStatus = page.getByRole("button", { name: /Server gespeichert/ });
   await expect(syncStatus).toBeVisible({ timeout: 20_000 });
@@ -147,12 +147,12 @@ test("resizes selected Orbit nodes and keeps properties collapsed", async ({ pag
   expect(minimapViewport).not.toBeNull();
   expect(Math.abs((minimapViewport!.x + minimapViewport!.width / 2) - (minimap!.x + minimap!.width / 2))).toBeLessThanOrEqual(2);
   expect(Math.abs((minimapViewport!.y + minimapViewport!.height / 2) - (minimap!.y + minimap!.height / 2))).toBeLessThanOrEqual(2);
-  await page.screenshot({ path: "/tmp/workbench-011-orbit.png", fullPage: true });
+  await page.screenshot({ path: "/tmp/wrapt-011-orbit.png", fullPage: true });
 });
 
 test("keeps Browser and Orbit controls usable on mobile", async ({ page }) => {
   test.setTimeout(60_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.setViewportSize({ width: 390, height: 844 });
 
   await page.goto(`${workbench}/browser`);
@@ -161,9 +161,9 @@ test("keeps Browser and Orbit controls usable on mobile", async ({ page }) => {
   const browserBounds = await page.locator(".app-shell").evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }));
   expect(browserBounds.scrollWidth).toBeLessThanOrEqual(browserBounds.clientWidth);
   await expect(page.getByLabel("Browser-Adresse")).toBeVisible();
-  await page.screenshot({ path: "/tmp/workbench-011-mobile-browser.png", fullPage: true });
+  await page.screenshot({ path: "/tmp/wrapt-011-mobile-browser.png", fullPage: true });
 
-  await page.goto(`${workbench}/workbench`);
+  await page.goto(`${workbench}/wrapt`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.locator(".orbit-minimap")).toBeHidden();
   const command = page.getByRole("button", { name: "Befehl" });

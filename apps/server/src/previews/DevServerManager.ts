@@ -13,7 +13,7 @@ import type {
   PreviewRuntimeServiceLogs,
   PreviewRuntimeServiceStatus,
   Project,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import type { PreviewDevServerDatabase } from "./devServerDatabase.js";
 import { detectRuntimeProfile, type RuntimeProfileResult } from "./runtimeProfiles.js";
@@ -21,8 +21,8 @@ import { detectRuntimeProfile, type RuntimeProfileResult } from "./runtimeProfil
 interface CommandResult { status: number | null; stdout: string; stderr: string }
 type CommandRunner = (args: string[], timeoutMilliseconds: number) => CommandResult;
 
-const PREVIEW_TMUX_SOCKET = "remote-workplace-previews";
-const RUNTIME_PORTS_OPTION = "@workbench_runtime_ports";
+const PREVIEW_TMUX_SOCKET = "wrapt-previews";
+const RUNTIME_PORTS_OPTION = "@wrapt_runtime_ports";
 
 export interface PreviewRuntimePublication {
   url: string;
@@ -166,9 +166,9 @@ export class PreviewDevServerManager {
     const sessions = this.run(["list-sessions", "-F", "#{session_name}"], 4_000);
     if (sessions.status !== 0) return [];
     const projectIds = sessions.stdout.split("\n").map((value) => value.trim())
-      .filter((name) => name.startsWith("workbench-preview-") && this.sessionOption(name, "@workbench_user_id") === userId)
+      .filter((name) => name.startsWith("wrapt-preview-") && this.sessionOption(name, "@wrapt_user_id") === userId)
       .flatMap((name) => {
-        const projectId = this.sessionOption(name, "@workbench_project_id");
+        const projectId = this.sessionOption(name, "@wrapt_project_id");
         return projectId ? [projectId] : [];
       });
     const statuses = await Promise.all([...new Set(projectIds)].map((projectId) => this.status(userId, projectId).catch(() => null)));
@@ -205,18 +205,18 @@ export class PreviewDevServerManager {
     }
     this.execute(["set-option", "-t", name, "remain-on-exit", "on"]);
     this.execute(["set-option", "-t", name, "history-limit", "100000"]);
-    this.execute(["set-option", "-t", name, "@workbench_kind", "preview-dev-server"]);
-    this.execute(["set-option", "-t", name, "@workbench_project_id", projectId]);
-    this.execute(["set-option", "-t", name, "@workbench_owner_hash", this.ownerHash(userId)]);
-    this.execute(["set-option", "-t", name, "@workbench_user_id", userId]);
-    this.execute(["set-option", "-t", name, "@workbench_preview_publication_requested", "0"]);
+    this.execute(["set-option", "-t", name, "@wrapt_kind", "preview-dev-server"]);
+    this.execute(["set-option", "-t", name, "@wrapt_project_id", projectId]);
+    this.execute(["set-option", "-t", name, "@wrapt_owner_hash", this.ownerHash(userId)]);
+    this.execute(["set-option", "-t", name, "@wrapt_user_id", userId]);
+    this.execute(["set-option", "-t", name, "@wrapt_preview_publication_requested", "0"]);
     this.execute(["set-option", "-t", name, RUNTIME_PORTS_OPTION, JSON.stringify(Object.fromEntries(profile.services.map((service) => [service.id, service.port])))]);
     return this.status(userId, projectId);
   }
 
   async launch(userId: string, projectId: string): Promise<{ status: PreviewDevServerStatus; publication: PreviewRuntimePublication }> {
     await this.start(userId, projectId);
-    this.execute(["set-option", "-t", this.sessionName(userId, projectId), "@workbench_preview_publication_requested", "1"]);
+    this.execute(["set-option", "-t", this.sessionName(userId, projectId), "@wrapt_preview_publication_requested", "1"]);
     const profile = this.profileForSession(userId, projectId, await this.profile(projectId));
     const publication = await this.publish(userId, profile, true);
     if (!publication) throw new AppError(409, "PREVIEW_RUNTIME_NO_PUBLIC_URL", "Die Projektlaufzeit besitzt keinen veröffentlichbaren Hauptdienst.");
@@ -273,7 +273,7 @@ export class PreviewDevServerManager {
     const mainServiceId = profile.services.find((service) => service.port === mainPort)?.id ?? null;
     this.options.database.saveMainPort(userId, projectId, mainPort, mainServiceId);
     const name = this.sessionName(userId, projectId);
-    if (mainPort !== null && this.sessionOption(name, "@workbench_preview_publication_requested") === "1" && this.panes(name).some((pane) => !pane.dead)) {
+    if (mainPort !== null && this.sessionOption(name, "@wrapt_preview_publication_requested") === "1" && this.panes(name).some((pane) => !pane.dead)) {
       await this.publish(userId, { ...profile, mainServiceId: profile.services.find((service) => service.port === mainPort)?.id ?? profile.mainServiceId }, true);
     }
     return this.status(userId, projectId);
@@ -304,9 +304,9 @@ export class PreviewDevServerManager {
     try {
       const sessions = this.run(["list-sessions", "-F", "#{session_name}"], 4_000);
       if (sessions.status !== 0) return;
-      for (const name of sessions.stdout.split("\n").map((value) => value.trim()).filter((value) => value.startsWith("workbench-preview-"))) {
-        const projectId = this.sessionOption(name, "@workbench_project_id");
-        const userId = this.sessionOption(name, "@workbench_user_id");
+      for (const name of sessions.stdout.split("\n").map((value) => value.trim()).filter((value) => value.startsWith("wrapt-preview-"))) {
+        const projectId = this.sessionOption(name, "@wrapt_project_id");
+        const userId = this.sessionOption(name, "@wrapt_user_id");
         if (!projectId || !userId) continue;
         try {
           await this.tickSession(name, userId, projectId);
@@ -325,7 +325,7 @@ export class PreviewDevServerManager {
       await this.autoRestart(name, userId, projectId);
       return;
     }
-    if (panes.some((pane) => !pane.dead) && this.sessionOption(name, "@workbench_preview_publication_requested") === "1") {
+    if (panes.some((pane) => !pane.dead) && this.sessionOption(name, "@wrapt_preview_publication_requested") === "1") {
       const key = this.runtimeKey(userId, projectId);
       if (Date.now() - (this.publicationHeartbeat.get(key) ?? 0) >= 10 * 60_000) {
         // `profile` darf nicht im Argument-Ausdruck liegen: Ein Fehler dort
@@ -398,7 +398,7 @@ export class PreviewDevServerManager {
     const assigned = new Map<number, string>();
     const sessions = this.run(["list-sessions", "-F", "#{session_name}"], 4_000);
     if (sessions.status !== 0) return assigned;
-    for (const name of sessions.stdout.split("\n").map((value) => value.trim()).filter((value) => value.startsWith("workbench-preview-") && value !== excludedSessionName)) {
+    for (const name of sessions.stdout.split("\n").map((value) => value.trim()).filter((value) => value.startsWith("wrapt-preview-") && value !== excludedSessionName)) {
       if (!this.panes(name).some((pane) => !pane.dead)) continue;
       const raw = this.sessionOption(name, RUNTIME_PORTS_OPTION);
       if (!raw) continue;
@@ -497,7 +497,7 @@ export class PreviewDevServerManager {
    */
   private createSessionOutsideWorkbench(args: string[], timeoutMilliseconds: number): CommandResult {
     if (this.options.runner) return this.run(args, timeoutMilliseconds);
-    const unit = `workbench-preview-start-${process.pid}-${Date.now()}`;
+    const unit = `wrapt-preview-start-${process.pid}-${Date.now()}`;
     const result = spawnSync("/usr/bin/systemd-run", [
       "--user",
       "--scope",
@@ -516,7 +516,7 @@ export class PreviewDevServerManager {
   private runtimeKey(userId: string, projectId: string): string { return `${userId}\u0000${projectId}`; }
   private sessionName(userId: string, projectId: string): string {
     const key = createHash("sha256").update(this.runtimeKey(userId, projectId)).digest("hex").slice(0, 24);
-    return `workbench-preview-${key}`;
+    return `wrapt-preview-${key}`;
   }
 
   private async autoRestart(sessionName: string, userId: string, projectId: string) {
@@ -530,7 +530,7 @@ export class PreviewDevServerManager {
     attempts.push(now);
     this.restartHistory.set(sessionName, attempts);
     this.options.logger?.(`Projektlaufzeit ${projectId} ist fehlgeschlagen und wird automatisch vollständig neu gestartet.`);
-    const publicationRequested = this.sessionOption(sessionName, "@workbench_preview_publication_requested") === "1";
+    const publicationRequested = this.sessionOption(sessionName, "@wrapt_preview_publication_requested") === "1";
     try {
       this.execute(["kill-session", "-t", sessionName]);
       await this.start(userId, projectId);
@@ -539,7 +539,7 @@ export class PreviewDevServerManager {
       return;
     }
     if (publicationRequested) {
-      this.execute(["set-option", "-t", sessionName, "@workbench_preview_publication_requested", "1"]);
+      this.execute(["set-option", "-t", sessionName, "@wrapt_preview_publication_requested", "1"]);
       try {
         const profile = await this.profile(projectId);
         await this.publish(userId, this.profileForSession(userId, projectId, profile), true);

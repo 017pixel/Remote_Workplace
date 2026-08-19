@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { NewsCategory, NewsCollection, NewsItem, NewsSource } from "@workbench/contracts";
+import type { NewsCategory, NewsCollection, NewsItem, NewsSource } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { rankEmbeddingCandidates } from "./vector-search.js";
 

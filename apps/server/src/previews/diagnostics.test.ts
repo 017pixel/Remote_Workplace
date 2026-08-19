@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { previewDiagnosticEventSchema } from "@workbench/contracts";
+import { previewDiagnosticEventSchema } from "@wrapt/contracts";
 import { PreviewDiagnosticsService, redactMetadata, redactText, redactUrl } from "./diagnostics.js";
 import { PreviewSecrets } from "./keys.js";
 
@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 async function service(options: { retentionDays?: number; maxDailyBytes?: number; maxTotalBytes?: number } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "workbench-preview-logs-"));
+  const directory = await mkdtemp(join(tmpdir(), "wrapt-preview-logs-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const secrets = new PreviewSecrets(join(directory, "secrets"));
   const diagnostics = new PreviewDiagnosticsService({

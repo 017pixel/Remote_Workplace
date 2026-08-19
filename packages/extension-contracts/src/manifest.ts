@@ -46,7 +46,7 @@ import {
 import {
   extensionApiCompatibilitySchema,
   manifestVersionSchema,
-  remoteWorkplaceCompatibilitySchema,
+  wraptCompatibilitySchema,
   semanticVersionSchema,
 } from "./versioning.js";
 import { extensionPermissionRequestsSchema } from "./permissions.js";
@@ -162,10 +162,23 @@ export const extensionTrustLevels = [
 export const extensionTrustLevelSchema = z.enum(extensionTrustLevels);
 export type ExtensionTrustLevel = z.infer<typeof extensionTrustLevelSchema>;
 
-export const extensionEnginesSchema = z.strictObject({
-  remoteWorkplace: remoteWorkplaceCompatibilitySchema,
+const extensionEnginesShape = z.strictObject({
+  wrapt: wraptCompatibilitySchema,
   extensionApi: extensionApiCompatibilitySchema,
 });
+
+/**
+ * Akzeptiert alte `engines.remoteWorkplace`-Manifeste beim Einlesen, erzeugt
+ * aber ausschließlich das kanonische `engines.wrapt`-Format.
+ */
+export const extensionEnginesSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const source = value as Record<string, unknown>;
+  if (source.wrapt !== undefined) return value;
+  if (source.remoteWorkplace === undefined) return value;
+  const { remoteWorkplace, ...rest } = source;
+  return { ...rest, wrapt: remoteWorkplace };
+}, extensionEnginesShape);
 
 export type ExtensionEngines = z.infer<typeof extensionEnginesSchema>;
 

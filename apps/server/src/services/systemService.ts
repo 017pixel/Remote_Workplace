@@ -4,7 +4,7 @@ import {
   serverSummarySchema,
   type ServerMetrics,
   type ServerSummary,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import systeminformation from "systeminformation";
 import { readTailscaleStatus } from "../system/tailscale.js";
 import { createAsyncCache } from "../utils/cache.js";

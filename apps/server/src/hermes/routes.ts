@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { hermesClientMessageSchema, hermesErrorCodeSchema, type HermesErrorCode, type HermesSessionSource, type HermesServerMessage } from "@workbench/contracts";
+import { hermesClientMessageSchema, hermesErrorCodeSchema, type HermesErrorCode, type HermesSessionSource, type HermesServerMessage } from "@wrapt/contracts";
 import { z, ZodError } from "zod";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";
@@ -61,7 +61,7 @@ function websocketIdentity(request: FastifyRequest): string {
   // Workbench hook. Production keeps it empty and therefore still requires
   // the Tailscale header on every WebSocket handshake.
   const identity = requestIdentity(request) ?? settings.developmentTailscaleUser;
-  if (!identity || (settings.terminalAllowedUsers.length > 0 && !settings.terminalAllowedUsers.includes(identity))) throw new AppError(403, "WORKBENCH_FORBIDDEN", "Dieser Benutzer darf den Hermes-Chat nicht verwenden.");
+  if (!identity || (settings.terminalAllowedUsers.length > 0 && !settings.terminalAllowedUsers.includes(identity))) throw new AppError(403, "WRAPT_FORBIDDEN", "Dieser Benutzer darf den Hermes-Chat nicht verwenden.");
   return identity;
 }
 
@@ -98,7 +98,7 @@ export async function registerHermesRoutes(app: FastifyInstance, options: {
   app.get("/hermes/chat", { websocket: true }, (socket, request) => {
     try {
       if (!settings.hermes.enabled) throw new AppError(503, "HERMES_DISABLED", "Hermes ist deaktiviert.");
-      if (!isSameOriginRequest(request)) throw new AppError(403, "WORKBENCH_CROSS_ORIGIN", "Der Hermes-Chat ist nur vom Workbench-Origin erreichbar.");
+      if (!isSameOriginRequest(request)) throw new AppError(403, "WRAPT_CROSS_ORIGIN", "Der Hermes-Chat ist nur vom Wrapt-Origin erreichbar.");
       websocketIdentity(request);
     } catch (error) {
       socket.send(JSON.stringify({ v: 1, type: "error", code: errorCode(error), message: errorText(error), sessionId: null } satisfies HermesServerMessage));

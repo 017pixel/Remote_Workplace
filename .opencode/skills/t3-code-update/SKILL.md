@@ -1,11 +1,11 @@
 ---
 name: t3-code-update
-description: Aktualisiert die T3-Code-Instanz (Remote_Workplace, Port 3773) auf die neueste Stable- oder Nightly-Version, ohne Pairing-Codes, Anmeldungen oder Credentials zu verlieren. Verwendet diesen Skill, wenn T3 Code aktualisiert werden soll, ein Update angefordert wird ("t3 updaten", "t3 code auf neueste version"), der T3-Kanal gewechselt wird oder nach einem Update die Anmeldung auf allen Geräten erhalten bleiben muss. Behandelt Backup, npm-Install mit node-pty, Dienst-Neustart und Verifikation.
+description: Aktualisiert die T3-Code-Instanz von Wrapt (Port 3773) auf die neueste Stable- oder Nightly-Version, ohne Pairing-Codes, Anmeldungen oder Credentials zu verlieren. Verwendet diesen Skill, wenn T3 Code aktualisiert werden soll, ein Update angefordert wird ("t3 updaten", "t3 code auf neueste version"), der T3-Kanal gewechselt wird oder nach einem Update die Anmeldung auf allen Geräten erhalten bleiben muss. Behandelt Backup, npm-Install mit node-pty, Dienst-Neustart und Verifikation.
 ---
 
 # T3 Code aktualisieren (ohne Neuanmeldung)
 
-Dieser Skill beschreibt den sicheren Weg, T3 Code in der Remote-Workbench zu
+Dieser Skill beschreibt den sicheren Weg, T3 Code in Wrapt zu
 aktualisieren. Ziel: Die Anmeldung auf allen Geräten (Windows, macOS, Android,
 iOS, iPad, Laptop) bleibt nach dem Update erhalten, ohne neue Pairing-Codes.
 
@@ -28,7 +28,7 @@ iOS, iPad, Laptop) bleibt nach dem Update erhalten, ohne neue Pairing-Codes.
 ```bash
 python3 -c "
 import json
-c = json.load(open('config/workbench.local.json'))
+c = json.load(open('config/wrapt.local.json'))
 print(json.dumps(c.get('t3', {}), indent=2))
 "
 ```

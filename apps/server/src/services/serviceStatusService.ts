@@ -1,4 +1,4 @@
-import { servicesResponseSchema, type Service, type ServicesResponse } from "@workbench/contracts";
+import { servicesResponseSchema, type Service, type ServicesResponse } from "@wrapt/contracts";
 import { execa } from "execa";
 import type { ServiceConfig } from "../config/schemas.js";
 import { settings } from "../config/settings.js";

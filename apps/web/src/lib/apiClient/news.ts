@@ -9,7 +9,7 @@ import {
   type MarkNewsReadRequest,
   type NewsChatRequest,
   type SaveNewsItemRequest,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { mutate, request } from "./transport.js";
 
 export const newsApi = {

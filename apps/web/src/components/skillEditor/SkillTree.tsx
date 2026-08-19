@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from "react";
-import type { SkillEditorFile, SkillEditorNode, SkillEditorTreeResponse } from "@workbench/contracts";
+import type { SkillEditorFile, SkillEditorNode, SkillEditorTreeResponse } from "@wrapt/contracts";
 import { ChevronRightIcon, EditIcon, FileIcon, FolderIcon, LinkIcon, NoteIcon, PlusIcon, TrashIcon, WarningIcon } from "../icons";
 
 interface SkillTreeProps {

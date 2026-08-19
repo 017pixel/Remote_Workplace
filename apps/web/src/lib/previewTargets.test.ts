@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewPathSchema } from "@workbench/contracts";
+import { previewPathSchema } from "@wrapt/contracts";
 import { normalizePreviewTarget, previewSlotUrl } from "./previewTargets";
 
 describe("Preview-Ziele", () => {

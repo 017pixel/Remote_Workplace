@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { OrbitNode } from "@workbench/contracts";
+import type { OrbitNode } from "@wrapt/contracts";
 
 export interface OrbitNodeRenderer {
   readonly render: (node: OrbitNode) => ReactNode;

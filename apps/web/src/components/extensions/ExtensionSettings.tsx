@@ -7,12 +7,12 @@ import type {
   ExtensionPermissionRequest,
   ExtensionRegistrySummary,
   ExtensionTrustLevel,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { CheckIcon, CloseIcon, DownloadIcon, LoaderIcon, RefreshIcon, TrashIcon, WarningIcon } from "../icons";
 import { Badge } from "../primitives";
 import { ConfirmDialog } from "../ModalDialog";
 import { apiClient, ApiClientError } from "../../lib/apiClient";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 
 const lifecycleLabels: Record<ExtensionLifecycleState, string> = {
   available: "Im Catalog",
@@ -106,8 +106,8 @@ function permissionRequestLabel(request: ExtensionPermissionRequest): string {
 
 export function ExtensionSettings() {
   const queryClient = useQueryClient();
-  const catalog = useQuery(workbenchQueries.extensionCatalog());
-  const registry = useQuery(workbenchQueries.extensionRegistry());
+  const catalog = useQuery(wraptQueries.extensionCatalog());
+  const registry = useQuery(wraptQueries.extensionRegistry());
   const [tab, setTab] = useState<"catalog" | "installed">("catalog");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);

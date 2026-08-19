@@ -17,7 +17,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const dir = process.argv[1];
 let config = {};
-for (const name of ["workbench.local.json", "workbench.example.json"]) {
+for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
   try { config = JSON.parse(readFileSync(join(dir, name), "utf8")); break; } catch { /* nächster Kandidat */ }
 }
 process.stdout.write(config.t3?.serviceUnit ?? "t3-code.service");
@@ -39,7 +39,7 @@ else
   log "$shim_target geschrieben."
 fi
 
-# Immer frisch rendern: So folgt die Unit Änderungen an config/workbench.local.json.
+# Immer frisch rendern: So folgt die Unit Änderungen an config/wrapt.local.json.
 node "$repo_root/deploy/systemd/render-units.mjs" >/dev/null
 generated="$repo_root/deploy/systemd/generated/t3-code.service"
 [[ -f "$generated" ]] || { err "Gerenderte Unit fehlt: $generated"; exit 1; }

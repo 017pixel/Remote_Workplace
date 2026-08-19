@@ -15,7 +15,7 @@ describe("T3-Proxy", () => {
   });
 
   it("brückt die Web-Browserkarte an den umgebenden Workbench-ToolPanel", () => {
-    expect(remoteBrowserFallbackScript).toContain("remote-workplace:open-browser");
+    expect(remoteBrowserFallbackScript).toContain("wrapt:open-browser");
     expect(remoteBrowserFallbackScript).toContain("window.parent.postMessage");
     expect(remoteBrowserFallbackScript).toContain("/browser");
     expect(remoteBrowserFallbackScript).toContain("data-url");
@@ -32,7 +32,7 @@ describe("T3-Proxy", () => {
   });
 
   it("brückt den T3-Open-in-VS-Code-Button an den code-server der Workbench", () => {
-    expect(remoteEditorFallbackScript).toContain("remote-workplace:open-editor");
+    expect(remoteEditorFallbackScript).toContain("wrapt:open-editor");
     expect(remoteEditorFallbackScript).toContain("=== \"Open file in preferred editor\"");
     expect(remoteEditorFallbackScript).toContain("[data-chat-header-actions]");
     expect(remoteEditorFallbackScript).toContain("__reactFiber$");
@@ -59,13 +59,13 @@ describe("T3-Proxy", () => {
         return: {
           memoizedProps: {},
           return: {
-            memoizedProps: { openInCwd: "/home/user/projects/Remote_Workplace", environmentId: "env-1" },
+            memoizedProps: { openInCwd: "/home/user/projects/Wrapt", environmentId: "env-1" },
             return: null,
           },
         },
       },
     };
-    expect(t3OpenInCwdFromFiber(element)).toBe("/home/user/projects/Remote_Workplace");
+    expect(t3OpenInCwdFromFiber(element)).toBe("/home/user/projects/Wrapt");
   });
 
   it("liefert ohne Fiber-Marker oder ohne openInCwd-Prop keinen Ordner", () => {
@@ -99,7 +99,7 @@ describe("T3-Proxy", () => {
   });
 
   it("meldet den geöffneten T3-Thread an die Workbench beziehungsweise den Server", () => {
-    expect(t3RouteBridgeScript).toContain('source: "remote-workplace-t3"');
+    expect(t3RouteBridgeScript).toContain('source: "wrapt-t3"');
     expect(t3RouteBridgeScript).toContain('type: "route.changed"');
     expect(t3RouteBridgeScript).toContain("window.parent.postMessage");
     expect(t3RouteBridgeScript).toContain("/api/v1/notifications/presence");
@@ -109,16 +109,16 @@ describe("T3-Proxy", () => {
   });
 
   it("begrenzt den eingebetteten T3-Verlauf auf das iframe", () => {
-    expect(t3RouteBridgeScript).toContain("__remoteWorkplaceT3Index");
+    expect(t3RouteBridgeScript).toContain("__wraptT3Index");
     expect(t3RouteBridgeScript).toContain("history.back = function () { history.go(-1); }");
     expect(t3RouteBridgeScript).toContain("historyIndex + delta < 0");
   });
 
   it("injiziert die Route-Bridge in T3-HTML auch bei Deep-Links", () => {
     const html = injectT3HtmlBridge("<!doctype html><html><head></head><body></body></html>");
-    expect(html.indexOf('data-remote-workplace-t3-route="1"')).toBeGreaterThan(-1);
-    expect(html.indexOf("data-remote-workplace-browser-fallback")).toBeGreaterThan(-1);
-    expect(html.indexOf("remote-workplace:open-editor")).toBeGreaterThan(-1);
-    expect(html.indexOf("</head>")).toBeGreaterThan(html.indexOf('data-remote-workplace-t3-route="1"'));
+    expect(html.indexOf('data-wrapt-t3-route="1"')).toBeGreaterThan(-1);
+    expect(html.indexOf("data-wrapt-browser-fallback")).toBeGreaterThan(-1);
+    expect(html.indexOf("wrapt:open-editor")).toBeGreaterThan(-1);
+    expect(html.indexOf("</head>")).toBeGreaterThan(html.indexOf('data-wrapt-t3-route="1"'));
   });
 });

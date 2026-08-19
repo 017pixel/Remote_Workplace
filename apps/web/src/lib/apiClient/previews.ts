@@ -27,7 +27,7 @@ import {
   type PreviewSessionRequest,
   type PreviewSlotAssignmentRequest,
   type PreviewSlotResetReport,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { mutate, request } from "./transport.js";
 
 export const previewsApi = {

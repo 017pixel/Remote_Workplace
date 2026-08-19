@@ -16,7 +16,7 @@ import {
 } from "../components/icons";
 import type { OrbitPaletteItem } from "../stores/sidebarPreferences";
 import type { OrbitPalettePayload } from "../lib/orbitPalette";
-import { contributionIdSchema } from "@workbench/extension-contracts";
+import { contributionIdSchema } from "@wrapt/extension-contracts";
 import {
   orbitPaletteRegistry,
   type OrbitPaletteGroup,
@@ -48,40 +48,40 @@ interface LegacyOrbitPaletteDefinition {
  */
 const legacyOrbitPaletteDefinitions = [
       {
-        ownerId: "workbench.orbit",
+        ownerId: "wrapt.orbit",
         group: "tools",
         registrations: [
-        { id: "workbench.orbit.palette.tool.t3-code", title: "T3 Code", order: 10, legacyKey: "tool:t3-code", icon: T3CodeIcon, createPayload: () => ({ type: "tool", title: "T3 Code", toolType: "t3-code" }) },
-        { id: "workbench.orbit.palette.tool.hermes", title: "Hermes Agent", order: 20, legacyKey: "tool:hermes", icon: HermesIcon, createPayload: () => ({ type: "tool", title: "Hermes Agent", toolType: "hermes" }) },
-        { id: "workbench.orbit.palette.tool.code-server", title: "Code-Server", order: 30, legacyKey: "tool:code-server", icon: CodeServerIcon, createPayload: () => ({ type: "tool", title: "Code-Server", toolType: "code-server" }) },
-        { id: "workbench.orbit.palette.tool.terminal", title: "Terminal", order: 40, legacyKey: "tool:terminal", icon: TerminalIcon, createPayload: () => ({ type: "tool", title: "Terminal", toolType: "terminal" }) },
-        { id: "workbench.orbit.palette.tool.opencode", title: "OpenCode", order: 50, legacyKey: "tool:opencode", icon: OpenCodeIcon, createPayload: () => ({ type: "tool", title: "OpenCode", toolType: "opencode" }) },
-        { id: "workbench.orbit.palette.tool.codex", title: "Codex", order: 60, legacyKey: "tool:codex", icon: CodexIcon, createPayload: () => ({ type: "tool", title: "Codex", toolType: "codex" }) },
-        { id: "workbench.orbit.palette.tool.files", title: "Files", order: 70, legacyKey: "tool:files", icon: FinderIcon, createPayload: () => ({ type: "tool", title: "Files", toolType: "files" }) },
-        { id: "workbench.orbit.palette.tool.browser", title: "Browser", order: 80, legacyKey: "tool:browser", icon: BrowserIcon, createPayload: () => ({ type: "tool", title: "Browser", toolType: "browser" }) },
+        { id: "wrapt.orbit.palette.tool.t3-code", title: "T3 Code", order: 10, legacyKey: "tool:t3-code", icon: T3CodeIcon, createPayload: () => ({ type: "tool", title: "T3 Code", toolType: "t3-code" }) },
+        { id: "wrapt.orbit.palette.tool.hermes", title: "Hermes Agent", order: 20, legacyKey: "tool:hermes", icon: HermesIcon, createPayload: () => ({ type: "tool", title: "Hermes Agent", toolType: "hermes" }) },
+        { id: "wrapt.orbit.palette.tool.code-server", title: "Code-Server", order: 30, legacyKey: "tool:code-server", icon: CodeServerIcon, createPayload: () => ({ type: "tool", title: "Code-Server", toolType: "code-server" }) },
+        { id: "wrapt.orbit.palette.tool.terminal", title: "Terminal", order: 40, legacyKey: "tool:terminal", icon: TerminalIcon, createPayload: () => ({ type: "tool", title: "Terminal", toolType: "terminal" }) },
+        { id: "wrapt.orbit.palette.tool.opencode", title: "OpenCode", order: 50, legacyKey: "tool:opencode", icon: OpenCodeIcon, createPayload: () => ({ type: "tool", title: "OpenCode", toolType: "opencode" }) },
+        { id: "wrapt.orbit.palette.tool.codex", title: "Codex", order: 60, legacyKey: "tool:codex", icon: CodexIcon, createPayload: () => ({ type: "tool", title: "Codex", toolType: "codex" }) },
+        { id: "wrapt.orbit.palette.tool.files", title: "Files", order: 70, legacyKey: "tool:files", icon: FinderIcon, createPayload: () => ({ type: "tool", title: "Files", toolType: "files" }) },
+        { id: "wrapt.orbit.palette.tool.browser", title: "Browser", order: 80, legacyKey: "tool:browser", icon: BrowserIcon, createPayload: () => ({ type: "tool", title: "Browser", toolType: "browser" }) },
       ],
     },
     {
-      ownerId: "workbench.orbit",
+      ownerId: "wrapt.orbit",
       group: "blocks",
       registrations: [
-        { id: "workbench.orbit.palette.block.note", title: "Neue Notiz", order: 10, legacyKey: "block:note", icon: NoteIcon, createPayload: () => ({ type: "note", title: "Neue Notiz" }) },
-        { id: "workbench.orbit.palette.block.todo", title: "To-do-Liste", order: 20, legacyKey: "block:todo", icon: TodoIcon, createPayload: () => ({ type: "todo", title: "To-do-Liste" }) },
-        { id: "workbench.orbit.palette.block.snippet", title: "Code-Snippet", order: 30, legacyKey: "block:snippet", icon: CodeFileIcon, createPayload: () => ({ type: "snippet", title: "Code-Snippet" }) },
-        { id: "workbench.orbit.palette.block.frame", title: "Neuer Bereich", order: 40, legacyKey: "block:frame", icon: FrameIcon, createPayload: () => ({ type: "frame", title: "Neuer Bereich" }) },
-        { id: "workbench.orbit.palette.block.usage-codex", title: "Codex Nutzung", order: 50, legacyKey: "block:usage-codex", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "Codex Nutzung", provider: "codex" }) },
-        { id: "workbench.orbit.palette.block.usage-opencode", title: "OpenCode Nutzung", order: 60, legacyKey: "block:usage-opencode", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "OpenCode Nutzung", provider: "opencode" }) },
-        { id: "workbench.orbit.palette.block.usage-claude", title: "Claude Code Nutzung", order: 70, legacyKey: "block:usage-claude", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "Claude Code Nutzung", provider: "claude" }) },
+        { id: "wrapt.orbit.palette.block.note", title: "Neue Notiz", order: 10, legacyKey: "block:note", icon: NoteIcon, createPayload: () => ({ type: "note", title: "Neue Notiz" }) },
+        { id: "wrapt.orbit.palette.block.todo", title: "To-do-Liste", order: 20, legacyKey: "block:todo", icon: TodoIcon, createPayload: () => ({ type: "todo", title: "To-do-Liste" }) },
+        { id: "wrapt.orbit.palette.block.snippet", title: "Code-Snippet", order: 30, legacyKey: "block:snippet", icon: CodeFileIcon, createPayload: () => ({ type: "snippet", title: "Code-Snippet" }) },
+        { id: "wrapt.orbit.palette.block.frame", title: "Neuer Bereich", order: 40, legacyKey: "block:frame", icon: FrameIcon, createPayload: () => ({ type: "frame", title: "Neuer Bereich" }) },
+        { id: "wrapt.orbit.palette.block.usage-codex", title: "Codex Nutzung", order: 50, legacyKey: "block:usage-codex", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "Codex Nutzung", provider: "codex" }) },
+        { id: "wrapt.orbit.palette.block.usage-opencode", title: "OpenCode Nutzung", order: 60, legacyKey: "block:usage-opencode", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "OpenCode Nutzung", provider: "opencode" }) },
+        { id: "wrapt.orbit.palette.block.usage-claude", title: "Claude Code Nutzung", order: 70, legacyKey: "block:usage-claude", icon: NutzungIcon, createPayload: () => ({ type: "usage", title: "Claude Code Nutzung", provider: "claude" }) },
       ],
     },
     {
-      ownerId: "workbench.orbit",
+      ownerId: "wrapt.orbit",
       group: "previews",
       registrations: [
-        { id: "workbench.orbit.palette.preview.layout-1", title: "Einzel-Preview", order: 10, legacyKey: "preview:layout-1", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "Einzel-Preview", layout: "1" }) },
-        { id: "workbench.orbit.palette.preview.layout-2", title: "2er-Gruppe", order: 20, legacyKey: "preview:layout-2", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "2er-Gruppe", layout: "2" }) },
-        { id: "workbench.orbit.palette.preview.layout-3", title: "3er-Gruppe", order: 30, legacyKey: "preview:layout-3", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "3er-Gruppe", layout: "3" }) },
-        { id: "workbench.orbit.palette.preview.layout-6", title: "6er-Gruppe (2×3)", order: 40, legacyKey: "preview:layout-6", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "6er-Gruppe (2×3)", layout: "6" }) },
+        { id: "wrapt.orbit.palette.preview.layout-1", title: "Einzel-Preview", order: 10, legacyKey: "preview:layout-1", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "Einzel-Preview", layout: "1" }) },
+        { id: "wrapt.orbit.palette.preview.layout-2", title: "2er-Gruppe", order: 20, legacyKey: "preview:layout-2", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "2er-Gruppe", layout: "2" }) },
+        { id: "wrapt.orbit.palette.preview.layout-3", title: "3er-Gruppe", order: 30, legacyKey: "preview:layout-3", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "3er-Gruppe", layout: "3" }) },
+        { id: "wrapt.orbit.palette.preview.layout-6", title: "6er-Gruppe (2×3)", order: 40, legacyKey: "preview:layout-6", icon: EyeIcon, createPayload: () => ({ type: "previewGroup", title: "6er-Gruppe (2×3)", layout: "6" }) },
       ],
     },
   ] satisfies readonly LegacyOrbitPaletteDefinition[];

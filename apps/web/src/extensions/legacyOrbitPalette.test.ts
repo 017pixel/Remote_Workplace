@@ -66,11 +66,11 @@ describe("legacyOrbitPalette", () => {
     }
   });
 
-  it("verwendet stabile Contribution-IDs im workbench.orbit-Namespace", () => {
+  it("verwendet stabile Contribution-IDs im wrapt.orbit-Namespace", () => {
     for (const owner of legacyOrbitPaletteOwners) {
-      expect(owner.ownerId).toBe("workbench.orbit");
+      expect(owner.ownerId).toBe("wrapt.orbit");
       for (const registration of owner.registrations) {
-        expect(registration.id.startsWith("workbench.orbit.palette.")).toBe(true);
+        expect(registration.id.startsWith("wrapt.orbit.palette.")).toBe(true);
         expect(registration.icon).toBeTypeOf("function");
       }
     }

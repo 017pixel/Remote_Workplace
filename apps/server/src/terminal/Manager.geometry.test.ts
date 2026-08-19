@@ -95,11 +95,11 @@ describe("terminal rendering geometry", () => {
     expect(terminal.getSessionMetadata("owner", session.id)).toMatchObject({ cols: 50, rows: 22 });
   });
 
-  it("uses the tmux rendered pane for reconnect snapshots instead of stale raw ANSI output", async () => {
+  it("serializes the authoritative headless terminal state into reconnect snapshots", async () => {
     const root = await mkdtemp(join(tmpdir(), "workbench-terminal-snapshot-rendered-"));
     const pty = new FakePty();
     const supervisor = new FakeSupervisor();
-    supervisor.captureValue = "initial-screen\n";
+    supervisor.captureValue = "capture-would-win-before\n";
     manager = new TerminalManager({
       allowedRoots: [root],
       defaultCwd: root,
@@ -108,13 +108,18 @@ describe("terminal rendering geometry", () => {
       adapter: { spawn: () => pty },
     });
     const session = await manager.createSession("owner", { cols: 80, rows: 24 });
-    pty.output("\x1b[2Jstale-raw-stream");
-    supervisor.captureValue = "fresh-rendered-screen\n";
+    pty.output("\x1b[2Jheadless-state-wins\r\n");
+    supervisor.captureValue = "stale-capture\n";
+    // Der Headless-Terminal parst `write` asynchron; der Snapshot muss den
+    // geparsten Stand abbilden.
+    await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const messages: Array<{ type: string; history?: string }> = [];
-    manager.attachSession("owner", session.id, (message) => messages.push(message as { type: string; history?: string }));
+    const messages: Array<{ type: string; serialized?: string }> = [];
+    manager.attachSession("owner", session.id, (message) => messages.push(message as { type: string; serialized?: string }));
 
-    expect(messages.find((message) => message.type === "terminal.snapshot")?.history).toBe("fresh-rendered-screen\n");
+    const snapshot = messages.find((message) => message.type === "terminal.snapshot");
+    expect(snapshot?.serialized).toContain("headless-state-wins");
+    expect(snapshot?.serialized).not.toContain("stale-capture");
   });
 
   it("applies the attaching client's viewport before capturing the snapshot", async () => {
@@ -155,20 +160,21 @@ describe("terminal rendering geometry", () => {
   it("flags fullscreen TUIs in the snapshot so the client restores the alternate screen", async () => {
     const root = await mkdtemp(join(tmpdir(), "workbench-terminal-alternate-"));
     const pty = new FakePty();
-    const supervisor = new FakeSupervisor();
-    supervisor.alternate = true;
     manager = new TerminalManager({
       allowedRoots: [root],
       defaultCwd: root,
       maxSessions: 1,
-      supervisor: supervisor as unknown as TmuxSupervisor,
       adapter: { spawn: () => pty },
     });
     const session = await manager.createSession("owner", { cols: 80, rows: 24 });
+    // Eine echte Fullscreen-TUI schaltet in den Alternate Screen (DECSET 1049).
+    pty.output("\x1b[?1049hfullscreen-tui");
+    await new Promise((resolve) => setTimeout(resolve, 20));
     const messages: Array<Record<string, unknown>> = [];
 
     manager.attachSession("owner", session.id, (message) => messages.push(message as Record<string, unknown>));
 
     expect(messages.find((message) => message.type === "terminal.snapshot")).toMatchObject({ alternate: true });
+    expect(messages.find((message) => message.type === "terminal.snapshot")).toMatchObject({ serialized: expect.stringContaining("fullscreen-tui") });
   });
 });

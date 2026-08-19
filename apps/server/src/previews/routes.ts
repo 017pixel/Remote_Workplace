@@ -36,7 +36,7 @@ import {
   previewSlotResetVerificationResponseSchema,
   previewSlotsResponseSchema,
   type PreviewServiceCandidate,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { PREVIEW_RESET_ROUTE } from "./bridge.js";
 import type { PreviewSlotDatabase } from "./database.js";

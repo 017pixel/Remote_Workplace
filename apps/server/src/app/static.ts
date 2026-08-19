@@ -2,7 +2,7 @@ import { access } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import fastifyStatic from "@fastify/static";
-import { apiErrorSchema } from "@workbench/contracts";
+import { apiErrorSchema } from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { settings } from "../config/settings.js";
 
@@ -23,7 +23,7 @@ export async function registerStaticHosting(app: FastifyInstance) {
   if (hasWebBuild) {
     await app.register(fastifyStatic, {
       root: settings.webDistDirectory,
-      prefix: "/workbench/",
+      prefix: "/wrapt/",
       preCompressed: true,
       setHeaders: (response, filePath) => {
         if (filePath.includes("/assets/")) {
@@ -51,7 +51,7 @@ export async function registerStaticHosting(app: FastifyInstance) {
     });
     await app.register(fastifyStatic, {
       root: devtoolsDirectory,
-      prefix: "/workbench/devtools/",
+      prefix: "/wrapt/devtools/",
       decorateReply: false,
       setHeaders: (response, filePath) => {
         response.header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'self'");
@@ -66,12 +66,17 @@ export async function registerStaticHosting(app: FastifyInstance) {
         apiErrorSchema.parse({ error: { code: "NOT_FOUND", message: "Der API-Endpunkt wurde nicht gefunden.", details: null, requestId: request.id, retryable: false } }),
       );
     }
+    const legacyUrl = new URL(request.url, "http://wrapt.local");
+    if (legacyUrl.pathname === "/workbench" || legacyUrl.pathname.startsWith("/workbench/")) {
+      const suffix = legacyUrl.pathname.slice("/workbench".length) || "/";
+      return reply.status(308).redirect(`/wrapt${suffix}${legacyUrl.search}`);
+    }
     // Nur echte HTML-Navigationen bekommen den SPA-Fallback. Liefert ein
     // fehlender JavaScript-Chunk stattdessen index.html mit Status 200, meldet
     // der Browser nur einen irreführenden Modulfehler und der Prefetch-Promise
     // wird zum unhandledrejection.
     const acceptsHtml = request.headers.accept?.includes("text/html") ?? false;
-    if (hasWebBuild && request.url.startsWith("/workbench") && acceptsHtml) {
+    if (hasWebBuild && request.url.startsWith("/wrapt") && acceptsHtml) {
       // Delegation für den lokalen Netzwerkzugriff an das eingebettete
       // T3-Web-UI (siehe setHeaders oben bei index.html).
       return reply

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LocalPort, Project, TerminalSession } from "@workbench/contracts";
+import type { LocalPort, Project, TerminalSession } from "@wrapt/contracts";
 import { groupDashboardRuntime } from "./dashboardRuntime";
 
 const port = (value: Partial<LocalPort> = {}): LocalPort => ({

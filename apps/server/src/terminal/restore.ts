@@ -3,6 +3,8 @@ import { stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { TerminalDatabase, StoredTerminalSession } from "./database.js";
 import type { TmuxSupervisor } from "./TmuxSupervisor.js";
+import { GeometryLease } from "./runtime/GeometryLease.js";
+import { OutputJournal } from "./runtime/OutputJournal.js";
 import { TerminalFailure, type TerminalSession } from "./session.js";
 
 /** Baut eine laufende Session aus einem gespeicherten Datensatz wieder auf. */
@@ -18,6 +20,9 @@ export function fromStored(stored: StoredTerminalSession): TerminalSession {
     exitListener: null,
     sequence: 0,
     lastPersistedAt: undefined,
+    headless: null,
+    journal: new OutputJournal(),
+    geometry: new GeometryLease(stored.cols, stored.rows),
   };
 }
 
@@ -34,7 +39,10 @@ export function importSupervisorSessions(userId: string, deps: {
   if (externalSessionOwnerId !== userId) return;
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   for (const discovered of supervisor.list()) {
-    if (database.findSessionBySupervisor(discovered.name)) continue;
+    // Die eigene Supervisor-Session ist technisch ebenfalls ein tmux-Pane,
+    // aber keine Nutzer-Session. Ohne diesen Filter würde jeder Backend-Start
+    // `wrapt-supervisor` als Terminal in die Registry importieren.
+    if (!discovered.managed || database.findSessionBySupervisor(discovered.name)) continue;
     const now = Date.now();
     database.saveSession({
       id: randomUUID(),
@@ -54,6 +62,7 @@ export function importSupervisorSessions(userId: string, deps: {
       updatedAt: now,
       exitCode: null,
       exitSignal: null,
+      epoch: 0,
     });
   }
 }

@@ -6,10 +6,10 @@ type ParentNode = DefaultTreeAdapterMap["parentNode"];
 
 export const PREVIEW_BRIDGE_VERSION = "v1";
 /** Reservierte Slot-Route. Sie wird nie an den Devserver weitergereicht. */
-export const PREVIEW_BRIDGE_ROUTE = "/__workbench/preview-bridge.v1.js";
+export const PREVIEW_BRIDGE_ROUTE = "/__wrapt/preview-bridge.v1.js";
 /** Reservierte Route für den verifizierten Storage-Reset einer Slot-Origin. */
-export const PREVIEW_RESET_ROUTE = "/__workbench/preview-reset";
-export const PREVIEW_BRIDGE_MARKER = "data-workbench-preview-bridge";
+export const PREVIEW_RESET_ROUTE = "/__wrapt/preview-reset";
+export const PREVIEW_BRIDGE_MARKER = "data-wrapt-preview-bridge";
 
 export interface BridgeConfig {
   version: string;
@@ -98,7 +98,7 @@ export function injectBridgeScript(html: Buffer, options: { maxBytes: number; ch
 }
 
 export function bridgeScriptSource(config: BridgeConfig): string {
-  return `${bridgeRuntime}\n;__workbenchPreviewBridge(${JSON.stringify(config)});\n`;
+  return `${bridgeRuntime}\n;__wraptPreviewBridge(${JSON.stringify(config)});\n`;
 }
 
 // Der folgende Quelltext läuft im fremden Preview-Dokument. Er ist bewusst als
@@ -106,9 +106,9 @@ export function bridgeScriptSource(config: BridgeConfig): string {
 // Die Bridge ist kein Sicherheitsprincipal — sie liefert Diagnose und begrenzte
 // localStorage-Daten und kann keine privilegierten Aktionen auslösen.
 const bridgeRuntime = String.raw`
-function __workbenchPreviewBridge(config) {
-  if (window.__workbenchPreviewBridgeInstalled) return;
-  window.__workbenchPreviewBridgeInstalled = true;
+function __wraptPreviewBridge(config) {
+  if (window.__wraptPreviewBridgeInstalled) return;
+  window.__wraptPreviewBridgeInstalled = true;
 
   var parentOrigin = null;
   var bridgeSessionId = null;
@@ -198,7 +198,7 @@ function __workbenchPreviewBridge(config) {
   function flush() {
     if (!parentOrigin || queue.length === 0) return;
     var batch = queue.splice(0, 100);
-    post({ type: "workbench.preview.diagnostics", bridgeSessionId: bridgeSessionId, epoch: epoch, dropped: dropped, events: batch });
+    post({ type: "wrapt.preview.diagnostics", bridgeSessionId: bridgeSessionId, epoch: epoch, dropped: dropped, events: batch });
     dropped = 0;
   }
   setInterval(flush, 2000);
@@ -388,7 +388,7 @@ function __workbenchPreviewBridge(config) {
       var current = snapshotSignature(state.entries);
       if (current === lastSignature) return;
       lastSignature = current;
-      post({ type: "workbench.preview.storage", bridgeSessionId: bridgeSessionId, epoch: epoch, entries: state.entries, bytes: state.bytes });
+      post({ type: "wrapt.preview.storage", bridgeSessionId: bridgeSessionId, epoch: epoch, entries: state.entries, bytes: state.bytes });
     }, immediate ? 0 : 800);
   }
 
@@ -455,7 +455,7 @@ function __workbenchPreviewBridge(config) {
     }
     return Promise.all(steps).then(function () {
       // Die reservierte Netzwerkroute bestätigt den Abschluss; Cookies bleiben ausgenommen.
-      return fetch(config.resetRoute || "/__workbench/preview-reset", { method: "POST", credentials: "same-origin" }).catch(function () { });
+      return fetch(config.resetRoute || "/__wrapt/preview-reset", { method: "POST", credentials: "same-origin" }).catch(function () { });
     }).then(inventory);
   }
 
@@ -465,43 +465,43 @@ function __workbenchPreviewBridge(config) {
     if (config.workbenchOrigins.indexOf(event.origin) === -1) return;
     if (event.source !== window.parent) return;
     var message = event.data;
-    if (message.type === "workbench.preview.hello") {
+    if (message.type === "wrapt.preview.hello") {
       parentOrigin = event.origin;
       bridgeSessionId = String(message.bridgeSessionId || "").slice(0, 120);
       epoch = Number(message.epoch) || 0;
-      post({ type: "workbench.preview.ready", bridgeSessionId: bridgeSessionId, epoch: epoch, version: config.version, slotId: config.slotId, href: location.href });
+      post({ type: "wrapt.preview.ready", bridgeSessionId: bridgeSessionId, epoch: epoch, version: config.version, slotId: config.slotId, href: location.href });
       rewriteAttributes();
       scheduleSnapshot(true);
       return;
     }
     if (parentOrigin !== event.origin) return;
-    if (message.type === "workbench.preview.navigate") {
+    if (message.type === "wrapt.preview.navigate") {
       if (message.action === "reload") location.reload();
       else if (message.action === "back") history.back();
       else if (message.action === "forward") history.forward();
       return;
     }
-    if (message.type === "workbench.preview.storage.restore" && config.storageSyncEnabled && Array.isArray(message.entries)) {
+    if (message.type === "wrapt.preview.storage.restore" && config.storageSyncEnabled && Array.isArray(message.entries)) {
       try {
         localStorage.clear();
         for (var index = 0; index < message.entries.length; index += 1) {
           localStorage.setItem(String(message.entries[index].key), String(message.entries[index].value));
         }
-        post({ type: "workbench.preview.storage.restored", bridgeSessionId: bridgeSessionId, keyCount: localStorage.length, requestId: message.requestId });
+        post({ type: "wrapt.preview.storage.restored", bridgeSessionId: bridgeSessionId, keyCount: localStorage.length, requestId: message.requestId });
       } catch (error) {
-        post({ type: "workbench.preview.storage.restored", bridgeSessionId: bridgeSessionId, error: String(error), requestId: message.requestId });
+        post({ type: "wrapt.preview.storage.restored", bridgeSessionId: bridgeSessionId, error: String(error), requestId: message.requestId });
       }
       return;
     }
-    if (message.type === "workbench.preview.reset") {
+    if (message.type === "wrapt.preview.reset") {
       purge().then(function (report) {
-        post({ type: "workbench.preview.reset.report", bridgeSessionId: bridgeSessionId, epoch: epoch, nonce: message.nonce, report: report });
+        post({ type: "wrapt.preview.reset.report", bridgeSessionId: bridgeSessionId, epoch: epoch, nonce: message.nonce, report: report });
       });
       return;
     }
-    if (message.type === "workbench.preview.inventory") {
+    if (message.type === "wrapt.preview.inventory") {
       inventory().then(function (report) {
-        post({ type: "workbench.preview.inventory.report", bridgeSessionId: bridgeSessionId, epoch: epoch, report: report });
+        post({ type: "wrapt.preview.inventory.report", bridgeSessionId: bridgeSessionId, epoch: epoch, report: report });
       });
     }
   });
@@ -509,7 +509,7 @@ function __workbenchPreviewBridge(config) {
   // Die Workbench kennt das iframe-Element; die Bridge meldet sich zuerst bei
   // allen erlaubten Origins und bindet sich danach an die antwortende Origin.
   for (var index = 0; index < config.workbenchOrigins.length; index += 1) {
-    try { window.parent.postMessage({ type: "workbench.preview.hello-request", version: config.version, slotId: config.slotId }, config.workbenchOrigins[index]); } catch (error) { void error; }
+    try { window.parent.postMessage({ type: "wrapt.preview.hello-request", version: config.version, slotId: config.slotId }, config.workbenchOrigins[index]); } catch (error) { void error; }
   }
 }
 `;

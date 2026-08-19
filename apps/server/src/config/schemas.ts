@@ -1,5 +1,5 @@
 import { isAbsolute, normalize } from "node:path";
-import { serviceModeSchema } from "@workbench/contracts";
+import { serviceModeSchema } from "@wrapt/contracts";
 import { z } from "zod";
 
 const identifierSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);

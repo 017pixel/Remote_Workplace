@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SkillEditorNode, SkillEditorReadResponse } from "@workbench/contracts";
+import type { SkillEditorNode, SkillEditorReadResponse } from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "./apiClient";
 
 export const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

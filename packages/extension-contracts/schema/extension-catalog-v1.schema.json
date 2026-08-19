@@ -130,7 +130,7 @@
               "engines": {
                 "type": "object",
                 "properties": {
-                  "remoteWorkplace": {
+                  "wrapt": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 512,
@@ -144,7 +144,7 @@
                   }
                 },
                 "required": [
-                  "remoteWorkplace",
+                  "wrapt",
                   "extensionApi"
                 ],
                 "additionalProperties": false
@@ -15391,7 +15391,6 @@
               "publisher",
               "description",
               "license",
-              "engines",
               "trust",
               "entrypoints",
               "permissions",
@@ -15551,6 +15550,6 @@
     "issues"
   ],
   "additionalProperties": false,
-  "$id": "urn:remote-workplace:extension-catalog:v1",
-  "title": "Remote Workplace Local Extension Catalog V1"
+  "$id": "urn:wrapt:extension-catalog:v1",
+  "title": "Wrapt Local Extension Catalog V1"
 }

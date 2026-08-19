@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remote Workplace — Abhängigkeiten prüfen/installieren und Projekt bauen.
+# Wrapt — Abhängigkeiten prüfen/installieren und Projekt bauen.
 # Idempotent: mehrfaches Ausführen ist unschädlich. Wird vom Agent-Setup
 # (docs/agent-setup.md) oder manuell aufgerufen.
 set -euo pipefail
@@ -44,9 +44,11 @@ if ! command -v chromium >/dev/null 2>&1 && ! command -v chromium-browser >/dev/
 fi
 
 # --- Konfiguration prüfen ----------------------------------------------------
-if [[ ! -f config/workbench.local.json ]]; then
-  warn "config/workbench.local.json fehlt. Kopiere Vorlage — bitte anschließend mit echten Werten füllen."
-  cp config/workbench.example.json config/workbench.local.json
+if [[ ! -f config/wrapt.local.json && ! -f config/workbench.local.json ]]; then
+  warn "config/wrapt.local.json fehlt. Kopiere Vorlage — bitte anschließend mit echten Werten füllen."
+  cp config/wrapt.example.json config/wrapt.local.json
+elif [[ ! -f config/wrapt.local.json ]]; then
+  warn "Legacy-Config config/workbench.local.json bleibt erhalten und wird beim nächsten Wrapt-Start sicher migriert."
 fi
 if [[ ! -f .env ]]; then
   warn ".env fehlt. Kopiere .env.example — bitte MISTRAL_API_KEY optional ergänzen."

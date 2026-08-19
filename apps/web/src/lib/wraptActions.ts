@@ -1,9 +1,9 @@
-import type { Project } from "@workbench/contracts";
+import type { Project } from "@wrapt/contracts";
 import { useWorkspaceStore } from "../stores/workspace";
-import { useTerminalStore } from "../stores/terminals";
+import { useTerminalWorkspaceStore } from "../stores/terminalWorkspace";
 import type { ProjectToolOption } from "./projectTools";
 
-const ORBIT_INTENTS_KEY = "workbench-orbit-open-intents";
+const ORBIT_INTENTS_KEY = "wrapt-orbit-open-intents";
 
 export interface OrbitOpenIntent {
   type: "project" | "tool";
@@ -73,10 +73,10 @@ export function openProjectToolStandalone(project: Project, tool: ProjectToolOpt
   workspace.selectProject(project.id);
   switch (tool.type) {
     case "terminal":
-      useTerminalStore.getState().addTab("standalone", project.id, "shell");
+      useTerminalWorkspaceStore.getState().addTab("standalone", project.id, "shell");
       return "/terminal";
     case "codex":
-      useTerminalStore.getState().addTab("codex-standalone", project.id, "codex");
+      useTerminalWorkspaceStore.getState().addTab("codex-standalone", project.id, "codex");
       return "/codex";
     case "opencode":
       return "/opencode";

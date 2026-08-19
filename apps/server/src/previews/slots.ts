@@ -14,7 +14,7 @@ import {
   type PreviewSlot,
   type PreviewSlotAssignmentRequest,
   type PreviewSlotsResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import type { PreviewSlotDatabase, BindingRow, SessionRow } from "./database.js";
 import { PreviewGateway, type GatewayDiagnosticEvent } from "./gateway.js";

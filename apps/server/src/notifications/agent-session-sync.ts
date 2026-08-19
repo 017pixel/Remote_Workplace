@@ -75,7 +75,7 @@ export class AgentSessionSync {
         this.options.notifications.create({ source: "opencode", category: "coding-agent", sourceIcon: "opencode",
           kind: error ? "agent.failed" : "agent.completed", severity: error ? "error" : "success",
           title: error ? "OpenCode fehlgeschlagen" : "OpenCode abgeschlossen", body: error ?? `${projectLabel(session.directory)} nach ${durationSeconds} Sekunden`,
-          link: `/workbench/opencode?session=${encodeURIComponent(session.id)}&directory=${encodeURIComponent(session.directory)}`, remoteId: `opencode:${messageId}`,
+          link: `/wrapt/opencode?session=${encodeURIComponent(session.id)}&directory=${encodeURIComponent(session.directory)}`, remoteId: `opencode:${messageId}`,
           meta: { sessionId: session.id, directory: session.directory, durationSeconds, usedTool },
           report: error ? { message: error, stack: null, context: { Quelle: "OpenCode", Sitzung: session.id, Arbeitsverzeichnis: session.directory }, logs: [], environment: {} } : null });
       }
@@ -121,7 +121,7 @@ export class AgentSessionSync {
           this.options.notifications.create({ source: "codex", category: "coding-agent", sourceIcon: "codex",
             kind: failed ? "agent.failed" : "agent.completed", severity: failed ? "error" : "success",
             title: failed ? "Codex fehlgeschlagen" : "Codex abgeschlossen", body: failed ? reason ?? "Der Lauf wurde abgebrochen." : `${projectLabel(cwd)} nach ${durationSeconds} Sekunden`,
-            link: `/workbench/codex?session=${encodeURIComponent(sessionId)}`, remoteId: `codex:${sessionId}:${turnId}`,
+            link: `/wrapt/codex?session=${encodeURIComponent(sessionId)}`, remoteId: `codex:${sessionId}:${turnId}`,
             meta: { sessionId, cwd, durationSeconds, usedTool }, report: failed ? { message: reason ?? "Codex-Lauf abgebrochen", stack: null, context: { Quelle: "Codex", Sitzung: sessionId, Arbeitsverzeichnis: cwd }, logs: [], environment: {} } : null });
         }
       }

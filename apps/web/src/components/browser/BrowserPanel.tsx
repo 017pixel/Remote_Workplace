@@ -51,8 +51,8 @@ function hostOf(url: string): string | null {
 // `ToolPanel`.
 export function BrowserPanel({ instanceId, initialUrl, requestKey = 0 }: { instanceId: string; initialUrl?: string; requestKey?: number }) {
   const routeActive = useRouteActivity();
-  const targetStorageKey = `workbench:browser-target:${instanceId}`;
-  const slotStorageKey = `workbench:browser-slot:${instanceId}`;
+  const targetStorageKey = `wrapt:browser-target:${instanceId}`;
+  const slotStorageKey = `wrapt:browser-slot:${instanceId}`;
   const initialTarget = initialUrl ? normalizePreviewTarget(initialUrl) : null;
   const initialLocalTarget = initialTarget?.kind === "local"
     ? { port: initialTarget.port, path: initialTarget.path }

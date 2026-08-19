@@ -16,7 +16,7 @@ import {
   type SkillEditorReadResponse,
   type SkillEditorStatusResponse,
   type SkillEditorTreeResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { execa } from "execa";
 import { AppError } from "../utils/errors.js";
 
@@ -418,7 +418,7 @@ export class SkillEditorService {
     if (input.expectedModifiedAt !== null && input.expectedModifiedAt !== serverModifiedAt) {
       throw new AppError(409, "SKILLS_CONFLICT", "Diese Datei wurde zwischenzeitlich außerhalb der Workbench geändert.", { serverModifiedAt });
     }
-    const temporary = join(dirname(canonical), `.workbench-skill-${process.pid}-${Date.now()}.tmp`);
+    const temporary = join(dirname(canonical), `.wrapt-skill-${process.pid}-${Date.now()}.tmp`);
     try {
       await writeFile(temporary, input.content, { encoding: "utf8", mode: 0o600 });
       // Bestehende Rechte übernehmen, damit eine Bearbeitung keine Datei-Rechte verschiebt.

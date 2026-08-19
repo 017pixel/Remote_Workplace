@@ -6,7 +6,7 @@ import {
   registerProjectResponseSchema,
   type CreateProjectFileRequest,
   type RegisterProjectRequest,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { mutate, request } from "./transport.js";
 
 export const projectsApi = {

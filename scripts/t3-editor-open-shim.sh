@@ -10,7 +10,7 @@
 # keinen Fehler anzeigt, wenn die Workbench nicht erreichbar ist.
 set -euo pipefail
 
-data_dir="${WORKBENCH_DATA_DIR:-$HOME/.local/share/remote-workplace}"
+data_dir="${WRAPT_DATA_DIR:-$HOME/.local/share/wrapt}"
 token_file="$data_dir/editor-open-capability"
 [[ -f "$token_file" ]] || exit 0
 

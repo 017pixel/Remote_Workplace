@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Project } from "@workbench/contracts";
+import type { Project } from "@wrapt/contracts";
 import { detectRuntimeProfile } from "./runtimeProfiles.js";
 
 const cleanup: string[] = [];

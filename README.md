@@ -1,6 +1,6 @@
-# Remote Workplace
+# Wrapt
 
-Selbst gehostete Remote-Development-Workbench: ein privater Arbeitsplatz im Browser mit
+Selbst gehostete Remote-Development-Wrapt: ein privater Arbeitsplatz im Browser mit
 Editor (code-server / T3 Code), nativen PTY-Terminals, KI-CLIs (Codex, OpenCode, Claude Code)
 und dem Hermes-Agenten (Chat, Cron, Systemverwaltung), lokalen Projekten, Development-Previews,
 einem eingebetteten Browser, einem freien Orbit-Workspace und einer Tech-News-Intelligence —
@@ -15,9 +15,9 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 
 <p align="center"><em>Dashboard: Systemstatus, aktive Dienste und konfigurierte Projekte auf einen Blick.</em></p>
 
-| Development Workbench (Infinite Canvas) | Tech TLDRs – News Intelligence |
+| Development Wrapt (Infinite Canvas) | Tech TLDRs – News Intelligence |
 |:--:|:--:|
-| ![Development Workbench im Infinite Canvas](docs/screenshots/02-workbench.png) | ![Tech TLDRs News Intelligence](docs/screenshots/03-tech-tldrs.png) |
+| ![Development Wrapt im Infinite Canvas](docs/screenshots/02-workbench.png) | ![Tech TLDRs News Intelligence](docs/screenshots/03-tech-tldrs.png) |
 | Freier Orbit-Workspace mit Terminals, Agenten und Tools nebeneinander. | RSS-/HN-/YouTube-Feeds mit deutschen Zusammenfassungen und semantischer Suche. |
 
 | T3 Code | Code-Server Editor |
@@ -57,11 +57,11 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Hermes-Agent als eigenständige Fläche: die vollständige offizielle Hermes-SPA für Chat, Cron, Logs, Modelle, Skills, MCP und weitere Verwaltungsfunktionen im eingebetteten Dashboard.
 - Zentrale Inbox für Hermes, T3 Code, Codex, OpenCode, Claude Code und lange Terminal-Prozesse mit Live-Zustellung, sicheren Deep-Links, Swipe-Aktionen, Fehlerberichten und geräteübergreifendem Web-Push für Android und installierte iPadOS-PWAs. Jedes Gerät besitzt ein unabhängiges Abo und lässt sich einzeln testen oder deaktivieren.
 - Werkzeug „KI-Skills": globale Agenten-Regeln und alle Skills des Harness-Ordners im Browser bearbeiten, mit Autosave ohne Speichern-Knopf, Konflikterkennung, Skill-Gerüst im offiziellen Format, automatischer Verteilung per Symlink und Commit/Push ins Skills-Repository.
-- Dateimanager „Finder" als eigene Seite und Workbench-Werkzeug: Drei-Pane-Ansicht mit Verzeichnisbaum, Liste/Raster und Vorschau-Panel, serverseitig synchronisierter Zustand über Geräte hinweg, Quick Look per Leertaste (Code, Bilder, Video, Audio, PDF, HTML, Markdown) und Dateiaktionen im Server-Dateisystem (Umbenennen, Verschieben, Löschen, Upload, Download).
-- Dashboard als Betriebszentrale: Gesamtaussage im Kopf, Kennzahlenleiste mit CPU, Arbeitsspeicher, Datenträger, Event-Loop, Anfragen und Fehlerquote samt Verlauf sowie eigener Bereich „Workbench-Diagnose" mit Bereitschaftsprüfungen, Audit und Orbit-/Preview-Status.
-- Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter dem konfigurierten Projekt-Root; Orbit sortiert die jüngste Auswahl aus Workbench-Nutzung, Dateisystemänderungen und Git-Commits und bietet zusätzlich eine vollständige Suche.
+- Dateimanager „Finder" als eigene Seite und Wrapt-Werkzeug: Drei-Pane-Ansicht mit Verzeichnisbaum, Liste/Raster und Vorschau-Panel, serverseitig synchronisierter Zustand über Geräte hinweg, Quick Look per Leertaste (Code, Bilder, Video, Audio, PDF, HTML, Markdown) und Dateiaktionen im Server-Dateisystem (Umbenennen, Verschieben, Löschen, Upload, Download).
+- Dashboard als Betriebszentrale: Gesamtaussage im Kopf, Kennzahlenleiste mit CPU, Arbeitsspeicher, Datenträger, Event-Loop, Anfragen und Fehlerquote samt Verlauf sowie eigener Bereich „Wrapt-Diagnose" mit Bereitschaftsprüfungen, Audit und Orbit-/Preview-Status.
+- Automatische Erkennung aller direkten, nicht versteckten Verzeichnisse unter dem konfigurierten Projekt-Root; Orbit sortiert die jüngste Auswahl aus Wrapt-Nutzung, Dateisystemänderungen und Git-Commits und bietet zusätzlich eine vollständige Suche.
 - Großer Orbit-Serverbrowser zeigt den vollständigen Dateibaum unter dem konfigurierten Home-Verzeichnis, springt direkt zu eingegebenen Pfaden und registriert beliebige Unterordner dauerhaft als Projekt-Hubs.
-- code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Workbench-HTTPS-Origin bereitgestellt.
+- code-server bleibt auf `127.0.0.1:8080` und wird samt WebSockets unter `/editor/` am privaten Wrapt-HTTPS-Origin bereitgestellt.
 - Development-Previews laufen direkt und ohne Bildstream über getrennte HTTPS-Slot-Origins; localStorage und IndexedDB sind pro Slot getrennt und Vite-HMR bleibt am Root erhalten. Cookies gelten weiterhin hostweit, und externe Websites laufen nie über diesen Gateway.
 - Der Preview Hub verwaltet mehrere persistente Projekt-Tabs, startet erkannte Dienste konfliktfrei auf freien Ports der zentralen Palette, zeigt Status und Logs je Projekt und öffnet die direkte Tailscale-Preview im neuen Tab oder Fenster.
 - Canvas, Sidebar, Vollbildroute und Browser-Panel teilen sich dieselbe lokale Preview-Laufzeit: eine Session-Lease je Fläche, Slot-Affinität pro Storage-Profil und ein fail-closed Quarantänezustand, falls ein Slot-Reset nicht verifizierbar ist.
@@ -69,7 +69,7 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 - Opt-in-Snapshots des localStorage je Preview, AES-256-GCM verschlüsselt und konfliktbewusst. IndexedDB, Cache Storage, Service Worker, sessionStorage und Cookies werden ausdrücklich **nicht** synchronisiert.
 - Benannte Orbit-Preview-Gruppen mit 1er-, 2er-, 3er- und 6er-Layout, Gerätepresets, Vollbildroute sowie lös- und andockbaren Slots.
 - Ein eigener, serverseitig isolierter Chromium-Browser mit dauerhaften, benutzergebundenen Profilen erhält Cookies und Logins über Geräte- und Backendwechsel hinweg.
-- Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Workbench und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
+- Notion ist als gemeinsames Chromium-Werkzeug in Sidebar, Einzelansicht, Wrapt und Infinite Canvas verfügbar; die Anmeldung bleibt ausschließlich im geschützten Serverprofil.
 - Besuchte Hauptansichten, Iframes, xterm-Instanzen und WebSockets bleiben während der Browser-Session gemountet und wechseln ohne Neustart.
 - Alle Live-Werkzeuge lassen sich frei positionieren und skalieren; stabile Laufzeit-IDs erhalten Terminal- und Agent-Sitzungen über Canvas-Interaktionen hinweg.
 - Kontextuelle Preview-Island mit automatisch gefilterten Rastern, Reload, externem Fenster, Hub-Sprung, direkter iframe-Laufzeit und Xcode-artiger Geräteauswahl.
@@ -97,23 +97,23 @@ alles auf deinem eigenen Server, privat erreichbar über Tailscale.
 Gib deinem Coding-Agent (Claude Code, Codex, OpenCode …) diesen Prompt:
 
 ```text
-Lies und befolge docs/agent-setup.md in diesem Repository. Richte Remote Workplace auf
+Lies und befolge docs/agent-setup.md in diesem Repository. Richte Wrapt auf
 diesem Server ein: frag mich nach allen benötigten Werten (Systembenutzer, Projekt-Root,
 Tailscale-Host/IP, erlaubte Login-E-Mails, optionale CLI-Pfade und Mistral-Key), erzeuge
-config/workbench.local.json und .env aus den Vorlagen, führe scripts/install-deps.sh aus
+config/wrapt.local.json und .env aus den Vorlagen, führe scripts/install-deps.sh aus
 und verifiziere am Ende den Health-Check.
 ```
 
 Der Agent stellt die nötigen Fragen, füllt die Konfiguration, installiert alles und prüft,
-dass die Workbench läuft. Details: [docs/agent-setup.md](docs/agent-setup.md).
+dass die Wrapt läuft. Details: [docs/agent-setup.md](docs/agent-setup.md).
 
 ### Manuelle Installation (Kurzform)
 
 ```bash
 # 1. Konfiguration aus den Vorlagen erzeugen und mit echten Werten füllen
-cp config/workbench.example.json config/workbench.local.json
+cp config/wrapt.example.json config/wrapt.local.json
 cp .env.example .env
-$EDITOR config/workbench.local.json   # Benutzer, Pfade, Tailscale, erlaubte E-Mails …
+$EDITOR config/wrapt.local.json   # Benutzer, Pfade, Tailscale, erlaubte E-Mails …
 $EDITOR .env                          # optional: MISTRAL_API_KEY
 
 # 2. Abhängigkeiten prüfen/installieren und bauen
@@ -130,7 +130,7 @@ Health-Check: `curl -s http://127.0.0.1:3010/api/v1/health`
 ## Konfiguration
 
 Alle persönlichen Werte leben in **einer** zentralen, gitignorierten Datei:
-`config/workbench.local.json` (Vorlage: `config/workbench.example.json`). Sie bündelt Branding,
+`config/wrapt.local.json` (Vorlage: `config/wrapt.example.json`). Sie bündelt Branding,
 Systembenutzer, Tailscale-Angaben, alle Pfade und CLI-Pfade. Die `.env` enthält nur Secrets und
 neutrale Runtime-Knöpfe; gesetzte Env-Variablen überschreiben einzelne Config-Werte.
 Ausführlich: [docs/configuration.md](docs/configuration.md).
@@ -163,7 +163,7 @@ Dieses Projekt baut auf großartigen Open-Source-Werkzeugen auf, die wir hier
 integrieren und orchestrieren:
 
 - **[T3 Code](https://github.com/pingdotgg/t3code)** von [Theo Brown (pingdotgg)](https://github.com/pingdotgg)
-  — der agentengestützte Browser-Editor, der direkt in der Workbench läuft.
+  — der agentengestützte Browser-Editor, der direkt in der Wrapt läuft.
 - **[code-server](https://github.com/coder/code-server)** — vollwertiger VS-Code-Editor im Browser.
 - **[node-pty](https://github.com/microsoft/node-pty)** & **[xterm.js](https://github.com/xtermjs/xterm.js)** — native Terminal-Emulation.
 - **[Tailscale](https://github.com/tailscale/tailscale)** — privater, sicherer Remote-Zugriff.

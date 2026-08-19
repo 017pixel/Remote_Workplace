@@ -156,7 +156,7 @@ const kindLabels: Record<CrashKind, string> = {
 /** Der kopierbare Bericht — Kontext zuerst, dann eine klare Arbeitsanweisung für den Agenten. */
 export function formatCrashReport(report: CrashReport, environment: CrashEnvironment): string {
   const lines = [
-    "# Crash-Report — Remote Workplace",
+    "# Crash-Report — Wrapt",
     "",
     `- Zeitpunkt: ${report.occurredAt}`,
     `- Art: ${kindLabels[report.kind]} (${report.kind})`,
@@ -183,14 +183,14 @@ export function formatCrashReport(report: CrashReport, environment: CrashEnviron
     "",
     "## Auftrag an den KI-Agenten",
     "",
-    "Du arbeitest im Repository `Remote_Workplace` (pnpm-Monorepo: `apps/server` Fastify,",
+    "Du arbeitest im Wrapt-Repository (pnpm-Monorepo: `apps/server` Fastify,",
     "`apps/web` React/Vite, `packages/contracts` Zod). Bitte:",
     "",
     "1. Finde anhand von Stacktrace und Komponentenbaum die auslösende Stelle im Quellcode.",
     "2. Erkläre kurz die Ursache — nicht nur das Symptom.",
     "3. Behebe die Ursache und achte auf gleichartige Stellen im Projekt.",
     "4. Prüfe mit `pnpm typecheck` (nach Schema-Änderungen zuerst",
-    "   `pnpm --filter @workbench/contracts build`) und mit `pnpm test`.",
+    "   `pnpm --filter @wrapt/contracts build`) und mit `pnpm test`.",
     "5. Baue neu und starte neu: `bash scripts/restart-all.sh`.",
     "",
     "Antworte auf Deutsch.",

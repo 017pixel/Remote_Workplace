@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DeviceRotateIcon, ExternalLinkIcon, FullscreenIcon, RestoreIcon, SmartphoneIcon } from "../components/icons";
 import { useParams } from "react-router";
-import { orbitWorkspaceSchema, type OrbitNode } from "@workbench/contracts";
-import { workbenchQueries } from "../lib/queryOptions";
+import { orbitWorkspaceSchema, type OrbitNode } from "@wrapt/contracts";
+import { wraptQueries } from "../lib/queryOptions";
 import { normalizePreviewTarget } from "../lib/previewTargets";
 import { PreviewSlotFrame } from "../components/PreviewSlotFrame";
 import { getGroupedDevicePresets, type DeviceOrientation } from "../config/devicePresets";
@@ -24,7 +24,7 @@ export function PreviewStandaloneSlot({ node, lazy = false }: { node: OrbitNode;
   const target = normalizePreviewTarget(node.previewTarget ?? "");
   const [deviceId, setDeviceId] = useSyncedState<string | null>(node.previewDeviceId);
   const [orientation, setOrientation] = useSyncedState<DeviceOrientation>(node.previewOrientation);
-  const preference = useQuery(workbenchQueries.previewDevicePreference());
+  const preference = useQuery(wraptQueries.previewDevicePreference());
   const resolvedDevice = resolvePreviewDevice({ deviceId, orientation }, preference.data);
   return (
     <article className="preview-group-page-slot">
@@ -94,7 +94,7 @@ export function PreviewSlotCarousel({ slots, className, lazy = false }: { slots:
 // Geräten ankommen.
 function usePreviewGroup(groupId: string | undefined) {
   const routeActive = useRouteActivity();
-  const query = useQuery({ ...workbenchQueries.orbit(), refetchInterval: 5_000, enabled: routeActive });
+  const query = useQuery({ ...wraptQueries.orbit(), refetchInterval: 5_000, enabled: routeActive });
   const found = useMemo(() => {
     let snapshot = null;
     if (groupId) try {
@@ -120,7 +120,7 @@ export function PreviewGroupRoute() {
   if (!found) return <div className="preview-group-page-missing"><strong>Preview-Gruppe nicht gefunden</strong><span>Die Gruppe wurde gelöscht oder gehört nicht zum aktuellen Orbit-Dokument.</span></div>;
   return (
     <main className="preview-group-page" data-layout={found.group.previewLayout ?? "1"}>
-      <header><div><span>Preview-Gruppe</span><h1>{found.group.title}</h1></div><a href="/workbench/workbench"><ExternalLinkIcon className="h-4 w-4" />Im Orbit öffnen</a></header>
+      <header><div><span>Preview-Gruppe</span><h1>{found.group.title}</h1></div><a href="/wrapt/workbench"><ExternalLinkIcon className="h-4 w-4" />Im Orbit öffnen</a></header>
       <PreviewSlotCarousel slots={found.slots} className="preview-group-page-grid" />
       <small className="preview-group-page-note">Geräterahmen sind visuell. DPR und CSS-Safe-Areas lassen sich in iframes nicht vollständig emulieren.</small>
     </main>

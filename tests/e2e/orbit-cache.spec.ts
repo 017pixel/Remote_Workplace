@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test("keeps Orbit revisions out of the PWA cache and recovers one stale save", async ({ page, browserName }) => {
   test.setTimeout(45_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated production-build server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated production-build server.");
   // Die Firefox-Projecteinstellung blockiert Service Worker bewusst (siehe
   // playwright.config.ts) — ohne SW gibt es hier nichts zu prüfen.
   test.skip(browserName === "firefox", "Firefox blockiert Service Worker in dieser Suite.");
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   // Auf einer frischen Instanz laufen beim Mount mehrere Viewport-Saves
   // hintereinander; ein davon betroffener Revisions-Konflikt hält die
@@ -24,7 +24,7 @@ test("keeps Orbit revisions out of the PWA cache and recovers one stale save", a
   // Revisions-Konflikt laufen; beide Zustände sind gültig — der Test prüft
   // hier nur, dass die Orbit-Seite geladen und synchronisiert ist.
   const settled = await page.getByRole("button", { name: /Auf Server gespeichert|Ungespeicherte Änderung/ }).waitFor({ state: "visible", timeout: 30_000 }).then(() => true).catch(() => false);
-  if (!settled) test.skip(true, "Die frische Instanz hat den Orbit-Save nicht abgeschlossen; der Test setzt eine eingerichtete Workbench voraus.");
+  if (!settled) test.skip(true, "Die frische Instanz hat den Orbit-Save nicht abgeschlossen; der Test setzt eine eingerichtete Wrapt voraus.");
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
@@ -61,7 +61,7 @@ test("keeps Orbit revisions out of the PWA cache and recovers one stale save", a
   // automatischen Retry aus (so ist der Multi-Device-Fluss entworfen).
   await page.getByLabel("Neue Notiz bearbeiten").last().fill("Konfliktnotiz", { force: true });
   const recovered = await page.getByRole("button", { name: "Auf Server gespeichert" }).waitFor({ state: "visible", timeout: 15_000 }).then(() => true).catch(() => false);
-  if (!recovered) test.skip(true, "Die Konflikt-Wiederherstellung benötigt eine eingerichtete Workbench.");
+  if (!recovered) test.skip(true, "Die Konflikt-Wiederherstellung benötigt eine eingerichtete Wrapt.");
   await expect.poll(async () => Number((await (await page.request.get(orbitUrl, { headers: apiIdentityHeaders("user@example.com") })).json()).revision), { timeout: 15_000 }).toBeGreaterThan(external.revision);
   expect(putStatuses.filter((status) => status === 409).length).toBeLessThanOrEqual(1);
   expect(putStatuses.at(-1)).toBe(200);

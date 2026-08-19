@@ -53,14 +53,14 @@ export function resolveWorkbenchUser(
   if (!identity) {
     throw new AppError(
       401,
-      "WORKBENCH_IDENTITY_REQUIRED",
+      "WRAPT_IDENTITY_REQUIRED",
       "Für diesen Bereich wird eine Tailscale-Identität benötigt.",
     );
   }
   if (options.allowedUsers.length > 0 && !options.allowedUsers.includes(identity)) {
     throw new AppError(
       403,
-      "WORKBENCH_FORBIDDEN",
+      "WRAPT_FORBIDDEN",
       "Dieser Benutzer darf die Workbench nicht verwenden.",
     );
   }
@@ -68,7 +68,7 @@ export function resolveWorkbenchUser(
 }
 
 export function isProtectedWorkbenchRequest(request: FastifyRequest): boolean {
-  const pathname = new URL(request.raw.url ?? request.url, "http://workbench.local").pathname;
+  const pathname = new URL(request.raw.url ?? request.url, "http://wrapt.local").pathname;
   if (pathname === "/api/v1/health") return false;
   if (unprotectedApiPrefixes.some((prefix) => pathname.startsWith(prefix))) return false;
   return protectedExactPaths.has(pathname) ||
@@ -88,7 +88,7 @@ export function requireMutationOrigin(request: FastifyRequest): void {
 
   throw new AppError(
     403,
-    "WORKBENCH_CROSS_ORIGIN",
+    "WRAPT_CROSS_ORIGIN",
     "Diese Aktion ist nur aus der Workbench-Oberfläche erlaubt.",
   );
 }

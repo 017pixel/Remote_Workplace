@@ -1,4 +1,4 @@
-import type { HermesSessionSource } from "@workbench/contracts";
+import type { HermesSessionSource } from "@wrapt/contracts";
 
 export const hermesSourceLabels: Record<HermesSessionSource, string> = {
   web: "Web",

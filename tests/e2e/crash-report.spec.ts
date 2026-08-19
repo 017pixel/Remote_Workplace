@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 // ein grosses Pop-Up erscheinen, dessen Inhalt man kopiert und einem KI-Agenten gibt.
 
 test("zeigt bei einem unbehandelten Fehler einen kopierbaren Crash-Report", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   await expect(page.locator(".sidebar-shell")).toBeVisible();
 
   // Ein echter unbehandelter Fehler — nicht über die interne API simuliert.
@@ -25,7 +25,7 @@ test("zeigt bei einem unbehandelten Fehler einen kopierbaren Crash-Report", asyn
   // antwortet, ist bewusst offen — läuft gerade ein Neustart, ist "nein" die richtige
   // Angabe und der Test soll daran nicht scheitern.
   expect(report).toMatch(/Backend erreichbar: (ja|nein)/);
-  expect(report).toContain("Route: /workbench/");
+  expect(report).toContain("Route: /wrapt/");
 
   await expect(dialog.getByRole("button", { name: /Bericht kopieren/ })).toBeVisible();
   await dialog.getByRole("button", { name: "Weiterarbeiten" }).click();
@@ -35,7 +35,7 @@ test("zeigt bei einem unbehandelten Fehler einen kopierbaren Crash-Report", asyn
 // Diese Meldung ist laut Resize-Observer-Spezifikation harmlos und tritt im Orbit
 // (@xyflow/react) beim Zoomen und Verschieben auf. Sie darf kein Pop-Up öffnen.
 test("öffnet kein Pop-Up für harmlose ResizeObserver-Meldungen", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   await expect(page.locator(".sidebar-shell")).toBeVisible();
 
   await page.evaluate(() => {
@@ -59,7 +59,7 @@ test("öffnet kein Pop-Up für harmlose ResizeObserver-Meldungen", async ({ page
 });
 
 test("überlebt einen Renderfehler in einer Ansicht, ohne die Navigation zu verlieren", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   await expect(page.locator(".sidebar-shell")).toBeVisible();
 
   await page.evaluate(() => {

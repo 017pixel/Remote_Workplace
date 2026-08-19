@@ -41,10 +41,10 @@ const manifest = {
   name: displayName,
   version: "0.1.0",
   publisher,
-  description: `${displayName} Extension für Remote Workplace.`,
+  description: `${displayName} Extension für Wrapt.`,
   license: "MIT",
   engines: {
-    remoteWorkplace: ">=0.44.0",
+    wrapt: ">=0.95.0",
     extensionApi: ">=1.0.0",
   },
   trust: "developer",
@@ -60,7 +60,7 @@ const manifest = {
   },
 };
 
-const readme = `# ${displayName}\n\nLokale Remote-Workplace-Extension.\n\n## Regeln\n\n- Core-Dateien nur ändern, wenn eine dokumentierte Extension-API-Lücke vorliegt.\n- Nur die tatsächlich benötigten Permissions anfordern.\n- Navigation und Produkticons verwenden die Host-Icon-Registry, keine farbigen Vendor-Logos.\n- Vor Installation \`pnpm extension:validate ${rel}\` ausführen.\n- Der generierte Command ist ein Platzhalter. Entferne ihn, sobald echte Contributions definiert sind.\n\n## Nächste Schritte\n\n1. Contributions und gegebenenfalls UI-/Server-Entrypoints in \`extension.json\` definieren.\n2. Implementierung im Extension-Ordner halten.\n3. Manifest validieren und Tests ausführen.\n4. Paket in den lokalen Catalog der laufenden Workbench übernehmen und dort installieren.\n`;
+const readme = `# ${displayName}\n\nLokale Wrapt-Extension.\n\n## Regeln\n\n- Core-Dateien nur ändern, wenn eine dokumentierte Extension-API-Lücke vorliegt.\n- Nur die tatsächlich benötigten Permissions anfordern.\n- Navigation und Produkticons verwenden die Host-Icon-Registry, keine farbigen Vendor-Logos.\n- Vor Installation \`pnpm extension:validate ${rel}\` ausführen.\n- Der generierte Command ist ein Platzhalter. Entferne ihn, sobald echte Contributions definiert sind.\n\n## Nächste Schritte\n\n1. Contributions und gegebenenfalls UI-/Server-Entrypoints in \`extension.json\` definieren.\n2. Implementierung im Extension-Ordner halten.\n3. Manifest validieren und Tests ausführen.\n4. Paket in den lokalen Catalog der laufenden Wrapt-Instanz übernehmen und dort installieren.\n`;
 
 await mkdir(target, { recursive: true });
 await writeFile(join(target, "extension.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

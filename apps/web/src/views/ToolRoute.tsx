@@ -2,10 +2,10 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useWorkspaceStore } from "../stores/workspace";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { ToolPanel } from "../components/ToolPanel";
 import { EmptyState } from "../components/EmptyState";
-import type { Panel, Project } from "@workbench/contracts";
+import type { Panel, Project } from "@wrapt/contracts";
 import { useRouteActivity } from "../lib/routeActivity";
 import { PreviewHub } from "./PreviewHub";
 
@@ -22,8 +22,8 @@ function SingleTool({ type }: { type: ProjectPanelType }) {
   const routeActive = useRouteActivity();
   const [searchParams] = useSearchParams();
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const { data, isLoading } = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
-  const services = useQuery({ ...workbenchQueries.services(), enabled: routeActive });
+  const { data, isLoading } = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
+  const services = useQuery({ ...wraptQueries.services(), enabled: routeActive });
   const projects = data?.projects ?? [];
   const selected = projects.find((project) => project.id === selectedProjectId);
   const availableProjects = projects.filter((candidate) => type === "preview" ? candidate.availability === "available" : supportsTool(candidate, type));

@@ -4,9 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { CloseIcon, CodeFileIcon, CopyIcon, DeviceRotateIcon, ExternalLinkIcon, FileIcon, FolderCodeIcon, FrameIcon, FullscreenIcon, MoreIcon, PlusIcon, RefreshIcon, SaveIcon, TodoIcon, TrashIcon } from "../icons";
 import { Handle, NodeResizeControl, Position, useStore, type NodeProps } from "@xyflow/react";
-import { ORBIT_SIZE_LIMITS, type HermesCronJob, type HermesResult, type HermesStatus, type HermesTask, type LocalPortsResponse, type OrbitNode, type Panel, type Project, type Service } from "@workbench/contracts";
+import { ORBIT_SIZE_LIMITS, type HermesCronJob, type HermesResult, type HermesStatus, type HermesTask, type LocalPortsResponse, type OrbitNode, type Panel, type Project, type Service } from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { orbitNodeColor } from "../../lib/orbitAppearance";
 import { formatUsageReset, orbitProviderWindows } from "../../lib/orbitUsage";
 import { parseOrbitTodo, serializeOrbitTodo, type OrbitTodoItem } from "../../lib/orbitTodo";
@@ -310,7 +310,7 @@ function AssetNode({ id, selected }: { id: string; selected: boolean }) {
 function UsageNode({ id, selected }: { id: string; selected: boolean }) {
   const node = useActiveOrbitNode(id)!;
   const routeActive = useRouteActivity();
-  const usage = useQuery({ ...workbenchQueries.usage(), enabled: routeActive });
+  const usage = useQuery({ ...wraptQueries.usage(), enabled: routeActive });
   const provider = usage.data?.providers.find((candidate) => candidate.providerId === node.provider);
   const windows = orbitProviderWindows(provider);
   return <NodeChrome id={id} title={`${provider?.providerName ?? node.title} Limits`} selected={selected}><div className="orbit-usage-list">{windows.length ? windows.map((window) => <div className="orbit-usage-row" key={window.id}><div><span>{window.label}</span><strong>{window.remaining}% frei</strong></div><div className="orbit-usage-track"><i style={{ width: `${window.remaining}%` }} /></div><small className="orbit-usage-reset">{formatUsageReset(window.resetsAt)}</small></div>) : <p>{usage.isLoading ? "Nutzung wird geladen…" : "Keine Limitdaten verfügbar."}</p>}</div><small className="orbit-usage-updated">Aktualisierung alle 60 Sekunden</small></NodeChrome>;
@@ -331,7 +331,7 @@ function HermesNodeState({ loading, error, empty = "Keine Daten verfügbar." }: 
 
 function HermesStatusNode({ id, selected }: { id: string; selected: boolean }) {
   const routeActive = useRouteActivity();
-  const query = useQuery({ ...workbenchQueries.hermesStatus(), enabled: routeActive });
+  const query = useQuery({ ...wraptQueries.hermesStatus(), enabled: routeActive });
   const status = query.data as HermesStatus | undefined;
   return <NodeChrome id={id} title="Hermes Status" selected={selected}>
     {status ? <div className="orbit-hermes-status nodrag">
@@ -354,14 +354,14 @@ function HermesTasksNode({ id, selected }: { id: string; selected: boolean }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const node = useActiveOrbitNode(id)!;
-  const query = useQuery({ ...workbenchQueries.hermesTasks(), enabled: routeActive });
+  const query = useQuery({ ...wraptQueries.hermesTasks(), enabled: routeActive });
   const [cancelling, setCancelling] = useState<string | null>(null);
   const tasks = (query.data?.tasks ?? []).filter((task) => node.hermesSourceFilter === "all" || task.source === node.hermesSourceFilter);
   const cancel = async (task: HermesTask) => {
     setCancelling(task.sessionId);
     try {
       await apiClient.cancelHermesTask(task.sessionId);
-      await queryClient.invalidateQueries({ queryKey: workbenchQueries.hermesTasks().queryKey });
+      await queryClient.invalidateQueries({ queryKey: wraptQueries.hermesTasks().queryKey });
     } finally {
       setCancelling(null);
     }
@@ -379,7 +379,7 @@ function HermesTasksNode({ id, selected }: { id: string; selected: boolean }) {
 function HermesCronNode({ id, selected }: { id: string; selected: boolean }) {
   const routeActive = useRouteActivity();
   const navigate = useNavigate();
-  const query = useQuery({ ...workbenchQueries.hermesCron(), enabled: routeActive });
+  const query = useQuery({ ...wraptQueries.hermesCron(), enabled: routeActive });
   const jobs = query.data?.jobs ?? [];
   const openJob = (job: HermesCronJob) => navigate(`/hermes-agent?path=${encodeURIComponent(job.adminPath)}`);
   return <NodeChrome id={id} title="Hermes Automatisierungen" selected={selected}>
@@ -396,7 +396,7 @@ function HermesResultsNode({ id, selected }: { id: string; selected: boolean }) 
   const node = useActiveOrbitNode(id)!;
   const sourceFilter = node.hermesSourceFilter === "all" ? undefined : node.hermesSourceFilter;
   const statusFilter = node.hermesStatusFilter === "all" ? undefined : node.hermesStatusFilter;
-  const query = useQuery({ ...workbenchQueries.hermesResults(sourceFilter, statusFilter), enabled: routeActive });
+  const query = useQuery({ ...wraptQueries.hermesResults(sourceFilter, statusFilter), enabled: routeActive });
   const results = query.data?.results ?? [];
   return <NodeChrome id={id} title="Hermes Ergebnisse" selected={selected}>
     {results.length ? <div className="orbit-hermes-list nodrag">{results.map((result: HermesResult) => <article className="orbit-hermes-list-item" key={result.id}>
@@ -509,7 +509,7 @@ function PreviewSlotNode({ id, selected }: { id: string; selected: boolean }) {
   const reachable = target?.kind === "external" || (target?.kind === "local" && runtime.localPorts?.ports.some((port) => port.port === target.port && port.protocol !== "unknown"));
   const stateTitle = !target ? "Kein Preview-Ziel" : reachable ? "Preview-Ziel erreichbar" : runtime.localPortsLoading ? "Erreichbarkeit wird geprüft" : "Preview-Ziel nicht erreichbar";
   const routeActive = useRouteActivity();
-  const devicePreference = useQuery({ ...workbenchQueries.previewDevicePreference(), enabled: routeActive });
+  const devicePreference = useQuery({ ...wraptQueries.previewDevicePreference(), enabled: routeActive });
   const resolvedDevice = resolvePreviewDevice({ deviceId: node.previewDeviceId, orientation: node.previewOrientation }, devicePreference.data);
   const deviceId = resolvedDevice.deviceId;
   const reloadKey = Number(node.content || "0");

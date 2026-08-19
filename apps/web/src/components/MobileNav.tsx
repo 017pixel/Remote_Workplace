@@ -5,7 +5,7 @@ import { CloseIcon } from "./icons";
 import { useNavigationRegistry } from "../extensions/useNavigationRegistry";
 import type { OwnedNavigationItem } from "../extensions/navigationRegistry";
 import { prefetchRouteTarget } from "../lib/routePrefetch";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { isPageVisibleIn, useSidebarPreferences, type PageRouteId } from "../stores/sidebarPreferences";
 
 const navigationGroupKickers: ReadonlyArray<{ group: "workspace" | "tools" | "account"; kicker: string }> = [
@@ -48,7 +48,7 @@ export function MobileNav({ open, onClose, triggerRef }: MobileNavProps) {
   // Abonniert statt einmalig gelesen — Änderungen in den Einstellungen greifen sofort.
   const hiddenPages = useSidebarPreferences((state) => state.hiddenPages);
   const navigation = useNavigationRegistry();
-  const notifications = useQuery(workbenchQueries.notifications());
+  const notifications = useQuery(wraptQueries.notifications());
   const filteredSections = useMemo(() => navigationGroupKickers.map(({ group, kicker }) => ({
     kicker,
     items: navigation.byGroup[group].filter((item) => isNavigationItemVisible(item, hiddenPages)),

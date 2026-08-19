@@ -10,7 +10,7 @@ import {
   servicesResponseSchema,
   t3ChannelRequestSchema,
   usageMonitoringResponseSchema,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { settings } from "../config/settings.js";
 import type { RouteServices } from "../api/services.js";
@@ -50,7 +50,7 @@ export async function registerSystemRoutes(app: FastifyInstance, services: Route
   });
   app.get("/system/usage-monitoring", async () => usageMonitoringResponseSchema.parse({ monitoring: usageMonitoringService.get() }));
   // Wirkt sofort: Der Sync überspringt deaktivierte Anbieter, der Live-Cache meldet sie
-  // als deaktiviert. Persistiert wird ausschließlich in config/workbench.local.json.
+  // als deaktiviert. Persistiert wird ausschließlich in config/wrapt.local.json.
   app.put("/system/usage-monitoring", async (request) => {
     const { monitoring } = usageMonitoringResponseSchema.parse(request.body);
     const result = usageMonitoringService.update(monitoring);

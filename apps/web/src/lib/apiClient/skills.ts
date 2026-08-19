@@ -6,8 +6,8 @@ import {
   skillEditorTreeResponseSchema,
   type SkillEditorCreateRequest,
   type SkillEditorWriteRequest,
-} from "@workbench/contracts";
-import { mutate, request, WORKBENCH_SYNC_VERSION } from "./transport.js";
+} from "@wrapt/contracts";
+import { mutate, request, WRAPT_SYNC_VERSION } from "./transport.js";
 
 /**
  * Letzte Rettung beim Schließen der Seite: `keepalive` lässt den Browser die
@@ -20,7 +20,7 @@ function saveSkillEditorFileOnUnload(body: SkillEditorWriteRequest): void {
     keepalive: true,
     cache: "no-store",
     credentials: "same-origin",
-    headers: { Accept: "application/json", "Content-Type": "application/json", "X-Workbench-Sync-Version": WORKBENCH_SYNC_VERSION },
+    headers: { Accept: "application/json", "Content-Type": "application/json", "X-Wrapt-Sync-Version": WRAPT_SYNC_VERSION },
     body: JSON.stringify(body),
   }).catch(() => undefined);
 }

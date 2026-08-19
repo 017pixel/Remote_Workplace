@@ -7,7 +7,7 @@ import {
   orbitWorkspaceSchema,
   type OrbitDocumentResponse,
   type OrbitWorkspace,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";
 

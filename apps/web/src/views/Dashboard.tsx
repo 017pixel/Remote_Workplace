@@ -18,7 +18,7 @@ import type {
   TerminalSessionsResponse,
   UsageDashboardResponse,
   NewsListResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import {
   CheckIcon,
   CloseIcon,
@@ -44,9 +44,9 @@ import { Meter, Sparkline, TrendChart, loadTone } from "../components/charts";
 import { formatBytes, formatClockTime, formatRelativeTime, formatUptime } from "../lib/format";
 import { groupDashboardRuntime, type DashboardRuntimeGroup } from "../lib/dashboardRuntime";
 import { computeTrend, useMetricsHistory, type MetricsSample } from "../stores/metricsHistory";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { useDashboardPreferences, isDashboardSectionVisible } from "../stores/dashboardPreferences";
-import { useTerminalStore } from "../stores/terminals";
+import { useTerminalWorkspaceStore } from "../stores/terminalWorkspace";
 import { useWorkspaceStore } from "../stores/workspace";
 import { useRouteActivity } from "../lib/routeActivity";
 import { writeClipboardText } from "../lib/clipboard";
@@ -269,7 +269,7 @@ function deriveSystemState(
   return {
     tone,
     label,
-    detail: problems.length ? problems.join(" · ") : "Keine Auffälligkeiten in Server und Workbench",
+    detail: problems.length ? problems.join(" · ") : "Keine Auffälligkeiten in Server und Wrapt",
   };
 }
 
@@ -298,7 +298,7 @@ function DashboardHeader({
   return (
     <header className={`dash-head is-${state.tone}`}>
       <div className="dash-head-main">
-        <p className="dash-eyebrow">Remote Workplace</p>
+        <p className="dash-eyebrow">Wrapt</p>
         <h1>{state.label}</h1>
         <p className="dash-head-detail">{state.detail}</p>
       </div>
@@ -582,7 +582,7 @@ function ServerDiagnosticsPanel({
   );
 }
 
-/* ------------------------------------------------------ Workbench-Diagnose */
+/* ------------------------------------------------------ Wrapt-Diagnose */
 
 function ReadinessList({ readiness }: { readiness: Query<ReadinessResponse> }) {
   if (readiness.isPending) return <PanelSkeleton label="Bereitschaft wird geprüft" rows={2} />;
@@ -616,8 +616,8 @@ function WorkbenchDiagnosticsPanel({
 
   return (
     <Panel
-      title="Workbench-Diagnose"
-      subtitle={data ? `Prozess läuft seit ${formatUptime(data.uptimeSeconds)} · Stand ${formatDateTime(data.capturedAt)}` : "Zustand des Workbench-Dienstes"}
+      title="Wrapt-Diagnose"
+      subtitle={data ? `Prozess läuft seit ${formatUptime(data.uptimeSeconds)} · Stand ${formatDateTime(data.capturedAt)}` : "Zustand des Wrapt-Dienstes"}
       icon={<ShieldIcon className="h-4 w-4" />}
       name="workbench"
       className="is-span-12"
@@ -1066,7 +1066,7 @@ function QuickBar({
   const navigate = useNavigate();
   const selectProject = useWorkspaceStore((state) => state.selectProject);
   const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const addTab = useTerminalStore((state) => state.addTab);
+  const addTab = useTerminalWorkspaceStore((state) => state.addTab);
   const selectedProject =
     projects.find((project) => project.id === selectedProjectId && project.availability === "available") ??
     projects.find((project) => project.availability === "available");
@@ -1183,7 +1183,7 @@ function CommandsPanel({
 export function Dashboard() {
   const navigate = useNavigate();
   const routeActive = useRouteActivity();
-  const configQuery = useQuery({ ...workbenchQueries.dashboardConfig(), enabled: routeActive });
+  const configQuery = useQuery({ ...wraptQueries.dashboardConfig(), enabled: routeActive });
   const config = configQuery.data;
   const hiddenSections = useDashboardPreferences((state) => state.hiddenSections);
   const selectProject = useWorkspaceStore((state) => state.selectProject);
@@ -1198,19 +1198,19 @@ export function Dashboard() {
 
   // Der Kopf braucht Server- und Dienstzustand unabhängig davon, welche Blöcke
   // sichtbar sind — sonst könnte er keine Gesamtaussage treffen.
-  const summary = useQuery({ ...workbenchQueries.serverSummary(refresh?.summaryMilliseconds), enabled: routeActive });
-  const health = useQuery({ ...workbenchQueries.health(refresh?.healthMilliseconds), enabled: routeActive });
-  const readiness = useQuery({ ...workbenchQueries.readiness(refresh?.summaryMilliseconds), retry: false, enabled: routeActive });
-  const metrics = useQuery({ ...workbenchQueries.serverMetrics(refresh?.metricsMilliseconds), enabled: routeActive });
-  const diagnostics = useQuery({ ...workbenchQueries.operationalMetrics(refresh?.operationalMetricsMilliseconds), enabled: routeActive });
-  const services = useQuery({ ...workbenchQueries.services(refresh?.servicesMilliseconds), enabled: routeActive && visible("services") });
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive && (runtimeVisible || quickActionsVisible) });
-  const ports = useQuery({ ...workbenchQueries.localPorts(refresh?.localPortsMilliseconds), enabled: routeActive && runtimeVisible });
-  const sessions = useQuery({ ...workbenchQueries.terminalSessions(refresh?.terminalSessionsMilliseconds), enabled: routeActive && runtimeVisible });
-  const usage = useQuery({ ...workbenchQueries.usageDashboard("30d", refresh?.usageMilliseconds), enabled: routeActive && visible("usage") });
+  const summary = useQuery({ ...wraptQueries.serverSummary(refresh?.summaryMilliseconds), enabled: routeActive });
+  const health = useQuery({ ...wraptQueries.health(refresh?.healthMilliseconds), enabled: routeActive });
+  const readiness = useQuery({ ...wraptQueries.readiness(refresh?.summaryMilliseconds), retry: false, enabled: routeActive });
+  const metrics = useQuery({ ...wraptQueries.serverMetrics(refresh?.metricsMilliseconds), enabled: routeActive });
+  const diagnostics = useQuery({ ...wraptQueries.operationalMetrics(refresh?.operationalMetricsMilliseconds), enabled: routeActive });
+  const services = useQuery({ ...wraptQueries.services(refresh?.servicesMilliseconds), enabled: routeActive && visible("services") });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive && (runtimeVisible || quickActionsVisible) });
+  const ports = useQuery({ ...wraptQueries.localPorts(refresh?.localPortsMilliseconds), enabled: routeActive && runtimeVisible });
+  const sessions = useQuery({ ...wraptQueries.terminalSessions(refresh?.terminalSessionsMilliseconds), enabled: routeActive && runtimeVisible });
+  const usage = useQuery({ ...wraptQueries.usageDashboard("30d", refresh?.usageMilliseconds), enabled: routeActive && visible("usage") });
   const unreadNewsParams = useMemo(() => new URLSearchParams({ unread: "true", limit: "1" }), []);
-  const news = useQuery({ ...workbenchQueries.news(unreadNewsParams, refresh?.newsMilliseconds), enabled: routeActive && visible("news") });
-  const commands = useQuery({ ...workbenchQueries.commands(), enabled: routeActive && visible("commands") });
+  const news = useQuery({ ...wraptQueries.news(unreadNewsParams, refresh?.newsMilliseconds), enabled: routeActive && visible("news") });
+  const commands = useQuery({ ...wraptQueries.commands(), enabled: routeActive && visible("commands") });
   const [selectedCommand, setSelectedCommand] = useState<{ name: string; description: string; command: string } | null>(null);
 
   // Ein einziger Sammler füttert den geteilten Verlaufsspeicher. Die

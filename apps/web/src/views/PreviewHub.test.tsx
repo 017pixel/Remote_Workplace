@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
-import type { Project, ProjectsResponse } from "@workbench/contracts";
+import type { Project, ProjectsResponse } from "@wrapt/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router";
 import { RouteActivityProvider } from "../lib/routeActivity";

@@ -1,4 +1,4 @@
-import type { OrbitBounds, OrbitNode } from "@workbench/contracts";
+import type { OrbitBounds, OrbitNode } from "@wrapt/contracts";
 
 export const ORBIT_BASE_BOUNDS: OrbitBounds = { minX: -1_600, minY: -1_000, maxX: 1_600, maxY: 1_000 };
 export const ORBIT_TERRITORY_GROWTH = 1_600;

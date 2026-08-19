@@ -10,7 +10,7 @@ import {
   type ProjectResponse,
   type ProjectsResponse,
   type RegisterProjectResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { ProjectsConfig, ServiceConfig } from "../config/schemas.js";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";

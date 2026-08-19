@@ -134,7 +134,7 @@ describe("FileManagerService", () => {
     })).rejects.toMatchObject({ code: "FILE_TOO_LARGE" });
     await expect(readFile(join(root, "zu-gross.bin"))).rejects.toThrow();
     const leftovers = await readdir(root);
-    expect(leftovers.some((name) => name.startsWith(".workbench-upload-"))).toBe(false);
+    expect(leftovers.some((name) => name.startsWith(".wrapt-upload-"))).toBe(false);
   });
 
   it("sucht rekursiv und überspringt node_modules", async () => {

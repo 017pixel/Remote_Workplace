@@ -7,14 +7,14 @@ import type {
   PreviewLocalStorageState,
   PreviewServiceEdge,
   PreviewSessionResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
 import { previewLiveWindowUrl } from "../../lib/previewExternalOpen";
 import { previewSlotUrl } from "../../lib/previewTargets";
 import { PreviewBridgeClient, type BridgeStatus } from "../../lib/previewBridgeClient";
 import { resolvePreviewDevice } from "../../lib/previewDevice";
 import { snapshotBytes, snapshotHash } from "../../lib/previewStorageSnapshot";
-import { workbenchQueries } from "../../lib/queryOptions";
+import { wraptQueries } from "../../lib/queryOptions";
 import { generateId } from "../../lib/id";
 import type { DeviceOrientation } from "../../config/devicePresets";
 import { changeDevicePreviewScaleFactor, DevicePreviewFrame, devicePreviewScaleFactorMax, devicePreviewScaleFactorMin } from "../DevicePreviewFrame";
@@ -142,11 +142,11 @@ export function LocalPreviewRuntime({
   const onSlotAssignedRef = useRef(onSlotAssigned);
   onSlotAssignedRef.current = onSlotAssigned;
 
-  const preference = useQuery({ ...workbenchQueries.previewDevicePreference(), enabled: routeActive });
+  const preference = useQuery({ ...wraptQueries.previewDevicePreference(), enabled: routeActive });
   const resolvedDevice = resolvePreviewDevice({ deviceId, orientation }, preference.data);
-  const candidatesQuery = useQuery({ ...workbenchQueries.previewServiceCandidates(projectId), enabled: routeActive && visible && projectId !== null });
+  const candidatesQuery = useQuery({ ...wraptQueries.previewServiceCandidates(projectId), enabled: routeActive && visible && projectId !== null });
   const graphQuery = useQuery({
-    ...workbenchQueries.previewServiceGraph(projectId ?? "-", String(targetPort)),
+    ...wraptQueries.previewServiceGraph(projectId ?? "-", String(targetPort)),
     enabled: routeActive && visible && projectId !== null,
   });
 

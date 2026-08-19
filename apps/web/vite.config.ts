@@ -5,36 +5,39 @@ import tailwindcss from "@tailwindcss/vite";
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
-// Zentrale Personalisierung (Branding + Tailscale-Hosts): erst workbench.local.json,
-// sonst das committete workbench.example.json.
-function loadWorkbenchConfig() {
+// Zentrale Personalisierung (Branding + Tailscale-Hosts): erst wrapt.local.json,
+// sonst das committete wrapt.example.json.
+function loadWraptConfig() {
   const directory = resolve(import.meta.dirname, "../../config");
-  for (const name of ["workbench.local.json", "workbench.example.json"]) {
+  for (const name of ["wrapt.local.json", "wrapt.example.json", "workbench.local.json"]) {
     try {
-      return JSON.parse(readFileSync(resolve(directory, name), "utf8"));
+      const value = JSON.parse(readFileSync(resolve(directory, name), "utf8"));
+      if (value.branding?.appName === "Remote Workplace") value.branding.appName = "Wrapt";
+      if (value.branding?.shortName === "Workplace") value.branding.shortName = "Wrapt";
+      return value;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
-  throw new Error("Workbench-Konfiguration fehlt (config/workbench.local.json oder .example.json).");
+  throw new Error("Wrapt-Konfiguration fehlt (config/wrapt.local.json oder config/wrapt.example.json).");
 }
 
 export default defineConfig(({mode}) => {
   const environment = loadEnv(mode, "../..", "");
-  const wb = loadWorkbenchConfig();
+  const wb = loadWraptConfig();
   const appNamePlugin = {
-    name: "workbench-app-name",
+    name: "wrapt-app-name",
     transformIndexHtml(html: string) {
       return html.replaceAll("__APP_NAME__", wb.branding.appName).replaceAll("__APP_SHORT_NAME__", wb.branding.shortName);
     },
   };
-  const backendTarget = process.env.WORKBENCH_DEV_BACKEND_URL || environment.WORKBENCH_DEV_BACKEND_URL || "http://127.0.0.1:3010";
-  const devTailscaleUser = process.env.WORKBENCH_DEV_TAILSCALE_USER || environment.WORKBENCH_DEV_TAILSCALE_USER;
+  const backendTarget = process.env.WRAPT_DEV_BACKEND_URL || environment.WRAPT_DEV_BACKEND_URL || "http://127.0.0.1:3010";
+  const devTailscaleUser = process.env.WRAPT_DEV_TAILSCALE_USER || environment.WRAPT_DEV_TAILSCALE_USER;
   const developmentProxyHeaders = devTailscaleUser ? { "tailscale-user-login": devTailscaleUser } : undefined;
   const proxyOptions = { target: backendTarget, ws: true, changeOrigin: true, ...(developmentProxyHeaders ? { headers: developmentProxyHeaders } : {}) };
   const sameOriginProxyOptions = { ...proxyOptions, changeOrigin: false };
   return ({
-  base: "/workbench/",
+  base: "/wrapt/",
   plugins: [react(), tailwindcss(), appNamePlugin],
   server: {
     host: "0.0.0.0",
@@ -52,12 +55,12 @@ export default defineConfig(({mode}) => {
       "/favicon.ico": proxyOptions,
       "/apple-touch-icon.png": proxyOptions,
       "/ws": proxyOptions,
-      "/workbench/api": {
+      "/wrapt/api": {
         target: backendTarget,
         ws: true,
         changeOrigin: false,
         ...(developmentProxyHeaders ? { headers: developmentProxyHeaders } : {}),
-        rewrite: (path) => path.replace(/^\/workbench/, ""),
+        rewrite: (path) => path.replace(/^\/wrapt/, ""),
       },
     },
   },
@@ -70,6 +73,7 @@ export default defineConfig(({mode}) => {
     sourcemap: false,
   },
   test: {
+    setupFiles: ["src/test/setup.ts"],
     // React lädt ohne NODE_ENV=test/development den Production-Build, dem das
     // stabile `React.act` fehlt. Auf Produktionsmaschinen steht NODE_ENV oft
     // schon auf `production`; Tests sollen davon unabhängig deterministisch

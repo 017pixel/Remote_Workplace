@@ -1,11 +1,11 @@
 ---
 name: extension-builder
-description: Baut, erweitert und repariert Remote-Workplace-Extensions nach dem Extension-first-Prinzip. Nutze diesen Skill für neue Seiten, Tools, Dashboards, Agent-Integrationen, Browser-/Terminal-Funktionen, Background Services oder andere optionale Produktfeatures, die als Extension umgesetzt werden sollen. Erzwingt minimale Permissions, bestehende Contribution Points, Host-UI-Konventionen, Manifest-Validation und vollständige Verifikation, bevor Core-Code verändert wird.
+description: Baut, erweitert und repariert Wrapt-Extensions nach dem Extension-first-Prinzip. Nutze diesen Skill für neue Seiten, Tools, Dashboards, Agent-Integrationen, Browser-/Terminal-Funktionen, Background Services oder andere optionale Produktfeatures, die als Extension umgesetzt werden sollen. Erzwingt minimale Permissions, bestehende Contribution Points, Host-UI-Konventionen, Manifest-Validation und vollständige Verifikation, bevor Core-Code verändert wird.
 metadata:
   opencode/slash: "true"
 ---
 
-# Remote Workplace Extension Builder
+# Wrapt Extension Builder
 
 Ziel: Eine angeforderte Funktion möglichst vollständig als Extension umsetzen, ohne unnötig den Core zu verändern. Der Core ist Plattform-Infrastruktur. Provider-, Workflow- und Nutzerfunktionen gehören standardmäßig in Extensions.
 
@@ -57,8 +57,8 @@ Nutze eine stabile, namespaced ID, zum Beispiel:
 
 ```text
 benjamin.docker-monitor
-workbench.t3-code
-workbench.hermes
+wrapt.t3-code
+wrapt.hermes
 ```
 
 Passe danach `extension.json` an. Entferne den generierten Platzhalter-Command, sobald echte Contributions vorhanden sind.

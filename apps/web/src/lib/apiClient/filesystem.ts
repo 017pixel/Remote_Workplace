@@ -7,7 +7,7 @@ import {
   filesystemTreeResponseSchema,
   type FileManagerState,
   type FilesystemEntry,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { ApiClientError, errorPayload, mutate, request, requestSignal } from "./transport.js";
 
 async function filesystemTree(path?: string, cursor?: string, signal?: AbortSignal, limit?: number) {

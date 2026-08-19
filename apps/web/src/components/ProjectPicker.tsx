@@ -1,7 +1,7 @@
 import { CheckIcon, ChevronDownIcon, CloseIcon, FolderCodeIcon, FolderOpenIcon, SearchIcon } from "./icons";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Project } from "@workbench/contracts";
+import type { Project } from "@wrapt/contracts";
 import { useAnchoredOverlay } from "../lib/useAnchoredOverlay";
 import { elementContainsEventTarget } from "../lib/domEvents";
 

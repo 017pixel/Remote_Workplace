@@ -3,7 +3,7 @@ import {
   type CommandContribution,
   type ContributionId,
   type ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   FrontendContributionRegistry,
   type FrontendRegistrySnapshot,

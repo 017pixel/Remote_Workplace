@@ -146,7 +146,7 @@ export const restartStatusResponseSchema = z.object({
   phase: restartPhaseSchema,
   target: restartTargetSchema.nullable(),
   exitCode: z.number().int().nullable(),
-  // Der zuletzt begonnene Schritt, z. B. "Baue Frontend (@workbench/web) …".
+  // Der zuletzt begonnene Schritt, z. B. "Baue Frontend (@wrapt/web) …".
   step: z.string(),
   message: z.string(),
   startedAt: z.string().nullable(),
@@ -1152,7 +1152,7 @@ export const usageSyncStatusSchema = z.object({
 });
 export type UsageSyncStatus = z.infer<typeof usageSyncStatusSchema>;
 
-export const WORKBENCH_LIMITS = {
+export const WRAPT_LIMITS = {
   maxResidentTools: 10,
   maxVisibleGroups: 4,
   maxWorkspaces: 8,
@@ -1244,13 +1244,132 @@ export const terminalWorkspaceSchema = z.object({
     }
   }
 });
+// ---------------------------------------------------------------------------
+// TerminalWorkspace V2: Ordner, Pins, Persistence, Pane-Layout
+// ---------------------------------------------------------------------------
+export const terminalEntrySchema = z.object({
+  id: z.string().min(1).max(160),
+  // Noch nicht gestartete Terminals besitzen keine Runtime-ID.
+  runtimeId: z.string().uuid().nullable(),
+  name: z.string().min(1).max(200),
+  parentFolderId: z.string().min(1).max(160).nullable(),
+  sortOrder: z.number().int().nonnegative(),
+  pinned: z.boolean(),
+  persistent: z.boolean(),
+  kind: terminalKindSchema,
+  projectId: z.string().nullable(),
+  initialCwd: z.string().startsWith("/").nullable().default(null),
+});
+export const terminalFolderSchema = z.object({
+  id: z.string().min(1).max(160),
+  parentFolderId: z.string().min(1).max(160).nullable(),
+  name: z.string().min(1).max(200),
+  sortOrder: z.number().int().nonnegative(),
+  collapsed: z.boolean(),
+});
+export const terminalPaneSchema = z.object({
+  type: z.literal("pane"),
+  id: z.string().min(1).max(160),
+  runtimeId: z.string().uuid(),
+});
+export const terminalPaneLayoutSchema = z.discriminatedUnion("type", [
+  terminalPaneSchema,
+  z.object({
+    type: z.literal("split"),
+    id: z.string().min(1).max(160),
+    orientation: z.literal("horizontal"),
+    sizes: z.array(z.number().min(20).max(80)).min(2).max(4),
+    children: z.array(terminalPaneSchema).min(2).max(4),
+  }),
+]);
+export const terminalAreaLayoutSchema = z.object({
+  paneLayout: terminalPaneLayoutSchema.nullable(),
+  focusedPaneId: z.string().min(1).max(160).nullable(),
+});
+export const terminalWorkspaceV2Schema = z.object({
+  version: z.literal(2),
+  entries: z.array(terminalEntrySchema),
+  folders: z.array(terminalFolderSchema),
+  // Jede Terminalfläche (Standalone-Seite, CLI-Seiten, ToolPanel-Panels)
+  // besitzt ihr eigenes Pane-Layout; Organisation (Entries/Folders) ist global.
+  areaLayouts: z.record(z.string().min(1).max(160), terminalAreaLayoutSchema),
+}).superRefine((workspace, context) => {
+  const entryIds = new Set(workspace.entries.map((entry) => entry.id));
+  const folderIds = new Set(workspace.folders.map((folder) => folder.id));
+  const allIds = new Set([...entryIds, ...folderIds]);
+  if (allIds.size !== entryIds.size + folderIds.size) {
+    context.addIssue({ code: "custom", path: ["entries"], message: "Terminal- und Ordner-IDs müssen disjunkt sein." });
+  }
+  for (const entry of workspace.entries) {
+    if (entry.parentFolderId !== null && !folderIds.has(entry.parentFolderId)) {
+      context.addIssue({ code: "custom", path: ["entries"], message: "Der übergeordnete Ordner eines Terminals existiert nicht." });
+    }
+  }
+  for (const folder of workspace.folders) {
+    if (folder.parentFolderId !== null && !folderIds.has(folder.parentFolderId)) {
+      context.addIssue({ code: "custom", path: ["folders"], message: "Der übergeordnete Ordner existiert nicht." });
+    }
+  }
+  const collectPanes = (node: z.infer<typeof terminalPaneLayoutSchema>, paneIds: Set<string>) => {
+    if (node.type === "pane") paneIds.add(node.id);
+    else for (const child of node.children) collectPanes(child, paneIds);
+  };
+  for (const [areaKey, areaLayout] of Object.entries(workspace.areaLayouts)) {
+    const paneIds = new Set<string>();
+    if (areaLayout.paneLayout) collectPanes(areaLayout.paneLayout, paneIds);
+    if (areaLayout.focusedPaneId !== null && !paneIds.has(areaLayout.focusedPaneId)) {
+      context.addIssue({ code: "custom", path: ["areaLayouts", areaKey, "focusedPaneId"], message: "Der fokussierte Pane liegt nicht im Layout." });
+    }
+  }
+});
+
+export const terminalEntryPatchSchema = z.object({
+  runtimeId: z.string().uuid().nullable().optional(),
+  name: z.string().min(1).max(200).optional(),
+  parentFolderId: z.string().min(1).max(160).nullable().optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+  pinned: z.boolean().optional(),
+  persistent: z.boolean().optional(),
+  projectId: z.string().nullable().optional(),
+  initialCwd: z.string().startsWith("/").nullable().optional(),
+});
+export const terminalFolderPatchSchema = z.object({
+  parentFolderId: z.string().min(1).max(160).nullable().optional(),
+  name: z.string().min(1).max(200).optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+  collapsed: z.boolean().optional(),
+});
+export const terminalWorkspaceOperationSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("createEntry"), entry: terminalEntrySchema }),
+  z.object({ type: z.literal("updateEntry"), id: z.string().min(1).max(160), patch: terminalEntryPatchSchema }),
+  z.object({ type: z.literal("deleteEntry"), id: z.string().min(1).max(160) }),
+  z.object({ type: z.literal("createFolder"), folder: terminalFolderSchema }),
+  z.object({ type: z.literal("updateFolder"), id: z.string().min(1).max(160), patch: terminalFolderPatchSchema }),
+  // Kinder wandern beim Löschen in `moveChildrenTo` (oder bleiben ohne Ziel).
+  z.object({ type: z.literal("deleteFolder"), id: z.string().min(1).max(160), moveChildrenTo: z.string().min(1).max(160).nullable() }),
+  z.object({ type: z.literal("setPaneLayout"), areaId: z.string().min(1).max(160), layout: terminalPaneLayoutSchema.nullable() }),
+  z.object({ type: z.literal("setFocusedPane"), areaId: z.string().min(1).max(160), paneId: z.string().min(1).max(160).nullable() }),
+]);
+export const terminalWorkspaceOpsRequestSchema = z.object({
+  expectedRevision: z.number().int().nonnegative(),
+  operations: z.array(terminalWorkspaceOperationSchema).max(50),
+});
+export type TerminalEntry = z.infer<typeof terminalEntrySchema>;
+export type TerminalEntryPatch = z.infer<typeof terminalEntryPatchSchema>;
+export type TerminalFolder = z.infer<typeof terminalFolderSchema>;
+export type TerminalFolderPatch = z.infer<typeof terminalFolderPatchSchema>;
+export type TerminalAreaLayout = z.infer<typeof terminalAreaLayoutSchema>;
+export type TerminalPaneLayout = z.infer<typeof terminalPaneLayoutSchema>;
+export type TerminalWorkspaceV2 = z.infer<typeof terminalWorkspaceV2Schema>;
+export type TerminalWorkspaceOperation = z.infer<typeof terminalWorkspaceOperationSchema>;
+
 export const terminalWorkspaceResponseSchema = z.object({
-  document: terminalWorkspaceSchema,
+  document: z.union([terminalWorkspaceSchema, terminalWorkspaceV2Schema]),
   revision: z.number().int().nonnegative(),
   updatedAt: isoDateSchema,
 });
 export const saveTerminalWorkspaceRequestSchema = z.object({
-  document: terminalWorkspaceSchema,
+  document: z.union([terminalWorkspaceSchema, terminalWorkspaceV2Schema]),
   expectedRevision: z.number().int().nonnegative().nullable(),
 });
 // `notion` bleibt als lesbarer Legacy-Typ erhalten. Neue Knoten werden dafür
@@ -1456,8 +1575,10 @@ export const hermesUpdateStateSchema = z.object({
   lastFullBackupAt: isoDateSchema.nullable(), logTail: z.array(z.string().max(500)).max(40),
 });
 export const notificationCategorySchema = z.enum(["hermes", "coding-agent", "terminal"]);
-export const notificationSourceIconSchema = z.enum(["t3", "hermes", "opencode", "codex", "claude", "terminal", "workbench"]);
-export const notificationSourceSchema = z.enum(["hermes", "t3", "opencode", "codex", "claude", "terminal", "workbench", "update"]);
+export const notificationSourceIconSchema = z.enum(["t3", "hermes", "opencode", "codex", "claude", "terminal", "wrapt", "workbench"]);
+// `workbench` bleibt als Lesekompatibilität für alte SQLite-Zeilen erhalten;
+// neue Produktmeldungen verwenden ausschließlich `wrapt`.
+export const notificationSourceSchema = z.enum(["hermes", "t3", "opencode", "codex", "claude", "terminal", "wrapt", "workbench", "update"]);
 export const notificationSeveritySchema = z.enum(["info", "success", "warning", "error"]);
 export const notificationStateSchema = z.enum(["active", "resolved", "dismissed"]);
 export const notificationReportSchema = z.object({
@@ -1509,6 +1630,8 @@ export const notificationPreferencesSchema = z.object({
     codex: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
     claude: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
     terminal: notificationSourcePreferencesSchema.prefault({ toast: true, push: false }),
+    wrapt: notificationSourcePreferencesSchema.prefault({ toast: true, push: true }),
+    // Legacy-Schlüssel: wird nicht mehr geschrieben, hält aber alte Präferenzen lesbar.
     workbench: notificationSourcePreferencesSchema.prefault({ toast: true, push: true }),
     update: notificationSourcePreferencesSchema.prefault({ toast: false, push: false }),
   }).prefault({}),
@@ -1549,7 +1672,7 @@ export const notificationPushPayloadSchema = z.object({
 
 export const workbenchGroupSchema = z.object({
   id: z.string().min(1),
-  panelIds: z.array(z.string().min(1)).max(WORKBENCH_LIMITS.maxResidentTools),
+  panelIds: z.array(z.string().min(1)).max(WRAPT_LIMITS.maxResidentTools),
   activePanelId: z.string().nullable(),
 });
 
@@ -1558,7 +1681,7 @@ export const workbenchLayoutSchema = z.enum(["single", "columns", "rows", "main-
 export const workbenchPageSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(48),
-  groups: z.array(workbenchGroupSchema).min(1).max(WORKBENCH_LIMITS.maxVisibleGroups),
+  groups: z.array(workbenchGroupSchema).min(1).max(WRAPT_LIMITS.maxVisibleGroups),
   focusedGroupId: z.string().min(1),
   layout: workbenchLayoutSchema,
   layoutSizes: z.record(
@@ -1571,8 +1694,8 @@ export const workspaceSchema = z
   .object({
     version: z.literal(3),
     selectedProjectId: z.string().nullable(),
-    panels: z.array(panelSchema).max(WORKBENCH_LIMITS.maxResidentTools),
-    workspaces: z.array(workbenchPageSchema).min(1).max(WORKBENCH_LIMITS.maxWorkspaces),
+    panels: z.array(panelSchema).max(WRAPT_LIMITS.maxResidentTools),
+    workspaces: z.array(workbenchPageSchema).min(1).max(WRAPT_LIMITS.maxWorkspaces),
     activeWorkspaceId: z.string().min(1),
     maximizedPanelId: z.string().nullable(),
     focusedPanelId: z.string().nullable(),
@@ -2085,6 +2208,7 @@ export type TerminalArea = z.infer<typeof terminalAreaSchema>;
 export type TerminalWorkspace = z.infer<typeof terminalWorkspaceSchema>;
 export type TerminalWorkspaceResponse = z.infer<typeof terminalWorkspaceResponseSchema>;
 export type SaveTerminalWorkspaceRequest = z.infer<typeof saveTerminalWorkspaceRequestSchema>;
+export type TerminalWorkspaceOpsRequest = z.infer<typeof terminalWorkspaceOpsRequestSchema>;
 export type Panel = z.infer<typeof panelSchema>;
 export type PanelType = z.infer<typeof panelTypeSchema>;
 export type HermesServiceState = z.infer<typeof hermesServiceStateSchema>;

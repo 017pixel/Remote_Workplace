@@ -6,7 +6,7 @@ import {
   type ExtensionId,
   type NavigationContribution,
   type NavigationGroup,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   FrontendContributionRegistry,
   type FrontendRegistrySnapshot,

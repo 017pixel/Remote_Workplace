@@ -14,6 +14,26 @@ afterEach(() => {
 });
 
 describe.skipIf(!existsSync(executable))("TmuxSupervisor", () => {
+  it("imports legacy workbench metadata without changing new session names", () => {
+    const supervisor = new TmuxSupervisor(executable);
+    const name = `workbench-${randomUUID().replaceAll("-", "")}`;
+    const runtimeId = randomUUID();
+    const createdSession = spawnSync(executable, ["new-session", "-d", "-s", name, "-c", "/tmp", "sleep 20"], { encoding: "utf8", timeout: 3_000 });
+    expect(createdSession.status).toBe(0);
+    created.push(name);
+    for (const [key, value] of [["@workbench_runtime_id", runtimeId], ["@workbench_kind", "shell"], ["@workbench_project_id", "legacy-project"]] as const) {
+      const result = spawnSync(executable, ["set-option", "-t", name, key, value], { encoding: "utf8", timeout: 3_000 });
+      expect(result.status).toBe(0);
+    }
+    expect(supervisor.list()).toContainEqual(expect.objectContaining({
+      name,
+      runtimeId,
+      kind: "shell",
+      projectId: "legacy-project",
+      managed: true,
+    }));
+  });
+
   it("keeps a managed shell alive and discovers its metadata", async () => {
     const supervisor = new TmuxSupervisor(executable);
     const runtimeId = randomUUID();

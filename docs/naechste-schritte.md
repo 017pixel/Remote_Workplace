@@ -13,7 +13,7 @@ Terminal-Neustart, Browser, Doku/Version). Der Versionssprung auf 0.30.2 liegt
 gesammelt im letzten Commit, damit er die Themen nicht verschmiert.
 
 ### 2. E2E-Tests laufen lokal nicht durch ✅
-Basis-Adresse kommt aus `tests/e2e/helpers/environment.ts`: `WORKBENCH_E2E_URL`
+Basis-Adresse kommt aus `tests/e2e/helpers/environment.ts`: `WRAPT_E2E_URL`
 mit Fallback `127.0.0.1:3010`. Tests, die eine eingerichtete Instanz brauchen
 (Projekte, Tailscale-Identität, News), überspringen sich mit Begründung.
 `pnpm test:e2e` läuft ohne Sonderumgebung grün — 68 bestanden, 70 übersprungen,
@@ -101,7 +101,7 @@ Vorgehen: Entweder aufhellen oder nur noch für Text ab 18 px einsetzen.
 
 ### 13. Eigene Knotenfarben in die Einstellungen holen
 Die selbst gemischten Farben liegen nur im `localStorage` des Browsers
-(`remote-workplace.node-colors.v1`) und fehlen auf jedem anderen Gerät.
+(`wrapt.node-colors.v1`) und fehlen auf jedem anderen Gerät.
 Vorgehen: Entweder in die Orbit-Datenbank aufnehmen oder in den Einstellungen
 sichtbar machen, damit klar ist, dass sie gerätegebunden sind.
 
@@ -142,7 +142,7 @@ Aus den Umbauten sind verwaiste Klassen übrig, etwa `.orbit-gallery-move-menu`
 und `.orbit-gallery-move-dropdown` (das Menü ist jetzt ein Dialog).
 Vorgehen: Klassen im Stylesheet gegen die Verwendung im TSX prüfen.
 
-### 20. `data/workbench.sqlite` im Repo klären
+### 20. `data/wrapt.sqlite` im Repo klären
 Laut `AGENTS.md` eine alte Kopie; die echte Datenbank liegt unter
-`~/.local/share/remote-workplace/`. Entfernen oder eindeutig als Beispiel benennen,
+`~/.local/share/wrapt/`. Entfernen oder eindeutig als Beispiel benennen,
 damit niemand versehentlich darauf arbeitet.

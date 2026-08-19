@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
@@ -10,12 +10,12 @@ test.use({
 
 test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, browser, browserName }) => {
   test.setTimeout(120_000);
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Orbit test server.");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(`${message.text()} ${message.location()?.url ?? ""}`); });
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   await expect(page.locator(".orbit-page")).toBeVisible();
   await expect(page.getByRole("button", { name: "Auf Server gespeichert" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".topbar")).toHaveCount(0);
@@ -58,7 +58,7 @@ test("edits, saves and synchronizes a complete Orbit workspace", async ({ page, 
 
   const secondContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const secondPage = await secondContext.newPage();
-  await secondPage.goto(`${workbench}/workbench/workbench`);
+  await secondPage.goto(`${workbench}/wrapt/workbench`);
   const secondNote = secondPage.getByLabel("Neue Notiz bearbeiten").last();
   await expect(secondNote).toHaveValue(marker);
   const remoteMarker = `${marker} · Gerät 2`;

@@ -191,7 +191,7 @@ export function devServerDownPage(): string {
     + "<script>"
     + "(function(){"
     + "try{"
-    + "var key='workbench:preview-retry';"
+    + "var key='wrapt:preview-retry';"
     + "var raw=window.sessionStorage.getItem(key);"
     + "var now=Date.now();"
     + "var attempt=0;"
@@ -405,7 +405,7 @@ export class PreviewGateway {
         .type("text/html; charset=utf-8")
         .header("cache-control", "no-store")
         .send(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Preview-Slot zurücksetzen</title>`
-          + `<script src="${PREVIEW_BRIDGE_ROUTE}" ${"data-workbench-preview-bridge"}></script></head><body></body></html>`),
+          + `<script src="${PREVIEW_BRIDGE_ROUTE}" ${"data-wrapt-preview-bridge"}></script></head><body></body></html>`),
     );
     listener.post(PREVIEW_RESET_ROUTE, { config: { rateLimit: false } }, async (_request, reply) =>
       // Die Bridge löscht und inventarisiert die isolierten Speicherbereiche selbst.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SkillEditorReadResponse } from "@workbench/contracts";
+import type { SkillEditorReadResponse } from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "./apiClient";
 import { isValidSkillName, skillForPath, skillFrontmatterWarnings, useAutosave } from "./skillEditor";
 

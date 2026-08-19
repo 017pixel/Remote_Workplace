@@ -1,4 +1,4 @@
-import type { UsageTimelineLane as ApiTimelineLane, UsageTimelineStatus, UsageWindow } from "@workbench/contracts";
+import type { UsageTimelineLane as ApiTimelineLane, UsageTimelineStatus, UsageWindow } from "@wrapt/contracts";
 
 /**
  * Quota-Timeline: Lanes und Fensterprojektion.
@@ -7,7 +7,7 @@ import type { UsageTimelineLane as ApiTimelineLane, UsageTimelineStatus, UsageWi
  * Uhr (`now` wird immer übergeben), dadurch direkt testbar. Das Modell ist an
  * der QuotaTimeline aus dem MIT-Projekt "Cli-Proxy-API-Management-Center"
  * (Router-for.ME) orientiert, nutzt aber ausschließlich die UsageWindow- und
- * UsageTimelineLane-Strukturen von Remote_Workplace und rechnet in
+ * UsageTimelineLane-Strukturen von Wrapt und rechnet in
  * Millisekunden statt in Prozent-Brüchen.
  */
 

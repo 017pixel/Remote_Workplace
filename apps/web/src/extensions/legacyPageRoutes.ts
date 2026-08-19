@@ -2,7 +2,7 @@ import {
   pageContributionSchema,
   routeContributionSchema,
   type RouteContribution,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { Dashboard } from "../views/Dashboard";
 import {
   loadCliTerminal,
@@ -181,16 +181,16 @@ export const legacyHostRoutes: readonly LegacyHostRouteDefinition[] =
 
 export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
   Object.freeze([
-    owner("workbench.dashboard", [
+    owner("wrapt.dashboard", [
       {
         page: {
-          id: "workbench.dashboard.page.main",
+          id: "wrapt.dashboard.page.main",
           title: "Dashboard",
           description: "Server, Dienste und Projekte",
         },
         route: standardRoute(
-          "workbench.dashboard.route.main",
-          "workbench.dashboard.page.main",
+          "wrapt.dashboard.route.main",
+          "wrapt.dashboard.page.main",
           "/",
           { prefetch: "none", mobileNavigation: true },
         ),
@@ -198,16 +198,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime(),
       },
     ]),
-    owner("workbench.orbit", [
+    owner("wrapt.orbit", [
       {
         page: {
-          id: "workbench.orbit.page.main",
+          id: "wrapt.orbit.page.main",
           title: "Workbench",
           description: "Werkzeuge und Previews öffnen",
         },
         route: standardRoute(
-          "workbench.orbit.route.main",
-          "workbench.orbit.page.main",
+          "wrapt.orbit.route.main",
+          "wrapt.orbit.page.main",
           "/workbench",
           {
             shell: "full-bleed",
@@ -224,16 +224,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/workbench"),
       },
     ]),
-    owner("workbench.inbox", [
+    owner("wrapt.inbox", [
       {
         page: {
-          id: "workbench.inbox.page.main",
+          id: "wrapt.inbox.page.main",
           title: "Inbox",
           description: "Aufgaben, Rückfragen und Fehler",
         },
         route: standardRoute(
-          "workbench.inbox.route.main",
-          "workbench.inbox.page.main",
+          "wrapt.inbox.route.main",
+          "wrapt.inbox.page.main",
           "/inbox",
           { mobileNavigation: true },
         ),
@@ -241,16 +241,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/inbox"),
       },
     ]),
-    owner("workbench.tech-tldrs", [
+    owner("wrapt.tech-tldrs", [
       {
         page: {
-          id: "workbench.tech-tldrs.page.main",
+          id: "wrapt.tech-tldrs.page.main",
           title: "Tech TLDRs",
           description: "Tech-News lesen und verstehen",
         },
         route: standardRoute(
-          "workbench.tech-tldrs.route.main",
-          "workbench.tech-tldrs.page.main",
+          "wrapt.tech-tldrs.route.main",
+          "wrapt.tech-tldrs.page.main",
           "/tech-tldrs",
           {
             shell: "full-bleed",
@@ -267,16 +267,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/tech-tldrs"),
       },
     ]),
-    owner("workbench.projects", [
+    owner("wrapt.projects", [
       {
         page: {
-          id: "workbench.projects.page.list",
+          id: "wrapt.projects.page.list",
           title: "Projekte",
           description: "Konfigurierte Arbeitsbereiche",
         },
         route: standardRoute(
-          "workbench.projects.route.list",
-          "workbench.projects.page.list",
+          "wrapt.projects.route.list",
+          "wrapt.projects.page.list",
           "/projects",
           { mobileNavigation: true },
         ),
@@ -285,12 +285,12 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
       },
       {
         page: {
-          id: "workbench.projects.page.detail",
+          id: "wrapt.projects.page.detail",
           title: "Projektdetail",
         },
         route: standardRoute(
-          "workbench.projects.route.detail",
-          "workbench.projects.page.detail",
+          "wrapt.projects.route.detail",
+          "wrapt.projects.page.detail",
           "/projects/:projectId",
         ),
         pageRuntime: lazyPageRuntime(
@@ -301,16 +301,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/projects/"),
       },
     ]),
-    owner("workbench.files", [
+    owner("wrapt.files", [
       {
         page: {
-          id: "workbench.files.page.main",
+          id: "wrapt.files.page.main",
           title: "Dateien",
           description: "Server-Dateien verwalten und durchsuchen",
         },
         route: standardRoute(
-          "workbench.files.route.main",
-          "workbench.files.page.main",
+          "wrapt.files.route.main",
+          "wrapt.files.page.main",
           "/files",
           {
             aliases: ["/gallery"],
@@ -326,16 +326,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/files", "redirect-to-canonical"),
       },
     ]),
-    owner("workbench.skills", [
+    owner("wrapt.skills", [
       {
         page: {
-          id: "workbench.skills.page.main",
+          id: "wrapt.skills.page.main",
           title: "KI-Skills",
           description: "Globale Skills und Agenten-Regeln bearbeiten",
         },
         route: standardRoute(
-          "workbench.skills.route.main",
-          "workbench.skills.page.main",
+          "wrapt.skills.route.main",
+          "wrapt.skills.page.main",
           "/ki-skills",
           { mobileNavigation: true },
         ),
@@ -347,16 +347,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/ki-skills"),
       },
     ]),
-    owner("workbench.settings", [
+    owner("wrapt.settings", [
       {
         page: {
-          id: "workbench.settings.page.main",
+          id: "wrapt.settings.page.main",
           title: "Einstellungen",
           description: "Lokaler Workspace und Sicherheit",
         },
         route: standardRoute(
-          "workbench.settings.route.main",
-          "workbench.settings.page.main",
+          "wrapt.settings.route.main",
+          "wrapt.settings.page.main",
           "/settings",
           { mobileNavigation: true },
         ),
@@ -364,16 +364,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/settings"),
       },
     ]),
-    owner("workbench.usage", [
+    owner("wrapt.usage", [
       {
         page: {
-          id: "workbench.usage.page.main",
+          id: "wrapt.usage.page.main",
           title: "Nutzung",
           description: "Codex und OpenCode Go",
         },
         route: standardRoute(
-          "workbench.usage.route.main",
-          "workbench.usage.page.main",
+          "wrapt.usage.route.main",
+          "wrapt.usage.page.main",
           "/usage",
           { mobileNavigation: true },
         ),
@@ -381,16 +381,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/usage"),
       },
     ]),
-    owner("workbench.t3-code", [
+    owner("wrapt.t3-code", [
       {
         page: {
-          id: "workbench.t3-code.page.main",
+          id: "wrapt.t3-code.page.main",
           title: "T3 Code",
           description: "Codex-Arbeitsumgebung",
         },
         route: standardRoute(
-          "workbench.t3-code.route.main",
-          "workbench.t3-code.page.main",
+          "wrapt.t3-code.route.main",
+          "wrapt.t3-code.page.main",
           "/t3-code",
           { mobileNavigation: true },
         ),
@@ -398,17 +398,17 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/t3-code"),
       },
     ]),
-    owner("workbench.hermes", [
+    owner("wrapt.hermes", [
       {
         page: {
-          id: "workbench.hermes.page.main",
+          id: "wrapt.hermes.page.main",
           title: "Hermes Agent",
           description:
             "Offizielle Hermes-SPA für Chat, Automatisierungen und Verwaltung",
         },
         route: standardRoute(
-          "workbench.hermes.route.main",
-          "workbench.hermes.page.main",
+          "wrapt.hermes.route.main",
+          "wrapt.hermes.page.main",
           "/hermes-agent",
           { mobileNavigation: true },
         ),
@@ -416,16 +416,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/hermes-agent"),
       },
     ]),
-    owner("workbench.code-server", [
+    owner("wrapt.code-server", [
       {
         page: {
-          id: "workbench.code-server.page.main",
+          id: "wrapt.code-server.page.main",
           title: "Code-Server",
           description: "VS Code im Browser",
         },
         route: standardRoute(
-          "workbench.code-server.route.main",
-          "workbench.code-server.page.main",
+          "wrapt.code-server.route.main",
+          "wrapt.code-server.page.main",
           "/code-editor",
           { projectContext: true, mobileNavigation: true },
         ),
@@ -437,16 +437,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/code-editor"),
       },
     ]),
-    owner("workbench.previews", [
+    owner("wrapt.previews", [
       {
         page: {
-          id: "workbench.previews.page.main",
+          id: "wrapt.previews.page.main",
           title: "Previews",
           description: "Lokale Apps und laufende Ports",
         },
         route: standardRoute(
-          "workbench.previews.route.main",
-          "workbench.previews.page.main",
+          "wrapt.previews.route.main",
+          "wrapt.previews.page.main",
           "/previews",
           { projectContext: true, mobileNavigation: true },
         ),
@@ -455,12 +455,12 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
       },
       {
         page: {
-          id: "workbench.previews.page.group",
+          id: "wrapt.previews.page.group",
           title: "Preview-Gruppe",
         },
         route: standardRoute(
-          "workbench.previews.route.group",
-          "workbench.previews.page.group",
+          "wrapt.previews.route.group",
+          "wrapt.previews.page.group",
           "/previews/gruppe/:groupId",
         ),
         pageRuntime: lazyPageRuntime(
@@ -472,12 +472,12 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
       },
       {
         page: {
-          id: "workbench.previews.page.window",
+          id: "wrapt.previews.page.window",
           title: "Preview-Fenster",
         },
         route: standaloneRoute(
-          "workbench.previews.route.window",
-          "workbench.previews.page.window",
+          "wrapt.previews.route.window",
+          "wrapt.previews.page.window",
           "/previews/fenster/:groupId",
         ),
         pageRuntime: lazyPageRuntime(
@@ -489,12 +489,12 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
       },
       {
         page: {
-          id: "workbench.previews.page.live",
+          id: "wrapt.previews.page.live",
           title: "Live-Preview",
         },
         route: standaloneRoute(
-          "workbench.previews.route.live",
-          "workbench.previews.page.live",
+          "wrapt.previews.route.live",
+          "wrapt.previews.page.live",
           "/previews/live",
         ),
         pageRuntime: lazyPageRuntime(
@@ -505,16 +505,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/previews/live"),
       },
     ]),
-    owner("workbench.browser", [
+    owner("wrapt.browser", [
       {
         page: {
-          id: "workbench.browser.page.main",
+          id: "wrapt.browser.page.main",
           title: "Browser",
           description: "Chromium für Recherche und lokale Apps",
         },
         route: standardRoute(
-          "workbench.browser.route.main",
-          "workbench.browser.page.main",
+          "wrapt.browser.route.main",
+          "wrapt.browser.page.main",
           "/browser",
           { mobileNavigation: true },
         ),
@@ -522,16 +522,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/browser"),
       },
     ]),
-    owner("workbench.terminal", [
+    owner("wrapt.terminal", [
       {
         page: {
-          id: "workbench.terminal.page.main",
+          id: "wrapt.terminal.page.main",
           title: "Terminal",
           description: "Interaktive Server-Shell",
         },
         route: standardRoute(
-          "workbench.terminal.route.main",
-          "workbench.terminal.page.main",
+          "wrapt.terminal.route.main",
+          "wrapt.terminal.page.main",
           "/terminal",
           {
             projectContext: true,
@@ -548,12 +548,12 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
       },
       {
         page: {
-          id: "workbench.terminal.page.window",
+          id: "wrapt.terminal.page.window",
           title: "Terminalfenster",
         },
         route: standaloneRoute(
-          "workbench.terminal.route.window",
-          "workbench.terminal.page.window",
+          "wrapt.terminal.route.window",
+          "wrapt.terminal.page.window",
           "/terminal/fenster/:runtimeId",
         ),
         pageRuntime: lazyPageRuntime(
@@ -564,16 +564,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/terminal"),
       },
     ]),
-    owner("workbench.codex", [
+    owner("wrapt.codex", [
       {
         page: {
-          id: "workbench.codex.page.main",
+          id: "wrapt.codex.page.main",
           title: "Codex",
           description: "Codex CLI im Browser",
         },
         route: standardRoute(
-          "workbench.codex.route.main",
-          "workbench.codex.page.main",
+          "wrapt.codex.route.main",
+          "wrapt.codex.page.main",
           "/codex",
           {
             projectContext: true,
@@ -589,16 +589,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/codex"),
       },
     ]),
-    owner("workbench.opencode", [
+    owner("wrapt.opencode", [
       {
         page: {
-          id: "workbench.opencode.page.main",
+          id: "wrapt.opencode.page.main",
           title: "OpenCode",
           description: "OpenCode Web",
         },
         route: standardRoute(
-          "workbench.opencode.route.main",
-          "workbench.opencode.page.main",
+          "wrapt.opencode.route.main",
+          "wrapt.opencode.page.main",
           "/opencode",
           {
             projectContext: false,
@@ -614,16 +614,16 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
         routeRuntime: routeRuntime("/opencode"),
       },
     ]),
-    owner("workbench.claude", [
+    owner("wrapt.claude", [
       {
         page: {
-          id: "workbench.claude.page.main",
+          id: "wrapt.claude.page.main",
           title: "Claude Code",
           description: "Claude Code CLI im Browser",
         },
         route: standardRoute(
-          "workbench.claude.route.main",
-          "workbench.claude.page.main",
+          "wrapt.claude.route.main",
+          "wrapt.claude.page.main",
           "/claude",
           {
             projectContext: true,
@@ -643,24 +643,24 @@ export const legacyPageRouteOwners: readonly LegacyPageRouteOwner[] =
 
 /** Die 18 bisherigen LocalStorage-IDs bleiben bis zur Preferences-Migration lesbar. */
 export const legacyPageAliases = Object.freeze({
-  dashboard: "workbench.dashboard.page.main",
-  inbox: "workbench.inbox.page.main",
-  workbench: "workbench.orbit.page.main",
-  "tech-tldrs": "workbench.tech-tldrs.page.main",
-  projects: "workbench.projects.page.list",
-  "t3-code": "workbench.t3-code.page.main",
-  "hermes-agent": "workbench.hermes.page.main",
-  codex: "workbench.codex.page.main",
-  opencode: "workbench.opencode.page.main",
-  claude: "workbench.claude.page.main",
-  "code-editor": "workbench.code-server.page.main",
-  previews: "workbench.previews.page.main",
-  browser: "workbench.browser.page.main",
-  terminal: "workbench.terminal.page.main",
-  files: "workbench.files.page.main",
-  "ki-skills": "workbench.skills.page.main",
-  usage: "workbench.usage.page.main",
-  settings: "workbench.settings.page.main",
+  dashboard: "wrapt.dashboard.page.main",
+  inbox: "wrapt.inbox.page.main",
+  workbench: "wrapt.orbit.page.main",
+  "tech-tldrs": "wrapt.tech-tldrs.page.main",
+  projects: "wrapt.projects.page.list",
+  "t3-code": "wrapt.t3-code.page.main",
+  "hermes-agent": "wrapt.hermes.page.main",
+  codex: "wrapt.codex.page.main",
+  opencode: "wrapt.opencode.page.main",
+  claude: "wrapt.claude.page.main",
+  "code-editor": "wrapt.code-server.page.main",
+  previews: "wrapt.previews.page.main",
+  browser: "wrapt.browser.page.main",
+  terminal: "wrapt.terminal.page.main",
+  files: "wrapt.files.page.main",
+  "ki-skills": "wrapt.skills.page.main",
+  usage: "wrapt.usage.page.main",
+  settings: "wrapt.settings.page.main",
 });
 
 export function registerLegacyPageRoutes(registry: PageRouteRegistry): void {

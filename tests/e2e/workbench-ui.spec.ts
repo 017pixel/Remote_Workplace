@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { hasPrivateWorkbench, privateWorkbenchReason, workbenchUrl } from "./helpers/environment";
+import { hasPrivateWrapt, privateWraptReason, workbenchUrl } from "./helpers/environment";
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
@@ -7,18 +7,18 @@ test.use({
 
 // Diese Tests erwarten die eingerichtete Instanz: benannte Projekte, laufenden
 // code-server, T3 Code und eine Tailscale-Identität für die Terminals.
-test.skip(() => !hasPrivateWorkbench, privateWorkbenchReason);
+test.skip(() => !hasPrivateWrapt, privateWraptReason);
 
-const privateWorkbench = workbenchUrl;
+const privateWrapt = workbenchUrl;
 
 test("shows every local project and navigable breadcrumbs", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/projects`);
+  await page.goto(`${privateWrapt}/projects`);
   await expect(page.getByRole("heading", { name: "Projekte", level: 1 })).toBeVisible();
   await expect(page.locator("article")).toHaveCount(21);
-  await expect(page.getByRole("link", { name: "Remote_Workplace" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Wrapt" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Remote Workplace" }).click();
-  await expect(page).toHaveURL(/\/workbench$/);
+  await page.getByRole("link", { name: "Wrapt" }).click();
+  await expect(page).toHaveURL(/\/wrapt$/);
   await expect(page.getByRole("heading", { name: "Übersicht" })).toBeVisible();
 });
 
@@ -28,9 +28,9 @@ test("keeps preview alive across device, fullscreen and external-tab actions", a
     if (message.type() === "error" || message.type() === "warning") browserErrors.push(message.text());
   });
 
-  await page.goto(`${privateWorkbench}/projects/demo-app`);
+  await page.goto(`${privateWrapt}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
-  await expect(page).toHaveURL(/\/workbench\/previews\?preview=/);
+  await expect(page).toHaveURL(/\/wrapt\/previews\?preview=/);
 
   const preview = page.locator('iframe[title="Preview"]');
   await expect(preview).toHaveAttribute("src", /\/editor\/absproxy\/1234\/anmeldung\/$/);
@@ -59,7 +59,7 @@ test("keeps preview alive across device, fullscreen and external-tab actions", a
 });
 
 test("keeps the same preview runtime across sidebar routes", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/projects/demo-app`);
+  await page.goto(`${privateWrapt}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
 
   const preview = page.locator('iframe[title="Preview"]');
@@ -69,11 +69,11 @@ test("keeps the same preview runtime across sidebar routes", async ({ page }) =>
   expect(frame).not.toBeNull();
   const marker = `persistent-${Date.now()}`;
   await frame!.evaluate((value) => {
-    (window as Window & { __workbenchPersistenceMarker?: string }).__workbenchPersistenceMarker = value;
+    (window as Window & { __wraptPersistenceMarker?: string }).__wraptPersistenceMarker = value;
   }, marker);
   const expectSameRuntime = async () => {
     expect(await frame!.evaluate(() =>
-      (window as Window & { __workbenchPersistenceMarker?: string }).__workbenchPersistenceMarker,
+      (window as Window & { __wraptPersistenceMarker?: string }).__wraptPersistenceMarker,
     )).toBe(marker);
   };
 
@@ -85,9 +85,9 @@ test("keeps the same preview runtime across sidebar routes", async ({ page }) =>
 });
 
 test("offers code-server as a persistent standalone sidebar tool", async ({ page }) => {
-  await page.goto(privateWorkbench);
+  await page.goto(privateWrapt);
   await page.getByRole("link", { name: "Code-Server" }).click();
-  await expect(page).toHaveURL(/\/workbench\/code-editor$/);
+  await expect(page).toHaveURL(/\/wrapt\/code-editor$/);
   await expect(page.locator(".project-picker-trigger")).toBeVisible();
   await expect(page.locator('iframe[title="Editor"]')).toBeVisible({ timeout: 20_000 });
   await page.getByRole("link", { name: "Dashboard" }).click();
@@ -96,14 +96,16 @@ test("offers code-server as a persistent standalone sidebar tool", async ({ page
 });
 
 test("loads code-server and provides a working native terminal", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/projects/remote-workplace`);
+  await page.goto(`${privateWrapt}/projects/wrapt`);
   await page.getByRole("button", { name: "Editor", exact: true }).click();
   const editor = page.locator('iframe[title="Editor"]');
-  await expect(editor).toHaveAttribute("src", /\/editor\/\?folder=%2Fhome%2Fuser%2Fprojects%2FRemote_Workplace/);
+  await expect(editor).toHaveAttribute("src", /\/editor\/\?folder=%2Fhome%2Fuser%2Fprojects%2FWrapt/);
   await expect(page.frameLocator('iframe[title="Editor"]').locator("body")).toBeVisible({ timeout: 20_000 });
 
-  await page.goto(`${privateWorkbench}/terminal`);
-  await expect(page.locator(".terminal-tab .terminal-state.is-connected")).toBeVisible({ timeout: 15_000 });
+  await page.goto(`${privateWrapt}/terminal`);
+  const emptyButton = page.locator(".terminal-empty-state button");
+  if (await emptyButton.count() > 0 && await emptyButton.isVisible().catch(() => false)) await emptyButton.click();
+  await expect(page.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 15_000 });
   const terminalInput = page.locator(".xterm-helper-textarea");
   await terminalInput.fill("bad");
   await terminalInput.press("Backspace");
@@ -112,52 +114,59 @@ test("loads code-server and provides a working native terminal", async ({ page }
   await terminalInput.type("printf '__PLAYWRIGHT_TERMINAL_OK__\\n'");
   await terminalInput.press("Enter");
   await expect(page.locator(".xterm-screen")).toContainText("__PLAYWRIGHT_TERMINAL_OK__", { timeout: 10_000 });
-  await page.locator(".terminal-area").getByRole("button", { name: "Terminal schließen", exact: true }).click();
 });
 
-test("creates project-bound terminal tabs and splits them without replacing sessions", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/terminal`);
+test("creates project-bound terminals and splits them without replacing sessions", async ({ page }) => {
+  await page.goto(`${privateWrapt}/terminal`);
   const area = page.locator(".terminal-area");
-  await expect(area.locator(".terminal-tab .terminal-state.is-connected")).toBeVisible({ timeout: 15_000 });
+  const emptyButton = area.locator(".terminal-empty-state button");
+  if (await emptyButton.count() > 0 && await emptyButton.isVisible().catch(() => false)) await emptyButton.click();
+  await expect(area.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 15_000 });
+  await expect(area.locator(".terminal-tree-entry")).toHaveCount(1);
 
-  await area.locator(".terminal-island").getByRole("button", { name: "Neues Terminal", exact: true }).click();
-  await expect(area.getByRole("tab")).toHaveCount(2);
-  await expect(area.locator(".terminal-tab .terminal-state.is-connected")).toHaveCount(2, { timeout: 15_000 });
+  // Zweites Terminal über die Sidebar: Die erste Session läuft weiter.
+  await area.getByRole("button", { name: "Neues Terminal", exact: true }).click();
+  await expect(area.locator(".terminal-tree-entry")).toHaveCount(2);
+  await expect(area.locator(".terminal-tree-status.is-connected")).toHaveCount(2, { timeout: 15_000 });
 
+  // Projektbindung: Der Project-Picker öffnet ein Terminal im Projekt.
   await page.locator(".project-picker-trigger").click();
-  await page.getByLabel("Projekt suchen").fill("Remote_Workplace");
-  await page.getByRole("option", { name: /Remote_Workplace/ }).click();
-  await expect(area.getByRole("tab")).toHaveCount(3);
-  await expect(area.locator(".terminal-tab .terminal-state.is-connected")).toHaveCount(3, { timeout: 15_000 });
+  await page.getByLabel("Projekt suchen").fill("Wrapt");
+  await page.getByRole("option", { name: /Wrapt/ }).click();
+  await expect(area.locator(".terminal-tree-entry")).toHaveCount(3);
+  await expect(area.locator(".terminal-tree-status.is-connected")).toHaveCount(3, { timeout: 15_000 });
 
-  await area.getByRole("button", { name: "Terminal teilen", exact: true }).click();
+  // Split: beide Panes sichtbar, danach wieder einzeln.
+  await area.getByRole("button", { name: "Neues Terminal rechts teilen", exact: true }).click();
   await expect(area).toHaveAttribute("data-split", "true");
   await area.getByRole("button", { name: "Split schließen", exact: true }).click();
   await expect(area).toHaveAttribute("data-split", "false");
 
-  await expect(area.locator(".terminal-statusline-path")).toContainText("/home/user/projects/Remote_Workplace");
+  await expect(area.locator(".terminal-tree-cwd").first()).toContainText("/home/user/projects/Wrapt");
 
+  // Panes schließen: Die Entries (und damit die Sessions) bleiben erhalten.
   for (let remaining = 3; remaining > 0; remaining -= 1) {
-    await area.getByRole("button", { name: "Terminal schließen", exact: true }).click();
-    await expect(area.getByRole("tab")).toHaveCount(remaining - 1);
+    await area.getByRole("button", { name: "Weitere Terminalaktionen", exact: true }).click();
+    await area.getByRole("button", { name: "Pane schließen", exact: true }).click();
+    await expect(area.locator(".terminal-tree-entry")).toHaveCount(3);
   }
 });
 
 test("öffnet die OpenCode-Web-UI über den Workbench-Proxy", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/opencode`);
+  await page.goto(`${privateWrapt}/opencode`);
   const frame = page.locator('.tool-surface-standalone iframe[title="OpenCode"]');
   await expect(frame).toHaveAttribute("src", "/opencode");
   await expect(frame).toBeVisible();
 });
 
 test("keeps T3 Code visibly connected to the selected project", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/t3-code`);
+  await page.goto(`${privateWrapt}/t3-code`);
   await expect(page.locator(".project-picker")).toBeVisible();
   await expect(page.locator('iframe[title="T3 Code"]')).toBeVisible({ timeout: 20_000 });
 });
 
 test("runs a real Chromium session from the Browser tool", async ({ page }) => {
-  await page.goto(`${privateWorkbench}/browser`);
+  await page.goto(`${privateWrapt}/browser`);
   const address = page.getByLabel("Browser-Adresse");
   await expect(address).toBeVisible();
   await expect(page.getByText("Laufende Projekt-Dienste")).toBeVisible({ timeout: 15_000 });
@@ -173,7 +182,7 @@ test("opens Sample app.py through the stable code-server socket", async ({ page 
     if (message.type() === "error" || message.type() === "warning") browserErrors.push(message.text());
   });
 
-  await page.goto(`${privateWorkbench}/projects/chappie`);
+  await page.goto(`${privateWrapt}/projects/chappie`);
   await page.getByRole("button", { name: "Editor", exact: true }).click();
 
   const editor = page.frameLocator('iframe[title="Editor"]');
@@ -200,7 +209,7 @@ test("opens Sample app.py through the stable code-server socket", async ({ page 
 
 test("keeps the mobile preview controls compact below the app navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${privateWorkbench}/projects/demo-app`);
+  await page.goto(`${privateWrapt}/projects/demo-app`);
   await page.getByRole("button", { name: "Öffnen", exact: true }).click();
 
   const island = page.locator(".panel-island");
@@ -217,7 +226,7 @@ test("keeps the mobile preview controls compact below the app navigation", async
 
 test("gives the mobile editor a full-width usable viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${privateWorkbench}/projects/remote-workplace`);
+  await page.goto(`${privateWrapt}/projects/wrapt`);
   await page.getByRole("button", { name: "Editor", exact: true }).click();
 
   const panel = page.locator('[data-panel-type="code-server"]');

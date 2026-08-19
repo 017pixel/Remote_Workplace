@@ -18,7 +18,7 @@ const profile = "11111111-1111-4111-8111-111111111111";
 const entries = [{ key: "theme", value: "dark" }, { key: "auth", value: "token-123" }];
 
 async function service(options: { mode?: "off" | "opt-in" } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "workbench-preview-storage-"));
+  const directory = await mkdtemp(join(tmpdir(), "wrapt-preview-storage-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const path = join(directory, "workbench.sqlite");
   const database = new PreviewSlotDatabase(path);

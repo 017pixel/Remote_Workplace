@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OrbitBoard, OrbitNode } from "@workbench/contracts";
+import type { OrbitBoard, OrbitNode } from "@wrapt/contracts";
 import { previewSessionKeysWithNode, previewSlotReleasedOnTargetChange, previewSlotsReleasedWithNode } from "./previewSlotLifecycle";
 
 function slot(id: string, parentId: string | null, previewSlotId: number, target = "5173"): OrbitNode {

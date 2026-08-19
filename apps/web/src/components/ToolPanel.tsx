@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon, DeviceRotateIcon, ExternalLinkIcon, FullscreenIcon, RefreshIcon, RestoreIcon, WarningIcon } from "./icons";
-import type { Panel, Project, ServiceMode } from "@workbench/contracts";
-import { WORKBENCH_LIMITS } from "@workbench/contracts";
-import { useWorkbenchNotice } from "../stores/workbenchNotice";
+import type { Panel, Project, ServiceMode } from "@wrapt/contracts";
+import { WRAPT_LIMITS } from "@wrapt/contracts";
+import { useWraptNotice } from "../stores/wraptNotice";
 import { useWorkspaceStore } from "../stores/workspace";
 import { StateDot } from "./primitives";
 import { DevicePickerButton } from "./DevicePickerButton";
@@ -162,7 +162,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
   const [previewPublicUrl, setPreviewPublicUrl] = useState<string | null>(null);
   const [previewSlotId, setPreviewSlotId] = useState<number | null>(() => {
     try {
-      const raw = window.sessionStorage.getItem(`workbench:preview-slot:${panel.id}`);
+      const raw = window.sessionStorage.getItem(`wrapt:preview-slot:${panel.id}`);
       return raw ? Number(raw) : null;
     } catch { return null; }
   });
@@ -176,10 +176,10 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
       if (event.source !== iframeRef.current?.contentWindow) return;
       const data = event.data as { source?: unknown; version?: unknown; type?: unknown; path?: unknown } | null;
       if (!data || data.version !== 1 || data.type !== "route.changed" || typeof data.path !== "string") return;
-      if (panel.type === "t3-code" && data.source === "remote-workplace-t3") {
+      if (panel.type === "t3-code" && data.source === "wrapt-t3") {
         usePanelPresenceStore.getState().setT3Thread(panel.id, t3ThreadIdFromPath(data.path));
       }
-      if (panel.type === "opencode" && data.source === "remote-workplace-opencode") {
+      if (panel.type === "opencode" && data.source === "wrapt-opencode") {
         usePanelPresenceStore.getState().setOpenCodeSession(panel.id, opencodeSessionIdFromPath(data.path));
       }
     };
@@ -195,7 +195,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     const handleT3BrowserRequest = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { type?: unknown; url?: unknown } | null;
-      if (data?.type !== "remote-workplace:open-browser") return;
+      if (data?.type !== "wrapt:open-browser") return;
       const target = typeof data.url === "string" ? normalizePreviewTarget(data.url) : null;
       const browserUrl = target?.kind === "local"
         ? `http://127.0.0.1:${target.port}${target.path}`
@@ -205,7 +205,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         projectId: panel.projectId,
         ...(browserUrl ? { browserUrl } : {}),
       }) === null) {
-        useWorkbenchNotice.getState().show(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+        useWraptNotice.getState().show(`Es können höchstens ${WRAPT_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
       }
     };
     window.addEventListener("message", handleT3BrowserRequest);
@@ -220,7 +220,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     const handleT3EditorRequest = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { type?: unknown; folder?: unknown } | null;
-      if (data?.type !== "remote-workplace:open-editor") return;
+      if (data?.type !== "wrapt:open-editor") return;
       const folder = typeof data.folder === "string" && data.folder.length > 0 ? data.folder : null;
       if (standalone) {
         const params = new URLSearchParams(folder ? { folder } : {});
@@ -232,7 +232,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         projectId: panel.projectId,
         ...(folder ? { codeServerFolder: folder } : {}),
       }) === null) {
-        useWorkbenchNotice.getState().show(`Es können höchstens ${WORKBENCH_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
+        useWraptNotice.getState().show(`Es können höchstens ${WRAPT_LIMITS.maxResidentTools} Werkzeuge gleichzeitig geöffnet sein. Schließe zuerst ein Panel.`);
       }
     };
     window.addEventListener("message", handleT3EditorRequest);
@@ -243,7 +243,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
     if (panel.type !== "preview" || localPreview) return;
     const queryPort = standalone ? Number(new URLSearchParams(window.location.search).get("port")) : NaN;
     let storedPort = NaN;
-    try { storedPort = Number(window.sessionStorage.getItem(`workbench:preview-target:${panel.id}`)); } catch { /* session storage may be unavailable */ }
+    try { storedPort = Number(window.sessionStorage.getItem(`wrapt:preview-target:${panel.id}`)); } catch { /* session storage may be unavailable */ }
     const port = Number.isInteger(queryPort) && queryPort > 0 ? queryPort : storedPort;
     if (Number.isInteger(port) && port > 0 && port <= 65_535) {
       setLocalPreview({ url: `http://127.0.0.1:${port}/`, mode: "embedded", embed: true, proxyUrl: null, reason: null, targetPort: port, path: "/" });
@@ -301,8 +301,8 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
         ...(resolved?.targetPort ? { expectedTargetPort: resolved.targetPort } : {}),
       });
       try {
-        window.sessionStorage.removeItem(`workbench:preview-slot:${panel.id}`);
-        window.sessionStorage.removeItem(`workbench:preview-target:${panel.id}`);
+        window.sessionStorage.removeItem(`wrapt:preview-slot:${panel.id}`);
+        window.sessionStorage.removeItem(`wrapt:preview-target:${panel.id}`);
       } catch {
         // Der Server gibt den Slot trotzdem frei.
       }
@@ -406,7 +406,7 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
             onSlotAssigned={(slotId, url) => {
               setPreviewSlotId(slotId);
               setPreviewPublicUrl(url);
-              try { window.sessionStorage.setItem(`workbench:preview-slot:${panel.id}`, String(slotId)); } catch { /* Session remains server-side. */ }
+              try { window.sessionStorage.setItem(`wrapt:preview-slot:${panel.id}`, String(slotId)); } catch { /* Session remains server-side. */ }
             }}
             {...(onFocus ? { onFocus } : {})}
           />
@@ -417,7 +417,6 @@ export function ToolPanel({ panel, project, isFocused, codeServerMode = "externa
               initialProjectId={panel.projectId}
               kind={panel.type === "terminal" ? "shell" : panel.type}
               renderScale={terminalRenderScale}
-              maxTabs={1}
               minimal={minimal}
             />
           </div>

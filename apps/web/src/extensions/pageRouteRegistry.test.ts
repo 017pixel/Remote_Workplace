@@ -1,7 +1,7 @@
 import {
   pageContributionSchema,
   routeContributionSchema,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { describe, expect, it, vi } from "vitest";
 import {
   PageRouteRegistry,

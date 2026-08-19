@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { PreviewExternalOpenMode } from "@workbench/contracts";
+import type { PreviewExternalOpenMode } from "@wrapt/contracts";
 
 interface ProjectPreferenceRow {
   mainPort: number | null;

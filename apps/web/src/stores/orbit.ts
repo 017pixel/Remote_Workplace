@@ -10,7 +10,7 @@ import {
   type OrbitWorkspace,
   type PanelType,
   type Workspace,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { create } from "zustand";
 import { generateId } from "../lib/id";
 

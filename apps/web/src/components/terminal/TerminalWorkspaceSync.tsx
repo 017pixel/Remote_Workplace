@@ -1,96 +1,160 @@
 import { useEffect, useRef } from "react";
+import type { TerminalWorkspaceOperation, TerminalWorkspaceV2 } from "@wrapt/contracts";
 import { ApiClientError, apiClient } from "../../lib/apiClient";
-import { useTerminalStore, type TerminalAreaState } from "../../stores/terminals";
-import { terminalWorkspaceSchema } from "@workbench/contracts";
+import { useTerminalWorkspaceStore } from "../../stores/terminalWorkspace";
 
-const SAVE_DELAY_MS = 500;
+const SAVE_DELAY_MS = 400;
 const POLL_INTERVAL_MS = 3_000;
-const DRAFT_KEY = "workbench.terminals.pending.v1";
+const PENDING_KEY = "wrapt.terminals.pending.v2";
+const BROADCAST_CHANNEL = "wrapt.terminals.v2";
 
-function documentFromAreas(areas: Record<string, TerminalAreaState>) { return { version: 1 as const, areas }; }
+interface PendingPayload { revision: number; operations: TerminalWorkspaceOperation[]; }
+
+function readPending(): PendingPayload | null {
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || !("revision" in parsed) || !Array.isArray((parsed as PendingPayload).operations)) return null;
+    return parsed as PendingPayload;
+  } catch { return null; }
+}
+
+function writePending(payload: PendingPayload | null): void {
+  try {
+    if (payload === null) window.localStorage.removeItem(PENDING_KEY);
+    else window.localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
+  } catch { /* Server bleibt autoritativ. */ }
+}
+
+/** Lädt das Workspace-Dokument und migriert V1 einmalig serverseitig nach V2,
+ *  sodass alle Aufrufer durchgehend ein V2-Dokument erhalten. */
+async function loadWorkspaceV2(): Promise<{ document: TerminalWorkspaceV2; revision: number }> {
+  const response = await apiClient.terminalWorkspace();
+  if (response.document.version === 1) {
+    const migrated = await apiClient.saveTerminalWorkspace({ document: response.document, expectedRevision: response.revision });
+    if (migrated?.document.version === 2) return { document: migrated.document, revision: migrated.revision };
+  }
+  if (response.document.version === 2) return { document: response.document, revision: response.revision };
+  throw new Error("Das Terminal-Layout konnte nicht migriert werden.");
+}
 
 export function TerminalWorkspaceSync() {
-  const hydrated = useTerminalStore((state) => state.hydrated);
-  const dirty = useTerminalStore((state) => state.dirty);
-  const saving = useTerminalStore((state) => state.saving);
-  const revision = useTerminalStore((state) => state.revision);
-  const areas = useTerminalStore((state) => state.areas);
-  const hasTerminalTabs = useTerminalStore((state) => Object.values(state.areas).some((area) => area.tabs.length > 0));
+  const hydrated = useTerminalWorkspaceStore((state) => state.hydrated);
+  const dirty = useTerminalWorkspaceStore((state) => state.dirty);
+  const saving = useTerminalWorkspaceStore((state) => state.saving);
+  const revision = useTerminalWorkspaceStore((state) => state.revision);
+  const pendingOps = useTerminalWorkspaceStore((state) => state.pendingOps);
   const retryRef = useRef<number | null>(null);
-  const blockedAreasRef = useRef<Record<string, TerminalAreaState> | null>(null);
+  const conflictAttemptsRef = useRef(0);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     let active = true;
-    void apiClient.terminalWorkspace().then((response) => {
-      if (!active) return;
+    const load = async () => {
       try {
-        const draft = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? "null") as unknown;
-        const parsed = terminalWorkspaceSchema.safeParse(
-          draft && typeof draft === "object" && "document" in draft
-            ? (draft as { document: unknown }).document
-            : null,
+        const response = await loadWorkspaceV2();
+        if (!active) return;
+        const pending = readPending();
+        useTerminalWorkspaceStore.getState().initializeRemote(
+          response.document,
+          response.revision,
+          pending ? pending.operations : [],
         );
-        if (parsed.success) {
-          useTerminalStore.getState().restoreDraft(parsed.data, response.revision);
-          return;
-        }
-      } catch { /* Ein beschädigter Draft wird ignoriert; der Serverstand bleibt verfügbar. */ }
-      useTerminalStore.getState().initializeRemote(response.document, response.revision);
-    }).catch((error: unknown) => {
-      if (!active) return;
-      useTerminalStore.getState().initializeRemote(documentFromAreas({}), 0);
-      useTerminalStore.getState().markSyncError(error instanceof Error ? error.message : "Terminal-Layout konnte nicht geladen werden.");
-    });
+      } catch (error: unknown) {
+        if (!active) return;
+        useTerminalWorkspaceStore.getState().markSyncError(error instanceof Error ? error.message : "Terminal-Layout konnte nicht geladen werden.");
+      }
+    };
+    void load();
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !dirty || saving || blockedAreasRef.current === areas) return;
-    const snapshotAreas = areas;
-    const snapshotRevision = revision;
-    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ document: documentFromAreas(snapshotAreas), revision: snapshotRevision })); } catch { /* Server bleibt autoritativ. */ }
-    const handle = window.setTimeout(() => {
-      useTerminalStore.getState().markSaving(true);
-      void apiClient.saveTerminalWorkspace({ document: documentFromAreas(snapshotAreas), expectedRevision: snapshotRevision })
-        .then((response) => {
-          if (!response) return;
-          const current = useTerminalStore.getState();
-          const unchanged = JSON.stringify(current.areas) === JSON.stringify(snapshotAreas);
-          current.markSaved(response.revision, unchanged);
-          blockedAreasRef.current = null;
-          if (unchanged) { try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignored */ } }
-        })
-        .catch(async (error: unknown) => {
-          if (error instanceof ApiClientError && error.status === 409) {
-            try {
-              const latest = await apiClient.terminalWorkspace();
-              const current = useTerminalStore.getState();
-              blockedAreasRef.current = current.areas;
-              current.resolveConflict(latest.revision);
-              return;
-            } catch { /* retry below */ }
-          }
-          retryRef.current = window.setTimeout(() => useTerminalStore.getState().markSyncError(error instanceof Error ? error.message : "Terminal-Layout konnte nicht gespeichert werden."), 1_000);
-        });
-    }, SAVE_DELAY_MS);
-    return () => window.clearTimeout(handle);
-  }, [areas, dirty, hydrated, revision, saving]);
+    const channel = new BroadcastChannel(BROADCAST_CHANNEL);
+    channelRef.current = channel;
+    channel.onmessage = (event: MessageEvent<{ document?: unknown; revision?: unknown }>) => {
+      const state = useTerminalWorkspaceStore.getState();
+      if (state.dirty || state.saving || !state.hydrated) return;
+      if (typeof event.data?.revision === "number" && typeof event.data.document === "object" && event.data.document !== null) {
+        const remote = event.data.document as Parameters<typeof state.applyRemote>[0];
+        if (event.data.revision > state.revision) state.applyRemote(remote, event.data.revision);
+      }
+    };
+    return () => { channel.close(); channelRef.current = null; };
+  }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !dirty || saving || pendingOps.length === 0) return;
+    writePending({ revision, operations: pendingOps });
+    const snapshot = { revision, operations: pendingOps };
+    const handle = window.setTimeout(() => {
+      useTerminalWorkspaceStore.getState().markSaving(true);
+      void (async () => {
+        let latest = snapshot;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            const response = await apiClient.terminalWorkspaceOps({ expectedRevision: latest.revision, operations: latest.operations });
+            if (!response) return;
+            if (response.document.version !== 2) {
+              useTerminalWorkspaceStore.getState().markSyncError("Das Terminal-Layout konnte nicht gespeichert werden.");
+              return;
+            }
+            useTerminalWorkspaceStore.getState().reconcileSaved(response.document, response.revision, snapshot.operations);
+            conflictAttemptsRef.current = 0;
+            const current = useTerminalWorkspaceStore.getState();
+            if (current.pendingOps.length === 0) writePending(null);
+            else writePending({ revision: current.revision, operations: current.pendingOps });
+            channelRef.current?.postMessage({ document: response.document, revision: response.revision });
+            return;
+          } catch (error: unknown) {
+            if (error instanceof ApiClientError && error.status === 409) {
+              conflictAttemptsRef.current += 1;
+              const remote = await loadWorkspaceV2().catch(() => null);
+              if (!remote) {
+                retryRef.current = window.setTimeout(() => useTerminalWorkspaceStore.getState().markSyncError("Terminal-Layout konnte nicht gespeichert werden."), 1_000);
+                return;
+              }
+              // Rebase: lokale Ops auf den neuesten Serverstand anwenden und
+              // erneut senden. `applyRemote` schützt absichtlich schmutzige
+              // Dokumente, deshalb braucht der Konfliktpfad eine eigene
+              // Methode, die die lokalen Operationen sichtbar erhält.
+              const current = useTerminalWorkspaceStore.getState();
+              const operations = current.pendingOps.length > 0 ? current.pendingOps : latest.operations;
+              current.rebaseRemote(remote.document, remote.revision, operations);
+              current.markSaving(true);
+              latest = { revision: remote.revision, operations };
+              continue;
+            }
+            retryRef.current = window.setTimeout(() => useTerminalWorkspaceStore.getState().markSyncError(
+              error instanceof Error ? error.message : "Terminal-Layout konnte nicht gespeichert werden.",
+            ), 1_000);
+            return;
+          }
+        }
+        // Bei ungewöhnlich hoher Konkurrenz bleibt der lokale Puffer erhalten.
+        // `saving=false` stößt den normalen Debounce-Save erneut an; der alte
+        // Fallback auf den leeren Serverstand darf keine Terminals entfernen.
+        useTerminalWorkspaceStore.getState().markSaving(false);
+      })();
+    }, SAVE_DELAY_MS);
+    return () => window.clearTimeout(handle);
+  }, [dirty, hydrated, pendingOps, revision, saving]);
+
+  useEffect(() => {
     const poll = () => {
       if (globalThis.document.visibilityState === "hidden") return;
-      const state = useTerminalStore.getState();
-      if (!Object.values(state.areas).some((area) => area.tabs.length > 0) && !state.dirty) return;
-      if (state.dirty || state.saving) return;
-      void apiClient.terminalWorkspace().then((response) => {
-        if (response.revision > useTerminalStore.getState().revision) useTerminalStore.getState().applyRemote(response.document, response.revision);
+      const state = useTerminalWorkspaceStore.getState();
+      if (!state.hydrated || state.dirty || state.saving) return;
+      void loadWorkspaceV2().then((response) => {
+        if (response.revision > useTerminalWorkspaceStore.getState().revision) {
+          useTerminalWorkspaceStore.getState().applyRemote(response.document, response.revision);
+          channelRef.current?.postMessage({ document: response.document, revision: response.revision });
+        }
       }).catch(() => { /* later poll retries */ });
     };
     const handle = window.setInterval(poll, POLL_INTERVAL_MS);
-    const onVisible = () => {
-      if (globalThis.document.visibilityState === "visible") poll();
-    };
+    const onVisible = () => { if (globalThis.document.visibilityState === "visible") poll(); };
     window.addEventListener("focus", onVisible);
     globalThis.document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -98,7 +162,7 @@ export function TerminalWorkspaceSync() {
       window.removeEventListener("focus", onVisible);
       globalThis.document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [hasTerminalTabs, hydrated]);
+  }, []);
 
   useEffect(() => () => { if (retryRef.current !== null) window.clearTimeout(retryRef.current); }, []);
   return null;

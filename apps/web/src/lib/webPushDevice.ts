@@ -1,4 +1,4 @@
-import type { NotificationSettingsResponse, PushSubscriptionRegistration } from "@workbench/contracts";
+import type { NotificationSettingsResponse, PushSubscriptionRegistration } from "@wrapt/contracts";
 import { apiClient, ApiClientError } from "./apiClient";
 
 export type WebPushDeviceStatus =

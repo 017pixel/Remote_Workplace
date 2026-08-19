@@ -1,6 +1,6 @@
 # Extension Authoring
 
-Remote Workplace behandelt neue, optionale Produktfunktionen standardmäßig als Extensions. Der Core stellt Infrastruktur und sichere Contribution Points bereit. Fachliche oder provider-spezifische Werkzeuge gehören nicht automatisch in den Core.
+Wrapt behandelt neue, optionale Produktfunktionen standardmäßig als Extensions. Der Core stellt Infrastruktur und sichere Contribution Points bereit. Fachliche oder provider-spezifische Werkzeuge gehören nicht automatisch in den Core.
 
 ## Schnellstart
 
@@ -36,7 +36,7 @@ Als First-Party-Extension beginnen oder dorthin migrieren sollen dagegen provide
 
 ## Manifest als Source of Truth
 
-`extension.json` wird ausschließlich gegen `@workbench/extension-contracts` validiert. Eigene parallele Manifesttypen oder lockere JSON-Prüfungen sind nicht erlaubt.
+`extension.json` wird ausschließlich gegen `@wrapt/extension-contracts` validiert. Eigene parallele Manifesttypen oder lockere JSON-Prüfungen sind nicht erlaubt.
 
 Der Validator baut das Contract-Paket und verwendet anschließend direkt `extensionManifestSchema`:
 

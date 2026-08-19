@@ -1,4 +1,4 @@
-import type { ProviderUsage, UsageMonitoring, UsageResponse } from "@workbench/contracts";
+import type { ProviderUsage, UsageMonitoring, UsageResponse } from "@wrapt/contracts";
 import type { CodexbarClient } from "./codexbar-client.js";
 import { CodexbarError } from "./codexbar-errors.js";
 import { mergeCodexPrimaryWindows } from "./codex-oauth-primary-window.js";

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bringt die laufende T3-Code-Instanz auf den in der Config eingestellten Kanal
-# (config/workbench.local.json → "t3.channel"). Wird vom Neustart-Flow aufgerufen
+# (config/wrapt.local.json → "t3.channel"). Wird vom Neustart-Flow aufgerufen
 # (scripts/restart-backend.sh und restart-all.sh) und kann zum Debuggen auch direkt
 # gestartet werden.
 #
@@ -35,7 +35,7 @@ fail() {
 
 # --- Konfiguration lesen ------------------------------------------------------
 # Eine Zeile je Wert, feste Reihenfolge. Defaults stehen im Zod-Schema
-# (apps/server/src/config/workbench-config.ts) und hier bewusst identisch.
+# (apps/server/src/config/wrapt-config.ts) und hier bewusst identisch.
 read_config() {
   # shellcheck disable=SC2016 # Das ist JavaScript — ${...} darf die Shell nicht ersetzen.
   node -e '
@@ -43,7 +43,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const dir = process.argv[1];
 let config = {};
-for (const name of ["workbench.local.json", "workbench.example.json"]) {
+for (const name of ["wrapt.local.json", "wrapt.example.json"]) {
   try { config = JSON.parse(readFileSync(join(dir, name), "utf8")); break; } catch { /* nächster Kandidat */ }
 }
 const home = config.system?.homeDirectory ?? process.env.HOME ?? "";
@@ -67,7 +67,7 @@ process.stdout.write(values.join("\n") + "\n");
 }
 
 if ! config_lines="$(read_config)"; then
-  err "config/workbench.local.json konnte nicht gelesen werden."
+  err "config/wrapt.local.json konnte nicht gelesen werden."
   exit 1
 fi
 

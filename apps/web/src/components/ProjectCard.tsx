@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router";
 import { ChevronDownIcon, T3CodeIcon } from "./icons";
-import type { Project } from "@workbench/contracts";
+import type { Project } from "@wrapt/contracts";
 import { Badge } from "./primitives";
-import { openProjectDefault, openProjectToolStandalone, openToolForProject } from "../lib/workbenchActions";
+import { openProjectDefault, openProjectToolStandalone, openToolForProject } from "../lib/wraptActions";
 import { projectToolOptions } from "../lib/projectTools";
 
 const availabilityTone: Record<Project["availability"], "ok" | "bad" | "warn"> = {

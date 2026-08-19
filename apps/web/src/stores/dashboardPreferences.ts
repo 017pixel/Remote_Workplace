@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { DashboardConfig, DashboardSection } from "@workbench/contracts";
+import type { DashboardConfig, DashboardSection } from "@wrapt/contracts";
 import { dashboardSectionRegistry } from "../extensions/dashboardRegistry";
 
 export const allDashboardSections: DashboardSection[] = [
@@ -71,7 +71,7 @@ interface DashboardPreferencesState {
   isVisible: (section: DashboardSection) => boolean;
 }
 
-const STORAGE_KEY = "remote-workplace.dashboard-preferences.v1";
+const STORAGE_KEY = "wrapt.dashboard-preferences.v1";
 
 function validSections(value: unknown): Set<DashboardSection> {
   if (!Array.isArray(value)) return new Set();

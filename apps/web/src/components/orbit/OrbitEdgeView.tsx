@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { BaseEdge, EdgeLabelRenderer, useStore, type EdgeProps } from "@xyflow/react";
-import type { OrbitEdge } from "@workbench/contracts";
+import type { OrbitEdge } from "@wrapt/contracts";
 import { collisionFreeEdgeLabelPoint } from "../../lib/orbitEdgeLabel";
 import { useOrbitStore } from "../../stores/orbit";
 

@@ -1,5 +1,5 @@
-import type { DashboardSection } from "@workbench/contracts";
-import { contributionIdSchema } from "@workbench/extension-contracts";
+import type { DashboardSection } from "@wrapt/contracts";
+import { contributionIdSchema } from "@wrapt/extension-contracts";
 import {
   dashboardSectionRegistry,
   type DashboardSectionMetadata,
@@ -30,21 +30,21 @@ export interface LegacyDashboardSectionOwner {
  */
 const legacyDashboardSectionDefinitions: readonly LegacyDashboardSectionDefinition[] =
   Object.freeze([
-    { id: "workbench.dashboard.section.quick-actions", title: "Schnellaktionen", description: "T3 Code, Workbench, Terminal, Nutzung und News", order: 10, legacySectionId: "quickActions" },
-    { id: "workbench.dashboard.section.server", title: "Serverstatus", description: "Status, Version, Uptime, Betriebssystem und Tailscale", order: 20, legacySectionId: "server" },
-    { id: "workbench.dashboard.section.metrics", title: "Systemmetriken", description: "CPU, RAM, Speicher, Last und Temperatur", order: 30, legacySectionId: "metrics" },
-    { id: "workbench.dashboard.section.services", title: "Dienste", description: "Konfigurierte Dienste und ihre Erreichbarkeit", order: 40, legacySectionId: "services" },
-    { id: "workbench.dashboard.section.runtime", title: "Laufzeit", description: "Projekte, Ports, Prozesse und Terminal-Sessions", order: 50, legacySectionId: "runtime" },
-    { id: "workbench.dashboard.section.diagnostics", title: "Diagnose", description: "HTTP, Event Loop, Prozessspeicher und Betriebszustand", order: 60, legacySectionId: "diagnostics" },
-    { id: "workbench.dashboard.section.usage", title: "Nutzung und Limits", description: "Aktuelle Codex-, OpenCode- und Claude-Limits", order: 70, legacySectionId: "usage" },
-    { id: "workbench.dashboard.section.news", title: "News", description: "Anzahl ungelesener Tech-TLDRs und Sync-Status", order: 80, legacySectionId: "news" },
-    { id: "workbench.dashboard.section.commands", title: "Command Reference", description: "Konfigurierte Befehle zum Kopieren", order: 90, legacySectionId: "commands" },
+    { id: "wrapt.dashboard.section.quick-actions", title: "Schnellaktionen", description: "T3 Code, Workbench, Terminal, Nutzung und News", order: 10, legacySectionId: "quickActions" },
+    { id: "wrapt.dashboard.section.server", title: "Serverstatus", description: "Status, Version, Uptime, Betriebssystem und Tailscale", order: 20, legacySectionId: "server" },
+    { id: "wrapt.dashboard.section.metrics", title: "Systemmetriken", description: "CPU, RAM, Speicher, Last und Temperatur", order: 30, legacySectionId: "metrics" },
+    { id: "wrapt.dashboard.section.services", title: "Dienste", description: "Konfigurierte Dienste und ihre Erreichbarkeit", order: 40, legacySectionId: "services" },
+    { id: "wrapt.dashboard.section.runtime", title: "Laufzeit", description: "Projekte, Ports, Prozesse und Terminal-Sessions", order: 50, legacySectionId: "runtime" },
+    { id: "wrapt.dashboard.section.diagnostics", title: "Diagnose", description: "HTTP, Event Loop, Prozessspeicher und Betriebszustand", order: 60, legacySectionId: "diagnostics" },
+    { id: "wrapt.dashboard.section.usage", title: "Nutzung und Limits", description: "Aktuelle Codex-, OpenCode- und Claude-Limits", order: 70, legacySectionId: "usage" },
+    { id: "wrapt.dashboard.section.news", title: "News", description: "Anzahl ungelesener Tech-TLDRs und Sync-Status", order: 80, legacySectionId: "news" },
+    { id: "wrapt.dashboard.section.commands", title: "Command Reference", description: "Konfigurierte Befehle zum Kopieren", order: 90, legacySectionId: "commands" },
   ]);
 
 export const legacyDashboardSectionOwners: readonly LegacyDashboardSectionOwner[] =
   Object.freeze([
     Object.freeze({
-      ownerId: "workbench.dashboard",
+      ownerId: "wrapt.dashboard",
       registrations: Object.freeze(
         legacyDashboardSectionDefinitions.map((definition) =>
           Object.freeze({

@@ -64,9 +64,9 @@ describe("legacySettingsCards", () => {
     expect(hostOnly).toEqual(["Version", "Dienst neu starten", "App installieren", "Sicherheit"]);
   });
 
-  it("verwendet ausschließlich stabile IDs im workbench.settings-Namespace", () => {
+  it("verwendet ausschließlich stabile IDs im wrapt.settings-Namespace", () => {
     for (const card of legacySettingsCards) {
-      expect(card.id.startsWith("workbench.settings.card.")).toBe(true);
+      expect(card.id.startsWith("wrapt.settings.card.")).toBe(true);
       expect(card.order).toBeGreaterThan(0);
     }
   });

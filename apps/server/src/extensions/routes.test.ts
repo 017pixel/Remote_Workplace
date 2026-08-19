@@ -4,7 +4,7 @@ import { settings } from "../config/settings.js";
 
 const apps: Awaited<ReturnType<typeof buildApp>>[] = [];
 const authenticatedHeaders = {
-  "tailscale-user-login": settings.terminalAllowedUsers[0] ?? "test@workbench.invalid",
+  "tailscale-user-login": settings.terminalAllowedUsers[0] ?? "test@wrapt.invalid",
 };
 
 afterEach(async () => {
@@ -36,7 +36,7 @@ describe("Extension API", () => {
       headers: authenticatedHeaders,
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ providerId: "workbench-catalog", entries: [] });
+    expect(response.json()).toMatchObject({ providerId: "wrapt-catalog", entries: [] });
   });
 
   it("validiert Mutations-Requests vor der Ausführung", async () => {

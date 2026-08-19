@@ -1,6 +1,6 @@
 type RouteLoader<T> = () => Promise<T>;
 
-const STALE_CHUNK_RETRY_PARAM = "__workbench_chunk_retry";
+const STALE_CHUNK_RETRY_PARAM = "__wrapt_chunk_retry";
 const DYNAMIC_IMPORT_ERROR_PATTERN = /(?:dynamically imported module|module script failed|failed to fetch dynamically imported module)/i;
 
 function clearStaleChunkRetryMarker() {

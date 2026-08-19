@@ -6,7 +6,7 @@ import {
   extensionRegistrySnapshotSchema,
   sha256IntegritySchema,
   type ExtensionManagementRequest,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { z } from "zod";
 import { mutate, request } from "./transport.js";
 

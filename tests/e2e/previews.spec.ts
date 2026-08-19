@@ -168,7 +168,7 @@ test.describe("Lokale Previews", () => {
   });
 
   test("verweigert Preview-Zugriff ohne Identität", async ({ request }) => {
-    test.skip(!process.env.WORKBENCH_E2E_URL, "Die isolierte Testinstanz nutzt bewusst eine Entwicklungsidentität.");
+    test.skip(!process.env.WRAPT_E2E_URL, "Die isolierte Testinstanz nutzt bewusst eine Entwicklungsidentität.");
     const response = await request.get("/api/v1/previews/slots");
     expect(response.status()).toBe(401);
   });
@@ -242,7 +242,7 @@ createServer((_request, response) => {
         await request.delete(`/api/v1/previews/sessions/${session.id}`, { headers: previewIdentity });
       }
 
-      await page.goto("/workbench/previews");
+      await page.goto("/wrapt/previews");
 
       // Der Hub öffnet das zuletzt gewählte Projekt automatisch; die Fixture-
       // Laufzeit wird über den Projekt-Manager als eigener Tab hinzugefügt.

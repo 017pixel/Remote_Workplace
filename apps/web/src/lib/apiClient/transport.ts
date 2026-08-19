@@ -1,7 +1,7 @@
-import { apiErrorSchema, type ApiError } from "@workbench/contracts";
+import { apiErrorSchema, type ApiError } from "@wrapt/contracts";
 import type { ZodType } from "zod";
 
-export const WORKBENCH_SYNC_VERSION = "2";
+export const WRAPT_SYNC_VERSION = "2";
 
 const API_TIMEOUT_MS = 30_000;
 
@@ -38,7 +38,7 @@ export async function request<T>(path: string, schema: ZodType<T>, signal?: Abor
     method: "GET",
     cache: "no-store",
     credentials: "same-origin",
-    headers: { Accept: "application/json", "X-Workbench-Sync-Version": WORKBENCH_SYNC_VERSION },
+    headers: { Accept: "application/json", "X-Wrapt-Sync-Version": WRAPT_SYNC_VERSION },
     signal: requestSignal(signal),
   });
 
@@ -47,7 +47,7 @@ export async function request<T>(path: string, schema: ZodType<T>, signal?: Abor
     throw new ApiClientError(
       response.status,
       payload?.error.code ?? "REQUEST_FAILED",
-      payload?.error.message ?? "Die Workbench API ist momentan nicht erreichbar.",
+      payload?.error.message ?? "Die Wrapt-API ist momentan nicht erreichbar.",
       payload?.error.requestId ?? response.headers.get("x-request-id"),
       payload?.error.retryable ?? response.status >= 500,
       payload?.error.details ?? null,
@@ -58,7 +58,7 @@ export async function request<T>(path: string, schema: ZodType<T>, signal?: Abor
 }
 
 export async function mutate<T>(path: string, method: "POST"|"PUT"|"PATCH"|"DELETE", schema: ZodType<T> | null, body?: unknown): Promise<T | undefined> {
-  const response = await fetch(`/api/v1${path}`, { method, cache: "no-store", credentials: "same-origin", signal: requestSignal(), headers: { Accept: "application/json", "X-Workbench-Sync-Version": WORKBENCH_SYNC_VERSION, ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const response = await fetch(`/api/v1${path}`, { method, cache: "no-store", credentials: "same-origin", signal: requestSignal(), headers: { Accept: "application/json", "X-Wrapt-Sync-Version": WRAPT_SYNC_VERSION, ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (!response.ok) { const payload = await errorPayload(response); throw new ApiClientError(response.status, payload?.error.code ?? "REQUEST_FAILED", payload?.error.message ?? "Die Änderung konnte nicht gespeichert werden.", payload?.error.requestId ?? response.headers.get("x-request-id"), payload?.error.retryable ?? response.status >= 500, payload?.error.details ?? null); }
   if (!schema || response.status === 204) return undefined;
   return schema.parse(await response.json());

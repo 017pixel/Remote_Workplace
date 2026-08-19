@@ -20,7 +20,7 @@ const maxInjectedHtmlBytes = 4 * 1024 * 1024;
  * kompatible Form `/<base64-directory>/session/<id>`. Die Erkennung bleibt
  * absichtlich auf beide Formen sowie Query-Deep-Links begrenzt.
  */
-export const opencodeRouteBridgeScript = `<script data-remote-workplace-opencode-route="1">
+export const opencodeRouteBridgeScript = `<script data-wrapt-opencode-route="1">
 (() => {
   const prefix = "/opencode";
   const scopedPath = (value) => {
@@ -103,7 +103,7 @@ export const opencodeRouteBridgeScript = `<script data-remote-workplace-opencode
         });
       } catch { /* Presence ist Best Effort. */ }
     } else {
-      window.parent.postMessage({ source: "remote-workplace-opencode", version: 1, type: "route.changed", path }, window.location.origin);
+      window.parent.postMessage({ source: "wrapt-opencode", version: 1, type: "route.changed", path }, window.location.origin);
     }
   };
   const originalPushState = history.pushState.bind(history);
@@ -159,7 +159,7 @@ function rewriteResponseHeaders(headers: IncomingHttpHeaders): IncomingHttpHeade
 }
 
 function upstreamPath(rawUrl: string): string {
-  const url = new URL(rawUrl, "http://workbench.local");
+  const url = new URL(rawUrl, "http://wrapt.local");
   const pathname = url.pathname === opencodePrefix
     ? "/"
     : url.pathname.startsWith(`${opencodePrefix}/`)

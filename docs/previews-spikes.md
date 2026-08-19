@@ -6,8 +6,8 @@ Go/No-Go festgehalten. Erst danach wurden die produktiven Migrationen umgesetzt.
 
 ## Spike A — Slot-Reset
 
-**Aufbau.** Die Slot-Origin liefert unter `/__workbench/preview-reset` eine minimale
-Seite, die ausschließlich die Bridge lädt. Die Workbench öffnet sie in einem
+**Aufbau.** Die Slot-Origin liefert unter `/__wrapt/preview-reset` eine minimale
+Seite, die ausschließlich die Bridge lädt. Die Wrapt öffnet sie in einem
 unsichtbaren iframe, lässt Service Worker, Cache Storage, localStorage,
 sessionStorage und die per `indexedDB.databases()` sichtbaren Datenbanken löschen
 und fordert danach eine erneute Inventur an. Zusätzlich setzt die Route
@@ -29,12 +29,12 @@ Storage-Affinität ohne verifizierten Reset zurück").
 ## Spike B — HTML-Injektion
 
 **Aufbau.** `parse5` statt Regex; die Bridge wird als **externes** Script unter
-`/__workbench/preview-bridge.v1.js` eingebunden, damit kein `unsafe-inline`
+`/__wrapt/preview-bridge.v1.js` eingebunden, damit kein `unsafe-inline`
 nötig wird. Die Route erreicht den Devserver nie.
 
 **Ergebnis: Go.** Verifiziert sind: genau eine Injektion in `head`, Dokumente ohne
 `head`, korrekte UTF-8-Ausgabe inklusive Umlauten, Erkennung einer bereits
-vorhandenen Bridge über den Marker `data-workbench-preview-bridge` sowie
+vorhandenen Bridge über den Marker `data-wrapt-preview-bridge` sowie
 unveränderte Weiterleitung bei zu großen (> `previews.maxInjectableHtmlBytes`),
 nicht UTF-8-kodierten oder nicht parsebaren Antworten. Solche Antworten werden als
 `bridgeUnavailable` diagnostiziert statt beschädigt.
@@ -62,7 +62,7 @@ Belegt durch `apps/server/src/previews/routes.test.ts` und
 ## Spike D — localStorage-Snapshot
 
 **Aufbau.** Die Bridge liest ausschließlich Schlüssel und Stringwerte, sortiert
-deterministisch und meldet sie an die Workbench. Der Hash entsteht aus derselben
+deterministisch und meldet sie an die Wrapt. Der Hash entsteht aus derselben
 kanonischen Form auf beiden Seiten (`sha256` in reinem JavaScript, weil
 `crypto.subtle` in unsicheren Kontexten fehlt).
 

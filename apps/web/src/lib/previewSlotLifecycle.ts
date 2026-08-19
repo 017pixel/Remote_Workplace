@@ -1,4 +1,4 @@
-import type { OrbitBoard } from "@workbench/contracts";
+import type { OrbitBoard } from "@wrapt/contracts";
 import { apiClient } from "./apiClient";
 import { normalizePreviewTarget } from "./previewTargets";
 

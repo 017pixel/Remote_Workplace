@@ -20,7 +20,7 @@ export interface OrbitPalettePayload {
   referenceId?: string;
 }
 
-const ORBIT_PALETTE_QUEUE_KEY = "workbench-orbit-palette-queue";
+const ORBIT_PALETTE_QUEUE_KEY = "wrapt-orbit-palette-queue";
 const ORBIT_PALETTE_QUEUE_MAX = 20;
 
 export function queueOrbitPayload(payload: OrbitPalettePayload): void {

@@ -1,6 +1,6 @@
 {
-  "name": "remote-workplace",
-  "version": "0.90.0",
+  "name": "wrapt",
+  "version": "0.95.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.29.2",
@@ -16,18 +16,18 @@
     }
   },
   "scripts": {
-    "dev": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm --parallel --filter @workbench/server --filter @workbench/web dev",
-    "build": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm --filter @workbench/server build && pnpm --filter @workbench/web build",
-    "typecheck": "pnpm --filter @workbench/extension-contracts typecheck && pnpm --filter @workbench/contracts typecheck && pnpm --parallel --filter @workbench/server --filter @workbench/web typecheck",
+    "dev": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm --parallel --filter @wrapt/server --filter @wrapt/web dev",
+    "build": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm --filter @wrapt/server build && pnpm --filter @wrapt/web build",
+    "typecheck": "pnpm --filter @wrapt/extension-contracts typecheck && pnpm --filter @wrapt/contracts typecheck && pnpm --parallel --filter @wrapt/server --filter @wrapt/web typecheck",
     "lint": "eslint .",
-    "test": "pnpm --filter @workbench/extension-contracts build && pnpm --filter @workbench/contracts build && pnpm -r test",
+    "test": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
     "test:e2e": "playwright test",
     "security:audit": "pnpm audit --prod --audit-level=high",
     "architecture:extensions": "node scripts/extensions/check-boundary.mjs",
     "architecture:file-lines": "node scripts/architecture/check-file-lines.mjs",
     "quality": "pnpm architecture:extensions && pnpm architecture:file-lines && pnpm typecheck && pnpm exec eslint . --max-warnings=0 && pnpm test && pnpm build && pnpm security:audit",
-    "start": "pnpm --filter @workbench/server start",
+    "start": "pnpm --filter @wrapt/server start",
     "extension:create": "node scripts/extensions/create.mjs",
     "extension:validate": "node scripts/extensions/validate.mjs"
   },

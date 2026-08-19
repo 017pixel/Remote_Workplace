@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify from "fastify";
-import { apiErrorSchema } from "@workbench/contracts";
+import { apiErrorSchema } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { createProxyHandler } from "./proxy.js";
 

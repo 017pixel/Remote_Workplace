@@ -35,16 +35,16 @@ describe("Extension Permission IDs", () => {
 
 describe("Permission Scopes", () => {
   it("verwendet current oder explizit präfixierte Projekt-IDs", () => {
-    expect(projectPermissionScopeSchema.parse({ projects: ["current", "id:remote-workplace"] })).toEqual({
-      projects: ["current", "id:remote-workplace"],
+    expect(projectPermissionScopeSchema.parse({ projects: ["current", "id:wrapt"] })).toEqual({
+      projects: ["current", "id:wrapt"],
     });
   });
 
   it.each([
     { projects: [] },
-    { projects: ["remote-workplace"] },
+    { projects: ["wrapt"] },
     { projects: ["id:../etc"] },
-    { projects: ["id:Remote-Workplace"] },
+    { projects: ["id:Wrapt"] },
     { projects: ["current", "current"] },
   ])(
     "weist den ungültigen Project Scope %j ab",
@@ -87,12 +87,12 @@ describe("Permission Scopes", () => {
   });
 
   it("begrenzt Service Scopes auf exakte systemd-Units", () => {
-    expect(servicesPermissionScopeSchema.parse({ services: ["workbench.service", "worker@one.service"] })).toEqual({
-      services: ["workbench.service", "worker@one.service"],
+    expect(servicesPermissionScopeSchema.parse({ services: ["wrapt.service", "worker@one.service"] })).toEqual({
+      services: ["wrapt.service", "worker@one.service"],
     });
     expect(servicesPermissionScopeSchema.safeParse({ services: ["*.service"] }).success).toBe(false);
-    expect(servicesPermissionScopeSchema.safeParse({ services: ["..workbench.service"] }).success).toBe(false);
-    expect(servicesPermissionScopeSchema.safeParse({ services: ["workbench.service", "workbench.service"] }).success).toBe(
+    expect(servicesPermissionScopeSchema.safeParse({ services: ["..wrapt.service"] }).success).toBe(false);
+    expect(servicesPermissionScopeSchema.safeParse({ services: ["wrapt.service", "wrapt.service"] }).success).toBe(
       false,
     );
   });
@@ -105,7 +105,7 @@ describe("strukturierte Permission Requests", () => {
     { permission: "network.fetch", scope: { hosts: ["api.example.com"] } },
     { permission: "notifications.create" },
     { permission: "secrets.request", scope: { names: ["api.example-token"] } },
-    { permission: "system.services.read", scope: { services: ["workbench.service"] } },
+    { permission: "system.services.read", scope: { services: ["wrapt.service"] } },
   ])("akzeptiert %j", (request) => {
     expect(extensionPermissionRequestSchema.parse(request)).toEqual(request);
   });
@@ -130,7 +130,7 @@ describe("strukturierte Permission Requests", () => {
     expect(
       extensionPermissionRequestsSchema.safeParse([
         { permission: "files.read", scope: { projects: ["current"] } },
-        { permission: "files.read", scope: { projects: ["id:remote-workplace"] } },
+        { permission: "files.read", scope: { projects: ["id:wrapt"] } },
       ]).success,
     ).toBe(false);
   });

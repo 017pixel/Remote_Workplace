@@ -1,7 +1,7 @@
 import { opendir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { execa } from "execa";
-import type { ProjectActivity } from "@workbench/contracts";
+import type { ProjectActivity } from "@wrapt/contracts";
 import type { ProjectActivityDatabase } from "./activity-database.js";
 
 const IGNORED_DIRECTORIES = new Set([

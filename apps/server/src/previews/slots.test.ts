@@ -34,7 +34,7 @@ async function service(options: {
   forbiddenTargetPorts?: number[];
   flags?: Partial<PreviewFlags>;
 }) {
-  const directory = await mkdtemp(join(tmpdir(), "workbench-preview-"));
+  const directory = await mkdtemp(join(tmpdir(), "wrapt-preview-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const path = join(directory, "workbench.sqlite");
   const database = new PreviewSlotDatabase(path);
@@ -261,10 +261,10 @@ describe("Preview-Slots", () => {
     cleanup.push(() => slots.stopListeners());
 
     const html = await fetch(`http://127.0.0.1:${proxyPorts[0]}/`).then((response) => response.text());
-    expect(html).toContain("data-workbench-preview-bridge");
-    expect(html).toContain("/__workbench/preview-bridge.v1.js");
+    expect(html).toContain("data-wrapt-preview-bridge");
+    expect(html).toContain("/__wrapt/preview-bridge.v1.js");
 
-    const script = await fetch(`http://127.0.0.1:${proxyPorts[0]}/__workbench/preview-bridge.v1.js`).then((response) => response.text());
+    const script = await fetch(`http://127.0.0.1:${proxyPorts[0]}/__wrapt/preview-bridge.v1.js`).then((response) => response.text());
     expect(script).toContain(`"${dependencyPort}":"https://server.test.ts.net:8452/"`);
 
     const apiResponse = await fetch(`http://127.0.0.1:${proxyPorts[1]}/api`, { headers: { origin: "https://server.test.ts.net:8451" } });

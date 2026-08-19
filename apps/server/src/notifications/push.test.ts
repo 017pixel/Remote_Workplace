@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type webPush from "web-push";
-import { notificationPreferencesSchema, notificationSchema, type Notification, type PushSubscription } from "@workbench/contracts";
+import { notificationPreferencesSchema, notificationSchema, type Notification, type PushSubscription } from "@wrapt/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NotificationDatabase } from "./database.js";
 import { createPushPayload, NotificationPushService, safeNotificationLink } from "./push.js";
@@ -19,7 +19,7 @@ function notification(overrides: Partial<Notification> = {}): Notification {
   return notificationSchema.parse({
     id: randomUUID(), source: "t3", category: "coding-agent", sourceIcon: "t3", kind: "agent.completed",
     severity: "success", state: "active", title: "Fertig", body: "Die Aufgabe ist abgeschlossen.",
-    link: "/workbench/t3-code?thread=1", remoteId: null, createdAt: new Date().toISOString(), readAt: null,
+    link: "/wrapt/t3-code?thread=1", remoteId: null, createdAt: new Date().toISOString(), readAt: null,
     acknowledgedAt: null, deletedAt: null, resolvedAt: null, meta: {}, report: null, ...overrides,
   });
 }
@@ -31,13 +31,13 @@ function fixture(options: {
   directory?: string;
   presenceTtlMilliseconds?: number;
 } = {}) {
-  const directory = options.directory ?? mkdtempSync(join(tmpdir(), "remote-workplace-push-"));
+  const directory = options.directory ?? mkdtempSync(join(tmpdir(), "wrapt-push-"));
   if (!options.directory) directories.push(directory);
-  const databasePath = join(directory, "workbench.sqlite");
+  const databasePath = join(directory, "wrapt.sqlite");
   const notifications = new NotificationDatabase(databasePath, 48, options.presenceTtlMilliseconds);
   const preferences = notificationPreferencesSchema.parse({
     pushEnabled: options.pushEnabled ?? true,
-    sources: { t3: { toast: true, push: options.sourcePush ?? true }, workbench: { toast: true, push: true } },
+    sources: { t3: { toast: true, push: options.sourcePush ?? true }, wrapt: { toast: true, push: true } },
   });
   const sendNotification = options.sendNotification ?? (vi.fn(async () => ({ statusCode: 201, body: "", headers: {} })) as unknown as typeof webPush.sendNotification);
   const push = new NotificationPushService({ databasePath, dataDirectory: directory, subject: "mailto:test@example.com", preferences, notifications, sendNotification });
@@ -83,7 +83,7 @@ describe("NotificationPushService", () => {
     for (const kind of ["agent.input-required", "agent.plan-ready", "agent.completed", "agent.failed", "terminal.failed"]) {
       await expect(enabled.push.deliver(notification({ kind }))).resolves.toMatchObject({ attempted: 1, sent: 1 });
     }
-    await expect(enabled.push.deliver(notification({ source: "workbench", sourceIcon: "workbench", kind: "workbench.crash" }))).resolves.toMatchObject({ attempted: 1, sent: 1 });
+    await expect(enabled.push.deliver(notification({ source: "wrapt", sourceIcon: "wrapt", kind: "wrapt.crash" }))).resolves.toMatchObject({ attempted: 1, sent: 1 });
     await expect(enabled.push.deliver(notification({ kind: "sonstige.warnung", severity: "warning" }))).resolves.toMatchObject({ attempted: 1, sent: 1 });
     await expect(enabled.push.deliver(notification({ kind: "sonstiger.fehler", severity: "error" }))).resolves.toMatchObject({ attempted: 1, sent: 1 });
     expect(enabled.sendNotification).toHaveBeenCalledTimes(8);
@@ -157,15 +157,15 @@ describe("NotificationPushService", () => {
   });
 
   it("übernimmt sichere Deep Links und ersetzt fremde Ziele", () => {
-    expect(safeNotificationLink("/workbench/codex?session=1")).toBe("/workbench/codex?session=1");
+    expect(safeNotificationLink("/wrapt/codex?session=1")).toBe("/wrapt/codex?session=1");
     expect(safeNotificationLink("/t3/environment/thread")).toBe("/t3/environment/thread");
-    expect(safeNotificationLink("https://attacker.example/path")).toBe("/workbench/inbox");
-    expect(safeNotificationLink("//attacker.example/path")).toBe("/workbench/inbox");
-    expect(createPushPayload(notification({ link: "/admin" }))).toMatchObject({ version: 1, link: "/workbench/inbox" });
+    expect(safeNotificationLink("https://attacker.example/path")).toBe("/wrapt/inbox");
+    expect(safeNotificationLink("//attacker.example/path")).toBe("/wrapt/inbox");
+    expect(createPushPayload(notification({ link: "/admin" }))).toMatchObject({ version: 1, link: "/wrapt/inbox" });
   });
 
   it("verwendet denselben VAPID-Schlüssel nach einem Neustart", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-vapid-")); directories.push(directory);
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-vapid-")); directories.push(directory);
     const first = fixture({ directory });
     const publicKey = first.push.publicKey();
     await first.push.close(); first.notifications.close();

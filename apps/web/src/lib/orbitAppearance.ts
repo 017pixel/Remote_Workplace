@@ -1,4 +1,4 @@
-import type { OrbitEdge, OrbitNode } from "@workbench/contracts";
+import type { OrbitEdge, OrbitNode } from "@wrapt/contracts";
 
 // Kategoriale Palette im Stil von T3 Code Nightly: acht klar unterscheidbare Töne
 // auf der fast schwarzen Basis (#0a0a0a). Bewusst die 500er-Stufe statt 400 — als

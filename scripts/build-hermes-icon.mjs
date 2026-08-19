@@ -22,7 +22,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function hermesCheckout() {
   if (process.argv[2]) return resolve(process.argv[2]);
-  const configPath = join(repoRoot, "config/workbench.local.json");
+  const configPath = join(repoRoot, "config/wrapt.local.json");
   if (existsSync(configPath)) {
     const checkout = JSON.parse(readFileSync(configPath, "utf8"))?.hermes?.checkoutDirectory;
     if (checkout) return checkout;

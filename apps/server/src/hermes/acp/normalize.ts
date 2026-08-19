@@ -1,4 +1,4 @@
-import type { HermesServerMessage, HermesToolCall } from "@workbench/contracts";
+import type { HermesServerMessage, HermesToolCall } from "@wrapt/contracts";
 import { redactSensitive, truncateText } from "../redaction.js";
 
 function record(value: unknown): Record<string, unknown> {

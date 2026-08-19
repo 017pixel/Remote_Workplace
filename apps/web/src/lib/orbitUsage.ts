@@ -1,4 +1,4 @@
-import type { ProviderUsage } from "@workbench/contracts";
+import type { ProviderUsage } from "@wrapt/contracts";
 
 export interface OrbitUsageWindow {
   id: string;

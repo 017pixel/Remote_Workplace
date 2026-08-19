@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
-import { apiErrorSchema } from "@workbench/contracts";
+import { apiErrorSchema } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import { PreviewSlotDatabase } from "./database.js";
 import { PreviewDiagnosticsService } from "./diagnostics.js";
@@ -24,7 +24,7 @@ const other = "c@d.test";
 const sameOrigin = { host: "workbench.test", origin: "http://workbench.test", "x-forwarded-proto": "http" };
 
 async function harness() {
-  const directory = await mkdtemp(join(tmpdir(), "workbench-preview-routes-"));
+  const directory = await mkdtemp(join(tmpdir(), "wrapt-preview-routes-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const database = new PreviewSlotDatabase(join(directory, "workbench.sqlite"));
   cleanup.push(() => database.close());

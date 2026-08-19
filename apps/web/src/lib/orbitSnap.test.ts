@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OrbitBoard, OrbitNode } from "@workbench/contracts";
+import type { OrbitBoard, OrbitNode } from "@wrapt/contracts";
 import { previewGroupSize } from "../stores/orbit";
 import { orbitNodeWorldRectangle, orbitSnapPreview } from "./orbitSnap";
 

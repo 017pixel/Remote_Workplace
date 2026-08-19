@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PreviewRepairJob, PreviewRepairRequest, PreviewServiceCandidate } from "@workbench/contracts";
+import type { PreviewRepairJob, PreviewRepairRequest, PreviewServiceCandidate } from "@wrapt/contracts";
 import { AppError } from "../utils/errors.js";
 import type { PreviewSlotDatabase } from "./database.js";
 import type { PreviewSlotService } from "./slots.js";

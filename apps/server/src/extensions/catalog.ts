@@ -12,7 +12,7 @@ import {
   type ExtensionManifestV1,
   type ExtensionPackageDescriptor,
   type ExtensionPackageFile,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { AppError } from "../utils/errors.js";
 
 interface CatalogSource {
@@ -22,6 +22,13 @@ interface CatalogSource {
 
 interface CatalogLogger {
   warn(message: string): void;
+}
+
+const LEGACY_CATALOG_PROVIDER_ID = "workbench-catalog";
+const CURRENT_CATALOG_PROVIDER_ID = "wrapt-catalog";
+
+export function canonicalCatalogProviderId(value: string): CatalogProviderId {
+  return catalogProviderIdSchema.parse(value === LEGACY_CATALOG_PROVIDER_ID ? CURRENT_CATALOG_PROVIDER_ID : value);
 }
 
 function sha256Of(filePath: string): string {
@@ -68,10 +75,13 @@ export class LocalExtensionCatalog {
   private packageDirectories = new Map<string, string>();
   private manifestIntegrity = new Map<string, string>();
 
-  constructor(
-    private readonly providerId: CatalogProviderId,
-    private readonly logger?: CatalogLogger,
-  ) {}
+  private readonly providerId: CatalogProviderId;
+  private readonly logger: CatalogLogger | undefined;
+
+  constructor(providerId: CatalogProviderId, logger?: CatalogLogger) {
+    this.providerId = canonicalCatalogProviderId(providerId);
+    this.logger = logger;
+  }
 
   addSourceDirectory(directory: string): void {
     this.sources.push({ providerId: this.providerId, directory });
@@ -213,5 +223,5 @@ export class LocalExtensionCatalog {
 }
 
 export function defaultCatalogProviderId(): CatalogProviderId {
-  return catalogProviderIdSchema.parse("workbench-catalog");
+  return canonicalCatalogProviderId(CURRENT_CATALOG_PROVIDER_ID);
 }

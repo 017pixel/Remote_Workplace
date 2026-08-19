@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-// `WORKBENCH_E2E_URL` zeigt auf den Origin des Testservers; die Workbench
+// `WRAPT_E2E_URL` zeigt auf den Origin des Testservers; die Wrapt
 // selbst wird unter dem `/workbench`-Basispfad ausgeliefert.
-const workbench = process.env.WORKBENCH_E2E_URL
-  ? `${process.env.WORKBENCH_E2E_URL.replace(/\/$/, "")}/workbench`
+const workbench = process.env.WRAPT_E2E_URL
+  ? `${process.env.WRAPT_E2E_URL.replace(/\/$/, "")}/wrapt`
   : undefined;
 
-const e2eUser = process.env.WORKBENCH_E2E_USER ?? "user@example.com";
+const e2eUser = process.env.WRAPT_E2E_USER ?? "user@example.com";
 test.use({ extraHTTPHeaders: { "tailscale-user-login": e2eUser } });
 
-test("keeps a Workbench terminal running while another device resumes it", async ({ browser }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+test("keeps a Wrapt terminal running while another device resumes it", async ({ browser }) => {
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   const authHeaders = { "tailscale-user-login": e2eUser };
   const firstContext = await browser.newContext({
     viewport: { width: 1_280, height: 800 },
@@ -18,7 +18,10 @@ test("keeps a Workbench terminal running while another device resumes it", async
   });
   const firstPage = await firstContext.newPage();
   await firstPage.goto(`${workbench}/terminal`);
-  await expect(firstPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
+  // V2: Beim ersten Besuch öffnet der Empty-State das erste Terminal.
+  const emptyButton = firstPage.locator(".terminal-empty-state button");
+  if (await emptyButton.count() > 0 && await emptyButton.isVisible().catch(() => false)) await emptyButton.click();
+  await expect(firstPage.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 20_000 });
 
   const marker = `__MULTI_DEVICE_TERMINAL_${Date.now()}__`;
   const input = firstPage.locator(".xterm-helper-textarea");
@@ -28,7 +31,7 @@ test("keeps a Workbench terminal running while another device resumes it", async
   await expect.poll(() => firstPage.locator(".xterm-rows").textContent()).toContain(marker);
 
   await firstPage.reload();
-  await expect(firstPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
+  await expect(firstPage.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => firstPage.locator(".xterm-rows").textContent()).toContain(marker);
 
   const secondContext = await browser.newContext({
@@ -37,7 +40,7 @@ test("keeps a Workbench terminal running while another device resumes it", async
   });
   const secondPage = await secondContext.newPage();
   await secondPage.goto(`${workbench}/terminal`);
-  await expect(secondPage.locator(".terminal-state.is-connected").first()).toBeVisible({ timeout: 20_000 });
+  await expect(secondPage.locator(".terminal-tree-status.is-connected").first()).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => secondPage.locator(".xterm-rows").textContent()).toContain(marker);
 
   const measureTerminal = async (page: typeof firstPage) => page.locator(".terminal-session-pane.is-visible").evaluate((pane) => {

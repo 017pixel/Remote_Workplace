@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { accessSync, closeSync, constants, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { RestartPhase, RestartTarget } from "@workbench/contracts";
+import type { RestartPhase, RestartTarget } from "@wrapt/contracts";
 import { settings } from "../config/settings.js";
 
 // Eindeutig pro Serverprozess. Ändert sich der Wert im /health, lief ein Backend-Neustart durch.
@@ -202,7 +202,7 @@ export function triggerRestart(target: RestartTarget): { jobId: string; logFile:
         RESTART_LOG_FILE: logFile,
         RESTART_TARGET: target,
         // Die Skripte prüfen den Health-Check gegen den tatsächlichen Port (F01-07/F03-4).
-        WORKBENCH_HEALTH_URL: `http://127.0.0.1:${settings.port}`,
+        WRAPT_HEALTH_URL: `http://127.0.0.1:${settings.port}`,
         XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR ?? `/run/user/${process.getuid?.() ?? 1000}`,
       },
     });

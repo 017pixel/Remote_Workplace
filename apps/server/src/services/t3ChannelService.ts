@@ -1,6 +1,6 @@
-import { t3ChannelStatusResponseSchema, type T3Channel, type T3ChannelStatusResponse } from "@workbench/contracts";
+import { t3ChannelStatusResponseSchema, type T3Channel, type T3ChannelStatusResponse } from "@wrapt/contracts";
 import { execa } from "execa";
-import { persistT3Channel, readConfiguredT3Channel } from "../config/workbench-config.js";
+import { persistT3Channel, readConfiguredT3Channel } from "../config/wrapt-config.js";
 import { settings } from "../config/settings.js";
 import { createAsyncCache } from "../utils/cache.js";
 import { AppError } from "../utils/errors.js";
@@ -81,7 +81,7 @@ async function setChannel(channel: T3Channel): Promise<T3ChannelStatusResponse> 
     throw new AppError(
       500,
       "T3_CHANNEL_NOT_SAVED",
-      `Der Kanal konnte nicht in config/workbench.local.json gespeichert werden: ${message}`,
+      `Der Kanal konnte nicht in config/wrapt.local.json gespeichert werden: ${message}`,
     );
   }
   return status();

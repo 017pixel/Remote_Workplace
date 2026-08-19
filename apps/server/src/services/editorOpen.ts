@@ -3,7 +3,7 @@ import { dirname, join, normalize, sep } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
-import { editorOpenEventSchema, editorOpenRequestSchema } from "@workbench/contracts";
+import { editorOpenEventSchema, editorOpenRequestSchema } from "@wrapt/contracts";
 import { isSameOriginRequest } from "../security/same-origin.js";
 
 /**

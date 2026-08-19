@@ -2,20 +2,20 @@ import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftIcon, EyeIcon, FolderTreeIcon, PreviewsIcon, ServicesIcon } from "../components/icons";
 import { CodeServerIcon, T3CodeIcon } from "../components/icons";
-import { workbenchQueries } from "../lib/queryOptions";
+import { wraptQueries } from "../lib/queryOptions";
 import { QueryBoundary } from "../components/QueryBoundary";
 import { Card } from "../components/Card";
 import { Badge, StateDot } from "../components/primitives";
 import { EmptyState } from "../components/EmptyState";
-import { openPreviewForProject, openProjectDefault, openToolForProject } from "../lib/workbenchActions";
+import { openPreviewForProject, openProjectDefault, openToolForProject } from "../lib/wraptActions";
 import { useRouteActivity } from "../lib/routeActivity";
 
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const routeActive = useRouteActivity();
-  const projects = useQuery({ ...workbenchQueries.projects(), enabled: routeActive });
-  const runtime = useQuery({ ...workbenchQueries.previewDevServer(projectId ?? null, 5_000), enabled: routeActive && Boolean(projectId) });
+  const projects = useQuery({ ...wraptQueries.projects(), enabled: routeActive });
+  const runtime = useQuery({ ...wraptQueries.previewDevServer(projectId ?? null, 5_000), enabled: routeActive && Boolean(projectId) });
 
   return (
     <div className="page-scroll">

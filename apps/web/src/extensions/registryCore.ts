@@ -4,7 +4,7 @@ import {
   extensionIdSchema,
   type ContributionId,
   type ExtensionId,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 
 export const frontendRegistryErrorCodes = [
   "invalid-owner",
@@ -52,6 +52,15 @@ export interface FrontendRegistrySnapshot<T> {
 }
 
 type RegistryListener = () => void;
+
+/** Kanonisiert neue Produkt-IDs und hält alte `workbench.*`-IDs lesbar. */
+export function canonicalProductId(value: string): string {
+  return value.startsWith("workbench.") ? `wrapt.${value.slice("workbench.".length)}` : value;
+}
+
+function legacyProductId(value: string): string | null {
+  return value.startsWith("wrapt.") ? `workbench.${value.slice("wrapt.".length)}` : null;
+}
 
 function compareContributionIds<T>(
   left: OwnedFrontendContribution<T>,
@@ -101,16 +110,21 @@ export class FrontendContributionRegistry<T> {
   };
 
   get(contributionId: string): OwnedFrontendContribution<T> | undefined {
-    const parsedId = contributionIdSchema.safeParse(contributionId);
-    return parsedId.success ? this.entriesById.get(parsedId.data) : undefined;
+    const parsedId = contributionIdSchema.safeParse(canonicalProductId(contributionId));
+    if (!parsedId.success) return undefined;
+    const legacyId = legacyProductId(parsedId.data);
+    const parsedLegacyId = legacyId === null ? null : contributionIdSchema.safeParse(legacyId);
+    return this.entriesById.get(parsedId.data)
+      ?? (parsedLegacyId?.success ? this.entriesById.get(parsedLegacyId.data) : undefined);
   }
 
   contributionsByOwner(ownerId: string): readonly OwnedFrontendContribution<T>[] {
-    const parsedOwner = extensionIdSchema.safeParse(ownerId);
+    const parsedOwner = extensionIdSchema.safeParse(canonicalProductId(ownerId));
     if (!parsedOwner.success) return Object.freeze([]);
+    const legacyOwner = legacyProductId(parsedOwner.data);
     return Object.freeze(
       this.snapshot.contributions.filter(
-        (contribution) => contribution.ownerId === parsedOwner.data,
+        (contribution) => contribution.ownerId === parsedOwner.data || contribution.ownerId === legacyOwner,
       ),
     );
   }
@@ -197,13 +211,14 @@ export class FrontendContributionRegistry<T> {
   }
 
   removeOwner(ownerId: string): boolean {
-    const parsedOwner = extensionIdSchema.safeParse(ownerId);
+    const parsedOwner = extensionIdSchema.safeParse(canonicalProductId(ownerId));
     if (!parsedOwner.success) return false;
+    const legacyOwner = legacyProductId(parsedOwner.data);
 
     const nextEntries = new Map(this.entriesById);
     let removed = false;
     for (const [id, contribution] of nextEntries) {
-      if (contribution.ownerId !== parsedOwner.data) continue;
+      if (contribution.ownerId !== parsedOwner.data && contribution.ownerId !== legacyOwner) continue;
       nextEntries.delete(id);
       removed = true;
     }

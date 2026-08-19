@@ -4,7 +4,7 @@ import type {
   PreviewDiagnosticEvent,
   PreviewLocalStorageState,
   PreviewSessionResponse,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import type { BridgeStatus } from "../../lib/previewBridgeClient";
 import type { DeviceOrientation, DevicePresetId } from "../../config/devicePresets";
 import { findDevicePreset } from "../../config/devicePresets";

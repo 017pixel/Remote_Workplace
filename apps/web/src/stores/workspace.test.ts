@@ -1,4 +1,6 @@
-import { WORKBENCH_LIMITS, type Workspace } from "@workbench/contracts";
+import { WRAPT_LIMITS, type Workspace } from "@wrapt/contracts";
+// @vitest-environment jsdom
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { emptyWorkspace, migrateLegacyWorkspace, parseStoredWorkspace, useWorkspaceStore, visiblePanels } from "./workspace";
 
@@ -219,11 +221,11 @@ describe("workspace persistence", () => {
   });
 
   it("deckelt gleichzeitige Laufzeiten am Limit, ohne bestehende Sitzungen zu verwerfen", () => {
-    for (let index = 0; index < WORKBENCH_LIMITS.maxResidentTools; index += 1) {
+    for (let index = 0; index < WRAPT_LIMITS.maxResidentTools; index += 1) {
       expect(useWorkspaceStore.getState().openPanel({ type: "terminal" })).not.toBeNull();
     }
     expect(useWorkspaceStore.getState().openPanel({ type: "terminal" })).toBeNull();
-    expect(useWorkspaceStore.getState().panels).toHaveLength(WORKBENCH_LIMITS.maxResidentTools);
+    expect(useWorkspaceStore.getState().panels).toHaveLength(WRAPT_LIMITS.maxResidentTools);
   });
 
   it("keeps up to eight independently named workspaces", () => {

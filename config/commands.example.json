@@ -6,7 +6,7 @@
     { "id": "tmux", "name": "tmux Sessions anzeigen", "description": "Vorhandene tmux-Sessions auflisten.", "command": "tmux list-sessions" },
     { "id": "t3-status", "name": "T3 Code Status", "description": "Read-only systemd Status des T3-Dienstes.", "command": "systemctl status t3-code.service" },
     { "id": "code-server-status", "name": "code-server Status", "description": "Read-only Status des User-Dienstes von code-server.", "command": "systemctl --user status code-server.service" },
-    { "id": "workbench-logs", "name": "Workbench Logs", "description": "Letzte Workbench-Logs im User-Journal anzeigen.", "command": "journalctl --user -u remote-workplace.service -n 100 --no-pager" },
+    { "id": "wrapt-logs", "name": "Wrapt-Logs", "description": "Letzte Wrapt-Logs im User-Journal anzeigen.", "command": "journalctl --user -u wrapt.service -n 100 --no-pager" },
     { "id": "tailscale-status", "name": "Tailscale Status", "description": "Status des privaten Tailscale-Netzes anzeigen.", "command": "tailscale status" }
   ]
 }

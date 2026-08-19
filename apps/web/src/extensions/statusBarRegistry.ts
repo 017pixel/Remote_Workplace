@@ -7,7 +7,7 @@ import {
   type ContributionId,
   type ExtensionId,
   type StatusBarContribution,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import {
   commandRegistry,
   type CommandRegistry,

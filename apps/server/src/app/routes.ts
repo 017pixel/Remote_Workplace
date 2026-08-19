@@ -1,6 +1,6 @@
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
-import { operationalMetricsSchema, readinessResponseSchema } from "@workbench/contracts";
+import { operationalMetricsSchema, readinessResponseSchema } from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { registerApiRoutes } from "../api/routes.js";
 import { registerBrowserRoutes } from "../browser/routes.js";

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router";
-import type { ProviderUsage } from "@workbench/contracts";
-import { workbenchQueries } from "../lib/queryOptions";
+import type { ProviderUsage } from "@wrapt/contracts";
+import { wraptQueries } from "../lib/queryOptions";
 import { Spinner, StateDot } from "./primitives";
 import { useOrbitStore } from "../stores/orbit";
 import { statusBarRegistry } from "../extensions/statusBarRegistry";
@@ -61,8 +61,8 @@ export function StatusBar() {
   const orbitDocument = useOrbitStore((state) => state.document);
   const orbitDirty = useOrbitStore((state) => state.dirty);
   const orbitSaving = useOrbitStore((state) => state.saving);
-  const health = useQuery(workbenchQueries.health());
-  const usage = useQuery(workbenchQueries.usage());
+  const health = useQuery(wraptQueries.health());
+  const usage = useQuery(wraptQueries.usage());
   const activeOrbitBoard = orbitDocument.boards.find((board) => board.id === orbitDocument.activeBoardId);
   const isOrbit = location.pathname === "/workbench";
   const codex = usage.data?.providers.find((provider) => provider.providerId === "codex");

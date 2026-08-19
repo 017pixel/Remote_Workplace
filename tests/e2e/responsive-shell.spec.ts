@@ -32,7 +32,7 @@ async function mockPreviewSlots(page: Page) {
 }
 
 test("uses the touch shell without desktop chrome", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   const shell = page.locator(".app-shell");
   await expect(shell).toHaveAttribute("data-shell-mode", /compact|tablet/);
   await expect(page.locator(".workspace-sidebar")).toHaveCount(0);
@@ -47,7 +47,7 @@ test("uses the touch shell without desktop chrome", async ({ page }) => {
 });
 
 test("navigation page manages focus, history and scroll lock", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   const trigger = page.getByRole("button", { name: "Navigation öffnen" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Navigation" });
@@ -74,7 +74,7 @@ test("keeps route floating controls behind the navigation page", async ({ page }
   ].join(",");
 
   for (const route of floatingRoutes) {
-    await page.goto(`/workbench/${route}`);
+    await page.goto(`/wrapt/${route}`);
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
     const dialog = page.getByRole("dialog", { name: "Navigation" });
     await expect(dialog).toBeVisible();
@@ -99,7 +99,7 @@ test("keeps all main routes inside the viewport", async ({ page }) => {
   test.setTimeout(90_000);
   await mockPreviewSlots(page);
   for (const route of routes) {
-    await page.goto(`/workbench/${route}`);
+    await page.goto(`/wrapt/${route}`);
     await expect(page.locator(".app-shell")).toBeVisible();
     const overflow = await page.locator(".app-shell").evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -113,7 +113,7 @@ test("keeps all main routes inside the viewport", async ({ page }) => {
 });
 
 test("uses a reversible touch dialog for destructive settings", async ({ page }) => {
-  await page.goto("/workbench/settings");
+  await page.goto("/wrapt/settings");
   // Der Workspace-Reset liegt im gleichnamigen Tab der neuen Gliederung.
   await page.getByRole("button", { name: "Workspace", exact: true }).click();
   const trigger = page.getByRole("button", { name: "Workspace zurücksetzen" });
@@ -127,7 +127,7 @@ test("uses a reversible touch dialog for destructive settings", async ({ page })
 });
 
 test("preserves an embedded runtime across rotation", async ({ page }) => {
-  await page.goto("/workbench/browser");
+  await page.goto("/wrapt/browser");
   const runtime = page.locator(".chromium-browser");
   await expect(runtime).toBeVisible();
   await runtime.evaluate((element) => { (element as HTMLElement).dataset.rotationMarker = "preserved"; });
@@ -138,9 +138,9 @@ test("preserves an embedded runtime across rotation", async ({ page }) => {
 });
 
 test("moves focus into content after a navigation choice", async ({ page }) => {
-  await page.goto("/workbench/");
+  await page.goto("/wrapt/");
   await page.getByRole("button", { name: "Navigation öffnen" }).click();
   await page.getByRole("dialog", { name: "Navigation" }).getByRole("link", { name: "Projekte" }).click();
-  await expect(page).toHaveURL(/\/workbench\/projects$/);
+  await expect(page).toHaveURL(/\/wrapt\/projects$/);
   await expect(page.locator("#main-content")).toBeFocused();
 });

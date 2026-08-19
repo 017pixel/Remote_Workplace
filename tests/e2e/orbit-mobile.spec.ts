@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { apiIdentityHeaders } from "./helpers/environment";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 
 test.use({
   extraHTTPHeaders: { "tailscale-user-login": "user@example.com" },
@@ -11,7 +11,7 @@ test.use({
 });
 
 test("keeps the infinite canvas navigable and usable on mobile", async ({ page, browserName }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Orbit test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Orbit test server.");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
@@ -60,7 +60,7 @@ test("keeps the infinite canvas navigable and usable on mobile", async ({ page, 
   });
   await expect(seedResponse).toBeOK();
 
-  await page.goto(`${workbench}/workbench/workbench`);
+  await page.goto(`${workbench}/wrapt/workbench`);
   const orbitPage = page.locator(".orbit-page");
   await expect(orbitPage).toBeVisible();
   await expect(orbitPage).toHaveAttribute("data-mobile-mode", "navigate");

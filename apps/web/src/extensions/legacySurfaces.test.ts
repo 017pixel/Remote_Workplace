@@ -41,11 +41,11 @@ describe("Legacy Oberflächen-Built-ins", () => {
 
     const snapshot = registry.getSnapshot();
     expect(snapshot.items.map((item) => item.contributionId)).toEqual([
-      "workbench.shell.topbar.fullscreen-toggle",
-      "workbench.shell.topbar.reload",
+      "wrapt.shell.topbar.fullscreen-toggle",
+      "wrapt.shell.topbar.reload",
     ]);
     for (const item of snapshot.items) {
-      expect(item.value.contribution.routeId).toBe("workbench.files.route.main");
+      expect(item.value.contribution.routeId).toBe("wrapt.files.route.main");
       expect(item.value.runtime.icon).toBeTypeOf("function");
       expect(commands.get(item.value.contribution.commandId)).toBeDefined();
     }
@@ -59,10 +59,10 @@ describe("Legacy Oberflächen-Built-ins", () => {
 
     const items = registry.getSnapshot().bySurface.get("host.context-menu.orbit-pane");
     expect(items?.map((item) => item.contributionId)).toEqual([
-      "workbench.orbit.menu.project-browser",
+      "wrapt.orbit.menu.project-browser",
     ]);
     expect(items?.[0]?.value.contribution.commandId).toBe(
-      "workbench.orbit.command.project-browser",
+      "wrapt.orbit.command.project-browser",
     );
   });
 });

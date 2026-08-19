@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadWorkbenchConfig, persistT3Channel, readConfiguredT3Channel } from "../config/workbench-config.js";
+import { loadWraptConfig, persistT3Channel, readConfiguredT3Channel } from "../config/wrapt-config.js";
 import { channelFromVersion, parseVersionOutput } from "./t3ChannelService.js";
 
 describe("T3-Kanal aus der Version", () => {
@@ -22,7 +22,7 @@ describe("T3-Kanal aus der Version", () => {
 });
 
 const baseConfig = {
-  branding: { appName: "Remote Workplace", shortName: "Workplace" },
+  branding: { appName: "Wrapt", shortName: "Wrapt" },
   system: { user: "tester", homeDirectory: "/home/tester" },
   tailscale: { hostname: "host.ts.net", ip: "100.0.0.1", httpsPort: 8443, allowedUsers: [] },
   paths: {
@@ -34,8 +34,8 @@ const baseConfig = {
     browserProfilesRoot: "/home/tester/data/browser",
     orbitBackupDir: "/home/tester/data/backups",
     orbitAssetDir: "/home/tester/data/assets",
-    workbenchProfilesRoot: "/home/tester/profiles",
-    databasePath: "/home/tester/data/workbench.sqlite",
+    wraptProfilesRoot: "/home/tester/profiles",
+    databasePath: "/home/tester/data/wrapt.sqlite",
   },
   cli: { codexbar: "codexbar", codex: "codex", opencode: "opencode", claude: "claude", tmux: "/usr/bin/tmux", chromium: "auto" },
   codexbar: { configPath: "/home/tester/.config/codexbar/config.json", oauthProfileHomes: [] },
@@ -44,9 +44,9 @@ const baseConfig = {
 const directories: string[] = [];
 
 function createConfigDirectory(config: unknown): string {
-  const directory = mkdtempSync(join(tmpdir(), "workbench-config-"));
+  const directory = mkdtempSync(join(tmpdir(), "wrapt-config-"));
   directories.push(directory);
-  writeFileSync(join(directory, "workbench.local.json"), JSON.stringify(config, null, 2), "utf8");
+  writeFileSync(join(directory, "wrapt.local.json"), JSON.stringify(config, null, 2), "utf8");
   return directory;
 }
 
@@ -70,11 +70,11 @@ describe("Kanal in der Config", () => {
   it("lässt alle übrigen Werte unverändert", () => {
     const directory = createConfigDirectory({ ...baseConfig, t3: { channel: "stable", port: 3773, npmPackage: "t3" } });
     persistT3Channel(directory, "nightly");
-    const written = JSON.parse(readFileSync(join(directory, "workbench.local.json"), "utf8")) as typeof baseConfig & {
+    const written = JSON.parse(readFileSync(join(directory, "wrapt.local.json"), "utf8")) as typeof baseConfig & {
       t3: { channel: string; port: number; npmPackage: string };
     };
     expect(written.t3).toEqual({ channel: "nightly", port: 3773, npmPackage: "t3" });
     expect(written.branding).toEqual(baseConfig.branding);
-    expect(loadWorkbenchConfig(directory).paths.projectsRoot).toBe("/home/tester/projects");
+    expect(loadWraptConfig(directory).paths.projectsRoot).toBe("/home/tester/projects");
   });
 });

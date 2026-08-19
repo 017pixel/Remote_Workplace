@@ -1,12 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const e2ePort = Number(process.env.WORKBENCH_E2E_PORT ?? 3010);
-const e2eBaseURL = process.env.WORKBENCH_E2E_URL ?? `http://127.0.0.1:${e2ePort}`;
+const e2ePort = Number(process.env.WRAPT_E2E_PORT ?? 3010);
+const e2eBaseURL = process.env.WRAPT_E2E_URL ?? `http://127.0.0.1:${e2ePort}`;
 
-if (process.env.WORKBENCH_E2E_URL && process.env.WORKBENCH_E2E_ISOLATED !== "true") {
+if (process.env.WRAPT_E2E_URL && process.env.WRAPT_E2E_ISOLATED !== "true") {
   throw new Error(
-    "WORKBENCH_E2E_URL darf nur auf eine isolierte Testinstanz zeigen. " +
-    "Bestätige dies ausdrücklich mit WORKBENCH_E2E_ISOLATED=true.",
+    "WRAPT_E2E_URL darf nur auf eine isolierte Testinstanz zeigen. " +
+    "Bestätige dies ausdrücklich mit WRAPT_E2E_ISOLATED=true.",
   );
 }
 
@@ -37,7 +37,7 @@ export default defineConfig({
     baseURL: e2eBaseURL,
     trace: "retain-on-failure",
   },
-  webServer: process.env.WORKBENCH_E2E_EXTERNAL === "true" ? undefined : {
+  webServer: process.env.WRAPT_E2E_EXTERNAL === "true" ? undefined : {
     command: "pnpm build && node scripts/start-e2e-server.mjs",
     url: `${e2eBaseURL}/api/v1/health`,
     reuseExistingServer: false,

@@ -1,7 +1,7 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { apiClient } from "./apiClient";
 
-export const workbenchQueries = {
+export const wraptQueries = {
   dashboardConfig: () =>
     queryOptions({ queryKey: ["system", "dashboard-config"], queryFn: ({ signal }) => apiClient.dashboardConfig(signal), staleTime: Infinity }),
   health: (refetchInterval = 5_000) =>

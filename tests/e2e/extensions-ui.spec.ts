@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-// `WORKBENCH_E2E_URL` zeigt auf den Origin des Testservers; die Workbench
+// `WRAPT_E2E_URL` zeigt auf den Origin des Testservers; die Wrapt
 // selbst wird unter dem `/workbench`-Basispfad ausgeliefert.
-const workbench = process.env.WORKBENCH_E2E_URL
-  ? `${process.env.WORKBENCH_E2E_URL.replace(/\/$/, "")}/workbench`
+const workbench = process.env.WRAPT_E2E_URL
+  ? `${process.env.WRAPT_E2E_URL.replace(/\/$/, "")}/wrapt`
   : undefined;
 
 test.use({
@@ -12,7 +12,7 @@ test.use({
 });
 
 test("verwaltet Extensions über den lokalen Catalog: installieren, berechtigen, deaktivieren, deinstallieren", async ({ page }) => {
-  test.skip(!workbench, "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
+  test.skip(!workbench, "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
   await page.goto(`${workbench}/settings`);
 
   const extensionsCard = page.locator(".page-frame").getByRole("heading", { name: "Extensions" });

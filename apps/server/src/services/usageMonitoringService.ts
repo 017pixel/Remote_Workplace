@@ -1,5 +1,5 @@
-import { type UsageMonitoring } from "@workbench/contracts";
-import { persistUsageMonitoring, readUsageMonitoring } from "../config/workbench-config.js";
+import { type UsageMonitoring } from "@wrapt/contracts";
+import { persistUsageMonitoring, readUsageMonitoring } from "../config/wrapt-config.js";
 import { settings } from "../config/settings.js";
 import { AppError } from "../utils/errors.js";
 
@@ -26,7 +26,7 @@ class UsageMonitoringService {
       throw new AppError(
         500,
         "USAGE_MONITORING_NOT_SAVED",
-        `Die Limitüberwachung konnte nicht in config/workbench.local.json gespeichert werden: ${message}`,
+        `Die Limitüberwachung konnte nicht in config/wrapt.local.json gespeichert werden: ${message}`,
       );
     }
     this.cached = next;

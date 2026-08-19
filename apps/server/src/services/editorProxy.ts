@@ -9,7 +9,7 @@ const bufferedMessageLimit = 512 * 1024;
 const maximumBufferedBytes = 2 * 1024 * 1024;
 
 function upstreamPath(rawUrl: string): string {
-  const url = new URL(rawUrl, "http://workbench.local");
+  const url = new URL(rawUrl, "http://wrapt.local");
   const pathname = url.pathname.startsWith(editorPrefix)
     ? url.pathname.slice(editorPrefix.length) || "/"
     : url.pathname;

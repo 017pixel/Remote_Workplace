@@ -14,7 +14,7 @@ import {
   type RestartTarget,
   type T3Channel,
   type UsageMonitoring,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { mutate, request } from "./transport.js";
 
 export const systemApi = {

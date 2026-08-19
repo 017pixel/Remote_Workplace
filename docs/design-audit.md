@@ -1,15 +1,15 @@
-# Design-Audit der Workbench-Oberfläche
+# Design-Audit der Wrapt-Oberfläche
 
 Stand: 04.08.2026 · Methode: Code-Review + Live-Prüfung der laufenden Instanz (Desktop 1440px und Mobile 390px, Accessibility-Snapshots)
 
 ## Produktverständnis
 
-- **Produkttyp:** Private, selbst gehostete Remote-Development-Workbench (Operations- und Agent-Werkzeug).
+- **Produkttyp:** Private, selbst gehostete Remote-Development-Wrapt (Operations- und Agent-Werkzeug).
 - **Primärnutzer:** Benjamin (Einzelnutzer, Desktop und Mobile).
 - **Primärtasks:** Projekte und Workflows öffnen, Agenten (T3 Code, Hermes, CLI-Terminals) bedienen, Serverzustand überwachen, Terminals und Previews steuern.
 - **Business-Ziel:** Zuverlässiger, schneller Zugriff auf alle Remote-Werkzeuge von jedem Gerät.
-- **Constraints:** Nur ein Nutzer, Tailscale-Identity-Auth, Produktion läuft als systemd-Dienst, Workbench wird für die Eigenentwicklung benutzt.
-- **Annahmen:** Der Orbit („Workbench“-Seite) ist die zentrale Arbeitsfläche und wird täglich genutzt; die Projektliste wächst weiter.
+- **Constraints:** Nur ein Nutzer, Tailscale-Identity-Auth, Produktion läuft als systemd-Dienst, Wrapt wird für die Eigenentwicklung benutzt.
+- **Annahmen:** Der Orbit („Wrapt“-Seite) ist die zentrale Arbeitsfläche und wird täglich genutzt; die Projektliste wächst weiter.
 
 ## Was bereits funktioniert (erhalten!)
 

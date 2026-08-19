@@ -7,7 +7,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
 });
-import type { ManagedAccount, UsageResponse } from "@workbench/contracts";
+import type { ManagedAccount, UsageResponse } from "@wrapt/contracts";
 import { buildTimelineLane, STALE_AFTER_MILLISECONDS, UsageTimelineService } from "./timeline-service.js";
 import type { CodexbarClient } from "../adapters/codexbar/codexbar-client.js";
 import type { CodexbarUsageService } from "../adapters/codexbar/codexbar-cache.js";
@@ -109,13 +109,13 @@ describe("UsageTimelineService", () => {
     const service = createService({
       accounts: {
         listWithState: vi.fn().mockResolvedValue([
-          managed({ id: "c1", provider: "claude", label: "Alice", email: "alice@example.com", plan: "pro", profilePath: "/home/test/.workbench-profiles/claude/alice", active: false }),
+          managed({ id: "c1", provider: "claude", label: "Alice", email: "alice@example.com", plan: "pro", profilePath: "/home/test/.wrapt-profiles/claude/alice", active: false }),
         ]),
       },
       client: {
         getClaudeUsageForProfiles: vi.fn().mockResolvedValue([
           {
-            profilePath: "/home/test/.workbench-profiles/claude/alice",
+            profilePath: "/home/test/.wrapt-profiles/claude/alice",
             payload: { provider: "claude", source: "oauth", usage: { accountEmail: "alice@example.com", loginMethod: "pro", secondary: { usedPercent: 34, windowMinutes: 10_080, resetsAt: "2026-08-01T20:00:00Z" } } },
           },
         ]),

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const workbench = process.env.WORKBENCH_E2E_URL;
+const workbench = process.env.WRAPT_E2E_URL;
 const skip = () => !workbench;
 
 function row(page: Page, suffix: string) {
@@ -14,8 +14,8 @@ test.describe("Dateimanager desktop", () => {
   });
 
   test("zeigt das Drei-Pane-Layout und navigiert über Breadcrumbs und Baum", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await expect(page.locator(".file-manager")).toBeVisible();
     await expect(page.locator(".file-manager-tree-pane")).toBeVisible();
     await expect(page.locator(".file-manager-content")).toBeVisible();
@@ -28,8 +28,8 @@ test.describe("Dateimanager desktop", () => {
   });
 
   test("öffnet den Quick Look mit Leertaste und wechselt per Pfeiltasten", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await row(page, "/package.json").click();
     await page.keyboard.press(" ");
     const quickLook = page.getByRole("dialog", { name: /Vorschau von package\.json/ });
@@ -44,8 +44,8 @@ test.describe("Dateimanager desktop", () => {
   });
 
   test("zeigt Code im Vorschau-Panel und schaltet auf Raster um", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await row(page, "/package.json").click();
     const detail = page.locator(".file-manager-detail-pane");
     await expect(detail).toBeVisible();
@@ -58,8 +58,8 @@ test.describe("Dateimanager desktop", () => {
   });
 
   test("öffnet das Kontextmenü mit Dateiaktionen", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await row(page, "/package.json").click({ button: "right" });
     const menu = page.locator(".file-manager-context-menu");
     await expect(menu).toBeVisible();
@@ -71,16 +71,16 @@ test.describe("Dateimanager desktop", () => {
   });
 
   test("filtert die Liste über die Suche", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await page.getByPlaceholder("Suchen").fill("package.json");
     await expect(page.locator(".file-manager-row")).toHaveCount(1);
     await expect(row(page, "/package.json")).toContainText("package.json");
   });
 
   test("öffnet den Dateimanager als Tool-Node im Orbit", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/workbench`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/wrapt`);
     await page.getByRole("button", { name: "Files", exact: true }).click();
     const panel = page.locator('[data-panel-type="files"]').filter({ has: page.locator(".file-manager") }).first();
     await expect(panel).toBeVisible();
@@ -96,8 +96,8 @@ test.describe("Dateimanager iPad hoch", () => {
   });
 
   test("öffnet Baum und Vorschau als Drawer", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await page.getByRole("button", { name: "Dateibaum ein- oder ausblenden" }).click();
     const tree = page.locator(".file-manager-tree-pane.is-drawer");
     await expect(tree).toBeVisible();
@@ -114,8 +114,8 @@ test.describe("Dateimanager iPad hoch", () => {
   });
 
   test("hält auf dem Tablet die Drawer-Breite ein und blendet über den Backdrop", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await page.getByRole("button", { name: "Dateibaum ein- oder ausblenden" }).click();
     const tree = page.locator(".file-manager-tree-pane.is-drawer");
     await expect(tree).toHaveClass(/is-open/);
@@ -137,8 +137,8 @@ test.describe("Dateimanager Phone", () => {
   });
 
   test("zeigt den Quick Look als Bottom Sheet und den Baum als Drawer", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
 
     await page.getByRole("button", { name: "Dateibaum ein- oder ausblenden" }).click();
     const tree = page.locator(".file-manager-tree-pane.is-drawer");
@@ -165,8 +165,8 @@ test.describe("Dateimanager Phone", () => {
   });
 
   test("filtert über die Suche und zeigt den Leerzustand", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     // Die Suche fährt auf dem Handy erst über der Aktionsleiste ein.
     await page.getByRole("button", { name: "Im aktuellen Ordner suchen" }).click();
     await page.getByPlaceholder("Suchen").fill("gibt-es-nicht-123");
@@ -174,8 +174,8 @@ test.describe("Dateimanager Phone", () => {
   });
 
   test("hält Layout-Integrität ein: keine Überlappungen, Touch-Ziele, keine Seiten-Scrollen", async ({ page }) => {
-    test.skip(skip(), "Set WORKBENCH_E2E_URL to an isolated Workbench test server.");
-    await page.goto(`${workbench}/workbench/files`);
+    test.skip(skip(), "Set WRAPT_E2E_URL to an isolated Wrapt test server.");
+    await page.goto(`${workbench}/wrapt/files`);
     await page.waitForSelector(".file-manager-row");
 
     // Die Pfadzeile steht oben, die Aktionen liegen darunter am unteren Rand.

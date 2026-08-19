@@ -3,7 +3,7 @@ import {
   extensionManagementAcceptedSchema,
   extensionManagementRequestSchema,
   extensionRegistrySnapshotSchema,
-} from "@workbench/extension-contracts";
+} from "@wrapt/extension-contracts";
 import { z } from "zod";
 import { AppError } from "../utils/errors.js";
 import type { LocalExtensionCatalog } from "./catalog.js";
@@ -18,7 +18,7 @@ export async function registerExtensionRoutes(app: FastifyInstance, options: {
 
   app.get("/extensions/catalog", async () => {
     return {
-      providerId: "workbench-catalog",
+      providerId: "wrapt-catalog",
       revision: catalog.revision(),
       entries: catalog.list(),
     };

@@ -28,7 +28,7 @@ describe("Dateimanager-Navigation und Pfadzustand", () => {
     expect(useFileManagerStore.getState().history).toEqual([]);
 
     useFileManagerStore.getState().navigateTo(`${root}/projects`, true);
-    useFileManagerStore.getState().navigateTo(`${root}/projects/Remote_Workplace`, true);
+    useFileManagerStore.getState().navigateTo(`${root}/projects/Wrapt`, true);
     useFileManagerStore.getState().goBack();
     expect(useFileManagerStore.getState().currentPath).toBe(`${root}/projects`);
     useFileManagerStore.getState().goBack();
@@ -38,13 +38,13 @@ describe("Dateimanager-Navigation und Pfadzustand", () => {
 
   it("schreibt Umbenennen und Löschen in Auswahl, Favoriten und Historie fort", () => {
     const project = `${root}/projects`;
-    const workspace = `${project}/Remote_Workplace`;
+    const workspace = `${project}/Wrapt`;
     useFileManagerStore.getState().navigateTo(workspace, true);
     useFileManagerStore.getState().toggleFavorite(`${workspace}/README.md`);
     useFileManagerStore.getState().select(`${workspace}/README.md`);
     useFileManagerStore.getState().setPreview(true, `${workspace}/README.md`);
 
-    const renamed = `${project}/Remote-Workplace`;
+    const renamed = `${project}/Wrapt`;
     useFileManagerStore.getState().replacePath(workspace, renamed);
     expect(useFileManagerStore.getState()).toMatchObject({
       currentPath: renamed,

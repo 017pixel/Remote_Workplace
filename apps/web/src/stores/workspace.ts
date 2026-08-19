@@ -1,5 +1,5 @@
 import {
-  WORKBENCH_LIMITS,
+  WRAPT_LIMITS,
   panelSchema,
   workspaceSchema,
   type Panel,
@@ -8,14 +8,14 @@ import {
   type WorkbenchLayout,
   type WorkbenchPage,
   type Workspace,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { z } from "zod";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { generateId } from "../lib/id";
 
-export const WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v2";
-export const LEGACY_WORKSPACE_STORAGE_KEY = "remote-workplace.workspace.v1";
+export const WORKSPACE_STORAGE_KEY = "wrapt.workspace.v2";
+export const LEGACY_WORKSPACE_STORAGE_KEY = "wrapt.workspace.v1";
 // Schlüssel aus der Zeit vor der Open-Source-Vorbereitung. Werden beim Start
 // migriert, sofern der aktuelle Schlüssel noch nicht existiert (F04-01).
 export const RENAMED_WORKSPACE_STORAGE_KEYS = [
@@ -249,7 +249,7 @@ function stripUnknownPanels(value: unknown): unknown {
       if (firstGroup && Array.isArray(firstGroup.panelIds)) {
         groups[0] = {
           ...firstGroup,
-          panelIds: [...firstGroup.panelIds, ...unassigned].slice(0, WORKBENCH_LIMITS.maxResidentTools),
+          panelIds: [...firstGroup.panelIds, ...unassigned].slice(0, WRAPT_LIMITS.maxResidentTools),
           activePanelId: firstGroup.activePanelId ?? unassigned[0] ?? null,
         };
         workspaces[workspaceIndex] = { ...workspace, groups };
@@ -287,19 +287,19 @@ export function parseStoredWorkspaceOrNull(value: unknown): Workspace | null {
   const versionTwo = z.object({
     version: z.literal(2),
     selectedProjectId: z.string().nullable(),
-    panels: z.array(panelSchema).max(WORKBENCH_LIMITS.maxResidentTools),
+    panels: z.array(panelSchema).max(WRAPT_LIMITS.maxResidentTools),
     workspaces: z.array(z.object({
       id: z.string().min(1),
       name: z.string().trim().min(1).max(48),
       groups: z.array(z.object({
         id: z.string().min(1),
-        panelIds: z.array(z.string().min(1)).max(WORKBENCH_LIMITS.maxResidentTools),
+        panelIds: z.array(z.string().min(1)).max(WRAPT_LIMITS.maxResidentTools),
         activePanelId: z.string().nullable(),
-      })).min(1).max(WORKBENCH_LIMITS.maxVisibleGroups),
+      })).min(1).max(WRAPT_LIMITS.maxVisibleGroups),
       focusedGroupId: z.string().min(1),
       layout: z.enum(["single", "columns", "rows", "main-left", "grid"]),
       layoutSizes: z.record(z.string(), z.tuple([z.number(), z.number()])),
-    })).min(1).max(WORKBENCH_LIMITS.maxWorkspaces),
+    })).min(1).max(WRAPT_LIMITS.maxWorkspaces),
     activeWorkspaceId: z.string().min(1),
     maximizedPanelId: z.string().nullable(),
     focusedPanelId: z.string().nullable(),
@@ -372,7 +372,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           });
           return existing.id;
         }
-        if (current.panels.length >= WORKBENCH_LIMITS.maxResidentTools) return null;
+        if (current.panels.length >= WRAPT_LIMITS.maxResidentTools) return null;
 
         const requestedWorkspace = input.workspaceId
           ? current.workspaces.find((workspace) => workspace.id === input.workspaceId)
@@ -481,7 +481,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       addGroup: () => {
         const current = get();
         const workspace = current.workspaces.find((candidate) => candidate.id === current.activeWorkspaceId);
-        if (!workspace || workspace.groups.length >= WORKBENCH_LIMITS.maxVisibleGroups) return null;
+        if (!workspace || workspace.groups.length >= WRAPT_LIMITS.maxVisibleGroups) return null;
         const group: WorkbenchGroup = { id: generateId(), panelIds: [], activePanelId: null };
         set({
           workspaces: current.workspaces.map((candidate) => candidate.id !== workspace.id
@@ -517,7 +517,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       })),
       addWorkspace: (name) => {
         const current = get();
-        if (current.workspaces.length >= WORKBENCH_LIMITS.maxWorkspaces) return null;
+        if (current.workspaces.length >= WRAPT_LIMITS.maxWorkspaces) return null;
         const id = generateId();
         const groupId = generateId();
         const workspace: WorkbenchPage = {

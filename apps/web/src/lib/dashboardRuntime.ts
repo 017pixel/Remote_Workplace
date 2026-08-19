@@ -1,4 +1,4 @@
-import type { LocalPort, Project, TerminalSession } from "@workbench/contracts";
+import type { LocalPort, Project, TerminalSession } from "@wrapt/contracts";
 
 export interface DashboardRuntimeGroup {
   key: string;

@@ -3,22 +3,22 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { loadWorkbenchConfig } from "./workbench-config.js";
+import { loadWraptConfig } from "./wrapt-config.js";
+import { canonicalizeWraptEnvironment } from "./environment.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const environmentFile = resolve(projectRoot, ".env");
-dotenv.config({ path: environmentFile });
+dotenv.config({ path: environmentFile, quiet: true });
 try { chmodSync(environmentFile, 0o600); } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
 
 const configDirectory = resolve(projectRoot, process.env.CONFIG_DIR ?? "./config");
-try { chmodSync(resolve(configDirectory, "workbench.local.json"), 0o600); } catch (error) {
+try { chmodSync(resolve(configDirectory, "wrapt.local.json"), 0o600); } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
 // Zentrale Personalisierung. Env-Variablen überschreiben diese Werte weiterhin.
-const wb = loadWorkbenchConfig(configDirectory);
-
+const wb = loadWraptConfig(configDirectory);
 const integerFromEnvironment = (fallback: number) =>
   z.preprocess(
     (value) => (value === undefined || value === "" ? fallback : Number(value)),
@@ -56,7 +56,7 @@ const settingsSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("127.0.0.1"),
   PORT: integerFromEnvironment(3010),
-  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.90.0"),
+  APP_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default("0.95.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   CONFIG_DIR: z.string().default("./config"),
   WEB_DIST_DIR: z.string().default("./apps/web/dist"),
@@ -99,6 +99,9 @@ const settingsSchema = z.object({
   TERMINAL_MAX_SESSIONS: integerFromEnvironment(24),
   TERMINAL_SUPERVISOR: z.enum(["tmux", "direct"]).default("tmux"),
   TMUX_PATH: z.string().startsWith("/").default(wb.cli.tmux),
+  // Optional: dedizierter tmux-Socket unter $XDG_RUNTIME_DIR/wrapt.
+  // Ohne Wert berechnet der Server den Pfad selbst (siehe dependencies.ts).
+  TMUX_SOCKET_PATH: z.string().startsWith("/").optional(),
   CODEX_CLI_PATH: z.string().min(1).default(wb.cli.codex),
   OPENCODE_CLI_PATH: z.string().min(1).default(wb.cli.opencode),
   CLAUDE_CLI_PATH: z.string().min(1).default(wb.cli.claude),
@@ -143,7 +146,7 @@ const settingsSchema = z.object({
   NEWS_FETCH_TIMEOUT_MS: boundedIntegerFromEnvironment(12_000, 2_000, 60_000),
   NEWS_MAX_ITEMS_PER_SOURCE: boundedIntegerFromEnvironment(16, 1, 50),
   NEWS_AI_CONCURRENCY: boundedIntegerFromEnvironment(1, 1, 4),
-  WORKBENCH_PROFILES_ROOT: z.string().startsWith("/").default(wb.paths.workbenchProfilesRoot),
+  WRAPT_PROFILES_ROOT: z.string().startsWith("/").default(wb.paths.wraptProfilesRoot),
   CODEXBAR_CONFIG_PATH: z.string().startsWith("/").default(wb.codexbar.configPath),
   // Gemeinsame Homes der KI-Werkzeuge: dort liegen Konfiguration, Sessions und Verlauf.
   // Beim Accountwechsel wird ausschließlich die darin liegende Anmeldedatei umgehängt.
@@ -192,12 +195,12 @@ const settingsSchema = z.object({
   // ausgeben. Produktion bleibt HTTPS über Tailscale.
   PREVIEW_PUBLIC_ORIGIN_MODE: z.enum(["tailscale-https", "loopback-http"]).default("tailscale-https"),
   // Entwicklungsidentität, wenn kein Tailscale-Proxy davor hängt. In Produktion leer.
-  WORKBENCH_DEV_TAILSCALE_USER: z.string().default(""),
+  WRAPT_DEV_TAILSCALE_USER: z.string().default(""),
 });
 
-const environment = settingsSchema.parse(process.env);
-if (environment.NODE_ENV === "production" && environment.WORKBENCH_DEV_TAILSCALE_USER.trim()) {
-  throw new Error("WORKBENCH_DEV_TAILSCALE_USER darf in Produktion nicht gesetzt sein.");
+const environment = settingsSchema.parse(canonicalizeWraptEnvironment(process.env));
+if (environment.NODE_ENV === "production" && environment.WRAPT_DEV_TAILSCALE_USER.trim()) {
+  throw new Error("WRAPT_DEV_TAILSCALE_USER darf in Produktion nicht gesetzt sein.");
 }
 if (!["127.0.0.1", "::1", "localhost"].includes(environment.HERMES_HOST)) {
   throw new Error("HERMES_HOST darf nur auf Loopback zeigen.");
@@ -220,7 +223,7 @@ const skillEditorPropagateDirectories = (
 
 const listenerPorts = [environment.PORT, environment.T3_PORT, environment.OPENCODE_WEB_PORT, environment.HERMES_PORT, ...wb.previews.slotPorts, ...wb.previews.publicPorts];
 if (new Set(listenerPorts).size !== listenerPorts.length) {
-  throw new Error("Workbench-, T3-, Hermes- und Preview-Ports müssen eindeutig sein.");
+  throw new Error("Wrapt-, T3-, Hermes- und Preview-Ports müssen eindeutig sein.");
 }
 
 export const settings = Object.freeze({
@@ -263,7 +266,7 @@ export const settings = Object.freeze({
     publicOriginMode: environment.PREVIEW_PUBLIC_ORIGIN_MODE,
   },
   developmentTailscaleUser: environment.NODE_ENV === "development" || environment.NODE_ENV === "test"
-    ? environment.WORKBENCH_DEV_TAILSCALE_USER.trim().toLowerCase()
+    ? environment.WRAPT_DEV_TAILSCALE_USER.trim().toLowerCase()
     : "",
   webDistDirectory: resolve(projectRoot, environment.WEB_DIST_DIR),
   projectsRootDirectory: resolve(environment.PROJECTS_ROOT),
@@ -302,6 +305,7 @@ export const settings = Object.freeze({
   terminalMaxSessions: environment.TERMINAL_MAX_SESSIONS,
   terminalSupervisor: environment.TERMINAL_SUPERVISOR,
   tmuxPath: environment.TMUX_PATH,
+  tmuxSocketPath: environment.TMUX_SOCKET_PATH,
   codexCliPath: environment.CODEX_CLI_PATH,
   opencodeCliPath: environment.OPENCODE_CLI_PATH,
   claudeCliPath: environment.CLAUDE_CLI_PATH,
@@ -345,7 +349,7 @@ export const settings = Object.freeze({
   newsFetchTimeoutMilliseconds: environment.NEWS_FETCH_TIMEOUT_MS,
   newsMaxItemsPerSource: environment.NEWS_MAX_ITEMS_PER_SOURCE,
   newsAiConcurrency: environment.NEWS_AI_CONCURRENCY,
-  workbenchProfilesRoot: resolve(environment.WORKBENCH_PROFILES_ROOT),
+  wraptProfilesRoot: resolve(environment.WRAPT_PROFILES_ROOT),
   codexbarConfigPath: resolve(environment.CODEXBAR_CONFIG_PATH),
   // Gemeinsames Home und Name der Anmeldedatei je Werkzeug.
   sharedHomes: {

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * der Store danach dynamisch importiert.
  */
 
-const STORAGE_KEY = "remote-workplace.usage-preferences.v1";
+const STORAGE_KEY = "wrapt.usage-preferences.v1";
 const VERSION = 1;
 
 function memoryStorage(): Storage {

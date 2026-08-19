@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "id": "workbench.demo-clock",
+  "id": "wrapt.demo-clock",
   "name": "Demo Uhr",
   "version": "1.0.0",
   "publisher": "workbench",
@@ -11,5 +11,5 @@
   "entrypoints": { "ui": "./index.js" },
   "permissions": [{ "permission": "notifications.create" }],
   "activationEvents": [],
-  "contributes": { "commands": [{ "id": "workbench.demo-clock.tick", "title": "Uhr schlagen" }] }
+  "contributes": { "commands": [{ "id": "wrapt.demo-clock.tick", "title": "Uhr schlagen" }] }
 }

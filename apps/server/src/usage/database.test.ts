@@ -81,12 +81,12 @@ describe("usage history", () => {
   it("fasst dasselbe Projekt über mehrere Provider zu einer Zeile zusammen", () => {
     const database = new UsageDatabase(":memory:"); databases.push(database);
     database.importCost([
-      { provider: "codex", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Remote_Workplace", name: "Remote_Workplace", totalTokens: 1_000, totalCost: 5.0 }], daily: [] },
-      { provider: "opencode", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Remote_Workplace", name: "Remote_Workplace", totalTokens: 400, totalCost: 1.0 }], daily: [] },
+      { provider: "codex", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Wrapt", name: "Wrapt", totalTokens: 1_000, totalCost: 5.0 }], daily: [] },
+      { provider: "opencode", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/Wrapt", name: "Wrapt", totalTokens: 400, totalCost: 1.0 }], daily: [] },
       { provider: "opencode", source: "local", updatedAt: "2026-07-16T10:00:00Z", projects: [{ projectPath: "/pfad/AnderesProjekt", name: "AnderesProjekt", totalTokens: 50, totalCost: 0.1 }], daily: [] },
     ]);
     const dashboard = database.dashboard("365d");
-    const remote = dashboard.projects.find((item) => item.label === "Remote_Workplace");
+    const remote = dashboard.projects.find((item) => item.label === "Wrapt");
     expect(remote).toMatchObject({ totalTokens: 1_400, totalCost: 6.0, quality: "exact" });
     expect(dashboard.projects).toHaveLength(2);
   });

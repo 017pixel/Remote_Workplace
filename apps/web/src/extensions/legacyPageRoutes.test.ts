@@ -64,7 +64,7 @@ describe("Legacy Page-/Route-Built-ins", () => {
     expect(patterns).toEqual(expectedPublicPatterns);
     expect(patterns).not.toContain("*");
     expect(registry.matchRoute("/gallery")?.route.contributionId).toBe(
-      "workbench.files.route.main",
+      "wrapt.files.route.main",
     );
     expect(
       registry.matchRoute("/gallery")?.route.value.runtime.aliasBehavior,
@@ -96,7 +96,7 @@ describe("Legacy Page-/Route-Built-ins", () => {
     const lazyChunks = new Set(lazy.map((page) => page.value.runtime.chunkId));
 
     expect(eager.map((page) => page.contributionId)).toEqual([
-      "workbench.dashboard.page.main",
+      "wrapt.dashboard.page.main",
     ]);
     expect(lazy).toHaveLength(22);
     expect(lazyChunks).toEqual(
@@ -176,8 +176,8 @@ describe("Legacy Page-/Route-Built-ins", () => {
 
   it("löst Eager- und Lazy-Export-Bindungen auf", async () => {
     const registry = createRegistry();
-    const dashboard = registry.getPage("workbench.dashboard.page.main")!;
-    const inbox = registry.getPage("workbench.inbox.page.main")!;
+    const dashboard = registry.getPage("wrapt.dashboard.page.main")!;
+    const inbox = registry.getPage("wrapt.inbox.page.main")!;
 
     await expect(dashboard.value.runtime.load()).resolves.toHaveProperty(
       dashboard.value.runtime.exportName,

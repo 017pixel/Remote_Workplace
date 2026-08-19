@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import type { Panel } from "@workbench/contracts";
+import type { Panel } from "@wrapt/contracts";
 import { deriveViewPresence } from "./useViewPresence";
 
 const emptyAreas = {};

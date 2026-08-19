@@ -1,4 +1,4 @@
-import { apiErrorSchema } from "@workbench/contracts";
+import { apiErrorSchema } from "@wrapt/contracts";
 import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { isAuditedMutation } from "../observability/audit.js";

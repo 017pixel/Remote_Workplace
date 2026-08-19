@@ -7,7 +7,7 @@ import {
   type PreviewRuntimeService,
   type PreviewRuntimeServiceRole,
   type Project,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { z } from "zod";
 
 export const PREVIEW_RUNTIME_CONFIG_FILE = "preview.config.json";

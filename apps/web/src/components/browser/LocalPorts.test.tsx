@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { LocalPort, LocalPortsResponse } from "@workbench/contracts";
+import type { LocalPort, LocalPortsResponse } from "@wrapt/contracts";
 import { LocalPorts } from "./LocalPorts";
 
 const port = (number: number, projectId: string | null): LocalPort => ({

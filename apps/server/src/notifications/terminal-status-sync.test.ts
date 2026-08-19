@@ -17,9 +17,9 @@ function session(id: string, kind: "codex" | "opencode" = "codex") {
 
 describe("Terminal-Status-Synchronisation", () => {
   it("meldet Input erst nach einer Schreibpause, nicht sofort", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-terminal-sync-")); directories.push(directory);
-    const notifications = new NotificationDatabase(join(directory, "workbench.sqlite"));
-    const sync = new TerminalStatusSync({ databasePath: join(directory, "workbench.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-terminal-sync-")); directories.push(directory);
+    const notifications = new NotificationDatabase(join(directory, "wrapt.sqlite"));
+    const sync = new TerminalStatusSync({ databasePath: join(directory, "wrapt.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
     sync.noteOutput(session("laufzeit-1"), "Do you want to proceed?");
     expect(notifications.list().notifications).toEqual([]);
     await sleep(80);
@@ -31,9 +31,9 @@ describe("Terminal-Status-Synchronisation", () => {
   });
 
   it("bricht den Warte-Verdacht ab, wenn der Agent weiterarbeitet", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-terminal-sync-")); directories.push(directory);
-    const notifications = new NotificationDatabase(join(directory, "workbench.sqlite"));
-    const sync = new TerminalStatusSync({ databasePath: join(directory, "workbench.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-terminal-sync-")); directories.push(directory);
+    const notifications = new NotificationDatabase(join(directory, "wrapt.sqlite"));
+    const sync = new TerminalStatusSync({ databasePath: join(directory, "wrapt.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
     sync.noteOutput(session("laufzeit-2"), "Do you want to proceed?");
     sync.noteOutput(session("laufzeit-2"), "Arbeitet weiter an der Datei…");
     await sleep(80);
@@ -42,9 +42,9 @@ describe("Terminal-Status-Synchronisation", () => {
   });
 
   it("ignoriert Shell-Ausgaben und erkennt erweiterte Warte-Muster", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-terminal-sync-")); directories.push(directory);
-    const notifications = new NotificationDatabase(join(directory, "workbench.sqlite"));
-    const sync = new TerminalStatusSync({ databasePath: join(directory, "workbench.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-terminal-sync-")); directories.push(directory);
+    const notifications = new NotificationDatabase(join(directory, "wrapt.sqlite"));
+    const sync = new TerminalStatusSync({ databasePath: join(directory, "wrapt.sqlite"), notifications, pollSeconds: 5, terminalMinimumSeconds: 5, agentMinimumSeconds: 5, inputIdleMilliseconds: 30 });
     sync.noteOutput({ id: "shell-1", kind: "shell", projectId: "project-1", cwd: "/srv/workbench", createdAt: Date.now() }, "Do you want to proceed?");
     sync.noteOutput(session("laufzeit-3"), "Select an option to continue:\n[1] ja\n[2] nein");
     await sleep(80);
@@ -55,8 +55,8 @@ describe("Terminal-Status-Synchronisation", () => {
   });
 
   it("meldet den Abschluss eines Agenten-Laufs mit Projektname", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "remote-workplace-terminal-sync-")); directories.push(directory);
-    const databasePath = join(directory, "workbench.sqlite");
+    const directory = mkdtempSync(join(tmpdir(), "wrapt-terminal-sync-")); directories.push(directory);
+    const databasePath = join(directory, "wrapt.sqlite");
     const db = new DatabaseSync(databasePath);
     db.exec(`CREATE TABLE terminal_sessions (
       id TEXT PRIMARY KEY, runtime_id TEXT NOT NULL, kind TEXT NOT NULL, project_id TEXT, cwd TEXT NOT NULL,

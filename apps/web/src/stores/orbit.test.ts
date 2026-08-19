@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { orbitWorkspaceSchema, type Workspace } from "@workbench/contracts";
+import { orbitWorkspaceSchema, type Workspace } from "@wrapt/contracts";
 import { freshOrbitWorkspace, migrateOrbitDocument, migrateWorkspaceToOrbit, previewSlotGeometry, useOrbitStore } from "./orbit";
 
 const legacy: Workspace = {
   version: 3,
-  selectedProjectId: "remote-workplace",
-  panels: [{ id: "terminal-one", type: "terminal", projectId: "remote-workplace", previewId: null, reloadKey: 0 }],
+  selectedProjectId: "wrapt",
+  panels: [{ id: "terminal-one", type: "terminal", projectId: "wrapt", previewId: null, reloadKey: 0 }],
   workspaces: [{ id: "legacy", name: "Arbeitsfläche", groups: [{ id: "group", panelIds: ["terminal-one"], activePanelId: "terminal-one" }], focusedGroupId: "group", layout: "single", layoutSizes: {} }],
   activeWorkspaceId: "legacy",
   maximizedPanelId: null,
@@ -73,7 +73,7 @@ describe("Orbit store", () => {
     expect(migrated.version).toBe(8);
     expect(migrated.boards[0]!.nodes.map((node) => node.type)).toEqual(["project", "tool"]);
     expect(migrated.boards[0]!.edges).toHaveLength(1);
-    expect(migrated.boards[0]!.nodes[1]).toMatchObject({ runtimeId: "terminal-one", projectId: "remote-workplace" });
+    expect(migrated.boards[0]!.nodes[1]).toMatchObject({ runtimeId: "terminal-one", projectId: "wrapt" });
   });
 
   it("creates editable nodes and maintains project bindings", () => {

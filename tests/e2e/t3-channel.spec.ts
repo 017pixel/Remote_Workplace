@@ -48,9 +48,9 @@ async function stubChannelApi(page: Page, initial: ChannelStatus, saved: string[
     }
     await route.fulfill({ json: current });
   });
-  // Die App wird unter dem Prefix /workbench/ ausgeliefert (siehe app.ts).
+  // Die App wird unter dem Prefix /wrapt/ ausgeliefert (siehe app.ts).
   // Der Kanal liegt im System-Bereich der neuen Tab-Gliederung.
-  await page.goto("/workbench/settings");
+  await page.goto("/wrapt/settings");
   await page.getByRole("button", { name: "System", exact: true }).click();
 }
 

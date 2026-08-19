@@ -1,4 +1,4 @@
-import type { NotificationSettingsResponse } from "@workbench/contracts";
+import type { NotificationSettingsResponse } from "@wrapt/contracts";
 import { useEffect, useMemo, useState } from "react";
 import { WebPushDeviceClient, type WebPushDeviceState } from "./webPushDevice";
 

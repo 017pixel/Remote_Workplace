@@ -10,7 +10,7 @@ import {
   type OrbitAsset,
   type SaveOrbitDocumentRequest,
   type UpdateGalleryFileRequest,
-} from "@workbench/contracts";
+} from "@wrapt/contracts";
 import { ApiClientError, errorPayload, mutate, request, requestSignal } from "./transport.js";
 
 async function uploadOrbitAsset(file: File, folderId?: string | null): Promise<OrbitAsset> {
