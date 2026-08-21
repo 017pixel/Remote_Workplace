@@ -23,6 +23,6 @@ describe("Wrapt-Umgebungsvariablen", () => {
   });
 
   it("hebt den unmittelbar vorherigen lokalen Produktstand auf den aktuellen Stand", () => {
-    expect(canonicalizeWraptEnvironment({ APP_VERSION: "0.90.0" }).APP_VERSION).toBe("0.95.0");
+    expect(canonicalizeWraptEnvironment({ APP_VERSION: "0.95.0" }).APP_VERSION).toBe("0.96.0");
   });
 });
