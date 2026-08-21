@@ -13,6 +13,11 @@
  *
  * Aufruf:
  *   node scripts/build-app-icons.mjs
+ *
+ * Die gebauten Icons liegen im Repo. Liegt das komplette Set bereits vor,
+ * überspringt das Skript den Python-Schritt — der Build braucht dann keine
+ * cairosvg-/Pillow-Installation (z. B. in der CI). Zum Neubauen erst die
+ * Ziele löschen oder `--force` übergeben.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -28,6 +33,20 @@ const webFavicon = join(repoRoot, "apps/web/public/favicon.svg");
 if (!existsSync(source)) {
   console.error(`Quell-Icon nicht gefunden: ${source}`);
   process.exit(1);
+}
+
+const targets = [
+  webFavicon,
+  join(iconDir, "favicon-32.png"),
+  join(iconDir, "apple-touch-icon.png"),
+  join(iconDir, "icon-192.png"),
+  join(iconDir, "icon-512.png"),
+  join(iconDir, "icon-maskable-512.png"),
+];
+
+if (!process.argv.includes("--force") && targets.every(existsSync)) {
+  console.log("App-Icon-Set liegt bereits vor; Neubau übersprungen (--force erzwingt).");
+  process.exit(0);
 }
 
 // cairosvg (SVG -> PNG) und Pillow (Skalierung) statt einer npm-Abhängigkeit.
