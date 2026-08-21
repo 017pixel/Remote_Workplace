@@ -137,14 +137,14 @@ Ausführlich: [docs/configuration.md](docs/configuration.md).
 
 ## Befehle
 
-- `pnpm dev` – Contracts bauen und Server/Web parallel starten.
+- `pnpm dev` – Contracts (`contracts`, `extension-contracts`) bauen und Server/Web parallel starten.
 - `pnpm typecheck` – strict TypeScript prüfen.
 - `pnpm lint` – Repository linten.
 - `pnpm test` – Unit-/Integrationstests ausführen.
 - `pnpm build` – Contracts, Server und Web produktiv bauen.
 - `pnpm test:e2e` – Playwright-Abläufe prüfen.
 - `pnpm start` – gebauten Produktionsserver auf localhost starten.
-- `sudo bash deploy/systemd/install.sh` – systemd-Units aus der Config rendern und installieren.
+- `bash deploy/systemd/install.sh` – systemd-User-Units aus der Config rendern und installieren (kein `sudo`).
 
 ## Dokumentation
 

@@ -100,7 +100,7 @@ pnpm build && pnpm start
 
 **Optional als systemd-Dienst** (Linux, dauerhafter Betrieb):
 ```bash
-sudo bash deploy/systemd/install.sh          # rendert Units aus der Config und installiert sie
+bash deploy/systemd/install.sh               # rendert User-Units aus der Config und installiert sie (kein sudo)
 bash deploy/proxy/configure-tailscale-serve.sh   # veröffentlicht privat im Tailnet (optional)
 sudo bash deploy/systemd/install-codexbar.sh # optionaler CodexBar-Dienst
 ```

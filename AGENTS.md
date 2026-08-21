@@ -17,6 +17,9 @@ neu gebaut und neu gestartet.
 - `apps/server` — Fastify-Backend (`@wrapt/server`), Port 3010, API unter `/api/v1`.
 - `apps/web` — React/Vite-Frontend (`@wrapt/web`), wird als statisches `dist/` vom Server ausgeliefert.
 - `packages/contracts` — geteilte Zod-Schemas (`@wrapt/contracts`). **Muss vor Server/Web gebaut werden.**
+- `packages/extension-contracts` — Zod-Schemas und JSON-Schemas für das Extension-System
+  (`@wrapt/extension-contracts`). Wird von `pnpm dev`/`pnpm build` automatisch **vor** `contracts`
+  gebaut; bei Schema-Änderungen zuerst mitbauen.
 
 ## Wichtigste Befehle
 
@@ -30,7 +33,8 @@ neu gebaut und neu gestartet.
 | End-to-End-Tests | `pnpm test:e2e` |
 | Health-Check | `curl -s http://127.0.0.1:3010/api/v1/health` |
 
-Contracts nach Schema-Änderungen zuerst bauen: `pnpm --filter @wrapt/contracts build`.
+Contracts nach Schema-Änderungen zuerst bauen: `pnpm --filter @wrapt/contracts build`
+(sowie bei Extension-Schema-Änderungen `pnpm --filter @wrapt/extension-contracts build`).
 Vor jedem Abschluss `pnpm typecheck` (und bei Bedarf `pnpm lint`) laufen lassen.
 
 ## Neustart-Workflow (Frontend / Backend / beides)
