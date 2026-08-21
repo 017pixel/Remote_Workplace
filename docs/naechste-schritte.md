@@ -142,7 +142,8 @@ Aus den Umbauten sind verwaiste Klassen übrig, etwa `.orbit-gallery-move-menu`
 und `.orbit-gallery-move-dropdown` (das Menü ist jetzt ein Dialog).
 Vorgehen: Klassen im Stylesheet gegen die Verwendung im TSX prüfen.
 
-### 20. `data/wrapt.sqlite` im Repo klären
-Laut `AGENTS.md` eine alte Kopie; die echte Datenbank liegt unter
-`~/.local/share/wrapt/`. Entfernen oder eindeutig als Beispiel benennen,
-damit niemand versehentlich darauf arbeitet.
+### 20. `data/wrapt.sqlite` im Repo klären ✅
+Erledigt am 19.08.2026 im Zuge des Renames zu Wrapt: Die alte Kopie
+`data/workbench.sqlite` wurde in `~/wrapt-rename-altlasten/` verschoben und
+`AGENTS.md` entsprechend angepasst. Die echte Datenbank liegt ausschließlich
+unter `~/.local/share/wrapt/wrapt.sqlite`.

@@ -145,7 +145,7 @@ keinen Parallelbetrieb beider Kanäle.
 
 - **Workspace-Zustand** (geöffnete Panels, Arbeitsflächen) liegt im Browser-`localStorage` → von Neustarts unberührt.
 - **Orbit-Daten, Galerie, Accounts** liegen in SQLite unter `~/.local/share/wrapt/wrapt.sqlite`
-  (NICHT `data/wrapt.sqlite` im Repo — das ist eine alte Kopie) → unberührt.
+  (eine alte Kopie `data/workbench.sqlite` im Repo wurde entfernt) → unberührt.
 - **Laufende Terminals** überleben einen **Backend-**Neustart: Sie laufen in einem dedizierten
   tmux-Supervisor (`wrapt-terminal-supervisor.service`, eigene User-Unit) mit eigenem Socket
   unter `$XDG_RUNTIME_DIR/wrapt/`. Der Fastify-Prozess verbindet sich beim Start nur
