@@ -1,17 +1,17 @@
 /* global self, caches */
 
 const BASE = "/wrapt";
-const CACHE = "wrapt-v20";
+const CACHE = "wrapt-v21";
 const SHELL = [
   BASE + "/",
   BASE + "/index.html",
-  BASE + "/manifest.webmanifest?v=5",
-  BASE + "/favicon.svg?v=5",
-  BASE + "/icons/favicon-32.png?v=5",
-  BASE + "/icons/icon-192.png?v=5",
-  BASE + "/icons/icon-512.png?v=5",
-  BASE + "/icons/icon-maskable-512.png?v=5",
-  BASE + "/icons/apple-touch-icon.png?v=5",
+  BASE + "/manifest.webmanifest?v=8",
+  BASE + "/favicon.svg?v=8",
+  BASE + "/icons/favicon-32.png?v=8",
+  BASE + "/icons/icon-192.png?v=8",
+  BASE + "/icons/icon-512.png?v=8",
+  BASE + "/icons/icon-maskable-512.png?v=8",
+  BASE + "/icons/apple-touch-icon.png?v=8",
 ];
 
 self.addEventListener("install", (event) => {
@@ -120,8 +120,8 @@ self.addEventListener("push", (event) => {
   const payload = pushPayload(event);
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
-    icon: BASE + "/icons/icon-192.png?v=5",
-    badge: BASE + "/icons/favicon-32.png?v=5",
+    icon: BASE + "/icons/icon-192.png?v=8",
+    badge: BASE + "/icons/favicon-32.png?v=8",
     tag: payload.id || `wrapt-notification-${Date.now()}`,
     silent: false,
     requireInteraction: payload.severity === "error",

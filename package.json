@@ -17,7 +17,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm --parallel --filter @wrapt/server --filter @wrapt/web dev",
-    "build": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm --filter @wrapt/server build && pnpm --filter @wrapt/web build",
+    "build:icons": "node scripts/build-app-icons.mjs",
+    "build": "pnpm build:icons && pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm --filter @wrapt/server build && pnpm --filter @wrapt/web build",
     "typecheck": "pnpm --filter @wrapt/extension-contracts typecheck && pnpm --filter @wrapt/contracts typecheck && pnpm --parallel --filter @wrapt/server --filter @wrapt/web typecheck",
     "lint": "eslint .",
     "test": "pnpm --filter @wrapt/extension-contracts build && pnpm --filter @wrapt/contracts build && pnpm -r test",

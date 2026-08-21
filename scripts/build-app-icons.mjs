@@ -7,8 +7,9 @@
  * PWA-Icons, iOS (apple-touch-icon) und Android (maskable) auf dasselbe
  * Markenzeichen.
  *
- * Alle PNGs erhalten den vollen Theme-Hintergrund #0a0a0a (wie bisher), das
- * maskable-Icon zusätzlich die Android-Safe-Zone: Icon zentriert auf 66 %.
+ * Die regulären PNGs erhalten einen sichtbaren Motivanteil von 82 % und den
+ * vollen Theme-Hintergrund #0a0a0a. Das maskable-Icon bleibt mit 66 % in der
+ * Android-Safe-Zone und füllt den restlichen Bereich mit demselben Hintergrund.
  *
  * Aufruf:
  *   node scripts/build-app-icons.mjs
@@ -42,6 +43,7 @@ ICON_DIR = ${JSON.stringify(iconDir)}
 WEB_FAVICON = ${JSON.stringify(webFavicon)}
 BACKGROUND = (10, 10, 10, 255)
 RENDER_BASE = 1024
+REGULAR_RATIO = 0.82
 MASKABLE_RATIO = 0.66
 
 svg = open(SOURCE, "rb").read()
@@ -49,30 +51,45 @@ svg = open(SOURCE, "rb").read()
 def render(base):
     png = cairosvg.svg2png(bytestring=svg, output_width=base, output_height=base)
     image = Image.open(io.BytesIO(png)).convert("RGBA")
-    canvas = Image.new("RGBA", (base, base), BACKGROUND)
-    canvas.alpha_composite(image)
-    return canvas, image
+    return image
 
-canvas, content = render(RENDER_BASE)
+content = render(RENDER_BASE)
+
+def crop_to_content(image):
+    box = image.getchannel("A").getbbox()
+    if box is None:
+        raise RuntimeError("Das Quell-Icon enthält keine sichtbare Grafik.")
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    side = max(width, height)
+    center_x, center_y = (left + right) / 2, (top + bottom) / 2
+    return image.crop((
+        int(center_x - side / 2),
+        int(center_y - side / 2),
+        int(center_x + side / 2),
+        int(center_y + side / 2),
+    ))
+
+def compose_icon(image, ratio):
+    artwork = crop_to_content(image).resize(
+        (int(RENDER_BASE * ratio), int(RENDER_BASE * ratio)),
+        Image.Resampling.LANCZOS,
+    )
+    canvas = Image.new("RGBA", (RENDER_BASE, RENDER_BASE), BACKGROUND)
+    offset = (RENDER_BASE - artwork.width) // 2
+    canvas.alpha_composite(artwork, (offset, offset))
+    return canvas
+
+regular = compose_icon(content, REGULAR_RATIO)
+maskable = compose_icon(content, MASKABLE_RATIO)
 
 def emit(image, size, path):
     image.convert("RGBA").resize((size, size), Image.LANCZOS).save(path, optimize=True)
 
-emit(canvas, 32, f"{ICON_DIR}/favicon-32.png")
-emit(canvas, 180, f"{ICON_DIR}/apple-touch-icon.png")
-emit(canvas, 192, f"{ICON_DIR}/icon-192.png")
-emit(canvas, 512, f"{ICON_DIR}/icon-512.png")
-
-box = content.getbbox()
-cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-side = max(box[2] - box[0], box[3] - box[1])
-target = int(RENDER_BASE * MASKABLE_RATIO)
-icon = content.crop((
-    int(cx - side / 2), int(cy - side / 2),
-    int(cx + side / 2), int(cy + side / 2),
-)).resize((target, target), Image.LANCZOS)
-maskable = Image.new("RGBA", (RENDER_BASE, RENDER_BASE), BACKGROUND)
-maskable.paste(icon, ((RENDER_BASE - target) // 2, (RENDER_BASE - target) // 2), icon)
+emit(regular, 32, f"{ICON_DIR}/favicon-32.png")
+emit(regular, 180, f"{ICON_DIR}/apple-touch-icon.png")
+emit(regular, 192, f"{ICON_DIR}/icon-192.png")
+emit(regular, 512, f"{ICON_DIR}/icon-512.png")
 emit(maskable, 512, f"{ICON_DIR}/icon-maskable-512.png")
 
 with open(WEB_FAVICON, "wb") as handle:
