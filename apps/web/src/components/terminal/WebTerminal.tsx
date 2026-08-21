@@ -17,6 +17,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
     projectId = null,
     initialCwd = null,
     active = true,
+    focused = true,
     renderScale = 1,
     mode = "agent",
     accountId,
@@ -25,7 +26,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
   ref,
 ) {
   const renderer = useTerminalRenderer({
-    instanceId, kind, projectId, initialCwd, mode, accountId, active,
+    instanceId, kind, projectId, initialCwd, mode, accountId, active, focused,
     renderScale, onMetaChange,
   });
 
@@ -57,7 +58,7 @@ export const WebTerminal = forwardRef<WebTerminalHandle, WebTerminalProps>(funct
           </button>
         </div>
       ) : null}
-      <div className="terminal-viewport" ref={renderer.mountRef} onClick={() => renderer.focus()} />
+      <div className="terminal-viewport" ref={renderer.mountRef} onPointerDown={() => renderer.focus()} />
       <ConfirmDialog
         open={pendingPaste !== null}
         title="Großen Text einfügen?"

@@ -97,6 +97,23 @@ export function touchScrollLines(movedPixels: number, lineHeight: number, carry 
   return { lines, carry: raw - lines };
 }
 
+/** Vereinheitlicht Maus-, Touchpad- und Seitenrad-Einheiten vor dem Scrollen. */
+export function wheelScrollLines(
+  deltaY: number,
+  deltaMode: number,
+  lineHeight: number,
+  viewportHeight: number,
+  carry = 0,
+): { lines: number; carry: number } {
+  const height = lineHeight > 0 ? lineHeight : 18;
+  const delta = deltaMode === 1
+    ? deltaY * height
+    : deltaMode === 2
+      ? deltaY * Math.max(0, viewportHeight)
+      : deltaY;
+  return touchScrollLines(delta, height, carry);
+}
+
 export function mouseWheelSequence(direction: "up" | "down", sgr: boolean, column = 1, row = 1): string {
   const button = direction === "up" ? 64 : 65;
   if (sgr) return `\x1b[<${button};${column};${row}M`;
@@ -150,5 +167,4 @@ export function createUuid(): string {
     return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
   }
 }
-
 

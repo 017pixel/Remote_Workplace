@@ -21,12 +21,13 @@ import type { TerminalRenderer, TerminalRendererOptions } from "./rendererTypes"
  * Subscription, sobald er unsichtbar wird — kein ANSI-Parsing im Hintergrund.
  */
 export function useTerminalRenderer(options: TerminalRendererOptions): TerminalRenderer {
-  const { instanceId, kind, projectId, initialCwd, mode, accountId, active, renderScale, onMetaChange } = options;
+  const { instanceId, kind, projectId, initialCwd, mode, accountId, active, focused, renderScale, onMetaChange } = options;
 
   const mountRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const activeRef = useRef(active);
+  const focusedRef = useRef(focused);
   const kindRef = useRef(kind);
   const sessionRef = useRef<string | null>(null);
   const epochRef = useRef(0);
@@ -43,6 +44,13 @@ export function useTerminalRenderer(options: TerminalRendererOptions): TerminalR
   const subscriptionRef = useRef<TerminalSubscription | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
   const cwdRef = useRef("–");
+  activeRef.current = active;
+
+  // Beim Antippen wird der Ref im PointerDown-Handler sofort gesetzt. Ein
+  // Render darf diesen Fokus nicht mit dem alten Parent-Prop überschreiben.
+  useEffect(() => {
+    focusedRef.current = focused;
+  }, [focused]);
 
   const [status, setStatusState] = useState<TerminalStatus>("connecting");
   const [cwd, setCwdState] = useState("–");
@@ -115,7 +123,6 @@ export function useTerminalRenderer(options: TerminalRendererOptions): TerminalR
   // Sichtbarkeit steuert die Subscription: Sichtbar → synchronisieren,
   // unsichtbar → detach (kein Parsen im Hintergrund).
   useEffect(() => {
-    activeRef.current = active;
     if (active) attach();
     else detach();
     return () => detach();
@@ -194,7 +201,7 @@ export function useTerminalRenderer(options: TerminalRendererOptions): TerminalR
     const disposeInput = attachTerminalInput(terminal, mount, {
       send: (message) => sendMessage(message as ClientMessage),
       setError: setErrorState,
-      sessionRef, snapshotReplayRef, replayBufferRef, mouseTrackingRef, kindRef, terminalRef,
+      sessionRef, snapshotReplayRef, replayBufferRef, mouseTrackingRef, kindRef, terminalRef, focusedRef,
       rememberTyping, copySelection, receivePastedText, scrollByLines,
     });
     const disposeAppearance = attachTerminalAppearance(terminal, mount, {
@@ -298,6 +305,9 @@ export function useTerminalRenderer(options: TerminalRendererOptions): TerminalR
   }, [pasteIntoTerminal]);
 
   const focus = useCallback(() => {
+    // PointerDown kommt vor TouchStart. Den Ref sofort setzen, damit ein
+    // erster Wisch im frisch angeklickten Pane nicht vom Fokus-Gate verworfen wird.
+    focusedRef.current = true;
     terminalRef.current?.focus();
     // Fokus ist echte Nutzerinteraktion: Geometrie-Controlling übernehmen.
     if (sessionRef.current && !ownsGeometryRef.current) {

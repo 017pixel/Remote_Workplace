@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { TerminalKind, TerminalWorkspaceOperation, TerminalWorkspaceV2 } from "@wrapt/contracts";
-import { applyWorkspaceOperations, createTerminalOps, layoutRuntimeIds, openEntryOps, paneForRuntime } from "../components/terminal/workspace/terminalWorkspaceModel";
+import { applyWorkspaceOperations, createTerminalOps, layoutRuntimeIds, openEntryOps, paneForRuntime, sanitizeWorkspaceDocument } from "../components/terminal/workspace/terminalWorkspaceModel";
 import { generateId } from "../lib/id";
 
 export const CLI_INSTANCE_LIMITS: Record<"codex" | "opencode" | "claude", number> = {
@@ -95,7 +95,8 @@ export const useTerminalWorkspaceStore = create<TerminalWorkspaceStore>()((set, 
   pendingOps: [],
   runtimeCwds: {},
   initializeRemote: (document, revision, pendingOps) => {
-    const rebased = pendingOps.length > 0 ? applyWorkspaceOperations(document, pendingOps) : document;
+    const clean = sanitizeWorkspaceDocument(document);
+    const rebased = pendingOps.length > 0 ? applyWorkspaceOperations(clean, pendingOps) : clean;
     set({
       document: rebased,
       revision,
@@ -108,9 +109,9 @@ export const useTerminalWorkspaceStore = create<TerminalWorkspaceStore>()((set, 
   },
   applyRemote: (document, revision) => set((state) => state.dirty || !state.hydrated
     ? state
-    : { document, revision, syncError: null }),
+    : { document: sanitizeWorkspaceDocument(document), revision, syncError: null }),
   replaceRemote: (document, revision) => set({
-    document,
+    document: sanitizeWorkspaceDocument(document),
     revision,
     hydrated: true,
     dirty: false,
@@ -119,7 +120,7 @@ export const useTerminalWorkspaceStore = create<TerminalWorkspaceStore>()((set, 
     syncError: null,
   }),
   rebaseRemote: (document, revision, pendingOps) => set({
-    document: applyWorkspaceOperations(document, pendingOps),
+    document: applyWorkspaceOperations(sanitizeWorkspaceDocument(document), pendingOps),
     revision,
     hydrated: true,
     dirty: pendingOps.length > 0,
@@ -132,7 +133,7 @@ export const useTerminalWorkspaceStore = create<TerminalWorkspaceStore>()((set, 
     const savedPrefixMatches = prefix.length === savedOps.length && JSON.stringify(prefix) === JSON.stringify(savedOps);
     const remainingOps = savedPrefixMatches ? state.pendingOps.slice(savedOps.length) : state.pendingOps;
     return {
-      document: applyWorkspaceOperations(document, remainingOps),
+      document: applyWorkspaceOperations(sanitizeWorkspaceDocument(document), remainingOps),
       revision,
       dirty: remainingOps.length > 0,
       saving: false,

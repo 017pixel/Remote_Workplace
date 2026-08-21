@@ -36,7 +36,7 @@ export function useTerminalOutput(options: TerminalOutputOptions): TerminalOutpu
   // übergeben. Geparkte Knoten halten nur einen begrenzten Schwanz der Ausgabe.
   const flushOutput = useCallback((force = false) => {
     if (outputFlushRef.current !== null) {
-      window.clearTimeout(outputFlushRef.current);
+      window.cancelAnimationFrame(outputFlushRef.current);
       outputFlushRef.current = null;
     }
     const terminal = terminalRef.current;
@@ -57,7 +57,7 @@ export function useTerminalOutput(options: TerminalOutputOptions): TerminalOutpu
       return;
     }
     if (outputFlushRef.current === null) {
-      outputFlushRef.current = window.setTimeout(() => flushOutput(!activeRef.current), 16);
+      outputFlushRef.current = window.requestAnimationFrame(() => flushOutput(!activeRef.current));
     }
   }, [activeRef, flushOutput]);
 
@@ -104,7 +104,7 @@ export function useTerminalOutput(options: TerminalOutputOptions): TerminalOutpu
   }, [rememberTyping, replayBufferRef, send, sessionRef, setError]);
 
   useEffect(() => () => {
-    if (outputFlushRef.current) window.clearTimeout(outputFlushRef.current);
+    if (outputFlushRef.current !== null) window.cancelAnimationFrame(outputFlushRef.current);
     outputFlushRef.current = null;
     outputBufferRef.current = "";
   }, []);

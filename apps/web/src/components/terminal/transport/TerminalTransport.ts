@@ -14,6 +14,10 @@ export interface TerminalSubscription {
 interface SubscriptionState {
   runtimeId: string;
   sessionId: string | null;
+  clients: Set<SubscriptionClient>;
+}
+
+interface SubscriptionClient {
   listeners: Set<(message: ServerMessage) => void>;
   statusListeners: Set<(connected: boolean) => void>;
 }
@@ -33,33 +37,38 @@ class TerminalTransport {
   private heartbeat: number | null = null;
 
   subscribe(runtimeId: string, initial: { sessionId?: string } = {}): TerminalSubscription {
-    const state: SubscriptionState = {
+    const state = this.subscriptions.get(runtimeId) ?? {
       runtimeId,
       sessionId: initial.sessionId ?? null,
-      listeners: new Set(),
-      statusListeners: new Set(),
-    };
+      clients: new Set<SubscriptionClient>(),
+    } satisfies SubscriptionState;
+    if (initial.sessionId) state.sessionId = initial.sessionId;
     this.subscriptions.set(runtimeId, state);
     if (initial.sessionId) this.sessionToRuntime.set(initial.sessionId, runtimeId);
     this.ensureSocket();
+    const client: SubscriptionClient = { listeners: new Set(), statusListeners: new Set() };
+    state.clients.add(client);
     let disposed = false;
     return {
       runtimeId,
       sessionId: state.sessionId,
       send: (message) => this.send(message),
       onMessage: (listener) => {
-        state.listeners.add(listener);
-        return () => state.listeners.delete(listener);
+        client.listeners.add(listener);
+        return () => client.listeners.delete(listener);
       },
       onStatus: (listener) => {
-        state.statusListeners.add(listener);
-        return () => state.statusListeners.delete(listener);
+        client.statusListeners.add(listener);
+        return () => client.statusListeners.delete(listener);
       },
       dispose: () => {
         if (disposed) return;
         disposed = true;
-        this.send({ type: "terminal.unsubscribe", runtimeId });
-        this.subscriptions.delete(runtimeId);
+        state.clients.delete(client);
+        if (state.clients.size === 0) {
+          this.send({ type: "terminal.unsubscribe", runtimeId });
+          this.subscriptions.delete(runtimeId);
+        }
         if (this.subscriptions.size === 0) this.closeSocket();
       },
     };
@@ -134,12 +143,16 @@ class TerminalTransport {
     const state = this.subscriptions.get(runtimeId);
     if (!state) return;
     if ("sessionId" in message && typeof message.sessionId === "string") state.sessionId = message.sessionId;
-    for (const listener of state.listeners) listener(message);
+    for (const client of state.clients) {
+      for (const listener of client.listeners) listener(message);
+    }
   }
 
   private emitStatus(connected: boolean): void {
     for (const state of this.subscriptions.values()) {
-      for (const listener of state.statusListeners) listener(connected);
+      for (const client of state.clients) {
+        for (const listener of client.statusListeners) listener(connected);
+      }
     }
   }
 }

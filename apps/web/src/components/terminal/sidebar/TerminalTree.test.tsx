@@ -20,7 +20,18 @@ function workspace(): TerminalWorkspaceV2 {
       persistent: false,
       kind: "shell",
       projectId: null,
-      initialCwd: null,
+      initialCwd: "/home/tester/projects/shell",
+    }, {
+      id: "entry-2",
+      runtimeId: "00000000-0000-4000-8000-000000000002",
+      name: "Codex",
+      parentFolderId: "default",
+      sortOrder: 1,
+      pinned: false,
+      persistent: false,
+      kind: "codex",
+      projectId: null,
+      initialCwd: "/home/tester/projects/codex",
     }],
     folders: [
       { id: "default", parentFolderId: null, name: "Terminal", sortOrder: 0, collapsed: false },
@@ -48,6 +59,8 @@ function callbacks(): TerminalTreeCallbacks {
     onMoveFolder: vi.fn(),
     onResync: vi.fn(),
     onRestart: vi.fn(),
+    onHoverStart: vi.fn(),
+    onHoverEnd: vi.fn(),
   };
 }
 
@@ -103,5 +116,30 @@ describe("TerminalTree", () => {
     expect(screen.getByText("Shell")).toBeTruthy();
     expect(screen.getByText("Terminal")).toBeTruthy();
     expect(screen.queryByText("Unterordner")).toBeNull();
+  });
+
+  it("zeigt den Eröffnungspfad bei allen Terminals auch ohne fokussierten Live-Renderer", () => {
+    render(
+      <TerminalTree
+        document={workspace()}
+        folderId={null}
+        depth={0}
+        areaId="standalone"
+        meta={{}}
+        cwds={{}}
+        sessions={[]}
+        editing={null}
+        editingValue=""
+        onEditingValueChange={vi.fn()}
+        onCommitEdit={vi.fn()}
+        onCancelEdit={vi.fn()}
+        dropTarget={null}
+        createRowHandlers={() => ({ onPointerDown: vi.fn() })}
+        callbacks={callbacks()}
+      />,
+    );
+
+    expect(screen.getByText("/home/tester/projects/shell")).toBeTruthy();
+    expect(screen.getByText("/home/tester/projects/codex")).toBeTruthy();
   });
 });

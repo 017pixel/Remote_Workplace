@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { TerminalWorkspaceV2 } from "@wrapt/contracts";
+import type { TerminalPaneLayout, TerminalWorkspaceV2 } from "@wrapt/contracts";
 import {
   applyWorkspaceOperations,
+  appendRuntimeToLayout,
   childrenOfFolder,
   createFolderOps,
   createTerminalOps,
   layoutRuntimeIds,
+  MAX_TERMINAL_PANES,
   moveEntryOps,
   moveFolderOps,
   openEntryOps,
   openRuntimeInLayout,
   removeRuntimeFromLayout,
+  sanitizePaneLayout,
+  sanitizeWorkspaceDocument,
 } from "./terminalWorkspaceModel";
 
 function document(): TerminalWorkspaceV2 {
@@ -24,6 +28,9 @@ function document(): TerminalWorkspaceV2 {
 
 const RUNTIME_A = "00000000-0000-4000-8000-000000000001";
 const RUNTIME_B = "00000000-0000-4000-8000-000000000002";
+const RUNTIME_C = "00000000-0000-4000-8000-000000000003";
+const RUNTIME_D = "00000000-0000-4000-8000-000000000004";
+const RUNTIME_E = "00000000-0000-4000-8000-000000000005";
 
 describe("applyWorkspaceOperations", () => {
   it("legt Terminals an und öffnet sie in einer Fläche", () => {
@@ -76,6 +83,27 @@ describe("Terminal-Erstellung", () => {
 });
 
 describe("Layout-Helfer", () => {
+  it("fügt per Split bis zu vier Terminals rechts an und begrenzt danach", () => {
+    let layout = appendRuntimeToLayout(null, RUNTIME_A);
+    layout = appendRuntimeToLayout(layout, RUNTIME_B);
+    layout = appendRuntimeToLayout(layout, RUNTIME_C);
+    layout = appendRuntimeToLayout(layout, RUNTIME_D);
+    expect(layoutRuntimeIds(layout)).toEqual([RUNTIME_A, RUNTIME_B, RUNTIME_C, RUNTIME_D]);
+    expect(layout.type === "split" ? layout.sizes.reduce((sum, size) => sum + size, 0) : 0).toBeCloseTo(100);
+    expect(appendRuntimeToLayout(layout, RUNTIME_E)).toBe(layout);
+    expect(MAX_TERMINAL_PANES).toBe(4);
+  });
+
+  it("öffnet ein anderes Sidebar-Terminal einzeln und behält Gruppenklicks gesplittet", () => {
+    const split = appendRuntimeToLayout(appendRuntimeToLayout(null, RUNTIME_A), RUNTIME_B);
+    const base = applyWorkspaceOperations(document(), [{ type: "setPaneLayout", areaId: "standalone", layout: split }]);
+    const single = applyWorkspaceOperations(base, openEntryOps(base, "standalone", RUNTIME_C));
+    expect(single.areaLayouts.standalone!.paneLayout).toMatchObject({ type: "pane", runtimeId: RUNTIME_C });
+    const grouped = applyWorkspaceOperations(base, openEntryOps(base, "standalone", RUNTIME_B));
+    expect(grouped.areaLayouts.standalone!.paneLayout).toMatchObject({ type: "split" });
+    expect(grouped.areaLayouts.standalone!.focusedPaneId).toBe(`pane-${RUNTIME_B}`);
+  });
+
   it("öffnet eine Runtime und ersetzt dabei das bestehende Layout", () => {
     const single = openRuntimeInLayout(null, RUNTIME_A);
     expect(single).toMatchObject({ type: "pane", runtimeId: RUNTIME_A });
@@ -89,6 +117,16 @@ describe("Layout-Helfer", () => {
     const collapsed = removeRuntimeFromLayout(split, RUNTIME_A);
     expect(collapsed).toMatchObject({ type: "pane", runtimeId: RUNTIME_B });
     expect(removeRuntimeFromLayout(collapsed, RUNTIME_B)).toBeNull();
+  });
+
+  it("normalisiert die Größen beim Entfernen aus einem Vierer-Split", () => {
+    let split = appendRuntimeToLayout(null, RUNTIME_A);
+    split = appendRuntimeToLayout(split, RUNTIME_B);
+    split = appendRuntimeToLayout(split, RUNTIME_C);
+    split = appendRuntimeToLayout(split, RUNTIME_D);
+    const remaining = removeRuntimeFromLayout(split, RUNTIME_B);
+    expect(layoutRuntimeIds(remaining)).toEqual([RUNTIME_A, RUNTIME_C, RUNTIME_D]);
+    expect(remaining?.type === "split" ? remaining.sizes.reduce((sum, size) => sum + size, 0) : 0).toBeCloseTo(100);
   });
 
   it("erzeugt Split- und Verschiebe-Operationen inklusive Sortierung", () => {
@@ -126,5 +164,67 @@ describe("Layout-Helfer", () => {
       { type: "createFolder", folder: { id: "child", parentFolderId: "parent", name: "Child", sortOrder: 0, collapsed: false } },
     ]);
     expect(moveFolderOps(base, "parent", "child", 0)).toEqual([]);
+  });
+});
+
+describe("Layout-Sanitizing (doppelte Pane-IDs)", () => {
+  it("entfernt doppelte Pane-IDs aus Splits und kollabiert Einzel-Splits", () => {
+    const split: TerminalPaneLayout = {
+      type: "split", id: "split-1", orientation: "horizontal", sizes: [50, 50],
+      children: [{ type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A }, { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A }],
+    };
+    const single = sanitizePaneLayout(split);
+    expect(single).toMatchObject({ type: "pane", runtimeId: RUNTIME_A });
+    expect(sanitizePaneLayout(null)).toBeNull();
+  });
+
+  it("normalisiert Split-Größen nach dem Entfernen von Duplikaten", () => {
+    const split: TerminalPaneLayout = {
+      type: "split", id: "split-1", orientation: "horizontal", sizes: [50, 50, 50],
+      children: [
+        { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+        { type: "pane", id: `pane-${RUNTIME_B}`, runtimeId: RUNTIME_B },
+        { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+      ],
+    };
+    const cleaned = sanitizePaneLayout(split);
+    expect(cleaned).toMatchObject({ type: "split" });
+    expect(layoutRuntimeIds(cleaned)).toEqual([RUNTIME_A, RUNTIME_B]);
+    expect(cleaned!.type === "split" ? cleaned!.sizes : []).toEqual([50, 50]);
+  });
+
+  it("säubert korrupte Layouts beim Anwenden von setPaneLayout", () => {
+    const dup: TerminalPaneLayout = { type: "split", id: "split-1", orientation: "horizontal", sizes: [50, 50], children: [
+      { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+      { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+    ] };
+    const result = applyWorkspaceOperations(document(), [{ type: "setPaneLayout", areaId: "standalone", layout: dup }]);
+    expect(result.areaLayouts.standalone!.paneLayout).toMatchObject({ type: "pane", runtimeId: RUNTIME_A });
+  });
+
+  it("öffnet eine bereits laufende Runtime nicht doppelt im Layout", () => {
+    const base = applyWorkspaceOperations(document(), [
+      { type: "createEntry", entry: { id: "entry-a", runtimeId: RUNTIME_A, name: "A", parentFolderId: "default", sortOrder: 0, pinned: false, persistent: false, kind: "shell", projectId: null, initialCwd: null } },
+      { type: "createEntry", entry: { id: "entry-b", runtimeId: RUNTIME_B, name: "B", parentFolderId: "default", sortOrder: 1, pinned: false, persistent: false, kind: "shell", projectId: null, initialCwd: null } },
+      { type: "setPaneLayout", areaId: "standalone", layout: { type: "split", id: "split-1", orientation: "horizontal", sizes: [50, 50], children: [{ type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A }, { type: "pane", id: `pane-${RUNTIME_B}`, runtimeId: RUNTIME_B }] } },
+    ]);
+    const ops = openEntryOps(base, "standalone", RUNTIME_A);
+    const result = applyWorkspaceOperations(base, ops);
+    expect(result.areaLayouts.standalone!.paneLayout).toMatchObject({ type: "split" });
+    expect(layoutRuntimeIds(result.areaLayouts.standalone!.paneLayout)).toEqual([RUNTIME_A, RUNTIME_B]);
+    expect(result.areaLayouts.standalone!.focusedPaneId).toBe(`pane-${RUNTIME_A}`);
+  });
+
+  it("säubert persistierte Dokumente mit doppelten Pane-IDs", () => {
+    const corrupted = document();
+    corrupted.areaLayouts.standalone = {
+      paneLayout: { type: "split", id: "split-1", orientation: "horizontal", sizes: [50, 50], children: [
+        { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+        { type: "pane", id: `pane-${RUNTIME_A}`, runtimeId: RUNTIME_A },
+      ] },
+      focusedPaneId: `pane-${RUNTIME_A}`,
+    };
+    const clean = sanitizeWorkspaceDocument(corrupted);
+    expect(clean.areaLayouts.standalone!.paneLayout).toMatchObject({ type: "pane", runtimeId: RUNTIME_A });
   });
 });

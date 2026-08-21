@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import type { Terminal } from "@xterm/xterm";
 import { splitTerminalInput, terminalClipboardAction } from "../../lib/clipboard";
 import type { TerminalKind } from "@wrapt/contracts";
-import { isDeviceAnswer, shouldForwardTerminalData, touchScrollLines } from "./terminal-utils";
+import { isDeviceAnswer, shouldForwardTerminalData, touchScrollLines, wheelScrollLines } from "./terminal-utils";
 
 /** Gemeinsame Zustände und Callbacks, die die Eingabe-Handler benötigen. */
 export interface TerminalInputContext {
@@ -14,6 +14,7 @@ export interface TerminalInputContext {
   mouseTrackingRef: MutableRefObject<boolean>;
   kindRef: MutableRefObject<TerminalKind>;
   terminalRef: MutableRefObject<Terminal | null>;
+  focusedRef: MutableRefObject<boolean>;
   rememberTyping(data: string): void;
   copySelection(): void;
   receivePastedText(text: string): void;
@@ -28,12 +29,13 @@ export interface TerminalInputContext {
 export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, context: TerminalInputContext): () => void {
   const {
     send, setError, sessionRef, snapshotReplayRef, replayBufferRef,
-    mouseTrackingRef, kindRef, terminalRef,
+    mouseTrackingRef, kindRef, terminalRef, focusedRef,
     rememberTyping, copySelection, receivePastedText, scrollByLines,
   } = context;
 
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.type !== "keydown") return true;
+    if (!focusedRef.current) return false;
     const clipboardAction = terminalClipboardAction(event);
     if (clipboardAction === "paste") return true;
     if (clipboardAction === "copy") {
@@ -84,7 +86,7 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
     terminal.select(first.col, first.row, length);
   };
   const onMouseCapture = (event: MouseEvent) => {
-    if (event.altKey || !mouseTrackingRef.current) return;
+    if (!focusedRef.current || event.altKey || !mouseTrackingRef.current) return;
     if (event.type === "mousedown") {
       if (event.button !== 0) return;
       selectionDrag = event.shiftKey ? null : cellFromEvent(event);
@@ -119,6 +121,7 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
   // keine Nutzereingabe und dürfen nie zurück in die PTY wandern.
   const dataHandler = terminal.onData((data) => {
     if (isDeviceAnswer(data)) return;
+    if (!focusedRef.current) return;
     const sessionId = sessionRef.current;
     if (snapshotReplayRef.current) {
       replayBufferRef.current.push(data);
@@ -136,7 +139,7 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
 
   const onPaste = (event: ClipboardEvent) => {
     const text = event.clipboardData?.getData("text/plain");
-    if (!text) return;
+    if (!text || !focusedRef.current) return;
     event.preventDefault();
     event.stopPropagation();
     receivePastedText(text);
@@ -145,9 +148,11 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
   // Copy on Select: Eine mit der Maus getroffene Auswahl landet nach dem
   // Loslassen automatisch in der Zwischenablage (siehe copySelection).
   const onMouseUp = () => {
-    if (!terminalRef.current?.hasSelection()) return;
+    if (!focusedRef.current || !terminalRef.current?.hasSelection()) return;
     copySelection();
   };
+
+  const wheelState = { restLines: 0 };
 
   // Mausrad im Alternate Screen: xterm würde ohne Maus-Reporting der App
   // Pfeiltasten (ESC O A/B) senden. TUI-Agenten wie Codex oder Claude Code
@@ -156,13 +161,25 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
   // Terminals behalten das Verhalten, weil less/vim/man die Pfeiltasten als
   // Scrollen nutzen. Maus-fähige Apps (OpenCode) bleiben unberührt.
   const onWheelCapture = (event: WheelEvent) => {
+    if (!focusedRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.ctrlKey || event.metaKey) return;
     if (!terminalRef.current || !sessionRef.current) return;
-    if (terminalRef.current.buffer.active.type !== "alternate") return;
     if (mouseTrackingRef.current) return;
-    if (kindRef.current === "shell") return;
+    if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+
+    const alternate = terminalRef.current.buffer.active.type === "alternate";
+    if (alternate && kindRef.current === "shell") return;
+
+    const height = lineHeight();
+    const step = wheelScrollLines(event.deltaY, event.deltaMode, height, mount.clientHeight, wheelState.restLines);
+    wheelState.restLines = step.carry;
     event.preventDefault();
     event.stopPropagation();
+    if (step.lines !== 0) scrollByLines(step.lines);
   };
 
   // xterm bringt kein Scrollen per Finger mit: Die Zeichenfläche liegt über
@@ -178,6 +195,7 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
     return rows > 0 ? screenHeight / rows : 18;
   };
   const onTouchStart = (event: TouchEvent) => {
+    if (!focusedRef.current) { touchState.active = false; return; }
     const touch = event.touches[0];
     if (event.touches.length !== 1 || !touch) { touchState.active = false; return; }
     touchState.active = true;
@@ -188,6 +206,7 @@ export function attachTerminalInput(terminal: Terminal, mount: HTMLElement, cont
     touchState.startY = touch.clientY;
   };
   const onTouchMove = (event: TouchEvent) => {
+    if (!focusedRef.current) { touchState.active = false; return; }
     const touch = event.touches[0];
     if (!touchState.active || event.touches.length !== 1 || !touch) return;
     if (!touchState.decided) {

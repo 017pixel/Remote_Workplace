@@ -21,6 +21,8 @@ export interface TerminalTreeCallbacks {
   onMoveFolder(folderId: string, targetParentId: string | null, targetIndex: number): void;
   onResync(runtimeId: string): void;
   onRestart(runtimeId: string): void;
+  onHoverStart(entryId: string, anchor: HTMLElement): void;
+  onHoverEnd(entryId: string): void;
 }
 
 interface TerminalTreeProps {
@@ -84,7 +86,9 @@ export function TerminalTree({ document, folderId, depth, areaId, meta, cwds, se
     const isFocused = entry.runtimeId !== null && entry.runtimeId === focusedRuntimeId;
     const isDropBefore = dropTarget?.kind === "entry" && dropTarget.id === entry.id && dropTarget.position === "before";
     const isDropAfter = dropTarget?.kind === "entry" && dropTarget.id === entry.id && dropTarget.position === "after";
-    const cwd = entry.runtimeId ? (cwds[entry.runtimeId] ?? sessions.find((session) => session.runtimeId === entry.runtimeId)?.cwd) : undefined;
+    const cwd = entry.runtimeId
+      ? (cwds[entry.runtimeId] ?? sessions.find((session) => session.runtimeId === entry.runtimeId)?.cwd ?? entry.initialCwd)
+      : entry.initialCwd;
     const rowHandlers = createRowHandlers("entry", entry.id, entry.name);
     return (
       <li key={entry.id} className="terminal-tree-entry">
@@ -94,6 +98,8 @@ export function TerminalTree({ document, folderId, depth, areaId, meta, cwds, se
           style={{ paddingLeft: level * 14 + 22 }}
           {...rowHandlers}
           onContextMenu={(event) => { event.preventDefault(); callbacks.onContextMenu(event, "entry", entry.id); }}
+          onMouseEnter={(event) => callbacks.onHoverStart(entry.id, event.currentTarget)}
+          onMouseLeave={() => callbacks.onHoverEnd(entry.id)}
           onClick={() => { if (entry.runtimeId) callbacks.onOpenEntry(entry.runtimeId); }}
         >
           <span className={`terminal-tree-status is-${status}`} aria-hidden />

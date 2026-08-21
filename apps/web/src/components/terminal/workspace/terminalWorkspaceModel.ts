@@ -55,10 +55,11 @@ function applyOperation(document: TerminalWorkspaceV2, operation: TerminalWorksp
     }
     case "setPaneLayout": {
       const current = document.areaLayouts[operation.areaId] ?? { paneLayout: null, focusedPaneId: null };
-      const focusedPaneId = operation.layout === null ? null
-        : layoutContainsPane(operation.layout, current.focusedPaneId) ? current.focusedPaneId
-        : operation.layout.type === "pane" ? operation.layout.id : operation.layout.children[0]!.id;
-      return { ...document, areaLayouts: { ...document.areaLayouts, [operation.areaId]: { paneLayout: operation.layout, focusedPaneId } } };
+      const paneLayout = sanitizePaneLayout(operation.layout);
+      const focusedPaneId = paneLayout === null ? null
+        : layoutContainsPane(paneLayout, current.focusedPaneId) ? current.focusedPaneId
+        : paneLayout.type === "pane" ? paneLayout.id : paneLayout.children[0]!.id;
+      return { ...document, areaLayouts: { ...document.areaLayouts, [operation.areaId]: { paneLayout, focusedPaneId } } };
     }
     case "setFocusedPane": {
       const current = document.areaLayouts[operation.areaId];
@@ -150,24 +151,98 @@ export function layoutRuntimeIds(layout: TerminalPaneLayout | null): string[] {
   return layout.children.map((pane) => pane.runtimeId);
 }
 
+export const MAX_TERMINAL_PANES = 4;
+
+function normalizedPaneSizes(sizes: readonly number[], count: number): number[] {
+  if (count <= 0) return [];
+  const values = Array.from({ length: count }, (_, index) => Math.max(0, sizes[index] ?? 0));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return total > 0 ? values.map((value) => (value / total) * 100) : values.map(() => 100 / count);
+}
+
+/** Fügt ein Terminal rechts an einen bestehenden horizontalen Split an. */
+export function appendRuntimeToLayout(layout: TerminalPaneLayout | null, runtimeId: string): TerminalPaneLayout {
+  const pane = paneForRuntime(runtimeId);
+  if (layout === null) return pane;
+  if (layoutContainsRuntime(layout, runtimeId)) return layout;
+  const children = layout.type === "pane" ? [layout, pane] : [...layout.children, pane];
+  if (children.length > MAX_TERMINAL_PANES) return layout;
+  if (children.length === 2) {
+    return { type: "split", id: `split-${Date.now()}`, orientation: "horizontal", sizes: [50, 50], children };
+  }
+  const currentSizes = layout.type === "pane" ? [100] : layout.sizes;
+  const newSize = 100 / children.length;
+  const remaining = 100 - newSize;
+  const preserved = normalizedPaneSizes(currentSizes, children.length - 1).map((size) => (size / 100) * remaining);
+  if (layout.type === "pane") return layout;
+  return { ...layout, children, sizes: [...preserved, newSize] };
+}
+
+/** Öffnet ein Terminal einzeln, außer es gehört bereits zur aktiven Gruppe. */
+export function openRuntimeInArea(layout: TerminalPaneLayout | null, runtimeId: string): TerminalPaneLayout {
+  return layoutContainsRuntime(layout, runtimeId) ? layout! : paneForRuntime(runtimeId);
+}
+
 /** Entfernt eine Runtime aus einem Layout und kollabiert Splits sauber. */
 export function removeRuntimeFromLayout(layout: TerminalPaneLayout | null, runtimeId: string): TerminalPaneLayout | null {
   if (layout === null) return null;
   if (layout.type === "pane") return layout.runtimeId === runtimeId ? null : layout;
   const children = layout.children.filter((pane) => pane.runtimeId !== runtimeId);
-  if (children.length >= 2) return { ...layout, sizes: layout.sizes.slice(0, children.length), children: children.slice(0, 4) };
+  if (children.length >= 2) {
+    return {
+      type: "split",
+      id: layout.id,
+      orientation: layout.orientation,
+      sizes: normalizedPaneSizes(layout.sizes.filter((_, index) => layout.children[index]?.runtimeId !== runtimeId), children.length),
+      children: children.slice(0, MAX_TERMINAL_PANES),
+    };
+  }
   if (children.length === 1) return paneForRuntime(children[0]!.runtimeId);
   return null;
 }
 
+/** Stellt sicher, dass ein Layout keine doppelten Pane-IDs enthält: bei
+ *  Duplikaten gewinnt der letzte Vorkommen, leere und Einzel-Splits kollabieren
+ *  sauber. Schützt das Rendering, das eindeutige Panel-IDs verlangt. */
+export function sanitizePaneLayout(layout: TerminalPaneLayout | null): TerminalPaneLayout | null {
+  if (layout === null || layout.type === "pane") return layout;
+  const seen = new Set<string>();
+  const children = layout.children.filter((pane) => {
+    if (pane.type !== "pane" || seen.has(pane.id)) return false;
+    seen.add(pane.id);
+    return true;
+  });
+  if (children.length === 0) return null;
+  if (children.length === 1) return paneForRuntime(children[0]!.runtimeId);
+  const sizes = layout.sizes.slice(0, children.length);
+  const normalized = normalizedPaneSizes(sizes, children.length);
+  return { ...layout, sizes: normalized, children };
+}
+
+/** Säubert alle Flächen-Layouts eines Dokuments (doppelte Pane-IDs etc.). */
+export function sanitizeWorkspaceDocument(document: TerminalWorkspaceV2): TerminalWorkspaceV2 {
+  let changed = false;
+  const areaLayouts: Record<string, TerminalAreaLayout> = {};
+  for (const [areaKey, areaLayout] of Object.entries(document.areaLayouts)) {
+    const paneLayout = sanitizePaneLayout(areaLayout.paneLayout);
+    const focusedPaneId = paneLayout !== null && areaLayout.focusedPaneId !== null && layoutContainsPane(paneLayout, areaLayout.focusedPaneId)
+      ? areaLayout.focusedPaneId
+      : paneLayout === null ? null : paneLayout.type === "pane" ? paneLayout.id : paneLayout.children[0]!.id;
+    if (paneLayout !== areaLayout.paneLayout || focusedPaneId !== areaLayout.focusedPaneId) changed = true;
+    areaLayouts[areaKey] = { paneLayout, focusedPaneId };
+  }
+  return changed ? { ...document, areaLayouts } : document;
+}
+
 /** Öffnet eine Runtime in einem Layout: ersetzt den fokussierten Pane bei
- *  einem Split, sonst wird das Layout zu einem einzelnen Pane. */
+ *  einem Split, sonst wird das Layout zu einem einzelnen Pane. Läuft die
+ *  Runtime bereits im Layout, bleibt das Layout unverändert (nur Fokus). */
 export function openRuntimeInLayout(layout: TerminalPaneLayout | null, runtimeId: string): TerminalPaneLayout {
   const pane = paneForRuntime(runtimeId);
-  if (layout === null || layout.type === "pane") return pane;
-  const children = layout.children.map((child) => paneForRuntime(child.runtimeId));
-  children[0] = pane;
-  return { ...layout, children };
+  if (layout === null) return pane;
+  if (layoutContainsRuntime(layout, runtimeId)) return layout;
+  if (layout.type === "pane") return pane;
+  return openRuntimeInArea(layout, runtimeId);
 }
 
 /** Ersetzt den fokussierten Pane eines Layouts durch eine andere Runtime. */
@@ -213,7 +288,7 @@ export function entryByRuntime(document: TerminalWorkspaceV2, runtimeId: string 
 /** Setzt im Dokument die aktive Entry und liefert die dafür nötigen Ops. */
 export function openEntryOps(document: TerminalWorkspaceV2, areaId: string, runtimeId: string): TerminalWorkspaceOperation[] {
   const current = document.areaLayouts[areaId] ?? { paneLayout: null, focusedPaneId: null };
-  const layout = openRuntimeInLayout(current.paneLayout, runtimeId);
+  const layout = openRuntimeInArea(current.paneLayout, runtimeId);
   return [
     { type: "setPaneLayout", areaId, layout },
     { type: "setFocusedPane", areaId, paneId: paneForRuntime(runtimeId).id },

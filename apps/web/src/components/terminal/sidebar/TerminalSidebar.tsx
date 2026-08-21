@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import type { TerminalKind, TerminalSession } from "@wrapt/contracts";
+import type { TerminalEntry, TerminalKind, TerminalSession } from "@wrapt/contracts";
 import { useTerminalWorkspaceStore } from "../../../stores/terminalWorkspace";
+import { useWraptNotice } from "../../../stores/wraptNotice";
 import { ChevronLeftIcon, CloseIcon, ColumnsIcon, FolderTreeIcon, PinIcon, PlusIcon, SearchIcon, TerminalIcon } from "../../icons";
 import type { TerminalMeta } from "../terminal-types";
 import {
@@ -14,7 +15,11 @@ import {
 import { TerminalContextMenu, openContextMenuAt, type ContextMenuState } from "./TerminalContextMenu";
 import { TerminalToolbar } from "../terminal-toolbar";
 import { TerminalTree, type TerminalTreeCallbacks } from "./TerminalTree";
-import { useTerminalDnd, type DndDropTarget } from "./useTerminalDnd";
+import { useTerminalDnd, type DndDragState, type DndDropTarget } from "./useTerminalDnd";
+import { TerminalHoverPreview } from "../TerminalHoverPreview";
+import { closeNormalTerminalEntries, normalTerminalEntries } from "./terminalBulkClose";
+import { useTerminalHoverPreview } from "./useTerminalHoverPreview";
+import { TerminalPinnedEntries } from "./TerminalPinnedEntries";
 
 export interface TerminalSidebarProps {
   areaId: string;
@@ -43,25 +48,32 @@ export interface TerminalSidebarProps {
   sidebarWidth?: number;
   onResizeStart?(event: React.PointerEvent<HTMLElement>): void;
   onResizeKeyboard?(event: React.KeyboardEvent<HTMLElement>): void;
-  version?: string | null;
   onReload?(): void;
   onFullscreen?(): void;
+  onDragStateChange?(drag: DndDragState | null, target: DndDropTarget | null): void;
 }
 
-export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, open, onClose, onNewTerminal, onNewTerminalInFolder, onOpenEntry, onOpenInSplit, onResync, onRestart, onToggleSidebar, activeRuntimeId, hasSplit, hasActivePane, onCreateSplit, onClearSplit, onClear, onClosePane, sessionPicker, sidebarWidth = 256, onResizeStart = () => undefined, onResizeKeyboard = () => undefined, version = null, onReload = () => undefined, onFullscreen = () => undefined }: TerminalSidebarProps) {
+export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, open, onClose, onNewTerminal, onNewTerminalInFolder, onOpenEntry, onOpenInSplit, onResync, onRestart, onToggleSidebar, activeRuntimeId, hasSplit, hasActivePane, onCreateSplit, onClearSplit, onClear, onClosePane, sessionPicker, sidebarWidth = 256, onResizeStart = () => undefined, onResizeKeyboard = () => undefined, onReload = () => undefined, onFullscreen = () => undefined, onDragStateChange }: TerminalSidebarProps) {
   const document = useTerminalWorkspaceStore((state) => state.document);
   const queueOps = useTerminalWorkspaceStore((state) => state.queueOps);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const [editing, setEditing] = useState<{ kind: "entry" | "folder"; id: string } | null>(null);
   const [editingValue, setEditingValue] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<{ kind: "entry" | "folder"; id: string; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ kind: "entry" | "folder" | "bulk"; id: string; name: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [bulkClosing, setBulkClosing] = useState(false);
   const pendingNewFolderRef = useRef<string | null>(null);
+  const hoverPreview = useTerminalHoverPreview(!isMobile);
 
   const drop = useMemo(() => (drag: { kind: "entry" | "folder"; id: string }, target: DndDropTarget | null) => {
     const state = useTerminalWorkspaceStore.getState();
     if (!state.document) return;
     if (drag.kind === "entry") {
+      if (target?.kind === "canvas") {
+        const entry = state.document.entries.find((candidate) => candidate.id === drag.id);
+        if (entry?.runtimeId) onOpenInSplit(entry.runtimeId);
+        return;
+      }
       if (target?.kind === "pins") {
         state.queueOps([{ type: "updateEntry", id: drag.id, patch: { pinned: true } }]);
         return;
@@ -112,9 +124,10 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
       state.queueOps(moveFolderOps(state.document, drag.id, entry.parentFolderId, index));
       return;
     }
-  }, []);
+  }, [onOpenInSplit]);
 
-  const { drag, target, createRowHandlers, containerHandlers } = useTerminalDnd(drop);
+  const dndOptions = onDragStateChange ? { onDragStateChange } : {};
+  const { drag, target, createRowHandlers, containerHandlers } = useTerminalDnd(drop, dndOptions);
 
   const callbacks: TerminalTreeCallbacks = {
     onOpenEntry,
@@ -169,6 +182,8 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
     },
     onResync,
     onRestart,
+    onHoverStart: (entryId, anchor) => hoverPreview.start(entryId, anchor),
+    onHoverEnd: (entryId) => hoverPreview.end(entryId),
   };
 
   const createRootFolder = () => {
@@ -180,6 +195,11 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
   const buildRootMenu = () => [
     { label: "Neues Terminal", icon: <PlusIcon className="h-4 w-4" />, onSelect: onNewTerminal },
     { label: "Neuer Ordner", icon: <FolderTreeIcon className="h-4 w-4" />, onSelect: createRootFolder },
+    { separator: true },
+    { label: "Alle normalen Terminals schließen", icon: <CloseIcon className="h-4 w-4" />, danger: true, disabled: normalTerminalEntries(document?.entries ?? []).length === 0, onSelect: () => {
+      const count = normalTerminalEntries(document?.entries ?? []).length;
+      if (count > 0) setConfirmDelete({ kind: "bulk", id: "bulk", name: String(count) });
+    } },
   ];
 
   const buildMenu = (kind: "entry" | "folder", id: string) => {
@@ -246,6 +266,16 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
 
   const confirmDeleteAction = () => {
     if (!confirmDelete || !document) return;
+    if (confirmDelete.kind === "bulk") {
+      if (bulkClosing) return;
+      setBulkClosing(true);
+      void closeNormalTerminalEntries(document.entries, sessions, queueOps)
+        .then((result) => {
+          if (result.failedNames.length > 0) useWraptNotice.getState().show(`${result.failedNames.length} Terminal${result.failedNames.length === 1 ? " konnte" : "e konnten"} nicht geschlossen werden.`);
+        })
+        .finally(() => { setBulkClosing(false); setConfirmDelete(null); });
+      return;
+    }
     if (confirmDelete.kind === "entry") queueOps([{ type: "deleteEntry", id: confirmDelete.id }]);
     else {
       const folder = document.folders.find((candidate) => candidate.id === confirmDelete.id);
@@ -256,32 +286,9 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
 
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
   const pins = document ? pinnedEntries(document).filter((entry) => entry.name.toLocaleLowerCase().includes(normalizedSearch)) : [];
-  const statusOf = (runtimeId: string): TerminalMeta | undefined => meta[runtimeId];
-
-  const renderPins = pins.length > 0 ? (
-    <div className="terminal-sidebar-section" data-dnd="pins">
-      <div className="terminal-sidebar-heading">Gepinnt</div>
-      <ul className="terminal-tree">
-        {pins.map((entry) => (
-          <li key={entry.id} className="terminal-tree-entry">
-            <div
-              data-dnd={`entry:${entry.id}`}
-              className="terminal-tree-row is-entry is-pinned-row"
-              {...createRowHandlers({ kind: "entry", id: entry.id, label: entry.name })}
-              onContextMenu={(event) => { event.preventDefault(); setMenu(openContextMenuAt(event, buildMenu("entry", entry.id))); }}
-              onClick={() => entry.runtimeId && onOpenEntry(entry.runtimeId)}
-            >
-              <span className={`terminal-tree-status is-${entry.runtimeId ? (statusOf(entry.runtimeId)?.status ?? "disconnected") : "disconnected"}`} aria-hidden />
-              <span className="terminal-tree-icon"><TerminalIcon className="h-4 w-4" /></span>
-              <span className="terminal-tree-label-wrap"><span className="terminal-tree-label">{entry.name}</span></span>
-              <PinIcon className="terminal-tree-pin h-3 w-3" aria-label="Gepinnt" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  ) : null;
-
+  const cwdForEntry = (entry: TerminalEntry): string | null => entry.runtimeId
+    ? (cwds[entry.runtimeId] ?? sessions.find((session) => session.runtimeId === entry.runtimeId)?.cwd ?? entry.initialCwd)
+    : entry.initialCwd;
   return (
     <>
       <aside
@@ -330,7 +337,7 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
           {searchTerm ? <button type="button" onClick={() => setSearchTerm("")} aria-label="Terminal-Suche löschen"><CloseIcon className="h-3.5 w-3.5" /></button> : null}
         </label>
         <div className="terminal-sidebar-body" {...containerHandlers}>
-          {renderPins}
+          {pins.length > 0 ? <TerminalPinnedEntries entries={pins} meta={meta} sessions={sessions} createRowHandlers={(kind, id, label) => createRowHandlers({ kind, id, label })} cwdForEntry={cwdForEntry} onContextMenu={(event, id) => setMenu(openContextMenuAt(event, buildMenu("entry", id)))} onOpenEntry={onOpenEntry} onHoverStart={hoverPreview.start} onHoverEnd={hoverPreview.end} /> : null}
           <div className="terminal-sidebar-section">
             <div className="terminal-sidebar-heading">Ordner</div>
             {document ? <TerminalTree
@@ -354,26 +361,30 @@ export function TerminalSidebar({ areaId, kind, meta, sessions, cwds, isMobile, 
             {document && normalizedSearch && pins.length === 0 && document.entries.every((entry) => !entry.name.toLocaleLowerCase().includes(normalizedSearch)) && document.folders.every((folder) => !folder.name.toLocaleLowerCase().includes(normalizedSearch)) ? <div className="terminal-sidebar-empty">Keine Treffer</div> : null}
           </div>
         </div>
-        <footer className="terminal-sidebar-footer"><span>Version</span><strong>v{version ?? "—"}</strong></footer>
         <div className="terminal-sidebar-resize-handle" role="separator" aria-orientation="vertical" aria-label="Breite der Terminal-Sidebar ändern" aria-valuemin={220} aria-valuemax={420} aria-valuenow={sidebarWidth} tabIndex={0} onPointerDown={onResizeStart} onKeyDown={onResizeKeyboard} />
         {drag ? <div className="terminal-dnd-overlay" style={{ left: drag.x, top: drag.y }}><TerminalIcon className="h-4 w-4" />{drag.label}</div> : null}
       </aside>
       {isMobile && open ? <button type="button" className="terminal-sidebar-backdrop" aria-label="Sidebar schließen" onClick={onClose} /> : null}
       {menu ? <TerminalContextMenu menu={menu} onClose={() => setMenu(null)} /> : null}
       {confirmDelete ? (
-        <div className="terminal-confirm-backdrop" role="dialog" aria-modal="true" onClick={() => setConfirmDelete(null)}>
+        <div className="terminal-confirm-backdrop" role="dialog" aria-modal="true" onClick={() => !bulkClosing && setConfirmDelete(null)}>
           <div className="terminal-confirm" onClick={(event) => event.stopPropagation()}>
-            <strong>{confirmDelete.kind === "entry" ? "Terminal wirklich beenden?" : "Ordner wirklich löschen?"}</strong>
-            <p>{confirmDelete.kind === "entry"
+            <strong>{confirmDelete.kind === "entry" ? "Terminal wirklich beenden?" : confirmDelete.kind === "bulk" ? "Normale Terminals schließen?" : "Ordner wirklich löschen?"}</strong>
+            <p>{confirmDelete.kind === "bulk" ? `${confirmDelete.name} normale Terminals werden beendet und aus der Liste entfernt. Gepinnte und persistente Terminals bleiben erhalten.` : confirmDelete.kind === "entry"
               ? `„${confirmDelete.name}“ wird beendet und entfernt. ${document?.entries.find((entry) => entry.id === confirmDelete.id)?.persistent ? "Das Terminal ist persistent — der Eintrag geht dabei verloren." : ""}`
               : `„${confirmDelete.name}“ wird gelöscht. Enthaltene Terminals und Unterordner wandern in den übergeordneten Ordner und laufen weiter.`}</p>
             <div className="terminal-confirm-actions">
-              <button type="button" className="quiet-button" onClick={() => setConfirmDelete(null)}>Abbrechen</button>
-              <button type="button" className="quiet-button-danger" onClick={confirmDeleteAction}>Löschen</button>
+              <button type="button" className="quiet-button" disabled={bulkClosing} onClick={() => setConfirmDelete(null)}>Abbrechen</button>
+              <button type="button" className="quiet-button-danger" disabled={bulkClosing} onClick={confirmDeleteAction}>{bulkClosing ? "Schließt…" : confirmDelete.kind === "bulk" ? "Schließen" : "Löschen"}</button>
             </div>
           </div>
         </div>
       ) : null}
+      {hoverPreview.preview && document ? (() => {
+        const entry = document.entries.find((candidate) => candidate.id === hoverPreview.preview?.entryId);
+        if (!entry?.runtimeId) return null;
+        return <TerminalHoverPreview preview={hoverPreview.preview} name={entry.name} cwd={cwdForEntry(entry)} runtimeId={entry.runtimeId} onClose={() => hoverPreview.end(entry.id)} />;
+      })() : null}
     </>
   );
 }

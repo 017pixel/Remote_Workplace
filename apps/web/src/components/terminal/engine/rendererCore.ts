@@ -106,11 +106,13 @@ export function createRendererCore(refs: RendererRefs, deps: RendererCoreDeps): 
       case "terminal.deltas": {
         if (!terminal) return;
         epochRef.current = message.epoch;
+        let output = "";
         for (const delta of message.deltas) {
           if (delta.sequence <= sequenceRef.current) continue;
           sequenceRef.current = delta.sequence;
-          terminal.write(delta.data);
+          output += delta.data;
         }
+        if (output) terminal.write(output);
         syncMouseModes();
         hasLiveStateRef.current = true;
         deps.reportMeta({ status: "connected" });

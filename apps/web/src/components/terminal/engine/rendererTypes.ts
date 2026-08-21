@@ -13,6 +13,7 @@ export interface TerminalRendererOptions {
   mode: "agent" | "login";
   accountId: string | undefined;
   active: boolean;
+  focused: boolean;
   renderScale: number;
   onMetaChange: ((meta: TerminalMeta) => void) | undefined;
 }

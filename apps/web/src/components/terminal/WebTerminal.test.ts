@@ -8,6 +8,7 @@ import {
   touchScrollLines,
   updateMouseEncoding,
   updateMouseReporting,
+  wheelScrollLines,
 } from "./terminal-utils";
 
 describe("Terminal-Snapshot", () => {
@@ -129,6 +130,14 @@ describe("Scrollen per Wischgeste", () => {
 
   it("fängt eine unbekannte Zeilenhöhe mit einem Standardwert ab", () => {
     expect(touchScrollLines(36, 0).lines).toBe(2);
+  });
+
+  it("normalisiert Touchpad-Pixel sowie Maus- und Seitenrad-Einheiten", () => {
+    expect(wheelScrollLines(36, 0, 18, 240)).toEqual({ lines: 2, carry: 0 });
+    expect(wheelScrollLines(2, 1, 18, 240)).toEqual({ lines: 2, carry: 0 });
+    const page = wheelScrollLines(1, 2, 18, 240);
+    expect(page.lines).toBe(13);
+    expect(page.carry).toBeCloseTo(1 / 3);
   });
 });
 

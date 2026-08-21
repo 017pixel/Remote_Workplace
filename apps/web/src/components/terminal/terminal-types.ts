@@ -53,6 +53,8 @@ export interface WebTerminalProps {
   /** Startverzeichnis für eine neue Sitzung, etwa bei einem Split im aktuellen Unterordner. */
   initialCwd?: string | null;
   active?: boolean;
+  /** Erlaubt Eingabe und Scrollen nur im aktuell fokussierten Pane. */
+  focused?: boolean;
   /** Hält die PTY-Verbindung für eine geparkte, aber gecachte Route offen. */
   keepAlive?: boolean;
   /** Bildschirm-Zoom des umgebenden Orbit-Knotens. 1 bedeutet keine Skalierung. */

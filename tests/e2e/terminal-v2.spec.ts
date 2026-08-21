@@ -137,4 +137,17 @@ test("uses a touch drawer, focused pane and safe bottom controls on phone portra
 
   await drawer.getByRole("button", { name: "Terminal-Sidebar ausblenden" }).click();
   await expect(drawer).not.toHaveClass(/is-open/);
+
+  // Das Schrumpfen des sichtbaren Viewports durch die Bildschirmtastatur darf
+  // die Geräteorientierung und damit die xterm-Instanz nicht neu aufbauen.
+  const terminalInput = page.locator(".xterm-helper-textarea").last();
+  await page.locator(".terminal-viewport").click();
+  await expect(terminalInput).toBeFocused();
+  await page.evaluate(() => {
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 320 });
+    document.documentElement.style.setProperty("--app-viewport-height", "320px");
+    window.dispatchEvent(new Event("resize"));
+  });
+  await expect(page.locator(".app-shell")).toHaveAttribute("data-orientation", "portrait");
+  await expect(terminalInput).toBeFocused();
 });

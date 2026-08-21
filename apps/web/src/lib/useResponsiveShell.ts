@@ -8,18 +8,26 @@ interface ResponsiveShellState {
   height: number;
   coarsePointer: boolean;
   finePointer: boolean;
+  orientation: ShellOrientation;
 }
 
 function readShellState(): ResponsiveShellState {
   if (typeof window === "undefined") {
-    return { width: 1440, height: 900, coarsePointer: false, finePointer: true };
+    return { width: 1440, height: 900, coarsePointer: false, finePointer: true, orientation: "landscape" };
   }
 
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const orientation = typeof window.matchMedia === "function"
+    ? (window.matchMedia("(orientation: portrait)").matches ? "portrait" : "landscape")
+    : width > height ? "landscape" : "portrait";
+
   return {
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width,
+    height,
     coarsePointer: window.matchMedia("(pointer: coarse)").matches,
     finePointer: window.matchMedia("(hover: hover) and (pointer: fine)").matches,
+    orientation,
   };
 }
 
@@ -56,7 +64,6 @@ export function useResponsiveShell() {
 
     return {
       mode,
-      orientation: (state.width > state.height ? "landscape" : "portrait") as ShellOrientation,
       shortHeight: state.height <= 600,
       isTouchShell: mode !== "desktop",
       inputMode: state.coarsePointer || !state.finePointer ? "touch" : "fine",

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Group, Panel, Separator, type Layout, type LayoutChangedMeta } from "react-resizable-panels";
+import type { Layout, LayoutChangedMeta } from "react-resizable-panels";
 import type { TerminalKind, TerminalPaneLayout, TerminalSession } from "@wrapt/contracts";
-import { ChevronRightIcon, MenuIcon, MonitorOffIcon, PlusIcon, TerminalIcon } from "../icons";
+import { MonitorOffIcon, PlusIcon, TerminalIcon } from "../icons";
 import { apiClient } from "../../lib/apiClient";
 import { wraptQueries } from "../../lib/queryOptions";
 import { useResponsiveShell } from "../../lib/useResponsiveShell";
@@ -13,15 +13,20 @@ import { kindLabels, statusLabel } from "./terminal-labels";
 import { TerminalKeybar } from "./terminal-keybar";
 import { TerminalSessionPicker } from "./terminal-session-picker";
 import { TerminalSidebar } from "./sidebar/TerminalSidebar";
+import { TerminalCanvas } from "./TerminalCanvas";
 import { WebTerminal, type WebTerminalHandle } from "./WebTerminal";
 import type { TerminalMeta } from "./terminal-types";
 import {
   createTerminalOps,
+  appendRuntimeToLayout,
+  layoutContainsRuntime,
   layoutRuntimeIds,
+  MAX_TERMINAL_PANES,
   openEntryOps,
   paneForRuntime,
   removeRuntimeFromLayout,
 } from "./workspace/terminalWorkspaceModel";
+import type { DndDragState } from "./sidebar/useTerminalDnd";
 
 interface TerminalAreaProps {
   areaId?: string;
@@ -35,6 +40,8 @@ interface TerminalAreaProps {
 }
 
 interface VisiblePane { id: string; runtimeId: string; }
+
+const WARM_TERMINAL_LIMIT = 4;
 
 function layoutPanes(layout: TerminalPaneLayout | null): VisiblePane[] {
   if (!layout) return [];
@@ -60,7 +67,6 @@ export function TerminalArea({
   const setRuntimeCwd = useTerminalWorkspaceStore((state) => state.setRuntimeCwd);
   const runtimeCwds = useTerminalWorkspaceStore((state) => state.runtimeCwds);
   const sessions = useQuery({ ...wraptQueries.terminalSessions(), refetchInterval: false, enabled: routeActive });
-  const health = useQuery(wraptQueries.health());
   const handles = useRef(new Map<string, WebTerminalHandle>());
   const splitSaveFrame = useRef<number | null>(null);
   const requestedHandledRef = useRef(false);
@@ -69,6 +75,9 @@ export function TerminalArea({
   const [keyboardRow, setKeyboardRow] = useState<"keys" | "actions">("keys");
   const [stickyCtrl, setStickyCtrl] = useState(false);
   const [stickyAlt, setStickyAlt] = useState(false);
+  const [warmRuntimeIds, setWarmRuntimeIds] = useState<string[]>([]);
+  const [suspendedSplitLayout, setSuspendedSplitLayout] = useState<TerminalPaneLayout | null>(null);
+  const [terminalDrag, setTerminalDrag] = useState<DndDragState | null>(null);
 
   useEffect(() => {
     globalThis.document.documentElement.style.setProperty("--terminal-sidebar-width", `${terminalSidebar.width}px`);
@@ -83,6 +92,9 @@ export function TerminalArea({
   const paneLayout = areaLayout?.paneLayout ?? null;
   const focusedPaneId = areaLayout?.focusedPaneId ?? null;
   const panes = layoutPanes(paneLayout);
+  const parkedPanes = (document ? warmRuntimeIds : [])
+    .filter((runtimeId) => !panes.some((pane) => pane.runtimeId === runtimeId) && document?.entries.some((entry) => entry.runtimeId === runtimeId))
+    .map((runtimeId) => paneForRuntime(runtimeId));
   const focusedRuntimeId = (() => {
     if (!paneLayout) return null;
     if (paneLayout.type === "pane") return paneLayout.runtimeId;
@@ -93,36 +105,57 @@ export function TerminalArea({
   const hasSplit = paneLayout?.type === "split";
   const showSingleMobilePane = isMobile && responsive.orientation === "portrait";
 
+  const rememberWarmRuntimes = useCallback((runtimeIds: readonly string[]) => {
+    setWarmRuntimeIds((current) => {
+      const next = [...new Set(runtimeIds), ...current].slice(0, WARM_TERMINAL_LIMIT);
+      return next.length === current.length && next.every((runtimeId, index) => runtimeId === current[index]) ? current : next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const known = new Set(document?.entries.map((entry) => entry.runtimeId).filter((runtimeId): runtimeId is string => runtimeId !== null) ?? []);
+    setWarmRuntimeIds((current) => {
+      const next = current.filter((runtimeId) => known.has(runtimeId));
+      return next.length === current.length ? current : next;
+    });
+  }, [document]);
+
   const openEntry = useCallback((runtimeId: string) => {
     const state = useTerminalWorkspaceStore.getState();
     if (!state.document) return;
+    const current = state.document.areaLayouts[areaId]?.paneLayout ?? null;
+    if (current && current.type === "pane" && suspendedSplitLayout && layoutContainsRuntime(suspendedSplitLayout, runtimeId)) {
+      rememberWarmRuntimes([runtimeId, ...layoutRuntimeIds(suspendedSplitLayout)]);
+      queueOps([
+        { type: "setPaneLayout", areaId, layout: suspendedSplitLayout },
+        { type: "setFocusedPane", areaId, paneId: paneForRuntime(runtimeId).id },
+      ]);
+      setSuspendedSplitLayout(null);
+      return;
+    }
+    if (current?.type === "split" && !layoutContainsRuntime(current, runtimeId)) setSuspendedSplitLayout(current);
+    rememberWarmRuntimes([runtimeId, ...layoutRuntimeIds(current)]);
     queueOps(openEntryOps(state.document, areaId, runtimeId));
-  }, [areaId, queueOps]);
+  }, [areaId, queueOps, rememberWarmRuntimes, suspendedSplitLayout]);
 
   const openInSplit = useCallback((runtimeId: string) => {
     const state = useTerminalWorkspaceStore.getState();
     const doc = state.document;
     if (!doc) return;
     const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
-    const currentPanes = layoutPanes(current);
-    const targetPane = paneForRuntime(runtimeId);
-    let next: TerminalPaneLayout;
-    if (currentPanes.length === 0) next = targetPane;
-    else if (current?.type === "pane") {
-      next = { type: "split", id: `split-${Date.now()}`, orientation: "horizontal", sizes: [50, 50], children: [current, targetPane] };
-    } else if (current) {
-      const focusIndex = Math.max(0, current.children.findIndex((pane) => pane.id === focusedPaneId));
-      const otherIndex = focusIndex === 0 ? 1 : 0;
-      const children = current.children.map((pane, index) => index === otherIndex ? targetPane : pane);
-      next = { ...current, children };
-    } else {
-      next = targetPane;
+    if (current && layoutContainsRuntime(current, runtimeId)) {
+      state.queueOps([{ type: "setFocusedPane", areaId, paneId: paneForRuntime(runtimeId).id }]);
+      return;
     }
+    if (layoutPanes(current).length >= MAX_TERMINAL_PANES) return;
+    const next = appendRuntimeToLayout(current, runtimeId);
+    setSuspendedSplitLayout(null);
+    rememberWarmRuntimes([runtimeId, ...layoutRuntimeIds(current)]);
     queueOps([
       { type: "setPaneLayout", areaId, layout: next },
-      { type: "setFocusedPane", areaId, paneId: targetPane.id },
+      { type: "setFocusedPane", areaId, paneId: paneForRuntime(runtimeId).id },
     ]);
-  }, [areaId, focusedPaneId, queueOps]);
+  }, [areaId, queueOps, rememberWarmRuntimes]);
 
   const create = useCallback((folderId: string | null = null, projectId: string | null = initialProjectId) => {
     const state = useTerminalWorkspaceStore.getState();
@@ -142,22 +175,16 @@ export function TerminalArea({
     const state = useTerminalWorkspaceStore.getState();
     const doc = state.document;
     if (!doc) return;
+    const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
+    if (layoutPanes(current).length >= MAX_TERMINAL_PANES) return;
     const count = doc.entries.filter((entry) => entry.kind === kind).length + 1;
     const { ops, runtimeId } = createTerminalOps(doc, areaId, { kind, name: `${kindLabels[kind]} ${count}` });
     if (!hasActivePane) { state.queueOps(ops); return; }
-    const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
-    const targetPane = paneForRuntime(runtimeId);
-    let next: TerminalPaneLayout;
-    if (current === null || current.type === "pane") {
-      const source = current ?? paneForRuntime(focusedRuntimeId ?? layoutRuntimeIds(current ?? null)[0] ?? "");
-      next = { type: "split", id: `split-${Date.now()}`, orientation: "horizontal", sizes: [50, 50], children: [source, targetPane] };
-    } else {
-      const focusIndex = Math.max(0, current.children.findIndex((pane) => pane.id === focusedPaneId));
-      const otherIndex = focusIndex === 0 ? 1 : 0;
-      next = { ...current, children: current.children.map((pane, index) => index === otherIndex ? targetPane : pane) };
-    }
-    state.queueOps([...ops, { type: "setPaneLayout", areaId, layout: next }, { type: "setFocusedPane", areaId, paneId: targetPane.id }]);
-  }, [areaId, focusedPaneId, focusedRuntimeId, hasActivePane, kind]);
+    const next = appendRuntimeToLayout(current, runtimeId);
+    setSuspendedSplitLayout(null);
+    rememberWarmRuntimes([runtimeId, ...layoutRuntimeIds(current)]);
+    state.queueOps([...ops, { type: "setPaneLayout", areaId, layout: next }, { type: "setFocusedPane", areaId, paneId: paneForRuntime(runtimeId).id }]);
+  }, [areaId, hasActivePane, kind, rememberWarmRuntimes]);
 
   const closePane = useCallback((runtimeId: string) => {
     const state = useTerminalWorkspaceStore.getState();
@@ -165,6 +192,7 @@ export function TerminalArea({
     if (!doc) return;
     const current = doc.areaLayouts[areaId]?.paneLayout ?? null;
     const next = removeRuntimeFromLayout(current, runtimeId);
+    setSuspendedSplitLayout((suspended) => suspended && layoutContainsRuntime(suspended, runtimeId) ? null : suspended);
     queueOps([{ type: "setPaneLayout", areaId, layout: next }]);
   }, [areaId, queueOps]);
 
@@ -172,6 +200,7 @@ export function TerminalArea({
     if (!focusedRuntimeId) return;
     const state = useTerminalWorkspaceStore.getState();
     if (!state.document) return;
+    setSuspendedSplitLayout(null);
     queueOps([
       { type: "setPaneLayout", areaId, layout: paneForRuntime(focusedRuntimeId) },
       { type: "setFocusedPane", areaId, paneId: paneForRuntime(focusedRuntimeId).id },
@@ -181,10 +210,10 @@ export function TerminalArea({
   const saveSplitLayout = useCallback((layoutData: Layout, details: LayoutChangedMeta) => {
     if (!details.isUserInteraction || paneLayout?.type !== "split") return;
     const children = paneLayout.children;
-    const firstRaw = layoutData[children[0]!.id];
-    const secondRaw = layoutData[children[1]!.id];
-    if (firstRaw === undefined || secondRaw === undefined || firstRaw + secondRaw <= 0) return;
-    const first = Math.max(20, Math.min(80, (firstRaw / (firstRaw + secondRaw)) * 100));
+    const rawSizes = children.map((child) => layoutData[child.id] ?? 0);
+    const total = rawSizes.reduce((sum, size) => sum + size, 0);
+    if (total <= 0 || rawSizes.some((size) => size <= 0)) return;
+    const sizes = rawSizes.map((size) => (size / total) * 100);
     if (splitSaveFrame.current !== null) window.cancelAnimationFrame(splitSaveFrame.current);
     splitSaveFrame.current = window.requestAnimationFrame(() => {
       splitSaveFrame.current = null;
@@ -192,7 +221,7 @@ export function TerminalArea({
       if (!state.document) return;
       const current = state.document.areaLayouts[areaId]?.paneLayout;
       if (current?.type === "split") {
-        queueOps([{ type: "setPaneLayout", areaId, layout: { ...current, sizes: [first, 100 - first] } }]);
+        queueOps([{ type: "setPaneLayout", areaId, layout: { ...current, sizes } }]);
       }
     });
   }, [areaId, paneLayout, queueOps]);
@@ -239,11 +268,27 @@ export function TerminalArea({
 
   if (!document) return <div className="terminal-area-loading">Terminal wird vorbereitet…</div>;
 
-  const renderPane = (pane: VisiblePane, visible: boolean, position?: "left" | "right") => (
+  const renderDropZone = () => {
+    if (!terminalDrag || minimal) return null;
+    const full = panes.length >= MAX_TERMINAL_PANES;
+    return (
+      <div
+        className={`terminal-drop-zone ${full ? "is-full" : ""}`}
+        {...(full ? {} : { "data-terminal-drop-zone": "right" })}
+        role="status"
+        aria-live="polite"
+      >
+        {full ? "Maximal 4 Terminals" : "Hier rechts ablegen"}
+      </div>
+    );
+  };
+
+  const renderPane = (pane: VisiblePane, visible: boolean, position?: "left" | "right", index?: number) => (
     <div
       key={pane.id}
       data-pane-id={pane.id}
       data-pane-position={position}
+      data-terminal-index={index}
       className={`terminal-session-pane ${focusedRuntimeId === pane.runtimeId ? "is-focused" : ""} ${visible ? "is-visible" : "is-parked"}`}
       inert={!visible}
       onPointerDown={() => visible && pane.runtimeId !== focusedRuntimeId && queueOps([{ type: "setFocusedPane", areaId, paneId: pane.id }])}
@@ -253,6 +298,7 @@ export function TerminalArea({
         instanceId={pane.runtimeId}
         kind={kind}
         active={routeActive && visible}
+        focused={focusedRuntimeId === pane.runtimeId}
         renderScale={renderScale}
         onMetaChange={(next) => {
           setRuntimeCwd(pane.runtimeId, next.cwd);
@@ -266,47 +312,7 @@ export function TerminalArea({
     </div>
   );
 
-  const renderWorkspace = () => {
-    if (panes.length === 0) {
-      return (
-        <div className="terminal-empty-state">
-          <MonitorOffIcon className="h-6 w-6" />
-          <strong>Kein Terminal geöffnet</strong>
-          <button type="button" className="quiet-button-primary" onClick={() => create(null, initialProjectId)}><PlusIcon className="h-4 w-4" /> {kindLabels[kind]} öffnen</button>
-        </div>
-      );
-    }
-    if (bento) {
-      return <div className={`terminal-canvas is-bento has-${Math.min(panes.length, 4)}`}>{panes.slice(0, 4).map((pane, index) => renderPane(pane, !isMobile || pane.runtimeId === focusedRuntimeId, index === 0 ? "left" : index === 1 ? "right" : undefined))}</div>;
-    }
-    if (paneLayout?.type === "split") {
-      if (showSingleMobilePane) {
-        const focusedPane = panes.find((pane) => pane.runtimeId === focusedRuntimeId) ?? panes[0]!;
-        return <div className="terminal-canvas is-mobile-single-pane">{renderPane(focusedPane, true)}</div>;
-      }
-      return (
-        <div className="terminal-canvas">
-          <Group
-            key={panes.map((pane) => pane.id).join(":")}
-            id={`terminal-split-${areaId}`}
-            className="terminal-split-group"
-            orientation="horizontal"
-            defaultLayout={{
-              [panes[0]!.id]: paneLayout.sizes[0] ?? 50,
-              [panes[1]!.id]: paneLayout.sizes[1] ?? 50,
-            } as Layout}
-            onLayoutChanged={saveSplitLayout}
-            resizeTargetMinimumSize={{ coarse: 44, fine: 20 }}
-          >
-            <Panel id={panes[0]!.id} minSize="20%" defaultSize={`${paneLayout.sizes[0]}%`}>{renderPane(panes[0]!, true, "left")}</Panel>
-            <Separator className="terminal-split-handle" aria-label="Terminal-Aufteilung anpassen" />
-            <Panel id={panes[1]!.id} minSize="20%" defaultSize={`${paneLayout.sizes[1]}%`}>{renderPane(panes[1]!, true, "right")}</Panel>
-          </Group>
-        </div>
-      );
-    }
-    return <div className="terminal-canvas">{renderPane(panes[0]!, true)}</div>;
-  };
+  const emptyState = <><MonitorOffIcon className="h-6 w-6" /><strong>Kein Terminal geöffnet</strong><button type="button" className="quiet-button-primary" onClick={() => create(null, initialProjectId)}><PlusIcon className="h-4 w-4" /> {kindLabels[kind]} öffnen</button></>;
 
   return (
     <section className="terminal-area" data-split={hasSplit ? "true" : undefined}>
@@ -340,21 +346,31 @@ export function TerminalArea({
             sidebarWidth={terminalSidebar.width}
             onResizeStart={terminalSidebar.startResize}
             onResizeKeyboard={terminalSidebar.resizeWithKeyboard}
-            version={health.data?.version ?? null}
             onReload={() => globalThis.window.location.reload()}
             onFullscreen={toggleNativeFullscreen}
+            onDragStateChange={setTerminalDrag}
           />
         ) : null}
         <div className="terminal-area-main">
           {!minimal && !sidebarVisible ? (
             <button type="button" className="terminal-sidebar-reopen" onClick={() => setSidebarVisible(true)} aria-label="Terminal-Sidebar einblenden" title="Terminal-Sidebar einblenden">
-              <TerminalIcon className="h-4 w-4" />
-              <MenuIcon className="h-4 w-4" aria-hidden />
-              <span>Terminals</span>
-              <ChevronRightIcon className="h-4 w-4" aria-hidden />
+              <TerminalIcon className="h-4 w-4" aria-hidden />
             </button>
           ) : null}
-          {renderWorkspace()}
+          <TerminalCanvas
+            areaId={areaId}
+            bento={bento}
+            isMobile={isMobile}
+            showSingleMobilePane={showSingleMobilePane}
+            focusedRuntimeId={focusedRuntimeId}
+            paneLayout={paneLayout}
+            panes={panes}
+            parkedPanes={parkedPanes}
+            emptyState={emptyState}
+            dropZone={renderDropZone()}
+            renderPane={renderPane}
+            onLayoutChanged={saveSplitLayout}
+          />
           {!minimal && isMobile ? (
             <TerminalKeybar
               keyboardRow={keyboardRow}
